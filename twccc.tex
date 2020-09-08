@@ -1,0 +1,119 @@
+\documentclass[xcolor=dvipsnames, 8pt]{beamer} %
+%\setbeamertemplate{navigation symbols}{}
+
+\usetheme{SantaBarbara}
+
+\definecolor{black}{HTML}{0A0A0A}
+\definecolor{green}{HTML}{0420eb} 
+\definecolor{darkgreen}{HTML}{008000}
+\definecolor{gold}{HTML}{FFD000}
+\setbeamercolor{normal text}{fg=black,bg=white}
+\setbeamercolor{alerted text}{fg=red}
+\setbeamercolor{example text}{fg=black}
+\setbeamercolor{palette primary}{fg=black, bg=gray!20}
+\setbeamercolor{palette secondary}{fg=black, bg=gray!20}
+\setbeamercolor{palette tertiary}{fg=white, bg=green!80}
+\setbeamercolor{block title}{fg=black,bg=gold!40}
+\setbeamercolor{frametitle}{fg=white, bg=green!80}
+\setbeamercolor{title}{fg=white, bg=green!80}
+
+\newcommand{\svec}{\operatorname{svec}}
+
+
+\usepackage[utf8]{inputenc}
+
+\usepackage{tikz, tikzsettings}
+\usepackage{verbatim}
+\usepackage{amssymb}
+\usepackage{amsmath}
+%\usepackage{amsfonts}
+\usepackage{algorithmic}
+\graphicspath{{./}{./figures/}{./figures/presentation/}}
+%\usepackage[version=4]{mhchem}
+\usepackage{subcaption}
+\usepackage[authoryear,round]{natbib}
+%\usepackage{fancyvrb}
+\usepackage{color}
+\usepackage{colortbl}
+\usepackage{xcolor}
+\usepackage{physics}
+\usepackage{pgfplots}
+\usepackage{ragged2e}
+%\pgfplotsset{compat=newest} 
+%\pgfplotsset{plot coordinates/math parser=false}
+%\usepackage{environ}
+%\usetikzlibrary{decorations.markings}
+%\usetikzlibrary{decorations.pathreplacing}
+\usetikzlibrary{shapes,calc,spy, calc, backgrounds,arrows, fit, decorations.pathmorphing, decorations.pathreplacing, matrix}
+%\usepackage[absolute,overlay]{textpos}
+\usepackage{caption}
+\usepackage{graphicx}
+%\usepackage[controls=true,poster=first]{animate}
+
+
+\AtBeginSection[]
+{\frame<beamer>{\frametitle{Outline}   
+	\tableofcontents[currentsection, currentsection]}
+	\addtocounter{framenumber}{-1}}
+	%
+%{
+%	\frame<beamer>{ 
+%		\frametitle{Outline}   
+%		\tableofcontents[currentsection,currentsubsection]}
+		
+%}
+
+\makeatother
+\setbeamertemplate{footline}
+{
+	\leavevmode%
+	\hbox{%
+		\begin{beamercolorbox}[wd=.3\paperwidth,ht=2.25ex,dp=1ex,center]{author in head/foot}%
+			\usebeamerfont{author in head/foot}\insertshortauthor
+		\end{beamercolorbox}%
+		\begin{beamercolorbox}[wd=.6\paperwidth,ht=2.25ex,dp=1ex,center]{title in head/foot}%
+			\usebeamerfont{title in head/foot}\insertshorttitle
+		\end{beamercolorbox}%
+		\begin{beamercolorbox}[wd=.1\paperwidth,ht=2.25ex,dp=1ex,center]{date in head/foot}%
+			\insertframenumber{} / \inserttotalframenumber\hspace*{1ex}
+	\end{beamercolorbox}}%
+	\vskip0pt%
+}
+
+
+\title[Data completion of initial gray box models for process control and optimization]{Data completion of initial gray box models for process control and optimization}
+\date{September 15, 2020}
+\author[Kumar and Rawlings]{\large Pratyush Kumar and James B. Rawlings}
+\institute[UCSB]{
+	\begin{minipage}{4in}
+		\vspace{-10pt}
+		\centering
+		\raisebox{-0.1\height}{\includegraphics[width=0.25\textwidth]{UCSB_seal}}
+		%\hspace*{.2in}
+		%\raisebox{-0.5\height}{\includegraphics[width=0.25\textwidth]{jci_logo}}
+	\end{minipage}
+	\vspace{10pt}
+	\newline
+	{\large Department of Chemical Engineering}
+	\vspace{10pt}
+	\newline
+	{\large TWCCC Meeting (Virtual)}}
+	%\vspace{10pt}
+	%\newline
+	%{\large Austin, TX}}
+
+\begin{document}
+
+\frame{\titlepage}
+
+% MPC intro frame
+\begin{frame}{Idea.}
+Hi.
+\end{frame}
+
+%\begin{frame}[allowframebreaks]{References}
+%\bibliographystyle{abbrvnat}
+%\bibliography{articles,proceedings,books,unpub}
+%\end{frame}
+
+\end{document}
