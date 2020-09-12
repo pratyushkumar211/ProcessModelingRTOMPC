@@ -8,7 +8,8 @@ sys.path.append('lib/')
 import mpctools as mpc
 import numpy as np
 import collections
-from hybridid import (PickleTool, NonlinearPlantSimulator)
+from hybridid import (PickleTool, NonlinearPlantSimulator, 
+                      sample_prbs_like)
 
 SystemIdData = collections.namedtuple('SystemIdData', 
                     ['time', 'Ca', 'Cb', 'Cc', 
@@ -148,15 +149,29 @@ def _get_cstrs_plant(*, parameters):
                                     sample_time = parameters['sample_time'], 
                                     x0 = xs)
 
-def _get_train_val_inputs(*, parameters, Nsim, seed):
+def _get_train_val_inputs(*, parameters, Nsim_train, Nsim_val, seed):
     """ Generate input profiles for training and validation. """
 
+    # Get the input bounds.
+    ulb = parameters['lb']['u']
+    uub = parameters['ub']['u']
+
+    # Generate the PRBS data.
+    utrain = sample_prbs_like(num_change=24, num_steps=Nsim_train, 
+                             lb=ulb, ub=uub,
+                             mean_change=60, sigma_change=2, seed=seed+1)
+    uval = sample_prbs_like(num_change=8, num_steps=Nsim_val, 
+                              lb=ulb, ub=uub,
+                              mean_change=60, sigma_change=2, seed=seed+2)
+    # Return the training and validation input profiles.
     return [utrain, uval]
 
-def _generate_train_val_data():
+def _generate_train_val_data(*, train_val_inputs, parameters):
     """ Simulate the plant model 
     and generate training and validation data. """
 
+    for u in train_val_inputs:
+        
 
     return [train, val]
 
@@ -171,9 +186,10 @@ if __name__ == "__main__":
     """ Compute parameters for the three reactions. """
     parameters = _get_threereac_parameters()
     parameters['xs'] = _get_threereac_rectified_xs(parameters=parameters)
-    uid = _get_id_input(parameters=parameters, Nsim=1440)
-    sysiddata = _generate_id_data()
-    greyboxsimdata = _compute_grey_box_predictions()
+    uid = _get_train_val_inputs(parameters=parameters, 
+                        Nsim_train=1440, Nsim_val=480, seed=5)
+    #sysiddata = _generate_id_data()
+    #greyboxsimdata = _compute_grey_box_predictions()
     # Save data.
     PickleTool.save(data_object=threereac_parameters, 
                     filename='threereac_parameters.pickle')
