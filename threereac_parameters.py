@@ -7,11 +7,19 @@ import sys
 sys.path.append('lib/')
 import mpctools as mpc
 import numpy as np
+import collections
 from hybridid import (PickleTool, NonlinearPlantSimulator)
+
+SystemIdData = collections.namedtuple('SystemIdData', 
+                    ['time', 'Ca', 'Cb', 'Cc', 
+                     'Cd', 'Ca0'])
+
+GreyBoxSimData = collections.namedtuple('GreyBoxSimData', 
+                    ['time', 'Ca', 'Cc', 'Cd', 'Ca0'])
 
 def _threereac_plant_ode(x, u, p, parameters):
 
-    # Extract the parameters.
+    # Extract the parameters
     k1 = parameters['k1']
     k2 = parameters['k2']
     k3 = parameters['k3']
@@ -154,6 +162,8 @@ if __name__ == "__main__":
     """ Compute parameters for the three reactions. """
     parameters = _get_threereac_parameters()
     parameters['xs'] = _get_threereac_rectified_xs(parameters=parameters)
+
+    _generate_id_data()
 
     # Save data.
     PickleTool.save(data_object=threereac_parameters, 
