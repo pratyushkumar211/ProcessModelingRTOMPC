@@ -131,7 +131,7 @@ def _get_threereac_rectified_xs(*, parameters):
     # Return the disturbances.
     return xs
 
-def _get_cstrs_plant(*, parameters):
+def _get_threereac_plant(*, parameters):
     """ Return a Nonlinear Plant Simulator object."""
     # Construct and Return the Plant.
     threereac_plant_ode = lambda x, u, p: _threereac_plant_ode(x, u, 
@@ -151,11 +151,9 @@ def _get_cstrs_plant(*, parameters):
 
 def _get_train_val_inputs(*, parameters, Nsim_train, Nsim_val, seed):
     """ Generate input profiles for training and validation. """
-
     # Get the input bounds.
     ulb = parameters['lb']['u']
     uub = parameters['ub']['u']
-
     # Generate the PRBS data.
     utrain = sample_prbs_like(num_change=24, num_steps=Nsim_train, 
                              lb=ulb, ub=uub,
@@ -169,11 +167,15 @@ def _get_train_val_inputs(*, parameters, Nsim_train, Nsim_val, seed):
 def _generate_train_val_data(*, train_val_inputs, parameters):
     """ Simulate the plant model 
     and generate training and validation data. """
-
+    # Get the data list.
+    data_list = []
+    p = np.zeros((parameters['Np'], ))
     for u in train_val_inputs:
-        
+        plant = _get_threereac_plant(parameters=parameters)
+        for 
+            x = plant.sim(x, u, p)
 
-    return [train, val]
+    return data_list
 
 def _get_grey_box_val_predictions():
     """ Use the input profile to compute 
