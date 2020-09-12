@@ -137,6 +137,7 @@ def _get_cstrs_plant(*, parameters):
                                                                p, parameters)
     threereac_plant_measurement = lambda x: _threereac_measurement(x, 
                                                             parameters)
+    xs = _get_threereac_rectified_xs(parameters=parameters)
     return NonlinearPlantSimulator(fxup = threereac_plant_ode,
                                     hx = threereac_plant_measurement,
                                     Rv = parameters['Rv'], 
@@ -150,14 +151,14 @@ def _get_cstrs_plant(*, parameters):
 def _get_train_val_inputs(*, parameters, Nsim, seed):
     """ Generate input profiles for training and validation. """
 
-    return 
+    return [utrain, uval]
 
 def _generate_train_val_data():
     """ Simulate the plant model 
     and generate training and validation data. """
 
 
-    return 
+    return [train, val]
 
 def _get_grey_box_val_predictions():
     """ Use the input profile to compute 
