@@ -147,14 +147,22 @@ def _get_cstrs_plant(*, parameters):
                                     sample_time = parameters['sample_time'], 
                                     x0 = xs)
 
-def _generate_id_data():
+def _get_train_val_inputs(*, parameters, Nsim, seed):
+    """ Generate input profiles for training and validation. """
 
+    return 
+
+def _generate_train_val_data():
+    """ Simulate the plant model 
+    and generate training and validation data. """
 
 
     return 
 
-def _compute_grey_box_predictions():
-
+def _get_grey_box_val_predictions():
+    """ Use the input profile to compute 
+        the prediction of the grey-box model
+        on the validation data. """
 
     return
 
@@ -162,9 +170,9 @@ if __name__ == "__main__":
     """ Compute parameters for the three reactions. """
     parameters = _get_threereac_parameters()
     parameters['xs'] = _get_threereac_rectified_xs(parameters=parameters)
-
-    _generate_id_data()
-
+    uid = _get_id_input(parameters=parameters, Nsim=1440)
+    sysiddata = _generate_id_data()
+    greyboxsimdata = _compute_grey_box_predictions()
     # Save data.
     PickleTool.save(data_object=threereac_parameters, 
                     filename='threereac_parameters.pickle')
