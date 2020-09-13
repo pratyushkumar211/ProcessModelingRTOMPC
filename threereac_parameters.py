@@ -73,9 +73,9 @@ def _get_threereac_parameters():
     
     # Parameters.
     parameters = {}
-    parameters['k1'] = 100.
+    parameters['k1'] = 1.
     parameters['k2'] = 1e+2
-    parameters['k3'] = 1e+3
+    parameters['k3'] = 2e+3
     parameters['beta'] = 8*parameters['k1']*parameters['k3']
     parameters['beta'] = parameters['beta']/(parameters['k2']**2)
     parameters['F'] = 0.1 # m^3/min.
