@@ -151,11 +151,14 @@ def _get_train_val_inputs(*, parameters, Nsim_train, Nsim_val, seed):
     utrain = sample_prbs_like(num_change=24, num_steps=Nsim_train, 
                              lb=ulb, ub=uub,
                              mean_change=60, sigma_change=2, seed=seed+1)
+    utrain_val = sample_prbs_like(num_change=2, num_steps=Nsim_train, 
+                             lb=ulb, ub=uub,
+                             mean_change=60, sigma_change=2, seed=seed+1)
     uval = sample_prbs_like(num_change=8, num_steps=Nsim_val, 
                               lb=ulb, ub=uub,
                               mean_change=60, sigma_change=2, seed=seed+2)
     # Return the training and validation input profiles.
-    return [utrain, uval]
+    return [utrain, utrain_val, uval]
 
 def _generate_train_val_data(*, train_val_inputs, parameters):
     """ Simulate the plant model 
