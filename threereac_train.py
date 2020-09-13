@@ -11,6 +11,9 @@ from hybridid import PickleTool
 from HybridModelLayers import get_threereac_model
 from threereac_parameters import _get_threereac_parameters
 
+# Set the tensorflow graph-level seed.
+tf.random.set_seed(1)
+
 def create_hybrid_model(*, threereac_parameters):
     """ Create/compile the hybrid model for training."""
     bb_dims = [6, 16, 2]

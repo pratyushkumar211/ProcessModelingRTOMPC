@@ -114,7 +114,10 @@ def get_threereac_model(*, threereac_parameters, bb_dims):
     # Get the black-box layers.
     bb_layers = []
     for dim in bb_dims[1:]:
-        bb_layers.append(tf.keras.layers.Dense(dim, activation='relu'))
+        bb_layers.append(tf.keras.layers.Dense(dim, 
+                                    activation='relu',
+                            kernel_initializer=tf.keras.initializers.Zeros(),
+                            bias_initializer='zeros'))
 
     # Get the initial states.
     xG0 = threereac_parameters['xs'][np.newaxis, (0, 2, 3)]
