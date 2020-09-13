@@ -29,7 +29,7 @@ def plot_training_data(*, training_data, plot_range,
                  training_data.Cc, training_data.Cd, training_data.Ca0]
     for (axes, data, ylabel) in zip(axes_array, data_list, ylabels):
         if ylabel == r'$C_c(\textnormal{mol/m}^3)':
-            axes.plot(time[start:end], data[start:end], 'o', 
+            axes.plot(time[start:end], data[start:end], 'bo', 
                       markersize=markersize)
         else:
             axes.plot(time[start:end], data[start:end])
