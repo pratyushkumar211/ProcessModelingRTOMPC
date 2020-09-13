@@ -73,7 +73,7 @@ def _get_threereac_parameters():
     
     # Parameters.
     parameters = {}
-    parameters['k1'] = 1.
+    parameters['k1'] = 1e+4
     parameters['k2'] = 1e+2
     parameters['k3'] = 2e+4
     parameters['beta'] = 16.
