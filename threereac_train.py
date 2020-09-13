@@ -13,7 +13,7 @@ from threereac_parameters import _get_threereac_parameters
 
 def create_hybrid_model(*, threereac_parameters):
     """ Create/compile the hybrid model for training."""
-    bb_dims = [9, 16, 5]
+    bb_dims = [6, 16, 2]
     hybrid_model = get_threereac_model(threereac_parameters=
                                        threereac_parameters, 
                                        bb_dims=bb_dims)
@@ -58,6 +58,7 @@ def train_nn_controller(hybrid_model, train_data, trainval_data,
 
 def main():
     """ Main function to be executed. """
+
     # Load data.
     threereac_parameters = PickleTool.load(filename=
                                     'threereac_parameters.pickle',
@@ -72,8 +73,14 @@ def main():
                                              train_data, trainval_data, 
                                             'threereac_train.txt', 
                                             'threereac_train.ckpt')
-    hybrid_model.load_weights('threereac_train.ckpt')
+    bb_weights = hybrid_model.load_weights('threereac_train.ckpt')
     breakpoint()
     print("Hi")
 
+    # Save the weights.
+    threereac_training_data = dict(bb_weights=bb_weights,
+                        training_time=training_time)
+    # Save data.
+    PickleTool.save(data_object=threereac_training_data, 
+                    filename='threereac_train.pickle')
 main()

@@ -84,7 +84,7 @@ class ThreeReacHybridCell(tf.keras.layers.AbstractRNNCell):
         k3 = self._threereac_greybox_ode(tf.math.add(xG, h*(k2/2)), u)
         k4 = self._threereac_greybox_ode(tf.math.add(xG, h*k3), u)
         xGplus = tf.math.add(k1, tf.math.add(2*k2, tf.math.add(2*k3, k4)))
-        xGplus = tf.math.add(xG, (h/6)*xGplus)
+        xGplus = tf.math.add(xG, tf.math.add((h/6)*xGplus, dN @ self.BN.T))
 
         # Input to the black-box layer and compute one-step ahead
         # of the black-box layer.
@@ -97,7 +97,7 @@ class ThreeReacHybridCell(tf.keras.layers.AbstractRNNCell):
         xplus = tf.concat((xGplus, dNplus), axis=-1)
 
         # Return output and states at the next time-step.
-        return (xG, xplus)
+        return (y, xplus)
 
 def get_threereac_model(*, threereac_parameters, bb_dims):
     """ Get the Hybrid model which can be trained from data. """
@@ -107,7 +107,9 @@ def get_threereac_model(*, threereac_parameters, bb_dims):
     Nu = threereac_parameters['Nu']
     Ny = threereac_parameters['Ny']
     Nb = bb_dims[-1]
-    BN = 0*np.concatenate((np.eye(Nx), np.ones((Nx, Nb - Nx))), axis=-1)
+    BN = np.array([[0., 0.], 
+                   [1., 0.], 
+                   [0., 1.]])
 
     # Get the black-box layers.
     bb_layers = []

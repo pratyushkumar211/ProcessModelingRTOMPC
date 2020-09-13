@@ -102,11 +102,11 @@ def main():
     figures = []
     figures += plot_training_data(training_data=
                                   threereac_parameters['train_val_datum'][0], 
-                                  plot_range=(0, 24*3600))
+                                  plot_range=(0, 24*60))
     figures += plot_val_model_predictions(plantsim_data=
-                                  threereac_parameters['train_val_datum'][1],
+                                  threereac_parameters['train_val_datum'][2],
                     modelsim_datum=[threereac_parameters['greybox_val_data']],
-                    plot_range=(0, 8*3600))
+                    plot_range=(0, 8*60))
     with PdfPages('threereac_plots.pdf', 
                   'w') as pdf_file:
         for fig in figures:
