@@ -38,19 +38,24 @@ def plot_training_data(*, training_data, plot_range,
     # Return the figure object.
     return [figure]
 
-def plot_val_model_predictions(*, cascadesim_datum, plot_range,
-                            figure_size=PRESENTATION_FIGSIZE,
-                            ylabel_xcoordinate=-0.08, 
-                            linewidth=0.8):
+def plot_val_model_predictions(*, plantsim_data, 
+                                  modelsim_datum, plot_range,
+                                  figure_size=PRESENTATION_FIGSIZE,
+                                  ylabel_xcoordinate=-0.1, 
+                                  linewidth=0.8):
     """ Plot the performance loss economic MPC parameters."""
-    (figure, axes_array) = plt.subplots(nrows=3, ncols=1, 
+    (figure, axes_array) = plt.subplots(nrows=4, ncols=1, 
                                         sharex=True, 
                                         figsize=figure_size)
-    ylabels = ['$T_{z}(^\circ$C)', '$\dot{Q}_c$ (kW)', '$i$']
+    (start, end) = plot_range
+    ylabels = [r'$C_a \ (\textnormal{mol/m}^3)$', 
+               r'$C_c \ (\textnormal{mol/m}^3)$',
+               r'$C_d \ (\textnormal{mol/m}^3)$',
+               r'$C_{a0} \ (\textnormal{mol/m}^3)$']
     legend_colors = ['b', 'g']
     legend_handles = []
-    for (cascadesim_data, 
-         legend_color) in zip(cascadesim_datum, legend_colors):
+    for (modelsim_data, 
+         legend_color) in zip(modelsim_datum, legend_colors):
         time = cascadesim_data.time/3600
         data_list = [(cascadesim_data.Tzone, cascadesim_data.Tzone_sp), 
                       cascadesim_data.upi, cascadesim_data.i]
