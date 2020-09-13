@@ -28,11 +28,11 @@ def plot_training_data(*, training_data, plot_range,
     data_list = [training_data.Ca, training_data.Cb, 
                  training_data.Cc, training_data.Cd, training_data.Ca0]
     for (axes, data, ylabel) in zip(axes_array, data_list, ylabels):
-        if ylabel == r'$C_c(\textnormal{mol/m}^3)':
+        if ylabel == r'$C_c \ (\textnormal{mol/m}^3)$':
             axes.plot(time[start:end], data[start:end], 'bo', 
                       markersize=markersize)
         else:
-            axes.plot(time[start:end], data[start:end])
+            axes.plot(time[start:end], data[start:end], 'b')
         axes.set_ylabel(ylabel)
         axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
     axes.set_xlabel('Time (hr)')

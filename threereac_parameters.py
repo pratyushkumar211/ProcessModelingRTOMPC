@@ -9,14 +9,8 @@ import mpctools as mpc
 import numpy as np
 import collections
 from hybridid import (PickleTool, NonlinearPlantSimulator, 
-                      sample_prbs_like)
-
-SystemIdData = collections.namedtuple('SystemIdData', 
-                    ['time', 'Ca', 'Cb', 'Cc', 
-                     'Cd', 'Ca0'])
-
-GreyBoxSimData = collections.namedtuple('GreyBoxSimData', 
-                    ['time', 'Ca', 'Cc', 'Cd', 'Ca0'])
+                      sample_prbs_like, ModelSimData, 
+                      PlantSimData)
 
 def _threereac_plant_ode(x, u, p, parameters):
 
@@ -40,7 +34,7 @@ def _threereac_plant_ode(x, u, p, parameters):
     # Return the derivative.
     return np.array([dCabydt, dCbbydt, dCdbydt, dCcbydt])
 
-def _threereac_qssa_ode(x, u, p, parameters):
+def _threereac_grey_box_ode(x, u, p, parameters):
 
     # Extract the parameters.
     k1 = parameters['k1']
@@ -50,7 +44,7 @@ def _threereac_qssa_ode(x, u, p, parameters):
 
     # Extract the plant states into meaningful names.
     (Ca, Cd, Cc) = x[0:3]
-    Ca0 = u[0:1]
+    Ca0 = u[0]
 
     # Define a constant.
     sqrtoneplusbetaCa = np.sqrt(1 + beta*Ca)
@@ -136,11 +130,9 @@ def _get_threereac_plant(*, parameters):
     # Construct and Return the Plant.
     threereac_plant_ode = lambda x, u, p: _threereac_plant_ode(x, u, 
                                                                p, parameters)
-    threereac_plant_measurement = lambda x: _threereac_measurement(x, 
-                                                            parameters)
-    xs = _get_threereac_rectified_xs(parameters=parameters)
+    xs = parameters['xs'][:, np.newaxis]
     return NonlinearPlantSimulator(fxup = threereac_plant_ode,
-                                    hx = threereac_plant_measurement,
+                                    hx = _threereac_measurement,
                                     Rv = parameters['Rv'], 
                                     Nx = parameters['Nx'], 
                                     Nu = parameters['Nu'], 
@@ -166,32 +158,70 @@ def _get_train_val_inputs(*, parameters, Nsim_train, Nsim_val, seed):
 
 def _generate_train_val_data(*, train_val_inputs, parameters):
     """ Simulate the plant model 
-    and generate training and validation data. """
+        and generate training and validation data. """
     # Get the data list.
-    data_list = []
-    p = np.zeros((parameters['Np'], ))
+    datum = []
+    p = np.zeros((parameters['Np'], 1))
+    xs = parameters['xs'][:, np.newaxis]
     for u in train_val_inputs:
         plant = _get_threereac_plant(parameters=parameters)
-        for 
-            x = plant.sim(x, u, p)
+        u = u[..., np.newaxis]
+        Nsim = u.shape[0]
+        # Run the open-loop simulation.
+        for ut in u:
+            plant.step(ut, p)
+        datum.append(PlantSimData(time=np.asarray(plant.t[0:-1]).squeeze(),
+                Ca=np.asarray(plant.x[0:-1]).squeeze()[:, 0],
+                Cb=np.asarray(plant.x[0:-1]).squeeze()[:, 1],
+                Cc=np.asarray(plant.y[0:-1]).squeeze(),
+                Cd=np.asarray(plant.x[0:-1]).squeeze()[:, 2],
+                Ca0=np.asarray(plant.u).squeeze()))
+    # Return the data list.
+    return datum
 
-    return data_list
-
-def _get_grey_box_val_predictions():
+def _get_grey_box_val_predictions(*, uval, parameters):
     """ Use the input profile to compute 
         the prediction of the grey-box model
         on the validation data. """
-
-    return
+    threereac_grey_box_ode = lambda x, u, p: _threereac_grey_box_ode(x, u, 
+                                                               p, parameters)
+    xs = parameters['xs'][(0, 2, 3), np.newaxis]
+    p = np.zeros((parameters['Np'], 1))
+    model = NonlinearPlantSimulator(fxup = threereac_grey_box_ode,
+                                    hx = _threereac_measurement,
+                                    Rv = parameters['Rv'], 
+                                    Nx = parameters['Nx']-1, 
+                                    Nu = parameters['Nu'], 
+                                    Np = parameters['Np'], 
+                                    Ny = parameters['Ny'],
+                                    sample_time = parameters['sample_time'], 
+                                    x0 = xs)
+    uval = uval[..., np.newaxis]
+    Nsim = uval.shape[0]
+    # Run the open-loop simulation.
+    for ut in uval:
+        model.step(ut, p)
+    data = ModelSimData(time=np.asarray(model.t[0:-1]).squeeze(),
+                Ca=np.asarray(model.x[0:-1]).squeeze()[:, 0],
+                Cc=np.asarray(model.y[0:-1]).squeeze(),
+                Cd=np.asarray(model.x[0:-1]).squeeze()[:, 1],
+                Ca0=np.asarray(model.u).squeeze())
+    return data
 
 if __name__ == "__main__":
     """ Compute parameters for the three reactions. """
     parameters = _get_threereac_parameters()
     parameters['xs'] = _get_threereac_rectified_xs(parameters=parameters)
-    uid = _get_train_val_inputs(parameters=parameters, 
+    train_val_inputs = _get_train_val_inputs(parameters=parameters, 
                         Nsim_train=1440, Nsim_val=480, seed=5)
-    #sysiddata = _generate_id_data()
-    #greyboxsimdata = _compute_grey_box_predictions()
+    train_val_datum = _generate_train_val_data(train_val_inputs=
+                                                train_val_inputs,
+                                                parameters=parameters)
+    greybox_val_data = _get_grey_box_val_predictions(uval=train_val_inputs[-1], 
+                                                     parameters=parameters)
+    threereac_parameters = dict(parameters=parameters, 
+                                train_val_datum=train_val_datum,
+                                greybox_val_data=greybox_val_data)
     # Save data.
     PickleTool.save(data_object=threereac_parameters, 
                     filename='threereac_parameters.pickle')
