@@ -61,7 +61,7 @@ def plot_val_model_predictions(*, plantsim_data,
                        plantsim_data.Cd, plantsim_data.Ca0]
     for (modelsim_data, 
          legend_color) in zip(modelsim_datum, legend_colors):
-        time = modelsim_data.time/60
+        time = modelsim_data.time/3600
         model_data_list = [modelsim_data.Ca, modelsim_data.Cc, 
                            modelsim_data.Cd, modelsim_data.Ca0]
         for (axes, plantdata, 
@@ -102,11 +102,11 @@ def main():
     figures = []
     figures += plot_training_data(training_data=
                                   threereac_parameters['train_val_datum'][0], 
-                                  plot_range=(0, 24*60))
+                                  plot_range=(0, 24*3600))
     figures += plot_val_model_predictions(plantsim_data=
                                   threereac_parameters['train_val_datum'][1],
                     modelsim_datum=[threereac_parameters['greybox_val_data']],
-                    plot_range=(0, 8*60))
+                    plot_range=(0, 8*3600))
     with PdfPages('threereac_plots.pdf', 
                   'w') as pdf_file:
         for fig in figures:

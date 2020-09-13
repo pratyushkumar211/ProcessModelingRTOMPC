@@ -68,15 +68,16 @@ def _get_threereac_parameters():
         The sample time is in minutes."""
 
     # Sample time and state dimensions.
-    sample_time = 1. 
+    sample_time = 1.
     (Nx, Nu, Np, Ny) = (4, 1, 1, 1)
     
     # Parameters.
     parameters = {}
-    parameters['k1'] = 5.
+    parameters['k1'] = 100.
     parameters['k2'] = 1e+2
-    parameters['k3'] = 2e+4
-    parameters['beta'] = 16.
+    parameters['k3'] = 1e+3
+    parameters['beta'] = 8*parameters['k1']*parameters['k3']
+    parameters['beta'] = parameters['beta']/(parameters['k2']**2)
     parameters['F'] = 0.1 # m^3/min.
     parameters['Vr'] = 1. # m^3 
 
