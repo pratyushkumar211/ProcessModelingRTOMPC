@@ -4,6 +4,8 @@
 
 import sys
 sys.path.append('lib/')
+import time
+import tensorflow as tf
 import numpy as np
 from hybridid import PickleTool
 from HybridModelLayers import get_threereac_model
@@ -11,21 +13,21 @@ from threereac_parameters import _get_threereac_parameters
 
 def create_hybrid_model(*, threereac_parameters):
     """ Create/compile the hybrid model for training. """
-    bb_dims = [5, 16, 5]
+    bb_dims = [9, 16, 5]
     hybrid_model = get_threereac_model(threereac_parameters=
                                        threereac_parameters, 
                                        bb_dims=bb_dims)
     # Compile the nn controller.
     hybrid_model.compile(optimizer='adam', loss='mean_squared_error')
-    breakpoint()
+
     # Return the compiled model.
     return hybrid_model
 
-def get_data_for_training():
+def get_data_for_training(*, train_val_datum):
     """ Get the data for training. """
-
-
-    return 
+    breakpoint()
+    return dict(u=train_val_datum[0].Ca0[np.newaxis, :, np.newaxis],
+                y=train_val_datum[0].Cc[np.newaxis, :, np.newaxis])
 
 def train_nn_controller(hybrid_model, data, 
                         stdout_filename, ckpt_path):
@@ -38,27 +40,36 @@ def train_nn_controller(hybrid_model, data,
                                                     save_best_only=True,
                                                     save_weights_only=True,
                                                     verbose=1)
-    
+
     # Call the fit method to train.
     tstart = time.time()
-    nn_controller.fit(x=[data['x'], data['uprev'], data['xs'], data['us']], 
-                      y=[data['u']], 
-                      epochs=500,
-                      batch_size=1,
-                      validation_split=0.1,
-                      callbacks = [checkpoint_callback])
+    hybrid_model.fit(x=[data['u']], 
+                      y=data['y'], 
+                      epochs=10,
+                      batch_size=1)
     tend = time.time()
     training_time = tend - tstart
     # Return the NN controller.
-    return (nn_controller, training_time)
+    return (hybrid_model, training_time)
 
 def main():
     """ Main function to be executed. """
+    # Load data.
     threereac_parameters = PickleTool.load(filename=
                                     'threereac_parameters.pickle',
                                     type='read')
-    
-    create_hybrid_model(threereac_parameters=threereac_parameters['parameters'])
+    # Create the hybrid model.
+    hybrid_model = create_hybrid_model(threereac_parameters=
+                                       threereac_parameters['parameters'])
+    # Get the training data.
+    training_data = get_data_for_training(train_val_datum=
+                                    threereac_parameters['train_val_datum'])
+    (hybrid_model, training_time) = train_nn_controller(hybrid_model, 
+                                             training_data, 
+                                            'threereac_train.txt', 
+                                            'threereac_train.ckpt')
+    hybrid_model.load_weights('threereac_train.ckpt')
+    breakpoint()
+    print("Hi")
 
 main()
-
