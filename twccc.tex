@@ -18,7 +18,7 @@
 \setbeamercolor{title}{fg=white, bg=green!80}
 
 \newcommand{\svec}{\operatorname{svec}}
-
+\usepackage[version=4]{mhchem}
 
 \usepackage[utf8]{inputenc}
 
@@ -108,19 +108,96 @@
 
 % MPC intro frame
 \begin{frame}{Grey-box models and undermodeling}
-Hi.
+\begin{block}{Process models}
+\begin{itemize}
+	\item Most first principle based grey-box modeling of chemical processes
+	are incomplete. For e.g, due to unknown reactions, incorrect 
+	quasi steady state assumption, etc.
+	\item Routine operational data can be used in conjuction 
+	with first principle knowledge to improve the prediction 
+	quality of the initial grey-box models.
+\end{itemize}
+\end{block}
+
+\begin{block}{Motivating example}
+	\begin{itemize}
+		\item Consider the reaction system
+		\begin{center}
+			\ce{A ->[k1] B},\hspace{0.2in} \ce{B ->[k2] C}, \hspace{0.2in} \ce{2B ->[k3] D}
+		\end{center}
+		\item A is the primary reactant, B is an intermediate, 
+		C and D are products.
+		\item Depending on the ratios of rate constants and measured 
+		concentrations, the reaction model may not be 
+		completely characterized with only grey-box models.
+	\end{itemize}
+\end{block}
 \end{frame}
 
 \begin{frame}{Completing grey-box models from operational data}
-	Hi.
+	\begin{block}{Augment grey-box models with 
+				  black-box parameterized models}
+		\begin{align*}
+			\begin{bmatrix}
+			  x_G \\
+			  x_B
+			\end{bmatrix}^+ = \begin{bmatrix}
+			  f_G(x_G, \theta_G) + g_B(x_G, x_B, \theta_B)\\
+			  f_B(x_G, x_B, \theta_B) \\
+			\end{bmatrix}, \quad
+			y = h_G(x_G) + h_B(x_G, x_B)
+		  \end{align*}
+		  \begin{itemize}
+			\item $f_G(\cdot)$ and $h_G(\cdot)$ is the initial grey-box model. 
+			$g_B(\cdot)$, $f_B(\cdot)$, and $h_B(\cdot)$ is the parameterized black-box model (for e.g., a neural network).
+			\item $x_G$ and $x_B$ are the grey-box and black-box model states
+			respectively.
+		\end{itemize}
+	\end{block}
+	\begin{block}{System identification framework}
+		\begin{itemize}
+			\item Minimize the following 
+			multi-step-ahead prediction-error to compute the 
+			parameters $\theta_B$
+			\begin{align*}
+		\min_{x_G(0), \ x_B(0), \ \theta_B} \sum_{k=0}^{N_s-1} (\hat{y}(k) - y(k))^2
+			\end{align*}
+			\item $x_G(0)$, $x_B(0)$ are the initial states at the 
+			start of the forecasting horizon and $\hat{y}$ is the model forecast.
+		\end{itemize}
+	\end{block}
 \end{frame}
 	
-\begin{frame}{Simulation example}
-	Hi.
+\begin{frame}{Reaction system example}
+	\begin{itemize}
+		\item Ethene reacts with chlorine to form Dichloroethane and Dichlorobutane.
+	\end{itemize}
+	\begin{align*}
+		\ce{3C2H4 + 2Cl2 -> C2H4Cl2 + C4H8Cl2}
+	\end{align*} 
+	\begin{itemize}
+		\item The reaction mechanism is -
+	\end{itemize}
+	\small{\begin{align*}
+		\ce{Cl2 + M &<=>[k1][k_{-1}] 2Cl* + M}\\
+		\ce{Cl* + C2H4 &->[k2] C2H4Cl*}\\
+		\ce{C2H4Cl* + Cl2 &->[k3] C2H4Cl2 + Cl*}\\
+		\ce{C2H4Cl* + C2H4Cl* &->[k4] C4H8Cl2}\\
+		\ce{Cl* +  C2H4Cl* &->[k5] C2H4Cl2}
+	\end{align*}}
+\normalsize{\begin{itemize}
+	\item The rate constants are such that a quasi steady state assumption (QSSA) on the species $\ce{Cl*}$ and $\ce{C2H4Cl*}$ is incorrect, and neural networks are used to improve the predictions of a  
+	grey-box model based on the QSSA assumption.
+\end{itemize}}
 \end{frame}
 
-\begin{frame}{Simulation example -- validation data}
-	Hi.
+\begin{frame}{Data requirements and model validation}
+	Show two plots. \\
+	On the left, show a performance metric
+	that shows the prediction of the overall model improves with data
+	relative to the grey-box model prediction. \\
+	On the right, show the model predictions vs actual states. \\
+	At the bottom, add two bullets discussing future work. \\
 \end{frame}
 
 %\begin{frame}[allowframebreaks]{References}
