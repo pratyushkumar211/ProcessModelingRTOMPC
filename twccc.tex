@@ -124,9 +124,9 @@ MPC requires a dynamic plant model ($x^+ = f(x, u)$) for use in online optimizat
 	\begin{block}{Neural networks and system identification\footnote[frame]{\cite{hussain:1999, draeger:engell:ranke:1995, prasad:bequette:2003, eaton:rawlings:ungar:1994, bhat:minderman:mcavoy:wang:1990}}}
 		\begin{itemize}
 			\item \textbf{Black-box identification:} Estimate the entire predictive model ($x^+ =  f(x, u)$) from actuators to
-			sensors using the data collected from open-loop identification experiments.
+			sensors using data collected from open-loop identification experiments.
 			\item \textbf{Hybrid model identification:} Model the dynamics from actuators to sensors using first-principle knowledge, and use
-			neural networks to estimate the mismatch or any unmeasured disturbance dynamics.  
+			neural networks (NNs) to estimate the mismatch or any unmeasured disturbance dynamics.  
 		\end{itemize}
 	\end{block}
 \end{frame}
@@ -137,13 +137,15 @@ MPC requires a dynamic plant model ($x^+ = f(x, u)$) for use in online optimizat
 	\end{align*}
 	Nonlinearity between the valve (actuator) to the cooling duty. $x \in \{ T_{A1}, T_{C1}, T_{A2}, T_{C2} \}$, $u \in \{v_1, v_2\}$,
 	and $p$ is the ambient temperature $T_a$ (disturbance).
-	\pause
 	\begin{figure}[!h]
 		\centering
 		\includegraphics[page = 5,width=0.6\textwidth]{plotshvacnn.pdf}
 	\end{figure}
-	\alert{Objective: Test the performance of linear MPC in regions of high plant-model mismatch.}
-	\end{frame}
+	\vspace{-0.1in}
+	\begin{itemize}
+		\item Test the performance of linear MPC in regions of high plant-model mismatch.
+	\end{itemize}
+\end{frame}
 	
 \begin{frame}{Linear MPC vs NN based MPC}
 	\begin{figure}[!h]
@@ -151,7 +153,6 @@ MPC requires a dynamic plant model ($x^+ = f(x, u)$) for use in online optimizat
 		\includegraphics[page = 2, width=0.48\textwidth]{plotshvacnn.pdf} \hfill
 		\includegraphics[page = 3, width=0.48\textwidth]{plotshvacnn.pdf}
 	\end{figure}
-	
 	\begin{itemize}
 		\item NN trained on noisy open-loop system identification data (5000 samples).
 		\item Change in ambient temperature at 10 hours, and setpoint changes in air-zone 
