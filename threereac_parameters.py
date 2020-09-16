@@ -21,9 +21,9 @@ def _threereac_plant_ode(x, u, p, parameters):
     V = parameters['V']
 
     # Extract the plant states into meaningful names.
-    (Ca, Cb, Cd, Cc) = x[0:4]
-    F = u[0]
-    Ca0 = p[0]
+    (Ca, Cb, Cc, Cd) = x[0:4]
+    F = u[0:1]
+    Ca0 = p[0:1]
 
     # Write the ODEs.
     dCabydt = F*(Ca0-Ca)/V - k1*Ca
@@ -32,30 +32,30 @@ def _threereac_plant_ode(x, u, p, parameters):
     dCdbydt = k3*(Cb**2) - F*Cd/V
 
     # Return the derivative.
-    return np.array([dCabydt, dCbbydt, dCdbydt, dCcbydt])
+    return np.array([dCabydt, dCbbydt, dCcbydt, dCdbydt])
 
-def _threereac_grey_box_ode(x, u, p, parameters):
+#def _threereac_grey_box_ode(x, u, p, parameters):
 
     # Extract the parameters.
-    k1 = parameters['k1']
-    beta = parameters['beta']
-    F = parameters['F']
-    Vr = parameters['Vr']
+#    k1 = parameters['k1']
+#    beta = parameters['beta']
+#    F = parameters['F']
+#    Vr = parameters['Vr']
 
     # Extract the plant states into meaningful names.
-    (Ca, Cd, Cc) = x[0:3]
-    Ca0 = u[0]
+#    (Ca, Cd, Cc) = x[0:3]
+#    Ca0 = u[0]
 
     # Define a constant.
-    sqrtoneplusbetaCa = np.sqrt(1 + beta*Ca)
+#    sqrtoneplusbetaCa = np.sqrt(1 + beta*Ca)
 
     # Write the ODEs.
-    dCabydt = F*(Ca0-Ca)/Vr - k1*Ca
-    dCdbydt = 0.5*k1*Ca*(-1+sqrtoneplusbetaCa)/(1+sqrtoneplusbetaCa) - F*Cd/Vr
-    dCcbydt = 2*k1*Ca/(1 + sqrtoneplusbetaCa) - F*Cc/Vr
+#    dCabydt = F*(Ca0-Ca)/Vr - k1*Ca
+#    dCdbydt = 0.5*k1*Ca*(-1+sqrtoneplusbetaCa)/(1+sqrtoneplusbetaCa) - F*Cd/Vr
+#    dCcbydt = 2*k1*Ca/(1 + sqrtoneplusbetaCa) - F*Cc/Vr
 
     # Return the derivative.
-    return np.array([dCabydt, dCdbydt, dCcbydt])
+#    return np.array([dCabydt, dCdbydt, dCcbydt])
 
 def _threereac_measurement(x):
     """ The measurement function."""
@@ -64,40 +64,37 @@ def _threereac_measurement(x):
 
 def _get_threereac_parameters():
     """ Get the parameter values for the 
-        three reaction example
-        The sample time is in minutes."""
-
-    # Sample time and state dimensions.
-    sample_time = 1.
-    (Nx, Nu, Np, Ny) = (4, 1, 1, 1)
+        three reaction example. """
     
     # Parameters.
     parameters = {}
-    parameters['k1'] = 2.
-    parameters['k2'] = 1e+2
-    parameters['k3'] = 2e+4
-    parameters['beta'] = 16.
+    parameters['k1'] = 1. # m^3/min.
+    parameters['k2'] = 1e+2 # m^3/min.
+    parameters['k3'] = 1e+5 # m^3/min.
+    parameters['V'] = 5. # m^3 
+
+    #parameters['beta'] = 16.
     #parameters['beta'] = 8*parameters['k1']*parameters['k3']
     #parameters['beta'] = parameters['beta']/(parameters['k2']**2)
-    parameters['F'] = 0.1 # m^3/min.
-    parameters['Vr'] = 1. # m^3 
+    #parameters['F'] = 0.1 # m^3/min.
 
     # Store the dimensions.
-    parameters['Nx'] = Nx
-    parameters['Nu'] = Nu
-    parameters['Ny'] = Ny
-    parameters['Np'] = Np
+    parameters['Nx'] = 4
+    parameters['Nu'] = 1
+    parameters['Ny'] = 1
+    parameters['Np'] = 1
 
     # Sample time.
-    parameters['sample_time'] = sample_time
+    parameters['sample_time'] = 1.
 
     # Get the steady states.
-    parameters['xs'] = np.array([1., 0., 0.5, 0.5])
-    parameters['us'] = np.array([1.])
+    parameters['xs'] = np.array([1., 0., 0.5, 0.5]) # to be updated.
+    parameters['us'] = np.array([0.5])
+    parameters['ps'] = np.array([1.])
 
     # Get the constraints. 
-    ulb = np.array([0.5])
-    uub = np.array([1.5])
+    ulb = np.array([0.])
+    uub = np.array([1.])
     parameters['lb'] = dict(u=ulb)
     parameters['ub'] = dict(u=uub)
 
@@ -112,7 +109,7 @@ def _get_threereac_rectified_xs(*, parameters):
     # (xs, us, ps)
     xs = parameters['xs']
     us = parameters['us']
-    ps = np.zeros((parameters['Np'],))
+    ps = parameters['ps']
     threereac_plant_ode = lambda x, u, p: _threereac_plant_ode(x, u, 
                                                         p, parameters)
     # Construct the casadi class.
@@ -158,7 +155,7 @@ def _get_train_val_inputs(*, parameters, num_trajectories, Nsim, seed):
     # Return the training and validation input profiles.
     return input_profiles
 
-def _generate_train_val_data(*, input_profiles, parameters):
+def _generate_training_data(*, input_profiles, parameters, seed):
     """ Simulate the plant model 
         and generate training and validation data. """
     # Get the data list.
@@ -211,19 +208,19 @@ def _get_grey_box_val_predictions(*, uval, parameters):
     return data
 
 if __name__ == "__main__":
-    """ Compute parameters for the three reactions. """
+    """Compute parameters for the three reactions."""
     parameters = _get_threereac_parameters()
     parameters['xs'] = _get_threereac_rectified_xs(parameters=parameters)
     input_profiles = _get_train_val_inputs(parameters=parameters, 
                         num_trajectories=34, Nsim=120, seed=5)
-    train_val_datum = _generate_train_val_data(input_profiles=
-                                               input_profiles,
-                                               parameters=parameters)
-    greybox_val_data = _get_grey_box_val_predictions(uval=input_profiles[-1], 
-                                                     parameters=parameters)
-    threereac_parameters = dict(parameters=parameters, 
-                                train_val_datum=train_val_datum,
-                                greybox_val_data=greybox_val_data)
+    #train_val_datum = _generate_train_val_data(input_profiles=
+    #                                           input_profiles,
+    #                                           parameters=parameters)
+    #greybox_val_data = _get_grey_box_val_predictions(uval=input_profiles[-1], 
+    #                                                 parameters=parameters)
+    #threereac_parameters = dict(parameters=parameters, 
+    #                            train_val_datum=train_val_datum,
+    #                            greybox_val_data=greybox_val_data)
     # Save data.
-    PickleTool.save(data_object=threereac_parameters, 
-                    filename='threereac_parameters.pickle')
+    #PickleTool.save(data_object=threereac_parameters, 
+    #                filename='threereac_parameters.pickle')
