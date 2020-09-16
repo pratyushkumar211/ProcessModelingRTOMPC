@@ -18,18 +18,18 @@ def _threereac_plant_ode(x, u, p, parameters):
     k1 = parameters['k1']
     k2 = parameters['k2']
     k3 = parameters['k3']
-    F = parameters['F']
-    Vr = parameters['Vr']
+    V = parameters['V']
 
     # Extract the plant states into meaningful names.
     (Ca, Cb, Cd, Cc) = x[0:4]
-    Ca0 = u[0]
+    F = u[0]
+    Ca0 = p[0]
 
     # Write the ODEs.
-    dCabydt = F*(Ca0-Ca)/Vr - k1*Ca
-    dCbbydt = k1*Ca - k2*Cb -2*k3*(Cb**2) - F*Cb/Vr
-    dCdbydt = k3*(Cb**2) - F*Cd/Vr
-    dCcbydt = k2*Cb - F*Cc/Vr
+    dCabydt = F*(Ca0-Ca)/V - k1*Ca
+    dCbbydt = k1*Ca - k2*Cb -2*k3*(Cb**2) - F*Cb/V
+    dCcbydt = k2*Cb - F*Cc/V
+    dCdbydt = k3*(Cb**2) - F*Cd/V
 
     # Return the derivative.
     return np.array([dCabydt, dCbbydt, dCdbydt, dCcbydt])
