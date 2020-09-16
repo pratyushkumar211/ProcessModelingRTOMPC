@@ -125,8 +125,8 @@ def _get_threereac_rectified_xs(*, parameters):
     return xs
 
 def _get_threereac_plant(*, parameters):
-    """ Return a Nonlinear Plant Simulator object."""
-    # Construct and Return the Plant.
+    """ Return a nonlinear plant simulator object."""
+    # Construct and return the plant.
     threereac_plant_ode = lambda x, u, p: _threereac_plant_ode(x, u, 
                                                                p, parameters)
     xs = parameters['xs'][:, np.newaxis]
@@ -140,35 +140,23 @@ def _get_threereac_plant(*, parameters):
                                     sample_time = parameters['sample_time'], 
                                     x0 = xs)
 
-def _get_train_val_inputs(*, parameters, num_trajectories, Nsim, seed):
-    """ Generate input profiles for training and validation. """
-    # Get the input bounds.
-    ulb = parameters['lb']['u']
-    uub = parameters['ub']['u']
-    input_profiles = []
-    for _ in range(num_trajectories):
-        # Generate the PRBS data.
-        u = sample_prbs_like(num_change=4, num_steps=Nsim, 
-                                 lb=ulb, ub=uub,
-                                 mean_change=30, sigma_change=2, seed=seed+1)
-        input_profiles.append(u)
-    # Return the training and validation input profiles.
-    return input_profiles
-
-def _generate_training_data(*, input_profiles, parameters, seed):
+def _generate_training_data(*, parameters, num_trajectories, Nsim, seed):
     """ Simulate the plant model 
         and generate training and validation data. """
     # Get the data list.
     datum = []
-    p = np.zeros((parameters['Np'], 1))
+    ulb = parameters['lb']['u']
+    uub = parameters['ub']['u']
+    p = parameters['ps'][:, np.newaxis]
     xs = parameters['xs'][:, np.newaxis]
     for u in input_profiles:
         plant = _get_threereac_plant(parameters=parameters)
-        u = u[..., np.newaxis]
-        Nsim = u.shape[0]
+        u = sample_prbs_like(num_change=4, num_steps=Nsim, 
+                             lb=ulb, ub=uub,
+                             mean_change=60, sigma_change=5, seed=seed+1)
         # Run the open-loop simulation.
-        for ut in u:
-            plant.step(ut, p)
+        for t in range(Nsim):
+            plant.step(u[t:t+1, :], p)
         datum.append(PlantSimData(time=np.asarray(plant.t[0:-1]).squeeze(),
                 Ca=np.asarray(plant.x[0:-1]).squeeze()[:, 0],
                 Cb=np.asarray(plant.x[0:-1]).squeeze()[:, 1],
