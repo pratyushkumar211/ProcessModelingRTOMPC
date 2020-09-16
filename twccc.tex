@@ -197,14 +197,14 @@ MPC requires a dynamic plant model ($x^+ = f(x, u)$) for use in online optimizat
 		($\dot Q_{ci}$). $x \in \{ T_{A1}, T_{C1}, T_{A2}, T_{C2} \}$, $u \in \{v_1, v_2\}$, and $p$ is the ambient temperature $T_a$ (disturbance).	
 \end{frame}
 
-\begin{frame}{Nonlinearity in the plant-model}
+\begin{frame}{Nonlinearity in the plant model}
 	\begin{figure}[!h]
 		\centering
 		\includegraphics[page = 5,width=0.6\textwidth]{plotshvacnn.pdf}
 	\end{figure}
 	\vspace{-0.1in}
 	\begin{itemize}
-		\item Test the performance of linear MPC in regions of high plant-model mismatch.
+		\item Compare the performance of linear MPC with NN-based MPC in regions of high nonlinearity in the plant.
 	\end{itemize}
 \end{frame}
 	
