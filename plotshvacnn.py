@@ -171,7 +171,7 @@ fig = closedLoop(ycl['lin'], ucl['lin'], ysp, ti, 'Linear MPC')
 pdf_pages.savefig(fig, bbox_inches="tight")
 
 ### Figure 3: Closed loop Nonlinear NN + integrating dist ####
-fig = closedLoop(ycl['nn'], ucl['nn'], ysp, ti, 'NN based MPC')
+fig = closedLoop(ycl['nn'], ucl['nn'], ysp, ti, 'NN-based MPC')
 pdf_pages.savefig(fig, bbox_inches="tight")
 
 ### Figure 4: Nominal Controller ####
