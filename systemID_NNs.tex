@@ -1,0 +1,208 @@
+\documentclass{article}
+
+%% The graphicx and color packages should give you all the color,
+%% figure inclusion, and text/figure resizing capabilities you need.
+\usepackage{graphicx}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{tikz,tikzsettings,bm}
+\usepackage{almostfull}
+
+\definecolor{pblue}{HTML}{1F77B4}
+\definecolor{pgold}{HTML}{FF7f0E}
+\definecolor{pgreen}{HTML}{2CA02C}
+\definecolor{pred}{HTML}{D62728}
+\definecolor{ppurple}{HTML}{9467BD}
+\definecolor{ppink}{HTML}{E377C2}
+\definecolor{pyellow}{HTML}{BCBD22}
+\definecolor{pcyan}{HTML}{17BECF}
+
+\usepackage{authblk}
+
+%% You should not need more than this for fancy math.
+\usepackage{amsmath}   % Extra math commands and environments from the AMS
+\usepackage{amssymb}   % Special symbols from the AMS
+\usepackage{amsthm}    % Enhanced theorem and proof environments from the AMS
+\usepackage{latexsym}  % A few extra LaTeX symbols
+
+\usepackage{lucidbry}
+\input{stanacce}
+\renewcommand{\baselinestretch}{1.0666}
+
+%% The URL package is handy for typesetting URLs.  It does not define
+%% an \email command because so many document styles already do that.
+%% So we define one here that uses a typewriter font.
+\usepackage{url}
+%\DeclareRobustCommand{\email}{\begingroup \urlstyle{tt}\Url}
+\providecommand{\email}{}
+\renewcommand{\email}[1]{\texttt{#1}}
+
+%% This provides various customized verbatim commands and
+%% environments.  You probably don't need it.
+\usepackage{fancyvrb}
+\DefineShortVerb{\|}
+\VerbatimFootnotes
+\DefineVerbatimEnvironment{code}{Verbatim}{%
+  frame=single,
+  framesep=1em,
+  xleftmargin=1em,
+  xrightmargin=1em,
+  samepage=true,
+  fontsize=\footnotesize}
+\usepackage{upquote}
+
+%% Your document may require a different bibliography style.  I've
+%% come to prefer Author (YYYY) styles because it makes it easier for
+%% a person who knows something about the literature to understand
+%% what is being cited without having to skip to the list of
+%% references.
+\usepackage[authoryear,round,longnamesfirst]{natbib}
+
+%% You won't normally need this definition in your documents, but it
+%% is here so we can typeset the BibTeX logo correctly.
+\makeatletter
+\@ifundefined{BibTeX}
+   {\def\BibTeX{{\rmfamily B\kern-.05em%
+    \textsc{i\kern-.025em b}\kern-.08em%
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}}{}
+
+\def\blfootnote{\xdef\@thefnmark{}\@footnotetext}
+\makeatother
+
+%% Allow more of the pages to be occupied by graphs.  These parameters
+%% are described in section c.9.1 of the LaTeXbook.  Your document may
+%% not benefit from these parameters (it could make things worse) so
+%% you should only change these from the defaults if you need to.
+\setcounter{topnumber}{2}              %% 2
+\setcounter{bottomnumber}{1}           %% 1
+\setcounter{totalnumber}{3}            %% 3
+\renewcommand{\topfraction}{0.9}       %% 0.7
+\renewcommand{\bottomfraction}{0.9}    %% 0.3
+\renewcommand{\textfraction}{0.1}      %% 0.2
+\renewcommand{\floatpagefraction}{.7}  %% 0.5
+\newlength{\graphwidth}
+\setlength{\graphwidth}{0.8\columnwidth}
+
+\usepackage{subfiles}
+
+\graphicspath{{./}{./figures/}{./figures/paper/}}
+
+\newcommand{\Is}{\bm{\mathrm{I}}} % Resources.
+\newcommand{\Js}{\bm{\mathrm{J}}} % Units.
+\newcommand{\Ks}{\bm{\mathrm{K}}} % Resources.
+\newcommand{\Ms}{\bm{\mathrm{M}}} % Transition catalog.
+\newcommand{\Ns}{\bm{\mathrm{N}}} % Transition counter.
+
+
+\title{System ID and control with NNs}
+\author{Problem formulation}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Process modeling}
+Consider a nonlinear plant evolving as
+\begin{align*}
+  x^+ &= f(x, u) \\
+  y &= h(x)
+\end{align*}
+in which $x$ is the plant state (vector), $u$ is the manipulated control input,
+and $y$ is the measurement. Assume that we don't have any 
+disturbances/measurement and process noise 
+for now, and we'll add those after we 
+understand the issues in this nominal case.
+
+\subsection{Completion of the u-y model}
+In this class of problems, we assume that grey-box modeling is performed 
+for the plant, and we wish to augment the grey-box model with neural networks
+for improvement in the accuracy of the model. From first-principles modeling, 
+we have the following (in continuous time, as grey-box modeling will 
+almost always be in continuous time).
+\begin{align*}
+  \dot{x}_g &= f_g(x_g, u) \\
+  y &= h_g(x_g)
+\end{align*}
+
+From Taken's embedding theorem, we know that the original plant state
+can be reconstructed using a history of measurements and control inputs.
+Denote this history as 
+\begin{align*}
+  \mathbf{y}_{k:k-\tau} &= [y(k)', y(k-1)', ..., y(k-\tau)']' \\
+  \mathbf{u}_{k-1:k-\tau} &= [u(k-1)', u(k-2)', ..., u(k-\tau)']'
+\end{align*}
+
+So from the embedding theorem for observable nonlinear plants, 
+there exists a $\phi(\cdot)$ and number of delay 
+time steps $\tau$, such that 
+$x(k) = \phi(\mathbf{y}_{k:k-\tau}, \mathbf{u}_{k-1:k-\tau})$.
+
+Now depending on the application, an approximation of $\phi(\cdot)$
+with a neural network (say $\phi_{NN}(\cdot)$) 
+can be used to augment the grey-box model 
+in several ways. The following is proposed in the recent 
+paper by Kevrekidis.
+\begin{align*}
+  x_g^+ &= f_g(x_g, u, 
+  \theta(\phi_{NN}(\mathbf{y}_{k:k-\tau}, \mathbf{u}_{k-1:k-\tau})))\\
+  y &= h_g(x_g)
+\end{align*}
+
+in which $\theta(\cdot)$ are a set of grey-box parameters which 
+depend on the plant states. For example, rate constants which 
+depend on temperature, etc. An RK4 discretization is performed
+to get this model in discrete time.
+
+A different type of problems could be say, there are unknown
+side reactions in the plant we don't about, which are affecting the 
+physical grey-box 
+states. In these problems, we can augment the grey-box 
+model with a NN as follows
+\begin{align*}
+x_g^+ &= f_g(x_g, u) + f_{NN}(\mathbf{y}_{k:k-\tau}, \mathbf{u}_{k-1:k-\tau})\\
+y &= h_g(x_g) 
+\end{align*}
+in which, we are anticipating that $f_{NN}$,
+a neural network can learn the difference between the 
+true grey-box state dynamics and what is modeled with 
+the function ($f_g(\cdot)$). We assume that the measurements
+are directly some subset of the physical grey-box states.
+
+\textbf{Need to discuss the following issues:}
+\begin{itemize}
+  \item What are the example problems/applications 
+  where both kind of modeling 
+  strategies make sense, and where should we start.
+  Reproduce results from the Kevrekidis paper with measurement 
+  noise?
+  \item The model training step will be the optimization of 
+  the following multi-step-ahead prediction-error
+  \begin{equation*}
+    \underset{W_i, b_i}{\textnormal{min}} \sum_{k=0}^{t-1} (\hat{y}(k) - y(k))^2
+  \end{equation*}
+  in which ($W_i, b_i$) are the weights of the NN. This optimization 
+  is for one ID experiment, and requires an initial grey-box 
+  state $x_g(0)$ to make the forecast. If we have data 
+  for multiple ID experiments, we'll need initial states for 
+  all the ID experiments. In theory, we can add the initial 
+  states as decision variables in the optimization, but 
+  unfortunately tensorflow 
+  does not has a mechanism to do this.
+\end{itemize}
+
+\subsection{Adding feedforward disturbance forecasts}
+In this class of problems, we assume that we have a pretty 
+good u-y model from first-principles knowledge, and we'll use 
+neural networks to make feedforward disturbance forecasts
+for use in online MPC. HVAC is a pretty good application.
+
+
+\section{Optimization in MPC with neural networks as model}
+This is probably a late fall quarter or a winter break project. \\
+a) Try Casadi/MPC tools. 
+If tanh is the activation function (optimization is smooth),
+this should be fine. \\
+b) Try a global optimization solver. \\
+c) Train another NN with solutions from a global optimization solver.
+
+\end{document}
