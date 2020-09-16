@@ -23,10 +23,10 @@ def plot_training_data(*, training_data, plot_range,
                r'$C_b \ (\textnormal{mol/m}^3)$', 
                r'$C_c \ (\textnormal{mol/m}^3)$',
                r'$C_d \ (\textnormal{mol/m}^3)$',
-               r'$C_{a0} \ (\textnormal{mol/m}^3)$']
+               r'$F \ (\textnormal{m}^3/\textnormal{min})$']
     time = training_data.time/60
     data_list = [training_data.Ca, training_data.Cb, 
-                 training_data.Cc, training_data.Cd, training_data.Ca0]
+                 training_data.Cc, training_data.Cd, training_data.F]
     for (axes, data, ylabel) in zip(axes_array, data_list, ylabels):
         if ylabel == r'$C_c \ (\textnormal{mol/m}^3)$':
             axes.plot(time[start:end], data[start:end], 'bo', 
@@ -100,18 +100,18 @@ def main():
     threereac_parameters = PickleTool.load(filename=
                                        "threereac_parameters.pickle", 
                                        type='read')
-    threereac_train = PickleTool.load(filename=
-                                       "threereac_train.pickle", 
-                                       type='read')
+    #threereac_train = PickleTool.load(filename=
+    #                                   "threereac_train.pickle", 
+    #                                  type='read')
     figures = []
     figures += plot_training_data(training_data=
-                                  threereac_parameters['train_val_datum'][0], 
-                                  plot_range=(0, 24*60))
-    figures += plot_val_model_predictions(plantsim_data=
-                                  threereac_parameters['train_val_datum'][2],
-                    modelsim_datum=[threereac_parameters['greybox_val_data'], 
-                                    threereac_train['hybrid_pred']],
-                    plot_range=(0, 8*60))
+                                  threereac_parameters['training_data'][0], 
+                                  plot_range=(0, 4*60))
+    #figures += plot_val_model_predictions(plantsim_data=
+    #                              threereac_parameters['train_val_datum'][2],
+    #                modelsim_datum=[threereac_parameters['greybox_val_data'], 
+    #                                threereac_train['hybrid_pred']],
+    #                plot_range=(0, 8*60))
     with PdfPages('threereac_plots.pdf', 
                   'w') as pdf_file:
         for fig in figures:
