@@ -107,22 +107,24 @@ def get_threereac_model(*, threereac_parameters, bb_dims):
     Nu = threereac_parameters['Nu']
     Ny = threereac_parameters['Ny']
     Nb = bb_dims[-1]
-    BN = np.array([[0., 0.], 
-                   [1., 0.], 
-                   [0., 1.]])
+    BN = np.ones((3, 2))
+    #BN = np.array([[0., 0.], 
+    #               [1., 1.], 
+    #               [0., 1.]])
 
     # Get the black-box layers.
     bb_layers = []
     for dim in bb_dims[1:]:
         bb_layers.append(tf.keras.layers.Dense(dim, 
-                                    activation='relu',
-                            kernel_initializer=tf.keras.initializers.Zeros(),
-                            bias_initializer='zeros'))
+                                    activation='relu'))
+                        #kernel_initializer=tf.keras.initializers.Zeros(),
+                        #    bias_initializer='zeros'))
 
     # Get the initial states.
     xG0 = threereac_parameters['xs'][np.newaxis, (0, 2, 3)]
+    xG0 = np.repeat(xG0, 32, axis=0)
     xG0 = tf.constant(xG0, shape=xG0.shape)
-    dN0 = np.zeros((1, Nb))
+    dN0 = np.zeros((32, Nb))
     dN0 = tf.constant(dN0, shape=dN0.shape)
     x0 = tf.concat((xG0, dN0), axis=-1)
 
@@ -134,9 +136,8 @@ def get_threereac_model(*, threereac_parameters, bb_dims):
     
     # Create a sequential model and compute the output.
     model_input = tf.keras.Input(name='u', shape=(None, Nu))
-    model_output = HybridLayer(inputs=model_input, 
-                  initial_state=[x0])
+    model_output = HybridLayer(inputs=model_input)
     model = tf.keras.Model(model_input, model_output)
-
+    model.layers[0].initial_states = [x0]
     # Return the model.
     return model

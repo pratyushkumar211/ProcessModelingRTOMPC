@@ -55,13 +55,13 @@ def plot_val_model_predictions(*, plantsim_data,
                r'$C_c \ (\textnormal{mol/m}^3)$',
                r'$C_d \ (\textnormal{mol/m}^3)$',
                r'$C_{a0} \ (\textnormal{mol/m}^3)$']
-    legend_colors = ['g']
+    legend_colors = ['g', 'm']
     legend_handles = []
     plant_data_list = [plantsim_data.Ca, plantsim_data.Cc, 
                        plantsim_data.Cd, plantsim_data.Ca0]
     for (modelsim_data, 
          legend_color) in zip(modelsim_datum, legend_colors):
-        time = modelsim_data.time/3600
+        time = modelsim_data.time/60
         model_data_list = [modelsim_data.Ca, modelsim_data.Cc, 
                            modelsim_data.Cd, modelsim_data.Ca0]
         for (axes, plantdata, 
@@ -70,20 +70,21 @@ def plot_val_model_predictions(*, plantsim_data,
             if ylabel == r'$C_c \ (\textnormal{mol/m}^3)$':
                 axes.plot(time[start:end], plantdata[start:end], 'bo', 
                            markersize=markersize)
-                legend_temp_handle = axes.plot(time[start:end], 
-                                        modeldata[start:end], legend_color)
-            else:
-                legend_temp_handle = axes.plot(time[start:end], 
-                                               plantdata[start:end], 'b')
                 axes.plot(time[start:end], 
+                            modeldata[start:end], legend_color)
+            else:
+                plant_legend_handle = axes.plot(time[start:end], 
+                                               plantdata[start:end], 'b')
+                model_legend_handle = axes.plot(time[start:end], 
                           modeldata[start:end], legend_color)
             axes.set_ylabel(ylabel)
             axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
-            legend_handles += legend_temp_handle 
+        legend_handles += model_legend_handle
+    legend_handles.insert(0, plant_legend_handle[0])
     axes.set_xlabel('Time (hr)')
     axes.set_xlim([np.min(time), np.max(time)])
     figure.legend(handles = legend_handles,
-                  labels = ('Plant', 'Grey-box'), 
+                  labels = ('Plant', 'Grey-box', 'Hybrid'), 
                   loc = (0.32, 0.9), ncol=2)
     # Return the figure object.
     return [figure]
@@ -99,13 +100,17 @@ def main():
     threereac_parameters = PickleTool.load(filename=
                                        "threereac_parameters.pickle", 
                                        type='read')
+    threereac_train = PickleTool.load(filename=
+                                       "threereac_train.pickle", 
+                                       type='read')
     figures = []
     figures += plot_training_data(training_data=
                                   threereac_parameters['train_val_datum'][0], 
                                   plot_range=(0, 24*60))
     figures += plot_val_model_predictions(plantsim_data=
                                   threereac_parameters['train_val_datum'][2],
-                    modelsim_datum=[threereac_parameters['greybox_val_data']],
+                    modelsim_datum=[threereac_parameters['greybox_val_data'], 
+                                    threereac_train['hybrid_pred']],
                     plot_range=(0, 8*60))
     with PdfPages('threereac_plots.pdf', 
                   'w') as pdf_file:

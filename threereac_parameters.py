@@ -73,11 +73,12 @@ def _get_threereac_parameters():
     
     # Parameters.
     parameters = {}
-    parameters['k1'] = 1.
+    parameters['k1'] = 2.
     parameters['k2'] = 1e+2
-    parameters['k3'] = 2e+3
-    parameters['beta'] = 8*parameters['k1']*parameters['k3']
-    parameters['beta'] = parameters['beta']/(parameters['k2']**2)
+    parameters['k3'] = 2e+4
+    parameters['beta'] = 16.
+    #parameters['beta'] = 8*parameters['k1']*parameters['k3']
+    #parameters['beta'] = parameters['beta']/(parameters['k2']**2)
     parameters['F'] = 0.1 # m^3/min.
     parameters['Vr'] = 1. # m^3 
 
@@ -142,32 +143,29 @@ def _get_threereac_plant(*, parameters):
                                     sample_time = parameters['sample_time'], 
                                     x0 = xs)
 
-def _get_train_val_inputs(*, parameters, Nsim_train, Nsim_val, seed):
+def _get_train_val_inputs(*, parameters, num_trajectories, Nsim, seed):
     """ Generate input profiles for training and validation. """
     # Get the input bounds.
     ulb = parameters['lb']['u']
     uub = parameters['ub']['u']
-    # Generate the PRBS data.
-    utrain = sample_prbs_like(num_change=24, num_steps=Nsim_train, 
-                             lb=ulb, ub=uub,
-                             mean_change=60, sigma_change=2, seed=seed+1)
-    utrain_val = sample_prbs_like(num_change=2, num_steps=Nsim_train, 
-                             lb=ulb, ub=uub,
-                             mean_change=60, sigma_change=2, seed=seed+1)
-    uval = sample_prbs_like(num_change=8, num_steps=Nsim_val, 
-                              lb=ulb, ub=uub,
-                              mean_change=60, sigma_change=2, seed=seed+2)
+    input_profiles = []
+    for _ in range(num_trajectories):
+        # Generate the PRBS data.
+        u = sample_prbs_like(num_change=4, num_steps=Nsim, 
+                                 lb=ulb, ub=uub,
+                                 mean_change=30, sigma_change=2, seed=seed+1)
+        input_profiles.append(u)
     # Return the training and validation input profiles.
-    return [utrain, utrain_val, uval]
+    return input_profiles
 
-def _generate_train_val_data(*, train_val_inputs, parameters):
+def _generate_train_val_data(*, input_profiles, parameters):
     """ Simulate the plant model 
         and generate training and validation data. """
     # Get the data list.
     datum = []
     p = np.zeros((parameters['Np'], 1))
     xs = parameters['xs'][:, np.newaxis]
-    for u in train_val_inputs:
+    for u in input_profiles:
         plant = _get_threereac_plant(parameters=parameters)
         u = u[..., np.newaxis]
         Nsim = u.shape[0]
@@ -216,12 +214,12 @@ if __name__ == "__main__":
     """ Compute parameters for the three reactions. """
     parameters = _get_threereac_parameters()
     parameters['xs'] = _get_threereac_rectified_xs(parameters=parameters)
-    train_val_inputs = _get_train_val_inputs(parameters=parameters, 
-                        Nsim_train=1440, Nsim_val=480, seed=5)
-    train_val_datum = _generate_train_val_data(train_val_inputs=
-                                                train_val_inputs,
-                                                parameters=parameters)
-    greybox_val_data = _get_grey_box_val_predictions(uval=train_val_inputs[-1], 
+    input_profiles = _get_train_val_inputs(parameters=parameters, 
+                        num_trajectories=34, Nsim=120, seed=5)
+    train_val_datum = _generate_train_val_data(input_profiles=
+                                               input_profiles,
+                                               parameters=parameters)
+    greybox_val_data = _get_grey_box_val_predictions(uval=input_profiles[-1], 
                                                      parameters=parameters)
     threereac_parameters = dict(parameters=parameters, 
                                 train_val_datum=train_val_datum,
