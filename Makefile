@@ -20,7 +20,7 @@ DEFAULT_FIGURE_TYPE := paper
 
 # Set defaults for using backed up files vs. regenerating them. Can be
 # overridden locally by changing them in a file called Makefile.options.
-USE_MAT_BACKUPS := False
+USE_MAT_BACKUPS := True
 USE_DIA_BACKUPS := False
 
 ## We don't need figure windows popping up.
@@ -39,8 +39,8 @@ TEXSUFFIXES := .pdf .aux .log .bbl .blg .nav .out .snm .toc .synctex.gz \
 # we are making the article or the talk. Note that the nomenclature is kind of
 # confusing here: in the subfolders, we split paper/presentation/poster, whereas
 # these variables are article/talk/poster, so keep that in mind.
-ARTICLE_SRC := 
-TALK_SRC := 
+ARTICLE_SRC := systemID_NNs.tex
+TALK_SRC := twccc.tex
 POSTER_SRC := 
 
 PAPER_BIB := 
@@ -95,9 +95,9 @@ DIA_SRC :=
 ## files that use these data files. See README.md in $(DEPS_DIR) for more
 ## details. These .mat files can also be backed up in $(BACKUPS_DIR).
 
-PY_MAT_SRC := 
-OCT_MAT_SRC :=
-MATLAB_MAT_SRC := 
+PY_MAT_SRC := hvacnntrain.py
+OCT_MAT_SRC := hvacnntest.m
+MATLAB_MAT_SRC := hvacnndata.m
 
 ## JL_MAT_SRC. These are .jl files on which you run Julia to produce a .mat file.
 ## Note that Julia's .mat files are in an HDF5 format, so you will need to use
@@ -112,7 +112,7 @@ OCT_DAT_SRC :=
 
 ## PY_PLOT files are .py files that create .pdf plots.
 
-PY_PLOT := 
+PY_PLOT := plotshvacnn.py
 
 ## PY_MOVIE files are .py files that create movies as a .pdf document.
 
@@ -276,7 +276,7 @@ AUTODEPENDENCIES := $(addprefix $(DEPS_DIR)/, $(addsuffix .dep, $(AUTODEPENDENCI
 ## target is "all". We also provide a "current" goal that users can edit in
 ## case they're only interested in a subset of files for the time being.
 
-.DEFAULT_GOAL := all
+.DEFAULT_GOAL := systemID_NNs.pdf
 
 all: $(ARTICLE_PDF) $(TALK_PDF) $(POSTER_PDF)
 .PHONY: all
