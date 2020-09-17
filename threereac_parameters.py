@@ -68,10 +68,10 @@ def _get_threereac_parameters():
     
     # Parameters.
     parameters = {}
-    parameters['k1'] = 1e+1 # m^3/min.
-    parameters['k2'] = 1e+2 # m^3/min.
-    parameters['k3'] = 1e+4 # m^3/min.
-    parameters['V'] = 5. # m^3 
+    parameters['k1'] = 1 # m^3/min.
+    parameters['k2'] = 0.1 # m^3/min.
+    parameters['k3'] = 0.05 # m^3/min.
+    parameters['V'] = 2. # m^3 
 
     #parameters['beta'] = 16.
     #parameters['beta'] = 8*parameters['k1']*parameters['k3']
@@ -89,12 +89,12 @@ def _get_threereac_parameters():
 
     # Get the steady states.
     parameters['xs'] = np.array([1., 0., 0.5, 0.5]) # to be updated.
-    parameters['us'] = np.array([0.5])
+    parameters['us'] = np.array([0.4])
     parameters['ps'] = np.array([1.])
 
     # Get the constraints. 
     ulb = np.array([0.])
-    uub = np.array([1.])
+    uub = np.array([0.8])
     parameters['lb'] = dict(u=ulb)
     parameters['ub'] = dict(u=uub)
 
