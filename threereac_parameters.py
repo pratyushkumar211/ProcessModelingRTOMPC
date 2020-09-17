@@ -69,8 +69,8 @@ def _get_threereac_parameters():
     # Parameters.
     parameters = {}
     parameters['k1'] = 1. # m^3/min.
-    parameters['k2'] = 1e+2 # m^3/min.
-    parameters['k3'] = 1e+5 # m^3/min.
+    parameters['k2'] = 5 # m^3/min.
+    parameters['k3'] = 5 # m^3/min.
     parameters['V'] = 3. # m^3 
 
     #parameters['beta'] = 16.
@@ -142,13 +142,14 @@ def _get_threereac_plant(*, parameters):
 
 def _generate_training_data(*, parameters, num_trajectories, Nsim, seed):
     """ Simulate the plant model 
-        and generate training and validation data. """
+        and generate training and validation data."""
     # Get the data list.
     datum = []
     ulb = parameters['lb']['u']
     uub = parameters['ub']['u']
     p = parameters['ps'][:, np.newaxis]
     xs = parameters['xs'][:, np.newaxis]
+    dxbydt = []
     for _ in range(num_trajectories):
         plant = _get_threereac_plant(parameters=parameters)
         u = sample_prbs_like(num_change=4, num_steps=Nsim, 
@@ -156,7 +157,11 @@ def _generate_training_data(*, parameters, num_trajectories, Nsim, seed):
                              mean_change=60, sigma_change=5, seed=seed+1)
         # Run the open-loop simulation.
         for t in range(Nsim):
+            dxbydt.append(_threereac_plant_ode(plant.x[-1], 
+                        u[t:t+1, :], p, parameters))
             plant.step(u[t:t+1, :], p)
+        dxbydt = np.asarray(dxbydt).squeeze() # To check QSSA assumption.
+        breakpoint()
         datum.append(PlantSimData(time=np.asarray(plant.t[0:-1]).squeeze(),
                 Ca=np.asarray(plant.x[0:-1]).squeeze()[:, 0],
                 Cb=np.asarray(plant.x[0:-1]).squeeze()[:, 1],
