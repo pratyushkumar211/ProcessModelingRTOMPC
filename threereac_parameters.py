@@ -68,10 +68,10 @@ def _get_threereac_parameters():
     
     # Parameters.
     parameters = {}
-    parameters['k1'] = 1. # m^3/min.
-    parameters['k2'] = 5 # m^3/min.
-    parameters['k3'] = 5 # m^3/min.
-    parameters['V'] = 3. # m^3 
+    parameters['k1'] = 1e+1 # m^3/min.
+    parameters['k2'] = 1e+2 # m^3/min.
+    parameters['k3'] = 1e+4 # m^3/min.
+    parameters['V'] = 5. # m^3 
 
     #parameters['beta'] = 16.
     #parameters['beta'] = 8*parameters['k1']*parameters['k3']
@@ -161,7 +161,6 @@ def _generate_training_data(*, parameters, num_trajectories, Nsim, seed):
                         u[t:t+1, :], p, parameters))
             plant.step(u[t:t+1, :], p)
         dxbydt = np.asarray(dxbydt).squeeze() # To check QSSA assumption.
-        breakpoint()
         datum.append(PlantSimData(time=np.asarray(plant.t[0:-1]).squeeze(),
                 Ca=np.asarray(plant.x[0:-1]).squeeze()[:, 0],
                 Cb=np.asarray(plant.x[0:-1]).squeeze()[:, 1],
