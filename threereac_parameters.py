@@ -99,7 +99,7 @@ def _get_threereac_parameters():
     parameters['ub'] = dict(u=uub)
 
     # Measurement noise.
-    parameters['Rv'] = 1e-20*np.array([[1e-4]])
+    parameters['Rv'] = np.array([[1e-4]])
 
     # Return the parameters dict.
     return parameters
