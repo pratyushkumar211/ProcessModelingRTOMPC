@@ -89,12 +89,12 @@ def _get_threereac_parameters():
 
     # Get the steady states.
     parameters['xs'] = np.array([1., 0., 0.5, 0.5]) # to be updated.
-    parameters['us'] = np.array([0.4])
+    parameters['us'] = np.array([0.5])
     parameters['ps'] = np.array([1.])
 
     # Get the constraints. 
     ulb = np.array([0.])
-    uub = np.array([0.8])
+    uub = np.array([1.])
     parameters['lb'] = dict(u=ulb)
     parameters['ub'] = dict(u=uub)
 
@@ -152,9 +152,9 @@ def _generate_training_data(*, parameters, num_trajectories, Nsim, seed):
     dxbydt = []
     for _ in range(num_trajectories):
         plant = _get_threereac_plant(parameters=parameters)
-        u = sample_prbs_like(num_change=4, num_steps=Nsim, 
+        u = sample_prbs_like(num_change=8, num_steps=Nsim, 
                              lb=ulb, ub=uub,
-                             mean_change=60, sigma_change=5, seed=seed+1)
+                             mean_change=30, sigma_change=2, seed=seed+1)
         # Run the open-loop simulation.
         for t in range(Nsim):
             dxbydt.append(_threereac_plant_ode(plant.x[-1], 
@@ -204,7 +204,7 @@ if __name__ == "__main__":
     parameters = _get_threereac_parameters()
     parameters['xs'] = _get_threereac_rectified_xs(parameters=parameters)
     training_data = _generate_training_data(parameters=parameters, 
-                                    num_trajectories=1, Nsim=240, seed=4)
+                                        num_trajectories=1, Nsim=240, seed=100)
     #greybox_val_data = _get_grey_box_val_predictions(uval=input_profiles[-1], 
     #                                                 parameters=parameters)
     threereac_parameters = dict(parameters=parameters, 
