@@ -35,7 +35,7 @@ def _tworeac_greybox_ode(x, u, p, parameters):
     """ Simple ODE describing the grey-box plant. """
     # Extract the parameters.
     k1 = parameters['k1']
-
+    k2 = parameters['k2']
     # Extract the plant states into meaningful names.
     (Ca, Cb) = x[0:2]
     Ca0 = u[0:1]
@@ -43,7 +43,7 @@ def _tworeac_greybox_ode(x, u, p, parameters):
 
     # Write the ODEs.
     dCabydt = (Ca0-Ca)/tau - k1*Ca
-    dCbbydt = k1*Ca - F*Cb/V
+    dCbbydt = k1*Ca - Cb/tau
 
     # Return the derivative.
     return np.array([dCabydt, dCbbydt])
@@ -52,14 +52,14 @@ def _tworeac_measurement(x):
     # Return the measurement.
     return x[0:2]
 
-def _get_threereac_parameters():
+def _get_tworeac_parameters():
     """ Get the parameter values for the 
         three reaction example. """
     
     # Parameters.
     parameters = {}
     parameters['k1'] = 1 # m^3/min.
-    parameters['k2'] = 0.1 # m^3/min.
+    parameters['k2'] = 0.05 # m^3/min.
 
     #parameters['tau'] = 2. # m^3 
     #parameters['k3'] = 0.05 # m^3/min.
@@ -81,7 +81,7 @@ def _get_threereac_parameters():
     # Get the steady states.
     parameters['xs'] = np.array([1., 0.5, 0.5]) # to be updated.
     parameters['us'] = np.array([1.]) # Ca0s
-    parameters['ps'] = np.array([60.]) # tau # min.
+    parameters['ps'] = np.array([20.]) # tau # min.
 
     # Get the constraints. 
     ulb = np.array([0.])
