@@ -137,7 +137,7 @@ def _get_tworeac_model(*, parameters, plant=True):
                                                                p, parameters)
         xs = parameters['xs'][:-1, np.newaxis]
         return NonlinearPlantSimulator(fxup = tworeac_greybox_ode,
-                                        hx = _tworeac_greybox_measurement,
+                                        hx = _tworeac_measurement,
                                         Rv = parameters['Rv'], 
                                         Nx = parameters['Ng'], 
                                         Nu = parameters['Nu'], 
@@ -176,7 +176,7 @@ def _get_greybox_validation_predictions(*, parameters, training_data):
     """ Use the input profile to compute 
         the prediction of the grey-box model
         on the validation data. """
-    model = _get_threereac_model(parameters=parameters, plant=False)
+    model = _get_tworeac_model(parameters=parameters, plant=False)
     p = parameters['ps'][:, np.newaxis]
     u = training_data[-1].Ca0[:, np.newaxis]
     Nsim = u.shape[0]
@@ -191,16 +191,16 @@ def _get_greybox_validation_predictions(*, parameters, training_data):
 
 if __name__ == "__main__":
     """Compute parameters for the three reactions."""
-    parameters = _get_threereac_parameters()
-    parameters['xs'] = _get_threereac_rectified_xs(parameters=parameters)
+    parameters = _get_tworeac_parameters()
+    parameters['xs'] = _get_tworeac_rectified_xs(parameters=parameters)
     training_data = _generate_training_data(parameters=parameters, 
                                         num_trajectories=1, Nsim=240, seed=100)
     greybox_validation_data = _get_greybox_validation_predictions(parameters=
                                             parameters, 
                                             training_data=training_data)
-    threereac_parameters = dict(parameters=parameters, 
+    tworeac_parameters = dict(parameters=parameters, 
                                 training_data=training_data,
                                 greybox_validation_data=greybox_validation_data)
     # Save data.
-    PickleTool.save(data_object=threereac_parameters, 
-                    filename='threereac_parameters.pickle')
+    PickleTool.save(data_object=tworeac_parameters, 
+                    filename='tworeac_parameters.pickle')
