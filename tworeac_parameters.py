@@ -38,8 +38,8 @@ def _tworeac_greybox_ode(x, u, p, parameters):
 
     # Extract the plant states into meaningful names.
     (Ca, Cb) = x[0:2]
-    F = u[0:1]
-    Ca0 = p[0:1]
+    Ca0 = u[0:1]
+    tau = p[0:1]
 
     # Write the ODEs.
     dCabydt = (Ca0-Ca)/tau - k1*Ca
@@ -60,8 +60,8 @@ def _get_threereac_parameters():
     parameters = {}
     parameters['k1'] = 1 # m^3/min.
     parameters['k2'] = 0.1 # m^3/min.
-    parameters['tau'] = 2. # m^3 
 
+    #parameters['tau'] = 2. # m^3 
     #parameters['k3'] = 0.05 # m^3/min.
     #parameters['beta'] = 16.
     #parameters['beta'] = 8*parameters['k1']*parameters['k3']
@@ -69,23 +69,23 @@ def _get_threereac_parameters():
     #parameters['F'] = 0.1 # m^3/min.
 
     # Store the dimensions.
-    parameters['Nx'] = 4
-    parameters['Ng'] = 3
+    parameters['Nx'] = 3
+    parameters['Ng'] = 2
     parameters['Nu'] = 1
-    parameters['Ny'] = 1
+    parameters['Ny'] = 2
     parameters['Np'] = 1
 
     # Sample time.
-    parameters['sample_time'] = 1.
+    parameters['sample_time'] = 1. # min.
 
     # Get the steady states.
-    parameters['xs'] = np.array([1., 0., 0.5, 0.5]) # to be updated.
-    parameters['us'] = np.array([0.5])
-    parameters['ps'] = np.array([1.])
+    parameters['xs'] = np.array([1., 0.5, 0.5]) # to be updated.
+    parameters['us'] = np.array([1.]) # Ca0s
+    parameters['ps'] = np.array([60.]) # tau # min.
 
     # Get the constraints. 
     ulb = np.array([0.])
-    uub = np.array([1.])
+    uub = np.array([2.])
     parameters['lb'] = dict(u=ulb)
     parameters['ub'] = dict(u=uub)
 
@@ -95,16 +95,16 @@ def _get_threereac_parameters():
     # Return the parameters dict.
     return parameters
 
-def _get_threereac_rectified_xs(*, parameters):
+def _get_tworeac_rectified_xs(*, parameters):
     """ Get the steady state of the plant. """
     # (xs, us, ps)
     xs = parameters['xs']
     us = parameters['us']
     ps = parameters['ps']
-    threereac_plant_ode = lambda x, u, p: _threereac_plant_ode(x, u, 
-                                                        p, parameters)
+    tworeac_plant_ode = lambda x, u, p: _tworeac_plant_ode(x, u, 
+                                                      p, parameters)
     # Construct the casadi class.
-    model = mpc.DiscreteSimulator(threereac_plant_ode, 
+    model = mpc.DiscreteSimulator(tworeac_plant_ode, 
                                   parameters['sample_time'],
                                   [parameters['Nx'], parameters['Nu'], 
                                    parameters['Np']], 
@@ -115,15 +115,15 @@ def _get_threereac_rectified_xs(*, parameters):
     # Return the disturbances.
     return xs
 
-def _get_threereac_model(*, parameters, plant=True):
+def _get_tworeac_model(*, parameters, plant=True):
     """ Return a nonlinear plant simulator object."""
     if plant:
         # Construct and return the plant.
-        threereac_plant_ode = lambda x, u, p: _threereac_plant_ode(x, u, 
+        tworeac_plant_ode = lambda x, u, p: _tworeac_plant_ode(x, u, 
                                                                p, parameters)
         xs = parameters['xs'][:, np.newaxis]
-        return NonlinearPlantSimulator(fxup = threereac_plant_ode,
-                                        hx = _threereac_plant_measurement,
+        return NonlinearPlantSimulator(fxup = tworeac_plant_ode,
+                                        hx = _tworeac_measurement,
                                         Rv = parameters['Rv'], 
                                         Nx = parameters['Nx'], 
                                         Nu = parameters['Nu'], 
@@ -133,11 +133,11 @@ def _get_threereac_model(*, parameters, plant=True):
                                         x0 = xs)
     else:
         # Construct and return the grey-box model.
-        threereac_greybox_ode = lambda x, u, p: _threereac_greybox_ode(x, u, 
+        tworeac_greybox_ode = lambda x, u, p: _tworeac_greybox_ode(x, u, 
                                                                p, parameters)
         xs = parameters['xs'][:-1, np.newaxis]
-        return NonlinearPlantSimulator(fxup = threereac_greybox_ode,
-                                        hx = _threereac_greybox_measurement,
+        return NonlinearPlantSimulator(fxup = tworeac_greybox_ode,
+                                        hx = _tworeac_greybox_measurement,
                                         Rv = parameters['Rv'], 
                                         Nx = parameters['Ng'], 
                                         Nu = parameters['Nu'], 
@@ -146,7 +146,8 @@ def _get_threereac_model(*, parameters, plant=True):
                                     sample_time = parameters['sample_time'], 
                                         x0 = xs)
 
-def _generate_training_data(*, parameters, num_trajectories, Nsim, seed):
+def _generate_training_data(*, parameters, 
+                               num_trajectories, Nsim, seed):
     """ Simulate the plant model 
         and generate training and validation data."""
     # Get the data list.
@@ -155,24 +156,19 @@ def _generate_training_data(*, parameters, num_trajectories, Nsim, seed):
     uub = parameters['ub']['u']
     p = parameters['ps'][:, np.newaxis]
     xs = parameters['xs'][:, np.newaxis]
-    dxbydt = []
     for _ in range(num_trajectories):
-        plant = _get_threereac_model(parameters=parameters, plant=True)
+        plant = _get_tworeac_model(parameters=parameters, plant=True)
         u = sample_prbs_like(num_change=8, num_steps=Nsim, 
                              lb=ulb, ub=uub,
                              mean_change=30, sigma_change=2, seed=seed+1)
         # Run the open-loop simulation.
         for t in range(Nsim):
-            dxbydt.append(_threereac_plant_ode(plant.x[-1], 
-                        u[t:t+1, :], p, parameters))
             plant.step(u[t:t+1, :], p)
-        dxbydt = np.asarray(dxbydt).squeeze() # To check QSSA assumption.
         datum.append(PlantSimData(time=np.asarray(plant.t[0:-1]).squeeze(),
-                Ca=np.asarray(plant.x[0:-1]).squeeze()[:, 0],
-                Cb=np.asarray(plant.x[0:-1]).squeeze()[:, 1],
-                Cc=np.asarray(plant.y[0:-1]).squeeze(),
-                Cd=np.asarray(plant.x[0:-1]).squeeze()[:, 3],
-                F=np.asarray(plant.u).squeeze()))
+                Ca=np.asarray(plant.y[0:-1]).squeeze()[:, 0],
+                Cb=np.asarray(plant.y[0:-1]).squeeze()[:, 1],
+                Cc=np.asarray(plant.x[0:-1]).squeeze()[:, 2],
+                Ca0=np.asarray(plant.u).squeeze()))
     # Return the data list.
     return datum
 
@@ -182,7 +178,7 @@ def _get_greybox_validation_predictions(*, parameters, training_data):
         on the validation data. """
     model = _get_threereac_model(parameters=parameters, plant=False)
     p = parameters['ps'][:, np.newaxis]
-    u = training_data[-1].F[:, np.newaxis]
+    u = training_data[-1].Ca0[:, np.newaxis]
     Nsim = u.shape[0]
    # Run the open-loop simulation.
     for t in range(Nsim):
@@ -190,8 +186,7 @@ def _get_greybox_validation_predictions(*, parameters, training_data):
     data = ModelSimData(time=np.asarray(model.t[0:-1]).squeeze(),
                 Ca=np.asarray(model.x[0:-1]).squeeze()[:, 0],
                 Cb=np.asarray(model.x[0:-1]).squeeze()[:, 1],
-                Cc=np.asarray(model.y[0:-1]).squeeze(),
-                F=np.asarray(model.u).squeeze())
+                Ca0=np.asarray(model.u).squeeze())
     return data
 
 if __name__ == "__main__":
