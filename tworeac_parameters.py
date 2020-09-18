@@ -12,55 +12,45 @@ from hybridid import (PickleTool, NonlinearPlantSimulator,
                       sample_prbs_like, ModelSimData,
                       PlantSimData)
 
-def _threereac_plant_ode(x, u, p, parameters):
-
-    # Extract the parameters
-    k1 = parameters['k1']
-    k2 = parameters['k2']
-    k3 = parameters['k3']
-    V = parameters['V']
-
-    # Extract the plant states into meaningful names.
-    (Ca, Cb, Cc, Cd) = x[0:4]
-    F = u[0:1]
-    Ca0 = p[0:1]
-
-    # Write the ODEs.
-    dCabydt = F*(Ca0-Ca)/V - k1*Ca
-    dCbbydt = k1*Ca - k2*Cb - 2*k3*(Cb**2) - F*Cb/V
-    dCcbydt = k2*Cb - F*Cc/V
-    dCdbydt = k3*(Cb**2) - F*Cd/V
-
-    # Return the derivative.
-    return np.array([dCabydt, dCbbydt, dCcbydt, dCdbydt])
-
-def _threereac_greybox_ode(x, u, p, parameters):
-
+def _tworeac_plant_ode(x, u, p, parameters):
+    """ Simple ODE describing a 2D system. """
     # Extract the parameters.
     k1 = parameters['k1']
     k2 = parameters['k2']
-    V = parameters['V']
 
     # Extract the plant states into meaningful names.
     (Ca, Cb, Cc) = x[0:3]
-    F= u[0:1]
-    Ca0 = p[0:1]
+    Ca0 = u[0:1]
+    tau = p[0:1]
 
     # Write the ODEs.
-    dCabydt = F*(Ca0-Ca)/V - k1*Ca
-    dCbbydt = k1*Ca - k2*Cb - F*Cb/V
-    dCcbydt = k2*Cb - F*Cc/V
+    dCabydt = (Ca0-Ca)/tau - k1*Ca
+    dCbbydt = k1*Ca - 2*k2*Cb - Cb/tau
+    dCcbydt = k2*Cb - Cc/tau
 
     # Return the derivative.
     return np.array([dCabydt, dCbbydt, dCcbydt])
 
-def _threereac_plant_measurement(x):
-    # Return the measurement.
-    return x[-2:-1]
+def _tworeac_greybox_ode(x, u, p, parameters):
+    """ Simple ODE describing the grey-box plant. """
+    # Extract the parameters.
+    k1 = parameters['k1']
 
-def _threereac_greybox_measurement(x):
-    # Return the measurements.
-    return x[-1:]
+    # Extract the plant states into meaningful names.
+    (Ca, Cb) = x[0:2]
+    F = u[0:1]
+    Ca0 = p[0:1]
+
+    # Write the ODEs.
+    dCabydt = (Ca0-Ca)/tau - k1*Ca
+    dCbbydt = k1*Ca - F*Cb/V
+
+    # Return the derivative.
+    return np.array([dCabydt, dCbbydt])
+
+def _tworeac_measurement(x):
+    # Return the measurement.
+    return x[0:2]
 
 def _get_threereac_parameters():
     """ Get the parameter values for the 
@@ -70,9 +60,9 @@ def _get_threereac_parameters():
     parameters = {}
     parameters['k1'] = 1 # m^3/min.
     parameters['k2'] = 0.1 # m^3/min.
-    parameters['k3'] = 0.05 # m^3/min.
-    parameters['V'] = 2. # m^3 
+    parameters['tau'] = 2. # m^3 
 
+    #parameters['k3'] = 0.05 # m^3/min.
     #parameters['beta'] = 16.
     #parameters['beta'] = 8*parameters['k1']*parameters['k3']
     #parameters['beta'] = parameters['beta']/(parameters['k2']**2)
