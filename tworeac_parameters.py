@@ -17,6 +17,7 @@ def _tworeac_plant_ode(x, u, p, parameters):
     # Extract the parameters.
     k1 = parameters['k1']
     k2 = parameters['k2']
+    k3 = parameters['k3']
 
     # Extract the plant states into meaningful names.
     (Ca, Cb, Cc) = x[0:3]
@@ -25,8 +26,8 @@ def _tworeac_plant_ode(x, u, p, parameters):
 
     # Write the ODEs.
     dCabydt = (Ca0-Ca)/tau - k1*Ca
-    dCbbydt = k1*Ca - 2*k2*Cb - Cb/tau
-    dCcbydt = k2*Cb - Cc/tau
+    dCbbydt = k1*Ca - 2*k2*Cb + k3*Cc - Cb/tau
+    dCcbydt = k2*Cb - k3*Cc - Cc/tau
 
     # Return the derivative.
     return np.array([dCabydt, dCbbydt, dCcbydt])
@@ -35,7 +36,7 @@ def _tworeac_greybox_ode(x, u, p, parameters):
     """ Simple ODE describing the grey-box plant. """
     # Extract the parameters.
     k1 = parameters['k1']
-    k2 = parameters['k2']
+
     # Extract the plant states into meaningful names.
     (Ca, Cb) = x[0:2]
     Ca0 = u[0:1]
@@ -60,6 +61,7 @@ def _get_tworeac_parameters():
     parameters = {}
     parameters['k1'] = 1 # m^3/min.
     parameters['k2'] = 0.05 # m^3/min.
+    parameters['k3'] = 0.01 # m^3/min.
 
     #parameters['tau'] = 2. # m^3 
     #parameters['k3'] = 0.05 # m^3/min.
@@ -189,10 +191,27 @@ def _get_greybox_validation_predictions(*, parameters, training_data):
                 Ca0=np.asarray(model.u).squeeze())
     return data
 
+def _check_cont_time_obsv(*, parameters):
+    """ Check the observability of the continuous time linear system. """
+    # Measurement matrix for the plant.
+    C = np.array([[1., 0., 0.], 
+                  [0., 1., 0.]])
+    tau = parameters['ps'][0]
+    (k1, k2, k3) = (parameters['k1'], parameters['k2'], parameters['k3'])
+    A = np.array([[-k1-(1/tau), 0., 0.], 
+                  [k1, -2*k2 - (1/tau), k3], 
+                  [0., k2, -k3 -(1/tau)]])
+    Obsv = []
+    for i in range(parameters['Nx']):
+        Obsv.append(C @ np.linalg.matrix_power(A, i))
+    Obsv = np.concatenate(Obsv, axis=0)
+    return
+
 if __name__ == "__main__":
     """Compute parameters for the three reactions."""
     parameters = _get_tworeac_parameters()
     parameters['xs'] = _get_tworeac_rectified_xs(parameters=parameters)
+    _check_cont_time_obsv(parameters=parameters)
     training_data = _generate_training_data(parameters=parameters, 
                                         num_trajectories=1, Nsim=240, seed=100)
     greybox_validation_data = _get_greybox_validation_predictions(parameters=

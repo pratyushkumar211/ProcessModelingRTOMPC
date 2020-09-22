@@ -93,7 +93,7 @@
 \newcommand{\Ns}{\bm{\mathrm{N}}} % Transition counter.
 
 
-\title{System ID and control with NNs}
+\title{Data-based completion of grey-box models with neural networks}
 \author{Problem formulation}
 \date{\today}
 
@@ -102,16 +102,16 @@
 \maketitle
 
 \section{Process modeling}
-Consider a nonlinear plant evolving as
+Consider a nonlinear plant evolving in continuous time as
 \begin{align*}
-  x^+ &= f(x, u) \\
-  y &= h(x)
+  \dot x &= f_p(x, u) \\
+  y &= C_px
 \end{align*}
 in which $x$ is the plant state (vector), $u$ is the manipulated control input,
 and $y$ is the measurement. Assume that we don't have any 
 disturbances/measurement and process noise 
 for now, and we'll add those after we 
-understand the issues in this nominal case.
+understand the issues in the nominal case.
 
 \subsection{Completion of the u-y model}
 In this class of problems, we assume that grey-box modeling is performed 
@@ -121,88 +121,85 @@ we have the following (in continuous time, as grey-box modeling will
 almost always be in continuous time).
 \begin{align*}
   \dot{x}_g &= f_g(x_g, u) \\
-  y &= h_g(x_g)
+  y &= C_gx_g
 \end{align*}
 
-From Taken's embedding theorem, we know that the original plant state
-can be reconstructed using a history of measurements and control inputs.
+in which $x_g$ is some set of physical plant states chosen to be 
+modeled. Denoted these physical states as $x_g=Cx$.
+For observable nonlinear systems, 
+we can construct the original plant state
+using a history of measurements and control inputs.
 Denote this history as 
 \begin{align*}
-  \mathbf{y}_{k:k-\tau} &= [y(k)', y(k-1)', ..., y(k-\tau)']' \\
-  \mathbf{u}_{k-1:k-\tau} &= [u(k-1)', u(k-2)', ..., u(k-\tau)']'
+  \mathbf{y}_{k:k-N} &= [y(k)', y(k-\Delta)', ..., y(k-N\Delta)']' \\
+  \mathbf{u}_{k-1:k-N} &= [u(k-1)', u(k-2)', ..., u(k-N\Delta)']'
 \end{align*}
 
-So from the embedding theorem for observable nonlinear plants, 
-there exists a $\phi(\cdot)$ and number of delay 
-time steps $\tau$, such that 
-$x(k) = \phi(\mathbf{y}_{k:k-\tau}, \mathbf{u}_{k-1:k-\tau})$.
+There exists a $\phi(\cdot)$ and a number of delay 
+time steps $N$, such that 
+$x(k) = \phi(\mathbf{y}_{k:k-N}, \mathbf{u}_{k-1:k-N})$.
 
-Now depending on the application, an approximation of $\phi(\cdot)$
-with a neural network (say $\phi_{NN}(\cdot)$) 
-can be used to augment the grey-box model 
-in several ways. The following is proposed in the recent 
-paper by Kevrekidis.
+We augment the grey-box model in continuous time 
+as follows -
 \begin{align*}
-  x_g^+ &= f_g(x_g, u, 
-  \theta(\phi_{NN}(\mathbf{y}_{k:k-\tau}, \mathbf{u}_{k-1:k-\tau})))\\
-  y &= h_g(x_g)
+\dot x_g &= f_g(x_g, u) + 
+f_{NN}(\mathbf{y}_{k:k-N}, \mathbf{u}_{k:k-N})\\
+y &= C_gx_g 
 \end{align*}
-
-in which $\theta(\cdot)$ are a set of grey-box parameters which 
-depend on the plant states. For example, rate constants which 
-depend on temperature, etc. An RK4 discretization is performed
-to get this model in discrete time.
-
-A different type of problems could be say, there are unknown
-side reactions in the plant we don't about, which are affecting the 
-physical grey-box 
-states. In these problems, we can augment the grey-box 
-model with a NN as follows
-\begin{align*}
-x_g^+ &= f_g(x_g, u) + f_{NN}(\mathbf{y}_{k:k-\tau}, \mathbf{u}_{k-1:k-\tau})\\
-y &= h_g(x_g) 
-\end{align*}
-in which, we are anticipating that $f_{NN}$,
-a neural network can learn the difference between the 
-true grey-box state dynamics and what is modeled with 
-the function ($f_g(\cdot)$). We assume that the measurements
+in which $f_{NN}(\cdot)$,
+is a standard feedforward neural network. 
+We assume that the measurements
 are directly some subset of the physical grey-box states.
 
-\textbf{Need to discuss the following issues:}
-\begin{itemize}
-  \item What are the example problems/applications 
-  where both kind of modeling 
-  strategies make sense, and where should we start.
-  Reproduce results from the Kevrekidis paper with measurement 
-  noise?
-  \item The model training step will be the optimization of 
-  the following multi-step-ahead prediction-error
-  \begin{equation*}
-    \underset{W_i, b_i}{\textnormal{min}} \sum_{k=0}^{t-1} (\hat{y}(k) - y(k))^2
-  \end{equation*}
-  in which ($W_i, b_i$) are the weights of the NN. This optimization 
-  is for one ID experiment, and requires an initial grey-box 
-  state $x_g(0)$ to make the forecast. If we have data 
-  for multiple ID experiments, we'll need initial states for 
-  all the ID experiments. In theory, we can add the initial 
-  states as decision variables in the optimization, but 
-  unfortunately tensorflow 
-  does not has a mechanism to do this.
-\end{itemize}
+It is expected that the function $f_{NN}(\cdot)$ approximates
+the difference between the true grey-box state dynamics
+with what is modeled. 
+\begin{align*}
+  f_{NN}(\mathbf{y}_{k:k-N}, \mathbf{u}_{k:k-N}) \approx 
+      f_p(x, u) - f_g(x_g, u) = 
+      Cf_p(\phi(\mathbf{y}_{k:k-N}, \mathbf{u}_{k-1:k-N}), u) - f_g(x_g, u)
+\end{align*}  
 
-\subsection{Adding feedforward disturbance forecasts}
-In this class of problems, we assume that we have a pretty 
-good u-y model from first-principles knowledge, and we'll use 
-neural networks to make feedforward disturbance forecasts
-for use in online MPC. HVAC is a pretty good application.
+\subsection{Conversion to discrete time and training}
 
 
-\section{Optimization in MPC with neural networks as model}
-This is probably a late fall quarter or a winter break project. \\
-a) Try Casadi/MPC tools. 
-If tanh is the activation function (optimization is smooth),
-this should be fine. \\
-b) Try a global optimization solver. \\
-c) Train another NN with solutions from a global optimization solver.
+
+\subsection{Simple example}
+
+%\textbf{Need to discuss the following issues:}
+%\begin{itemize}
+%  \item What are the example problems/applications 
+%  where both kind of modeling 
+%  strategies make sense, and where should we start.
+%  Reproduce results from the Kevrekidis paper with measurement 
+%  noise?
+%  \item The model training step will be the optimization of 
+%  the following multi-step-ahead prediction-error
+%  \begin{equation*}
+%    \underset{W_i, b_i}{\textnormal{min}} \sum_{k=0}^{t-1} (\hat{y}(k) - y(k))^2
+%  \end{equation*}
+%  in which ($W_i, b_i$) are the weights of the NN. This optimization 
+%  is for one ID experiment, and requires an initial grey-box 
+%  state $x_g(0)$ to make the forecast. If we have data 
+%  for multiple ID experiments, we'll need initial states for 
+%  all the ID experiments. In theory, we can add the initial 
+%  states as decision variables in the optimization, but 
+%  unfortunately tensorflow 
+%  does not has a mechanism to do this.
+%\end{itemize}
+
+%\subsection{Adding feedforward disturbance forecasts}
+%In this class of problems, we assume that we have a pretty 
+%good u-y model from first-principles knowledge, and we'll use 
+%neural networks to make feedforward disturbance forecasts
+%for use in online MPC. HVAC is a pretty good application.
+
+%\section{Optimization in MPC with neural networks as model}
+%This is probably a late fall quarter or a winter break project. \\
+%a) Try Casadi/MPC tools. 
+%If tanh is the activation function (optimization is smooth),
+%this should be fine. \\
+%b) Try a global optimization solver. \\
+%c) Train another NN with solutions from a global optimization solver.
 
 \end{document}
