@@ -14,14 +14,13 @@ import plottools
 
 FIGURE_SIZE_A4 = (9, 10)
 PRESENTATION_FIGSIZE = (6, 6)
-PAPER_FIGSIZE = (7, 5)
+PAPER_FIGSIZE = (4, 4)
 
 PlantSimData = collections.namedtuple('PlantSimData', 
-                    ['time', 'Ca', 'Cb', 'Cc', 
-                     'Cd', 'Ca0'])
+                    ['time', 'Ca', 'Cb', 'Cc', 'Ca0'])
 
 ModelSimData = collections.namedtuple('ModelSimData', 
-                    ['time', 'Ca', 'Cc', 'Cd', 'Ca0'])
+                    ['time', 'Ca', 'Cb', 'Ca0'])
 
 class PickleTool:
     """Class which contains a few static methods for saving and

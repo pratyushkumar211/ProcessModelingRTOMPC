@@ -1,3 +1,4 @@
+# [makes] pickle
 """ Script to generate the necessary 
     parameters and training data for the 
     three reaction example.
@@ -26,7 +27,7 @@ def _tworeac_plant_ode(x, u, p, parameters):
 
     # Write the ODEs.
     dCabydt = (Ca0-Ca)/tau - k1*Ca
-    dCbbydt = k1*Ca - 2*k2*Cb + k3*Cc - Cb/tau
+    dCbbydt = k1*Ca - k2*Cb + k3*Cc - Cb/tau
     dCcbydt = k2*Cb - k3*Cc - Cc/tau
 
     # Return the derivative.
@@ -60,8 +61,8 @@ def _get_tworeac_parameters():
     # Parameters.
     parameters = {}
     parameters['k1'] = 1 # m^3/min.
-    parameters['k2'] = 0.05 # m^3/min.
-    parameters['k3'] = 0.01 # m^3/min.
+    parameters['k2'] = 1e-2 # m^3/min.
+    parameters['k3'] = 1e-3 # m^3/min.
 
     #parameters['tau'] = 2. # m^3 
     #parameters['k3'] = 0.05 # m^3/min.
@@ -86,8 +87,8 @@ def _get_tworeac_parameters():
     parameters['ps'] = np.array([20.]) # tau # min.
 
     # Get the constraints. 
-    ulb = np.array([0.])
-    uub = np.array([2.])
+    ulb = np.array([0.5])
+    uub = np.array([2.5])
     parameters['lb'] = dict(u=ulb)
     parameters['ub'] = dict(u=uub)
 
@@ -160,9 +161,9 @@ def _generate_training_data(*, parameters,
     xs = parameters['xs'][:, np.newaxis]
     for _ in range(num_trajectories):
         plant = _get_tworeac_model(parameters=parameters, plant=True)
-        u = sample_prbs_like(num_change=8, num_steps=Nsim, 
+        u = sample_prbs_like(num_change=3, num_steps=Nsim, 
                              lb=ulb, ub=uub,
-                             mean_change=30, sigma_change=2, seed=seed+1)
+                             mean_change=120, sigma_change=2, seed=seed+1)
         # Run the open-loop simulation.
         for t in range(Nsim):
             plant.step(u[t:t+1, :], p)
@@ -205,15 +206,17 @@ def _check_cont_time_obsv(*, parameters):
     for i in range(parameters['Nx']):
         Obsv.append(C @ np.linalg.matrix_power(A, i))
     Obsv = np.concatenate(Obsv, axis=0)
+    print("Rank of the continuous time Observability matrix is: " + 
+            str(np.linalg.matrix_rank(Obsv))) 
     return
 
-if __name__ == "__main__":
+def main():
     """Compute parameters for the three reactions."""
     parameters = _get_tworeac_parameters()
     parameters['xs'] = _get_tworeac_rectified_xs(parameters=parameters)
     _check_cont_time_obsv(parameters=parameters)
     training_data = _generate_training_data(parameters=parameters, 
-                                        num_trajectories=1, Nsim=240, seed=100)
+                                        num_trajectories=1, Nsim=360, seed=1)
     greybox_validation_data = _get_greybox_validation_predictions(parameters=
                                             parameters, 
                                             training_data=training_data)
@@ -223,3 +226,5 @@ if __name__ == "__main__":
     # Save data.
     PickleTool.save(data_object=tworeac_parameters, 
                     filename='tworeac_parameters.pickle')
+
+main()
