@@ -105,7 +105,7 @@
 Consider a nonlinear plant evolving in continuous time as
 \begin{align*}
   \dot x &= f_p(x, u) \\
-  y &= C_px
+  y &= h_p(x)
 \end{align*}
 in which $x$ is the plant state (vector), $u$ is the manipulated control input,
 and $y$ is the measurement. Assume that we don't have any 
@@ -114,18 +114,20 @@ for now, and we'll add those after we
 understand the issues in the nominal case.
 
 \subsection{Completion of the u-y model}
-In this class of problems, we assume that grey-box modeling is performed 
+We assume that grey-box modeling is performed 
 for the plant, and we wish to augment the grey-box model with neural networks
 for improvement in the accuracy of the model. From first-principles modeling, 
-we have the following (in continuous time, as grey-box modeling will 
-almost always be in continuous time).
+we have the following grey-box model in continuous time
 \begin{align*}
   \dot{x}_g &= f_g(x_g, u) \\
-  y &= C_gx_g
+  y &= h_g(x_g)
 \end{align*}
 
-in which $x_g$ is some set of physical plant states chosen to be 
-modeled. Denoted these physical states as $x_g=Cx$.
+in which $x_g$ are the grey-box states, which are some subset 
+of the plant states (denote $x_g = Gx$) chosen to 
+be modeled. The dynamics of these grey-box states 
+potentially have some missing terms 
+in their ODEs.
 For observable nonlinear systems, 
 we can construct the original plant state
 using a history of measurements and control inputs.
@@ -135,36 +137,126 @@ Denote this history as
   \mathbf{u}_{k-1:k-N} &= [u(k-1)', u(k-2)', ..., u(k-N\Delta)']'
 \end{align*}
 
-There exists a $\phi(\cdot)$ and a number of delay 
-time steps $N$, such that 
+in which $\Delta$ is the sample 
+time between two consecutive
+prediction instants of the desired discrete time 
+model to be used in MPC. There exists a $\phi(\cdot)$ 
+and a number of delay 
+time steps $N$, such that the plant state
+at a given time can be written as
 $x(k) = \phi(\mathbf{y}_{k:k-N}, \mathbf{u}_{k-1:k-N})$.
 
-We augment the grey-box model in continuous time 
-as follows -
+We augment the grey-box model using 
+neural networks as follows -
 \begin{align*}
 \dot x_g &= f_g(x_g, u) + 
 f_{NN}(\mathbf{y}_{k:k-N}, \mathbf{u}_{k:k-N})\\
-y &= C_gx_g 
+y &= h_g(x_g) + h_{NN}(\mathbf{y}_{k:k-N}, \mathbf{u}_{k-1:k-N})
 \end{align*}
-in which $f_{NN}(\cdot)$,
-is a standard feedforward neural network. 
-We assume that the measurements
-are directly some subset of the physical grey-box states.
+in which $f_{NN}(\cdot)$ and $h_{NN}(\cdot)$
+are standard feedforward neural networks. We add the current 
+control $u(k)$ as an input to the network $f_{NN}(\cdot)$ because 
+there may be a mismatch in the actuator to the grey-box dynamics
+as well.
 
-It is expected that the function $f_{NN}(\cdot)$ approximates
-the difference between the true grey-box state dynamics
-with what is modeled. 
+It is expected that the functions $f_{NN}(\cdot)$ 
+and $h_{NN}(\cdot)$ approximate
+the following differences between the true grey-box state dynamics
+and true measurement function with what is modeled.
 \begin{align*}
-  f_{NN}(\mathbf{y}_{k:k-N}, \mathbf{u}_{k:k-N}) \approx 
-      f_p(x, u) - f_g(x_g, u) = 
-      Cf_p(\phi(\mathbf{y}_{k:k-N}, \mathbf{u}_{k-1:k-N}), u) - f_g(x_g, u)
+  f_{NN}(\mathbf{y}_{k:k-N}, \mathbf{u}_{k:k-N}) &\approx 
+      Gf_p(\phi(\mathbf{y}_{k:k-N}, \mathbf{u}_{k-1:k-N}), u) - f_g(x_g, u) = 
+      Gf_p(x, u) - f_g(x_g, u) \\
+      h_{NN}(\mathbf{y}_{k:k-N}, \mathbf{u}_{k-1:k-N}) &\approx 
+      h_p(\phi(\mathbf{y}_{k:k-N}, \mathbf{u}_{k-1:k-N})) - h_g(x_g) = 
+      h_p(x) - h_g(x_g) 
 \end{align*}  
 
 \subsection{Conversion to discrete time and training}
+We note that the network $f_{NN}(\cdot)$ is an addition 
+to the grey-box dynamics in continuous time, whereas 
+$h_{NN}(\cdot)$ is an addition directly to the 
+measurement function. The Runge-Kutta-4 (RK4) method 
+is used for the discretization as follows
 
+\begin{align*}
+  k_1 &= f_g(x_g(k), u(k)) + f_{NN}(\mathbf{y}_{k:k-N}, \mathbf{u}_{k:k-N}) \\
+  k_2 &= f_g(x_g(k) + (\Delta/2)k_1, u(k)) + 
+         f_{NN}(\mathbf{y}_{k+0.5:k-N+0.5}, 
+                \mathbf{u}_{k+0.5:k-N+0.5})\\
+  k_3 &= f_g(x_g(k) + (\Delta/2)k_2, u(k)) + 
+                f_{NN}(\mathbf{y}_{k+0.5:k-N+0.5}, 
+                      \mathbf{y}_{k+0.5:k-N+0.5})\\
+  k_4 &= f_g(x_g(k) + \Delta k_3, u(k)) + 
+                       f_{NN}(\mathbf{y}_{k+1:k-N+1}, 
+                              \mathbf{u}_{k+1:k-N+1})\\
+  x_g(k+\Delta) &= x_g(k) + (\Delta/6)(k_1 + 2k_2 + 2k_3 + k_4) \\
+  \hat{y}(k+\Delta) &= h_g(x_g(k+\Delta)) + h_{NN}(\mathbf{y}_{k+\Delta:k-N+\Delta}, 
+                                     \mathbf{u}_{k-1+\Delta:k-N+\Delta})
+\end{align*}
+in which the sequences $\mathbf{y}_{k+0.5:k-N+0.5}$ 
+and $\mathbf{u}_{k+0.5:k-N+0.5}$ are defined as 
+\begin{align*}
+  \mathbf{y}_{k+0.5:k-N+0.5} &= 
+    [y(k + \Delta/2)', y(k-\Delta/2)', ..., y(k-N\Delta + \Delta/2)']' \\
+  \mathbf{u}_{k+0.5:k-N+0.5} &= 
+  [u(k + \Delta/2)', u(k-\Delta/2)', ..., u(k-N\Delta + \Delta/2)']' 
+\end{align*}
+We assume a zero order hold on the control inputs between two consecutive 
+MPC execution instants, such that $u(k + \Delta/2) = u(k)$. To get the 
+measurements between two sample instants ($y(k + \Delta/2)$) for 
+the RK4 predictions, a linear interpolation can be used 
+or we can assume that additional 
+measurements from the plant are available 
+between two MPC execution instants as well.
 
+The following optimization problem is solved to compute 
+the weights in the neural networks 
+\begin{align*}
+ \underset{W_{fi}, b_{fi}, W_{hi}, b_{hi}}{\textnormal{min}} \sum_{i=0}^{N_s-1} 
+ \dfrac{1}{2}(\hat{y}(i) - y(i))^2
+\end{align*}
+in which ($W_{fi}, b_{fi}, W_{hi}, b_{hi}$) are the weights in the 
+two neural networks ($f_{NN}(\cdot)$ and $h_{NN}(\cdot)$), 
+$\hat{y}$ are predictions of the augmented model, and $y$
+are the measurements from the plant.
+Note that this optimization requires an estimate 
+of the initial grey-box state. We assume that 
+before the open-loop system identification experiment 
+performed for data collection, 
+the plant is being operated at some 
+steady-state such that input to output
+responses of the plant and grey-box model are aligned with 
+the use of an integrating disturbance model. We can use 
+the grey-box state at that steady state as the initial condition 
+for the above multi-step-ahead prediction-error
+optimization.
 
 \subsection{Simple example}
+
+Consider the following plant, model,
+and the expected function to be approximated 
+with a neural network.
+
+\textbf{Plant --}
+\begin{align*}
+  \dfrac{dC_A}{dt} &= \dfrac{C_{A0} - C_A}{\tau} - k_1C_A\\
+  \dfrac{dC_B}{dt} &= k_1C_A - k_2C_B + k_3C_C- \dfrac{C_B}{\tau}\\
+  \dfrac{dC_C}{dt} &= k_2C_B - k_3C_C - \dfrac{C_C}{\tau}
+\end{align*}
+These ODEs represent the dynamics of the reaction system
+$A \rightarrow B \rightleftharpoons C$ in a CSTR with constant 
+height and temperature. The control input is $u = C_{A0}$, 
+and the measurements are $y = [C_A, C_B]'$. The plant model 
+is observable with these choices of the measurements and dynamics.
+
+\textbf{Model --}
+\begin{align*}
+  \dfrac{dC_A}{dt} &= \dfrac{C_{A0} - C_A}{\tau} - k_1C_A\\
+  \dfrac{dC_B}{dt} &= k_1C_A - \dfrac{C_B}{\tau}
+\end{align*}
+i.e, we assume that we don't know about the second reaction while 
+performing grey-box modeling.
 
 %\textbf{Need to discuss the following issues:}
 %\begin{itemize}
