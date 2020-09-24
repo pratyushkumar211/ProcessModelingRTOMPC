@@ -1,6 +1,7 @@
 """
-Custom Neural Network layers for performing
-experiments and comparisions with the MPC optimization problem.
+Custom neural network layers for the 
+data-based completion of grey-box models 
+using neural networks.
 Pratyush Kumar, pratyushkumar@ucsb.edu
 """
 import sys
@@ -8,41 +9,37 @@ sys.path.append('')
 import time
 import numpy as np
 import tensorflow as tf
-from threereac_parameters import _get_threereac_parameters
+from tworeac_parameters import _get_tworeac_parameters
 tf.keras.backend.set_floatx('float64')
 
-class ThreeReacHybridCell(tf.keras.layers.AbstractRNNCell):
+class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
     """
     RNN Cell
-    [xG, dN]^+ = [fG(xG, u) + BN*dN;fN(xG, dN, u)], y = [0, 0, 1]xG
+    dxG/dt  = fG(xG, u) + f_{NN}(y_{k+1-N_p:k}, u_{k+1-N_p:k-1}), y = xG
     """
-    def __init__(self, Ng, Nb, Ny, BN, bb_layers, 
-                       threereac_parameters, **kwargs):
-        super(ThreeReacHybridCell, self).__init__(**kwargs)
+    def __init__(self, Ng, Ny, fnn_layers, 
+                       tworeac_parameters, **kwargs):
+        super(TwoReacHybridCell, self).__init__(**kwargs)
         self.Ng = Ng
-        self.Nb = Nb
         self.Ny = Ny
-        self.BN = BN
-        self.bb_layers = bb_layers
-        self.threereac_parameters = threereac_parameters
+        self.fnn_layers = fnn_layers
+        self.tworeac_parameters = tworeac_parameters
     
     @property
     def state_size(self):
-        return self.Nb + self.Ng
+        return self.Ng
     
     @property
     def output_size(self):
         return self.Ny        
 
-    def _threereac_greybox_ode(self, x, u):
-        """ Function to compute the ODE value of the grey-box 
-            model. """
+    def _tworeac_rk4(self, x, u):
+        """ Function to compute the 
+            RK4 step for the two reaction model. """
 
         # Extract the parameters.
-        k1 = self.threereac_parameters['k1']
-        beta = self.threereac_parameters['beta']
-        F = self.threereac_parameters['F']
-        Vr = self.threereac_parameters['Vr']
+        k1 = self.tworeac_parameters['k1']
+        tau = self.tworeac_parameters['tau']
 
         # The concentrations.
         (Ca, Cd, Cc) = (x[..., 0:1], x[..., 1:2], x[..., 2:3])
@@ -71,8 +68,8 @@ class ThreeReacHybridCell(tf.keras.layers.AbstractRNNCell):
     def call(self, inputs, states):
         """ Call function of the hybrid RNN cell."""
 
-        (xG, dN) = tf.split(states[0], [self.Ng, self.Nb], -1)
-        u = inputs
+        xG = states[0]
+        [u, yseq, useq] = inputs
         h = self.threereac_parameters['sample_time']
 
         # Get the current output.
