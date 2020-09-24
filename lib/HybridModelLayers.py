@@ -33,9 +33,10 @@ class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
     def output_size(self):
         return self.Ny        
 
-    def _tworeac_rk4(self, x, u):
+    def _compute_fg(self, x, u):
         """ Function to compute the 
-            RK4 step for the two reaction model. """
+            derivative (RHS of the ODE)
+            for the two reaction model. """
 
         # Extract the parameters.
         k1 = self.tworeac_parameters['k1']
@@ -65,30 +66,30 @@ class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
         # Return the derivative.
         return tf.concat((dCabydt, dCdbydt, dCcbydt), axis=-1)
 
+    def _compute_fnn(self, yseq, useq):
+        """ Compute the output of the feedforward network. """
+        fnn_output = tf.concat((yseq, useq), axis=-1)
+        for layer in self.fnn_layers:
+            fnn_output = layer(fnn_output)
+        return fnn_output
+
     def call(self, inputs, states):
         """ Call function of the hybrid RNN cell."""
 
-        xG = states[0]
+        [xG] = states
         [u, yseq, useq] = inputs
-        h = self.threereac_parameters['sample_time']
+        Delta = self.threereac_parameters['sample_time']
 
         # Get the current output.
         y = xG[..., -1:]
 
         # Write-down the RK4 step and NN Grey-box augmentation.
-        k1 = self._threereac_greybox_ode(xG, u)
-        k2 = self._threereac_greybox_ode(tf.math.add(xG, h*(k1/2)), u)
-        k3 = self._threereac_greybox_ode(tf.math.add(xG, h*(k2/2)), u)
-        k4 = self._threereac_greybox_ode(tf.math.add(xG, h*k3), u)
+        k1 = self._tworeac_greybox_ode(xG, u)
+        k2 = self._tworeac_greybox_ode(tf.math.add(xG, Delta*(k1/2)), u)
+        k3 = self._tworeac_greybox_ode(tf.math.add(xG, Delta*(k2/2)), u)
+        k4 = self._tworeac_greybox_ode(tf.math.add(xG, Delta*k3), u)
         xGplus = tf.math.add(k1, tf.math.add(2*k2, tf.math.add(2*k3, k4)))
-        xGplus = tf.math.add(xG, tf.math.add((h/6)*xGplus, dN @ self.BN.T))
-
-        # Input to the black-box layer and compute one-step ahead
-        # of the black-box layer.
-        bb_output = tf.concat((xG, dN, u), axis=-1)
-        for layer in self.bb_layers:
-            bb_output = layer(bb_output)
-        dNplus = bb_output
+        xGplus = tf.math.add(xG, (Delta/6)*xGplus)
 
         # Concatenate to get all the states.
         xplus = tf.concat((xGplus, dNplus), axis=-1)
