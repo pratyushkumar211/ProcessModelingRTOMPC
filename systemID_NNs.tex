@@ -94,7 +94,7 @@
 
 
 \title{Data-based completion of grey-box models with neural networks}
-\author{Problem formulation}
+\author{Pratyush Kumar}
 \date{\today}
 
 \begin{document}
@@ -246,7 +246,8 @@ with a neural network.
 \end{align*}
 These ODEs represent the dynamics of the reaction system
 $A \rightarrow B \rightleftharpoons C$ in a CSTR with constant 
-height and temperature. The control input is $u = C_{A0}$, 
+height and temperature. The control input is $u = C_{A0}$,
+the states are $x = [C_A, C_B, C_C]'$, 
 and the measurements are $y = [C_A, C_B]'$. The plant model 
 is observable with these choices of the measurements and dynamics.
 
@@ -256,7 +257,27 @@ is observable with these choices of the measurements and dynamics.
   \dfrac{dC_B}{dt} &= k_1C_A - \dfrac{C_B}{\tau}
 \end{align*}
 i.e, we assume that we don't know about the second reaction while 
-performing grey-box modeling.
+performing grey-box modeling. Assume the following 
+parameter choices $k_1 = 1 \ \textnormal{m}^3/\textnormal{min}, 
+\ k_2 = 10^{-2} \ \textnormal{m}^3/\textnormal{min}
+\ k_3 = 10^{-3} \ \textnormal{m}^3/\textnormal{min}$, 
+and $\tau = 20 \ \textnormal{min}$. 
+
+Since the measurements are a simple linear function 
+of the grey-box and plant states, we use only one network to 
+augment the grey-box dynamics. The expected function 
+to be approximated with a neural network is
+\begin{align}
+  f_{NN}(\mathbf{y}_{k:k-N}, \mathbf{u}_{k-1:k-N}) \approx (e^{A\Delta})^N
+  \mathcal{O}(C, e^{A\Delta})^{\dagger}
+\end{align}
+
+ 
+
+\begin{figure}
+  \centering
+  \includegraphics[page=2, width=\textwidth]{tworeac_plots.pdf}
+\end{figure}
 
 %\textbf{Need to discuss the following issues:}
 %\begin{itemize}
