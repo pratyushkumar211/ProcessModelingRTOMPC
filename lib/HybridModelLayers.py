@@ -17,21 +17,18 @@ class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
     RNN Cell
     dxG/dt  = fG(xG, u) + f_{NN}(y_{k+1-N_p:k}, u_{k+1-N_p:k-1}), y = xG
     """
-    def __init__(self, Ng, Ny, fnn_layers, 
-                       tworeac_parameters, **kwargs):
+    def __init__(self, fnn_layers, tworeac_parameters, **kwargs):
         super(TwoReacHybridCell, self).__init__(**kwargs)
-        self.Ng = Ng
-        self.Ny = Ny
         self.fnn_layers = fnn_layers
         self.tworeac_parameters = tworeac_parameters
-    
+
     @property
     def state_size(self):
-        return self.Ng
+        return self.tworeac_parameters['Ng']
     
     @property
     def output_size(self):
-        return self.Ny        
+        return self.tworeac_parameters['Ng']        
 
     def _fg(self, x, u):
         """ Function to compute the 
@@ -77,8 +74,8 @@ class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
         """ Call function of the hybrid RNN cell.
             Dimension of xG: (None, Ng)
             Dimension of u: (None, Nu)
-            Dimension of yseq: (None, (Np-1)*p*2)
-            Dimension of useq: (None, (Np-1)*m*2)
+            Dimension of yseq: (None, (Np-1)*p)
+            Dimension of useq: (None, (Np-1)*m)
         """
         # Extract important variables.
         [xG] = states
@@ -106,35 +103,59 @@ class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
         # Return output and states at the next time-step.
         return (y, xGplus)
 
-class InterpolationLayer(tf.keras.layers.Dense):
+class InterpolationLayer(tf.keras.layers.Layer):
     """
-    RNN Cell
-    dxG/dt  = fG(xG, u) + f_{NN}(y_{k+1-N_p:k}, u_{k+1-N_p:k-1}), y = xG
+    The layer to perform interpolation for RK4 predictions.
     """
-    def __init__(self, Ng, Ny, fnn_layers, 
-                       tworeac_parameters, **kwargs):
-        self.Ng = Ng
+    def __init__(self, p, Np, trainable=False, name=None):
+        super(InterpolationLayer, self).__init__(trainable, name)
+        self.p = p
+        self.Np = Np
 
-    def call(self):
-        """ The main call function of the interpolation layer. """
+    def call(self, yseq):
+        """ The main call function of the interpolation layer. 
+        y is of dimension: (None, Np*p)
+        Return y of dimension: (None, (Np-1)*p)
+        """
+        yseq_interp = []
+        for t in range(self.Np-1):
+            yseq_interp.append(0.5*(yseq[..., t*n:(t+1)*n] + 
+                                    yseq[..., (t+1)*n:(t+2)*n]))
+        return tf.concat(yseq_interp, axis=-1)
 
-        return
+    def get_config(self):
+        return super().get_config()
 
+class TwoReacModel(tf.keras.Model):
+    """ Custom model for the Two reaction model. """
+    def __init__(self, fnn_dims, tworeac_parameters):
+        """ Create the dense layers for the NN, and 
+            construct the overall model. """
+        (Ng, Nu) = (tworeac_parameters['Ng'], tworeac_parameters['Nu'])
+        inputs = [tf.keras.Input(name='u', shape=(None, Nu)),
+                  tf.keras.Input(name='yseq', shape=(None, Ng)),
+                  tf.keras.Input(name='useq', shape=(None, Nu))]
+        HybridCell = TwoReacHybridCell(Nx, Nb, Ny, BN, 
+                                         fnn_layers, tworeac_parameters)
+        #HybridLayer = tf.keras.layers.RNN(HybridCell, 
+        #                                  return_sequences=True)
+        outputs = regulator(inputs)
+        super().__init__(inputs=inputs, outputs=outputs)
 
-def get_tworeac_model(*, tworeac_parameters, fnn_dims):
-    """ Get the Hybrid model which can be trained from data. """
+#def get_tworeac_model(*, tworeac_parameters, fnn_dims):
+#    """ Get the Hybrid model which can be trained from data. """
 
     # Get the BN matrix.
-    Ng = tworeac_parameters['Ng'] 
-    Nu = tworeac_parameters['Nu']
-    Ny = tworeac_parameters['Ny']
-    BN = np.ones((3, 2))
+#    Ng = tworeac_parameters['Ng'] 
+#    Nu = tworeac_parameters['Nu']
+#    Ny = tworeac_parameters['Ny']
+#    BN = np.ones((3, 2))
 
     # Get the black-box layers.
-    fnn_layers = []
-    for dim in fnn_dims[1:]:
-        fnn_layers.append(tf.keras.layers.Dense(dim, 
-                                    activation='relu'))
+#    fnn_layers = []
+#    for dim in fnn_dims[1:]:
+#        fnn_layers.append(tf.keras.layers.Dense(dim, 
+#                                    activation='relu'))
     # Get the initial states.
     #xG0 = threereac_parameters['xs'][np.newaxis, (0, 2, 3)]
     #xG0 = np.repeat(xG0, 32, axis=0)
@@ -155,4 +176,4 @@ def get_tworeac_model(*, tworeac_parameters, fnn_dims):
     #model = tf.keras.Model(model_input, model_output)
     #model.layers[0].initial_states = [x0]
     # Return the model.
-    return model
+#    return model
