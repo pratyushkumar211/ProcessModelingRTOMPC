@@ -33,7 +33,7 @@ class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
     def output_size(self):
         return self.Ny        
 
-    def _compute_fg(self, x, u):
+    def _fg(self, x, u):
         """ Function to compute the 
             derivative (RHS of the ODE)
             for the two reaction model. """
@@ -66,7 +66,7 @@ class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
         # Return the derivative.
         return tf.concat((dCabydt, dCdbydt, dCcbydt), axis=-1)
 
-    def _compute_fnn(self, yseq, useq):
+    def _fnn(self, yseq, useq):
         """ Compute the output of the feedforward network. """
         fnn_output = tf.concat((yseq, useq), axis=-1)
         for layer in self.fnn_layers:
@@ -75,6 +75,8 @@ class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
 
     def call(self, inputs, states):
         """ Call function of the hybrid RNN cell.
+            Dimension of xG: (None, Ng)
+            Dimension of u: (None, Nu)
             Dimension of yseq: (None, (Np-1)*p*2)
             Dimension of useq: (None, (Np-1)*m*2)
         """
@@ -83,22 +85,41 @@ class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
         [u, yseq, useq] = inputs
         Delta = self.threereac_parameters['sample_time']
 
-        # Get the output (all the grey-box states).
+        # Write-down the RK4 step for the NN grey-box augmentation.
+        yseq_fnn = tf.concat((xG, yseq), axis=-1)
+        k1 = self._fg(xG, u) + self._fnn(yseq_fnn, useq)
+
+        yseq_interp = self.interp_layer(yseq_fnn)
+        yseq_fnn = tf.concat((xG + Delta*(k1/2), yseq_interp), axis=-1)
+        k2 = self._fg(xG + Delta*(k1/2), u) + self._fnn(yseq_fnn, useq)
+        
+        yseq_fnn = tf.concat((xG + Delta*(k2/2), yseq_interp), axis=-1)
+        k3 = self._fg(xG + Delta*(k2/2), u) + self._fnn(yseq_fnn, useq)
+        
+        yseq_fnn = tf.concat((xG + Delta*k3, yseq_interp), axis=-1)
+        k4 = self._fg(xG + Delta*k3, u) + self._fnn(yseq_fnn, useq)
+        
+        # Get the current output/state and the next time step.
         y = xG
-
-        # Write-down the RK4 step and NN Grey-box augmentation.
-        k1 = self._tworeac_greybox_ode(xG, u)
-        k2 = self._tworeac_greybox_ode(tf.math.add(xG, Delta*(k1/2)), u)
-        k3 = self._tworeac_greybox_ode(tf.math.add(xG, Delta*(k2/2)), u)
-        k4 = self._tworeac_greybox_ode(tf.math.add(xG, Delta*k3), u)
-        xGplus = tf.math.add(k1, tf.math.add(2*k2, tf.math.add(2*k3, k4)))
-        xGplus = tf.math.add(xG, (Delta/6)*xGplus)
-
-        # Concatenate to get all the states.
-        xplus = tf.concat((xGplus, dNplus), axis=-1)
+        xGplus = xG + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
 
         # Return output and states at the next time-step.
-        return (y, xplus)
+        return (y, xGplus)
+
+class InterpolationLayer(tf.keras.layers.Dense):
+    """
+    RNN Cell
+    dxG/dt  = fG(xG, u) + f_{NN}(y_{k+1-N_p:k}, u_{k+1-N_p:k-1}), y = xG
+    """
+    def __init__(self, Ng, Ny, fnn_layers, 
+                       tworeac_parameters, **kwargs):
+        self.Ng = Ng
+
+    def call(self):
+        """ The main call function of the interpolation layer. """
+
+        return
+
 
 def get_tworeac_model(*, tworeac_parameters, fnn_dims):
     """ Get the Hybrid model which can be trained from data. """
