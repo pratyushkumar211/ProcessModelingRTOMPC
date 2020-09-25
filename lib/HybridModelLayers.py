@@ -74,14 +74,17 @@ class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
         return fnn_output
 
     def call(self, inputs, states):
-        """ Call function of the hybrid RNN cell."""
-
+        """ Call function of the hybrid RNN cell.
+            Dimension of yseq: (None, (Np-1)*p*2)
+            Dimension of useq: (None, (Np-1)*m*2)
+        """
+        # Extract important variables.
         [xG] = states
         [u, yseq, useq] = inputs
         Delta = self.threereac_parameters['sample_time']
 
-        # Get the current output.
-        y = xG[..., -1:]
+        # Get the output (all the grey-box states).
+        y = xG
 
         # Write-down the RK4 step and NN Grey-box augmentation.
         k1 = self._tworeac_greybox_ode(xG, u)
@@ -97,45 +100,38 @@ class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
         # Return output and states at the next time-step.
         return (y, xplus)
 
-def get_threereac_model(*, threereac_parameters, bb_dims):
+def get_tworeac_model(*, tworeac_parameters, fnn_dims):
     """ Get the Hybrid model which can be trained from data. """
 
     # Get the BN matrix.
-    Nx = threereac_parameters['Nx'] - 1
-    Nu = threereac_parameters['Nu']
-    Ny = threereac_parameters['Ny']
-    Nb = bb_dims[-1]
+    Ng = tworeac_parameters['Ng'] 
+    Nu = tworeac_parameters['Nu']
+    Ny = tworeac_parameters['Ny']
     BN = np.ones((3, 2))
-    #BN = np.array([[0., 0.], 
-    #               [1., 1.], 
-    #               [0., 1.]])
 
     # Get the black-box layers.
-    bb_layers = []
-    for dim in bb_dims[1:]:
-        bb_layers.append(tf.keras.layers.Dense(dim, 
+    fnn_layers = []
+    for dim in fnn_dims[1:]:
+        fnn_layers.append(tf.keras.layers.Dense(dim, 
                                     activation='relu'))
-                        #kernel_initializer=tf.keras.initializers.Zeros(),
-                        #    bias_initializer='zeros'))
-
     # Get the initial states.
-    xG0 = threereac_parameters['xs'][np.newaxis, (0, 2, 3)]
-    xG0 = np.repeat(xG0, 32, axis=0)
-    xG0 = tf.constant(xG0, shape=xG0.shape)
-    dN0 = np.zeros((32, Nb))
-    dN0 = tf.constant(dN0, shape=dN0.shape)
-    x0 = tf.concat((xG0, dN0), axis=-1)
+    #xG0 = threereac_parameters['xs'][np.newaxis, (0, 2, 3)]
+    #xG0 = np.repeat(xG0, 32, axis=0)
+    #xG0 = tf.constant(xG0, shape=xG0.shape)
+    #dN0 = np.zeros((32, Nb))
+    #dN0 = tf.constant(dN0, shape=dN0.shape)
+    #x0 = tf.concat((xG0, dN0), axis=-1)
 
     # Get instances of the RNN cell and layer.
-    HybridCell = ThreeReacHybridCell(Nx, Nb, Ny, BN, 
-                                     bb_layers, threereac_parameters)
-    HybridLayer = tf.keras.layers.RNN(HybridCell, 
-                                      return_sequences=True)
+    #HybridCell = ThreeReacHybridCell(Nx, Nb, Ny, BN, 
+    #                                 bb_layers, threereac_parameters)
+    #HybridLayer = tf.keras.layers.RNN(HybridCell, 
+    #                                  return_sequences=True)
     
     # Create a sequential model and compute the output.
-    model_input = tf.keras.Input(name='u', shape=(None, Nu))
-    model_output = HybridLayer(inputs=model_input)
-    model = tf.keras.Model(model_input, model_output)
-    model.layers[0].initial_states = [x0]
+    #model_input = tf.keras.Input(name='u', shape=(None, Nu))
+    #model_output = HybridLayer(inputs=model_input)
+    #model = tf.keras.Model(model_input, model_output)
+    #model.layers[0].initial_states = [x0]
     # Return the model.
     return model
