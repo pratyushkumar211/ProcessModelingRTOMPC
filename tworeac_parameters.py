@@ -60,9 +60,9 @@ def _get_tworeac_parameters():
     
     # Parameters.
     parameters = {}
-    parameters['k1'] = 1 # m^3/min.
-    parameters['k2'] = 1e-2 # m^3/min.
-    parameters['k3'] = 1e-3 # m^3/min.
+    parameters['k1'] = 1. # m^3/min.
+    parameters['k2'] = 1e-1 # m^3/min.
+    parameters['k3'] = 2e-1 # m^3/min.
 
     #parameters['tau'] = 2. # m^3 
     #parameters['k3'] = 0.05 # m^3/min.
@@ -84,13 +84,16 @@ def _get_tworeac_parameters():
     # Get the steady states.
     parameters['xs'] = np.array([1., 0.5, 0.5]) # to be updated.
     parameters['us'] = np.array([1.]) # Ca0s
-    parameters['ps'] = np.array([20.]) # tau # min.
+    parameters['ps'] = np.array([5.]) # tau (min)
 
     # Get the constraints. 
     ulb = np.array([0.5])
     uub = np.array([2.5])
     parameters['lb'] = dict(u=ulb)
     parameters['ub'] = dict(u=uub)
+
+    # Number of time-steps to keep the plant at steady.
+    parameters['tsteps_steady'] = 60
 
     # Measurement noise.
     parameters['Rv'] = 1e-20*np.array([[1e-4]])
@@ -149,33 +152,40 @@ def _get_tworeac_model(*, parameters, plant=True):
                                     sample_time = parameters['sample_time'], 
                                         x0 = xs)
 
-def _generate_training_data(*, parameters, 
-                               num_trajectories, Nsim, seed):
+def _get_train_val_data(*, parameters,
+                           num_traj, Nsim, seed):
     """ Simulate the plant model 
         and generate training and validation data."""
     # Get the data list.
-    datum = []
+    data_list = []
+    Ng = parameters['Ng']
     ulb = parameters['lb']['u']
     uub = parameters['ub']['u']
+    tsteps_steady = parameters['tsteps_steady']
     p = parameters['ps'][:, np.newaxis]
     xs = parameters['xs'][:, np.newaxis]
-    for _ in range(num_trajectories):
+    for _ in range(num_traj):
         plant = _get_tworeac_model(parameters=parameters, plant=True)
-        u = sample_prbs_like(num_change=3, num_steps=Nsim, 
+        us_init = np.tile(np.random.uniform(ulb, uub), (tsteps_steady, 1))
+        u = sample_prbs_like(num_change=9, num_steps=Nsim, 
                              lb=ulb, ub=uub,
-                             mean_change=120, sigma_change=2, seed=seed+1)
+                             mean_change=40, sigma_change=2, seed=seed+1)
+        u = np.concatenate((us_init, u), axis=0)
         # Run the open-loop simulation.
-        for t in range(Nsim):
+        for t in range(tsteps_steady + Nsim):
             plant.step(u[t:t+1, :], p)
-        datum.append(PlantSimData(time=np.asarray(plant.t[0:-1]).squeeze(),
-                Ca=np.asarray(plant.y[0:-1]).squeeze()[:, 0],
-                Cb=np.asarray(plant.y[0:-1]).squeeze()[:, 1],
-                Cc=np.asarray(plant.x[0:-1]).squeeze()[:, 2],
-                Ca0=np.asarray(plant.u).squeeze()))
+        xseq = np.asarray(plant.x[0:-1]).squeeze()
+        yseq = np.asarray(plant.y[0:-1]).squeeze()
+        data_list.append(PlantSimData(time=np.asarray(plant.t[0:-1]).squeeze(),
+                Ca=yseq[:, 0],
+                Cb=yseq[:, 1],
+                Cc=xseq[:, 2],
+                xgs_init=xseq[tsteps_steady, :Ng][:, np.newaxis],
+                Ca0=u.squeeze()))
     # Return the data list.
-    return datum
+    return data_list
 
-def _get_greybox_validation_predictions(*, parameters, training_data):
+def _get_greybox_val_preds(*, parameters, training_data):
     """ Use the input profile to compute 
         the prediction of the grey-box model
         on the validation data. """
@@ -192,7 +202,7 @@ def _get_greybox_validation_predictions(*, parameters, training_data):
                 Ca0=np.asarray(model.u).squeeze())
     return data
 
-def _check_cont_time_obsv(*, parameters):
+def _check_observability(*, parameters):
     """ Check the observability of the continuous time linear system. """
     # Measurement matrix for the plant.
     C = np.array([[1., 0., 0.], 
@@ -211,18 +221,21 @@ def _check_cont_time_obsv(*, parameters):
     return
 
 def main():
-    """Compute parameters for the three reactions."""
+    """ Get the parameters/training/validation data."""
+    # Get parameters.
     parameters = _get_tworeac_parameters()
     parameters['xs'] = _get_tworeac_rectified_xs(parameters=parameters)
-    _check_cont_time_obsv(parameters=parameters)
-    training_data = _generate_training_data(parameters=parameters, 
-                                        num_trajectories=1, Nsim=360, seed=1)
-    greybox_validation_data = _get_greybox_validation_predictions(parameters=
+    # Check observability.
+    _check_observability(parameters=parameters)
+    # Generate training data.
+    training_data = _get_train_val_data(parameters=parameters, 
+                                        num_traj=1, Nsim=360, seed=1)
+    greybox_val_data = _get_greybox_val_preds(parameters=
                                             parameters, 
                                             training_data=training_data)
     tworeac_parameters = dict(parameters=parameters, 
                                 training_data=training_data,
-                                greybox_validation_data=greybox_validation_data)
+                                greybox_validation_data=greybox_val_data)
     # Save data.
     PickleTool.save(data_object=tworeac_parameters, 
                     filename='tworeac_parameters.pickle')
