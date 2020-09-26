@@ -10,8 +10,7 @@ import mpctools as mpc
 import numpy as np
 import collections
 from hybridid import (PickleTool, NonlinearPlantSimulator, 
-                      sample_prbs_like, ModelSimData,
-                      PlantSimData)
+                      sample_prbs_like, SimData)
 
 def _tworeac_plant_ode(x, u, p, parameters):
     """ Simple ODE describing a 2D system. """
@@ -152,7 +151,7 @@ def _get_tworeac_model(*, parameters, plant=True):
                                     sample_time = parameters['sample_time'], 
                                         x0 = xs)
 
-def _get_train_val_data(*, parameters,
+def _gen_train_val_data(*, parameters,
                            num_traj, Nsim, seed):
     """ Simulate the plant model 
         and generate training and validation data."""
@@ -174,14 +173,10 @@ def _get_train_val_data(*, parameters,
         # Run the open-loop simulation.
         for t in range(tsteps_steady + Nsim):
             plant.step(u[t:t+1, :], p)
-        xseq = np.asarray(plant.x[0:-1]).squeeze()
-        yseq = np.asarray(plant.y[0:-1]).squeeze()
-        data_list.append(PlantSimData(time=np.asarray(plant.t[0:-1]).squeeze(),
-                Ca=yseq[:, 0],
-                Cb=yseq[:, 1],
-                Cc=xseq[:, 2],
-                xgs_init=xseq[tsteps_steady, :Ng][:, np.newaxis],
-                Ca0=u.squeeze()))
+        data_list.append(SimData(time=np.asarray(plant.t[0:-1]).squeeze(),
+                x=np.asarray(plant.x[0:-1]).squeeze(),
+                u=np.asarray(plant.u).squeeze(),
+                y=np.asarray(plant.y[0:-1]).squeeze()))
     # Return the data list.
     return data_list
 
@@ -196,10 +191,10 @@ def _get_greybox_val_preds(*, parameters, training_data):
    # Run the open-loop simulation.
     for t in range(Nsim):
         model.step(u[t:t+1, :], p)
-    data = ModelSimData(time=np.asarray(model.t[0:-1]).squeeze(),
-                Ca=np.asarray(model.x[0:-1]).squeeze()[:, 0],
-                Cb=np.asarray(model.x[0:-1]).squeeze()[:, 1],
-                Ca0=np.asarray(model.u).squeeze())
+    data = SimData(time=np.asarray(model.t[0:-1]).squeeze(),
+                x=np.asarray(model.x[0:-1]).squeeze(),
+                u=np.asarray(model.u).squeeze(),
+                y=np.asarray(model.y[0:-1]).squeeze())
     return data
 
 def _check_observability(*, parameters):
@@ -228,14 +223,14 @@ def main():
     # Check observability.
     _check_observability(parameters=parameters)
     # Generate training data.
-    training_data = _get_train_val_data(parameters=parameters, 
+    training_data = _gen_train_val_data(parameters=parameters, 
                                         num_traj=1, Nsim=360, seed=1)
     greybox_val_data = _get_greybox_val_preds(parameters=
                                             parameters, 
                                             training_data=training_data)
     tworeac_parameters = dict(parameters=parameters, 
-                                training_data=training_data,
-                                greybox_validation_data=greybox_val_data)
+                              training_data=training_data,
+                              greybox_validation_data=greybox_val_data)
     # Save data.
     PickleTool.save(data_object=tworeac_parameters, 
                     filename='tworeac_parameters.pickle')
