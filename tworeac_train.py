@@ -40,7 +40,7 @@ def train_model(model, train_data, trainval_data, val_data,
     tstart = time.time()
     model.fit(x=[train_data['inputs'], train_data['x0']], 
               y=train_data['outputs'], 
-            epochs=300, batch_size=32,
+            epochs=1000, batch_size=32,
             validation_data = ([trainval_data['inputs'], trainval_data['x0']], 
                                 trainval_data['outputs']),
             callbacks = [checkpoint_callback])
@@ -63,7 +63,7 @@ def main():
                                          type='read')
     # Create the hybrid model.
     Np = 3
-    fnn_dims = [14, 2]
+    fnn_dims = [8, 6, 6, 2]
     tworeac_model = create_tworeac_model(Np=Np, fnn_dims=fnn_dims,
                     tworeac_parameters=tworeac_parameters['parameters'])
     # Get the training data.

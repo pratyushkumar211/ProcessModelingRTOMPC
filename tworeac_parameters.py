@@ -26,7 +26,7 @@ def _tworeac_plant_ode(x, u, p, parameters):
 
     # Write the ODEs.
     dCabydt = (Ca0-Ca)/tau - k1*Ca
-    dCbbydt = k1*Ca - k2*Cb + k3*Cc - Cb/tau
+    dCbbydt = k1*Ca - 3*k2*(Cb**3) + k3*Cc - Cb/tau
     dCcbydt = k2*Cb - k3*Cc - Cc/tau
 
     # Return the derivative.
@@ -60,8 +60,8 @@ def _get_tworeac_parameters():
     # Parameters.
     parameters = {}
     parameters['k1'] = 1. # m^3/min.
-    parameters['k2'] = 1e-1 # m^3/min.
-    parameters['k3'] = 2e-1 # m^3/min.
+    parameters['k2'] = 0.3 # m^3/min.
+    parameters['k3'] = 0.2 # m^3/min.
 
     #parameters['tau'] = 2. # m^3 
     #parameters['k3'] = 0.05 # m^3/min.
@@ -78,7 +78,7 @@ def _get_tworeac_parameters():
     parameters['Np'] = 1
 
     # Sample time.
-    parameters['sample_time'] = 1. # min.
+    parameters['sample_time'] = 0.5 # min.
 
     # Get the steady states.
     parameters['xs'] = np.array([1., 0.5, 0.5]) # to be updated.
@@ -92,10 +92,10 @@ def _get_tworeac_parameters():
     parameters['ub'] = dict(u=uub)
 
     # Number of time-steps to keep the plant at steady.
-    parameters['tsteps_steady'] = 60
+    parameters['tsteps_steady'] = 120
 
     # Measurement noise.
-    parameters['Rv'] = np.diag([1e-4, 1e-3])
+    parameters['Rv'] = 0*np.diag([1e-4, 1e-3])
 
     # Return the parameters dict.
     return parameters
@@ -168,7 +168,7 @@ def _gen_train_val_data(*, parameters,
         us_init = np.tile(np.random.uniform(ulb, uub), (tsteps_steady, 1))
         u = sample_prbs_like(num_change=3, num_steps=Nsim, 
                              lb=ulb, ub=uub,
-                             mean_change=40, sigma_change=2, seed=seed+1)
+                             mean_change=80, sigma_change=2, seed=seed+1)
         u = np.concatenate((us_init, u), axis=0)
         # Run the open-loop simulation.
         for t in range(tsteps_steady + Nsim):
@@ -225,7 +225,7 @@ def main():
     _check_observability(parameters=parameters)
     # Generate training data.
     training_data = _gen_train_val_data(parameters=parameters, 
-                                        num_traj=34, Nsim=120, seed=1)
+                                        num_traj=66, Nsim=240, seed=1)
     greybox_val_data = _get_greybox_val_preds(parameters=
                                             parameters, 
                                             training_data=training_data)
