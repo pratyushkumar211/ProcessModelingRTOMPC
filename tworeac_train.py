@@ -4,41 +4,29 @@
 
 import sys
 sys.path.append('lib/')
-import time
 import tensorflow as tf
+import time
 import numpy as np
-from hybridid import PickleTool
+from hybridid import (PickleTool, get_tworeac_train_val_data, 
+                      SimData)
 from HybridModelLayers import TwoReacModel
 
 # Set the tensorflow graph-level seed.
 tf.random.set_seed(1)
 
 def create_tworeac_model(*, Np, fnn_dims, tworeac_parameters):
-    """ Create/compile the two reaction model for training."""
+    """ Create/compile the two reaction model for training. """
     tworeac_model = TwoReacModel(Np=Np,
                                  fnn_dims=fnn_dims,
                                  tworeac_parameters=tworeac_parameters)
     # Compile the nn controller.
     tworeac_model.compile(optimizer='adam', 
-                         loss='mean_squared_error')
-    breakpoint()
+                          loss='mean_squared_error')
     # Return the compiled model.
     return tworeac_model
 
-#def get_data_for_training(*, train_val_datum, num_batches=32):
-#    """ Get the data for training. """
-#    inputs, outputs = [], []
-#    for i in range(num_batches):
-#        inputs += [train_val_datum[i].Ca0[np.newaxis, :, np.newaxis]]
-#        outputs += [train_val_datum[i].Cc[np.newaxis, :, np.newaxis]]
-#    train_data = dict(u=np.concatenate(inputs, axis=0),
-#                      y=np.concatenate(outputs, axis=0))
-#    trainval_data = dict(u=train_val_datum[32].Ca0[np.newaxis, :, np.newaxis],
-#                         y=train_val_datum[32].Cc[np.newaxis, :, np.newaxis])
-#    return (train_data, trainval_data)
-
-def train_nn_controller(hybrid_model, train_data, trainval_data, 
-                        stdout_filename, ckpt_path):
+def train_model(model, train_data, trainval_data, val_data,
+                stdout_filename, ckpt_path):
     """ Function to train the NN controller."""
     # Std out.
     sys.stdout = open(stdout_filename, 'w')
@@ -50,55 +38,50 @@ def train_nn_controller(hybrid_model, train_data, trainval_data,
                                                     verbose=1)
     # Call the fit method to train.
     tstart = time.time()
-    hybrid_model.fit(x=[train_data['u']], 
-                      y=train_data['y'], 
-                epochs=5, batch_size=32,
-                validation_data = ([trainval_data['u']], trainval_data['y']),
-                callbacks = [checkpoint_callback])
-    breakpoint()
+    model.fit(x=[train_data['inputs'], train_data['x0']], 
+              y=train_data['outputs'], 
+            epochs=300, batch_size=32,
+            validation_data = ([trainval_data['inputs'], trainval_data['x0']], 
+                                trainval_data['outputs']),
+            callbacks = [checkpoint_callback])
     tend = time.time()
     training_time = tend - tstart
-    # Return the NN controller.
-    return (hybrid_model, training_time)
+    
+    # Get predictions on validation data.
+    model.load_weights(ckpt_path)
+    model_predictions = model.predict(x=[val_data['inputs'], val_data['x0']])
+    val_predictions = SimData(t=None, x=None, u=None,
+                              y=model_predictions.squeeze())
 
-#def get_prediction_data(hybrid_model, val_data, 
-#                        train_val_datum):
-#    """ Predict for plotting. """
-#    pred = hybrid_model.predict(x=[val_data['u']]).squeeze()
-#    return ModelSimData(time=train_val_datum[2].time, 
-#                Ca=train_val_datum[2].Ca, Cc=pred, 
-#                Cd=train_val_datum[2].Cd,
-#                Ca0=train_val_datum[2].Ca0)
+    # Return the NN controller.
+    return (model, training_time, val_predictions)
 
 def main():
     """ Main function to be executed. """
-
     # Load data.
     tworeac_parameters = PickleTool.load(filename='tworeac_parameters.pickle',
                                          type='read')
     # Create the hybrid model.
-    Np = 5
-    fnn_dims = [14, 64, 64, 2]
-    hybrid_model = create_tworeac_model(Np=Np, fnn_dims=fnn_dims,
+    Np = 3
+    fnn_dims = [14, 2]
+    tworeac_model = create_tworeac_model(Np=Np, fnn_dims=fnn_dims,
                     tworeac_parameters=tworeac_parameters['parameters'])
-    breakpoint()
     # Get the training data.
-    (train_data, 
-        trainval_data) = get_data_for_training(train_val_datum=
-                                    threereac_parameters['train_val_datum'])
-    (hybrid_model, training_time) = train_nn_controller(hybrid_model, 
-                                             train_data, trainval_data, 
-                                            'threereac_train.txt', 
-                                            'threereac_train.ckpt')
-    hybrid_model.load_weights('threereac_train.ckpt')
-    bb_weights = hybrid_model.get_weights()
-    #hybrid_pred = get_prediction_data(hybrid_model, val_data, 
-    #                                  threereac_parameters['train_val_datum'])
+    (train_data, trainval_data, val_data) = get_tworeac_train_val_data(Np=Np,
+                                parameters=tworeac_parameters['parameters'],
+                                data_list=tworeac_parameters['training_data'])
+    (tworeac_model, training_time, 
+          val_predictions) = train_model(tworeac_model, 
+                                         train_data, trainval_data, val_data,
+                                         'tworeac_train.txt', 
+                                         'tworeac_train.ckpt')
+    fnn_weights = tworeac_model.get_weights()
     # Save the weights.
-    threereac_training_data = dict(bb_weights=bb_weights,
-                        training_time=training_time)
+    tworeac_training_data = dict(fnn_weights=fnn_weights,
+                                   val_predictions=val_predictions,
+                                   training_time=training_time)
     # Save data.
-    PickleTool.save(data_object=threereac_training_data, 
-                    filename='threereac_train.pickle')
+    PickleTool.save(data_object=tworeac_training_data, 
+                    filename='tworeac_train.pickle')
 
 main()

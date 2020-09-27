@@ -16,11 +16,8 @@ FIGURE_SIZE_A4 = (9, 10)
 PRESENTATION_FIGSIZE = (6, 6)
 PAPER_FIGSIZE = (4, 4)
 
-PlantSimData = collections.namedtuple('PlantSimData', 
-                    ['time', 'Ca', 'Cb', 'Cc', 'Ca0'])
-
-ModelSimData = collections.namedtuple('ModelSimData', 
-                    ['time', 'Ca', 'Cb', 'Ca0'])
+SimData = collections.namedtuple('SimData', 
+                                ['t', 'x', 'u', 'y'])
 
 class PickleTool:
     """Class which contains a few static methods for saving and
@@ -107,3 +104,36 @@ def sample_prbs_like(*, num_change, num_steps,
     repeat = _sample_repeats(num_change, num_steps,
                              mean_change, sigma_change)
     return np.repeat(values, repeat, axis=0)
+
+def get_tworeac_train_val_data(*, Np, parameters, data_list):
+    """ Get the data for training in appropriate format. """
+    tsteps_steady = parameters['tsteps_steady']
+    (Ny, Nu) = (parameters['Ny'], parameters['Nu'])
+    Nsim = len(data_list[0].t)
+    Ntrain = Nsim - tsteps_steady
+    (inputs, x0, outputs) = ([], [], [])
+    for data in data_list:
+        u_traj = data.u[tsteps_steady:][np.newaxis, :, np.newaxis]
+        x0_traj = data.y[tsteps_steady, :][np.newaxis, :]
+        y_traj = data.y[tsteps_steady:, :][np.newaxis, ...]
+        (ypseq_traj, upseq_traj) = ([], [])
+        for t in range(tsteps_steady, Nsim):
+            ypseq = data.y[t+1-Np:t, :][::-1, :].reshape((Np-1)*Ny, )
+            upseq = data.u[t+1-Np:t][::-1]
+            ypseq_traj.append(ypseq)
+            upseq_traj.append(upseq)
+        ypseq_traj = np.asarray(ypseq_traj)[np.newaxis, ...]
+        upseq_traj = np.asarray(upseq_traj)[np.newaxis, ...]
+        # Collect the trajectories in list. 
+        inputs.append(np.concatenate((u_traj, ypseq_traj, upseq_traj), axis=-1))
+        x0.append(x0_traj)
+        outputs.append(y_traj)
+    # Get the training and validation data for training in compact dicts.
+    train_data = dict(inputs=np.concatenate(inputs[:-2], axis=0),
+                      x0=np.concatenate(x0[:-2], axis=0),
+                      outputs=np.concatenate(outputs[:-2], axis=0))
+    trainval_data = dict(inputs=inputs[-2], x0=x0[-2],
+                         outputs=outputs[-2])
+    val_data = dict(inputs=inputs[-1], x0=x0[-1],
+                    outputs=outputs[-1])
+    return (train_data, trainval_data, val_data)

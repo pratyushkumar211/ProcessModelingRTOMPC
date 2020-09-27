@@ -25,9 +25,9 @@ def plot_training_data(*, training_data, plot_range,
                r'$C_b \ (\textnormal{mol/m}^3)$', 
                r'$C_c \ (\textnormal{mol/m}^3)$',
                r'$C_{a0} \ (\textnormal{mol/m}^3)$']
-    time = training_data.time/60
-    data_list = [training_data.Ca, training_data.Cb, 
-                 training_data.Cc, training_data.Ca0]
+    time = training_data.t/60
+    data_list = [training_data.y[:, 0], training_data.y[:, 1], 
+                 training_data.x[:, 2], training_data.u]
     for (axes, data, ylabel) in zip(axes_array, data_list, ylabels):
         if ylabel in [r'$C_a \ (\textnormal{mol/m}^3)$' , 
                       r'$C_b \ (\textnormal{mol/m}^3)$']:
@@ -44,6 +44,7 @@ def plot_training_data(*, training_data, plot_range,
 
 def plot_val_model_predictions(*, plantsim_data, 
                                   modelsim_datum, plot_range,
+                                  tsteps_steady,
                                   figure_size=PAPER_FIGSIZE,
                                   ylabel_xcoordinate=-0.1, 
                                   linewidth=0.8, 
@@ -56,15 +57,16 @@ def plot_val_model_predictions(*, plantsim_data,
     ylabels = [r'$C_A \ (\textnormal{mol/m}^3)$', 
                r'$C_B \ (\textnormal{mol/m}^3)$',
                r'$C_{A0} \ (\textnormal{mol/m}^3)$']
-    model_legend_colors = ['g']
+    model_legend_colors = ['g', 'm']
     legend_handles = []
-    plant_data_list = [plantsim_data.Ca, plantsim_data.Cb, 
-                       plantsim_data.Ca0]
+    plant_data_list = [plantsim_data.y[tsteps_steady:, 0], 
+                       plantsim_data.y[tsteps_steady:, 1], 
+                       plantsim_data.u[tsteps_steady:]]
     for (modelsim_data, 
          model_legend_color) in zip(modelsim_datum, model_legend_colors):
-        time = modelsim_data.time/60
-        model_data_list = [modelsim_data.Ca, modelsim_data.Cb, 
-                           modelsim_data.Ca0]
+        time = plantsim_data.t[tsteps_steady:]/60
+        model_data_list = [modelsim_data.y[:, 0], modelsim_data.y[:, 1], 
+                           plantsim_data.u[tsteps_steady:]]
         for (axes, plantdata, 
              modeldata, ylabel) in zip(axes_array, plant_data_list, 
                                        model_data_list, ylabels):
@@ -84,7 +86,7 @@ def plot_val_model_predictions(*, plantsim_data,
     axes.set_xlabel('Time (hr)')
     axes.set_xlim([np.min(time), np.max(time)])
     figure.legend(handles = legend_handles,
-                  labels = ('Plant', 'Grey-box'), 
+                  labels = ('Plant', 'Grey-box', 'Hybrid-Model'), 
                   loc = (0.3, 0.9), ncol=2)
     # Return the figure object.
     return [figure]
@@ -98,19 +100,21 @@ def plot_val_model_predictions(*, plantsim_data,
 def main():
     """ Load the pickle file and plot. """
     tworeac_parameters = PickleTool.load(filename=
-                                       "tworeac_parameters.pickle", 
-                                       type='read')
-    #threereac_train = PickleTool.load(filename=
-    #                                   "threereac_train.pickle", 
-    #                                  type='read')
+                                         "tworeac_parameters.pickle", 
+                                         type='read')
+    tworeac_train = PickleTool.load(filename=
+                                    "tworeac_train.pickle", 
+                                    type='read')
     figures = []
     figures += plot_training_data(training_data=
                                   tworeac_parameters['training_data'][0], 
-                                  plot_range=(0, 7*60))
+                                  plot_range=(0, 3*60))
     figures += plot_val_model_predictions(plantsim_data=
                                   tworeac_parameters['training_data'][-1],
-            modelsim_datum=[tworeac_parameters['greybox_validation_data']],
-                    plot_range=(0, 7*60))
+            modelsim_datum=[tworeac_parameters['greybox_validation_data'], 
+                            tworeac_train['val_predictions']],
+                    plot_range=(0, 2*60), 
+                tsteps_steady=tworeac_parameters['parameters']['tsteps_steady'])
     with PdfPages('tworeac_plots.pdf', 
                   'w') as pdf_file:
         for fig in figures:

@@ -95,7 +95,7 @@ def _get_tworeac_parameters():
     parameters['tsteps_steady'] = 60
 
     # Measurement noise.
-    parameters['Rv'] = 1e-20*np.array([[1e-4]])
+    parameters['Rv'] = np.diag([1e-4, 1e-3])
 
     # Return the parameters dict.
     return parameters
@@ -143,7 +143,7 @@ def _get_tworeac_model(*, parameters, plant=True):
         xs = parameters['xs'][:-1, np.newaxis]
         return NonlinearPlantSimulator(fxup = tworeac_greybox_ode,
                                         hx = _tworeac_measurement,
-                                        Rv = parameters['Rv'], 
+                                        Rv = 0*np.eye(parameters['Ny']), 
                                         Nx = parameters['Ng'], 
                                         Nu = parameters['Nu'], 
                                         Np = parameters['Np'], 
@@ -166,14 +166,14 @@ def _gen_train_val_data(*, parameters,
     for _ in range(num_traj):
         plant = _get_tworeac_model(parameters=parameters, plant=True)
         us_init = np.tile(np.random.uniform(ulb, uub), (tsteps_steady, 1))
-        u = sample_prbs_like(num_change=9, num_steps=Nsim, 
+        u = sample_prbs_like(num_change=3, num_steps=Nsim, 
                              lb=ulb, ub=uub,
                              mean_change=40, sigma_change=2, seed=seed+1)
         u = np.concatenate((us_init, u), axis=0)
         # Run the open-loop simulation.
         for t in range(tsteps_steady + Nsim):
             plant.step(u[t:t+1, :], p)
-        data_list.append(SimData(time=np.asarray(plant.t[0:-1]).squeeze(),
+        data_list.append(SimData(t=np.asarray(plant.t[0:-1]).squeeze(),
                 x=np.asarray(plant.x[0:-1]).squeeze(),
                 u=np.asarray(plant.u).squeeze(),
                 y=np.asarray(plant.y[0:-1]).squeeze()))
@@ -185,16 +185,17 @@ def _get_greybox_val_preds(*, parameters, training_data):
         the prediction of the grey-box model
         on the validation data. """
     model = _get_tworeac_model(parameters=parameters, plant=False)
+    tsteps_steady = parameters['tsteps_steady']
     p = parameters['ps'][:, np.newaxis]
-    u = training_data[-1].Ca0[:, np.newaxis]
+    u = training_data[-1].u[:, np.newaxis]
     Nsim = u.shape[0]
-   # Run the open-loop simulation.
+    # Run the open-loop simulation.
     for t in range(Nsim):
         model.step(u[t:t+1, :], p)
-    data = SimData(time=np.asarray(model.t[0:-1]).squeeze(),
-                x=np.asarray(model.x[0:-1]).squeeze(),
-                u=np.asarray(model.u).squeeze(),
-                y=np.asarray(model.y[0:-1]).squeeze())
+    data = SimData(t=None,
+                   x=None,
+                   u=None,
+                   y=np.asarray(model.y[tsteps_steady:-1]).squeeze())
     return data
 
 def _check_observability(*, parameters):
@@ -224,7 +225,7 @@ def main():
     _check_observability(parameters=parameters)
     # Generate training data.
     training_data = _gen_train_val_data(parameters=parameters, 
-                                        num_traj=1, Nsim=360, seed=1)
+                                        num_traj=34, Nsim=120, seed=1)
     greybox_val_data = _get_greybox_val_preds(parameters=
                                             parameters, 
                                             training_data=training_data)
