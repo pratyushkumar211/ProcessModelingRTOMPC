@@ -9,7 +9,7 @@ sys.path.append('lib/')
 import mpctools as mpc
 import numpy as np
 from hybridid import (PickleTool, NonlinearPlantSimulator, 
-                      sample_prbs_like, SimData)
+                      c2d, sample_prbs_like, SimData)
 
 def _tworeac_plant_ode(x, u, p, parameters):
     """ Simple ODE describing a 2D system. """
@@ -25,7 +25,7 @@ def _tworeac_plant_ode(x, u, p, parameters):
 
     # Write the ODEs.
     dCabydt = (Ca0-Ca)/tau - k1*Ca
-    dCbbydt = k1*Ca - 3*k2*(Cb**3) + k3*Cc - Cb/tau
+    dCbbydt = k1*Ca - k2*Cb + k3*Cc - Cb/tau
     dCcbydt = k2*Cb - k3*Cc - Cc/tau
 
     # Return the derivative.
@@ -190,24 +190,53 @@ def _get_greybox_val_preds(*, parameters, training_data):
                    y=np.asarray(model.y[tsteps_steady:-1]).squeeze())
     return data
 
+def _get_tB_row(A, B, i):
+    """ Returns the ith row of tB."""
+    (Nx, Nu) = B.shape
+    tBi = [np.linalg.matrix_power(A, i-j-1) @ B 
+                if j<i 
+                else np.zeros((Nx, Nu)) 
+                for j in range(Nx)]
+    return np.concatenate(tBi, axis=1)
+
+def _get_tB(A, B):
+    """ Get the matrix tB to describe the dynamics from 
+        input to state vector. """
+    Nx = A.shape[0]
+    tB = np.concatenate([_get_tB_row(A, B, i) 
+                         for i in range(Nx)])
+    return tB
+
+def _get_Obsv(C, A):
+    Nx = A.shape[0]
+    Obsv = []
+    for i in range(Nx):
+        Obsv.append(C @ np.linalg.matrix_power(A, i))
+    return np.concatenate(Obsv, axis=0)
+
 def _check_obsv_compute_delta(*, parameters):
     """ Check the observability of the original linear system
         and compute the matrix required to predict the correct 
         grey-box state evolution. """
     # Measurement matrix for the plant.
+    Np = parameters['Nx']
+    sample_time = parameters['sample_time']
+    tau = parameters['ps'].squeeze()
     C = np.array([[1., 0., 0.], 
                   [0., 1., 0.]])
-    tau = parameters['ps'][0]
+    # Get the continuous time A/B matrices.
     (k1, k2, k3) = (parameters['k1'], parameters['k2'], parameters['k3'])
     A = np.array([[-k1-(1/tau), 0., 0.], 
-                  [k1, -2*k2 - (1/tau), k3], 
+                  [k1, -k2 - (1/tau), k3], 
                   [0., k2, -k3 -(1/tau)]])
-    Obsv = []
-    for i in range(parameters['Nx']):
-        Obsv.append(C @ np.linalg.matrix_power(A, i))
-    Obsv = np.concatenate(Obsv, axis=0)
+    B = np.array([[1/tau], [0.], [0.]]) 
+    (Ad, Bd) = c2d(A, B, sample_time)
+    Obsv = _get_Obsv(C, Ad)
+    tb = _get_tB(Ad, Bd)
     print("Rank of the continuous time Observability matrix is: " + 
             str(np.linalg.matrix_rank(Obsv))) 
+    delta = np.array([[0., 0., 0.], 
+                      [0., -k2, k3]])
     return
 
 def main():
@@ -228,6 +257,6 @@ def main():
                               greybox_validation_data=greybox_val_data)
     # Save data.
     PickleTool.save(data_object=tworeac_parameters, 
-                    filename='tworeac_parameters.pickle')
+                    filename='tworeac_parameters_lin.pickle')
 
 main()
