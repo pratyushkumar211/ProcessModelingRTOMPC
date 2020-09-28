@@ -87,7 +87,7 @@ def _get_tworeac_parameters():
     parameters['tsteps_steady'] = 60
 
     # Measurement noise.
-    parameters['Rv'] = 0*np.diag([1e-4, 1e-3])
+    parameters['Rv'] = np.diag([1e-4, 1e-3])
 
     # Return the parameters dict.
     return parameters
@@ -162,8 +162,6 @@ def _gen_train_val_data(*, parameters,
         u = np.concatenate((us_init, u), axis=0)
         # Run the open-loop simulation.
         for t in range(tsteps_steady + Nsim):
-            if t == tsteps_steady + 2:
-                breakpoint()
             plant.step(u[t:t+1, :], p)
         data_list.append(SimData(t=np.asarray(plant.t[0:-1]).squeeze(),
                 x=np.asarray(plant.x[0:-1]).squeeze(),
@@ -190,20 +188,20 @@ def _get_greybox_val_preds(*, parameters, training_data):
                    y=np.asarray(model.y[tsteps_steady:-1]).squeeze())
     return data
 
-def _get_tB_row(A, B, i):
+def _get_tB_row(A, B, C, i):
     """ Returns the ith row of tB."""
     (Nx, Nu) = B.shape
     tBi = [np.linalg.matrix_power(A, i-j-1) @ B 
                 if j<i 
                 else np.zeros((Nx, Nu)) 
-                for j in range(Nx)]
-    return np.concatenate(tBi, axis=1)
+                for j in range(Nx-1)]
+    return C @ np.concatenate(tBi, axis=1)
 
-def _get_tB(A, B):
+def _get_tB(A, B, C):
     """ Get the matrix tB to describe the dynamics from 
         input to state vector. """
     Nx = A.shape[0]
-    tB = np.concatenate([_get_tB_row(A, B, i) 
+    tB = np.concatenate([_get_tB_row(A, B, C, i) 
                          for i in range(Nx)])
     return tB
 
@@ -219,9 +217,9 @@ def _check_obsv_compute_delta(*, parameters):
         and compute the matrix required to predict the correct 
         grey-box state evolution. """
     # Measurement matrix for the plant.
-    Np = parameters['Nx']
     sample_time = parameters['sample_time']
     tau = parameters['ps'].squeeze()
+    Nx = parameters['Nx']
     C = np.array([[1., 0., 0.], 
                   [0., 1., 0.]])
     # Get the continuous time A/B matrices.
@@ -232,12 +230,16 @@ def _check_obsv_compute_delta(*, parameters):
     B = np.array([[1/tau], [0.], [0.]]) 
     (Ad, Bd) = c2d(A, B, sample_time)
     Obsv = _get_Obsv(C, Ad)
-    tb = _get_tB(Ad, Bd)
-    print("Rank of the continuous time Observability matrix is: " + 
-            str(np.linalg.matrix_rank(Obsv))) 
+    tB = _get_tB(Ad, Bd, C)
+    #print("Rank of the continuous time Observability matrix is: " + 
+    #        str(np.linalg.matrix_rank(Obsv))) 
     delta = np.array([[0., 0., 0.], 
                       [0., -k2, k3]])
-    return
+    xmat = np.linalg.matrix_power(Ad, Nx-1)
+    xmat = xmat @ np.linalg.pinv(Obsv)
+    xmat = np.concatenate((xmat, -(xmat @ tB) + tB[-Nx:, :]), axis=1)
+    delta = delta @ xmat
+    return delta
 
 def main():
     """ Get the parameters/training/validation data."""
@@ -245,14 +247,15 @@ def main():
     parameters = _get_tworeac_parameters()
     parameters['xs'] = _get_tworeac_rectified_xs(parameters=parameters)
     # Check observability.
-    #_check_observability(parameters=parameters)
+    delta = _check_obsv_compute_delta(parameters=parameters)
     # Generate training data.
     training_data = _gen_train_val_data(parameters=parameters, 
-                                        num_traj=6, Nsim=120, seed=1)
+                                        num_traj=3, Nsim=120, seed=1)
     greybox_val_data = _get_greybox_val_preds(parameters=
                                             parameters, 
                                             training_data=training_data)
     tworeac_parameters = dict(parameters=parameters, 
+                              delta=delta,
                               training_data=training_data,
                               greybox_validation_data=greybox_val_data)
     # Save data.
