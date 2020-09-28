@@ -162,6 +162,8 @@ def _gen_train_val_data(*, parameters,
         u = np.concatenate((us_init, u), axis=0)
         # Run the open-loop simulation.
         for t in range(tsteps_steady + Nsim):
+            if t == tsteps_steady + 2:
+                breakpoint()
             plant.step(u[t:t+1, :], p)
         data_list.append(SimData(t=np.asarray(plant.t[0:-1]).squeeze(),
                 x=np.asarray(plant.x[0:-1]).squeeze(),
