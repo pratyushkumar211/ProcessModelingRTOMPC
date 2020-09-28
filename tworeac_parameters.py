@@ -190,8 +190,10 @@ def _get_greybox_val_preds(*, parameters, training_data):
                    y=np.asarray(model.y[tsteps_steady:-1]).squeeze())
     return data
 
-def _check_observability(*, parameters):
-    """ Check the observability of the continuous time linear system. """
+def _check_obsv_compute_delta(*, parameters):
+    """ Check the observability of the original linear system
+        and compute the matrix required to predict the correct 
+        grey-box state evolution. """
     # Measurement matrix for the plant.
     C = np.array([[1., 0., 0.], 
                   [0., 1., 0.]])
