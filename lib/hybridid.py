@@ -44,10 +44,11 @@ class NonlinearPlantSimulator:
                  sample_time, x0):
         
         # Set attributes.
-        self.fxup = mpc.DiscreteSimulator(fxup, sample_time,
-                                          [Nx, Nu, Np], ["x", "u", "p"])
-        self.hx = mpc.getCasadiFunc(hx, [Nx], ["x"], funcname="hx")
         (self.Nx, self.Nu, self.Ny, self.Np) = (Nx, Nu, Ny, Np)
+        self.fxup = mpc.getCasadiFunc(fxup, [Nx, Nu, Np], 
+                                      ['x', 'u', 'p'], 'fxup', 
+                                      rk4=True, Delta=sample_time, M=1)
+        self.hx = mpc.getCasadiFunc(hx, [Nx], ["x"], funcname="hx")
         self.measurement_noise_std = np.sqrt(np.diag(Rv)[:, np.newaxis])
         self.sample_time = sample_time
 
@@ -61,7 +62,7 @@ class NonlinearPlantSimulator:
 
     def step(self, u, p):
         """ Inject the control input into the plant."""
-        x = self.fxup.sim(self.x[-1], u, p)[:, np.newaxis]
+        x = np.asarray(self.fxup(self.x[-1], u, p))
         y = np.asarray(self.hx(x))
         y = y + self.measurement_noise_std*np.random.randn(self.Ny, 1)
         self._append_data(x, u, p, y)
@@ -69,7 +70,7 @@ class NonlinearPlantSimulator:
 
     def _append_data(self, x, u, p, y):
         """ Append the data into the lists.
-        Used for plotting in the specific subclasses.
+            Used for plotting in the specific subclasses.
         """
         self.x.append(x)
         self.u.append(u)

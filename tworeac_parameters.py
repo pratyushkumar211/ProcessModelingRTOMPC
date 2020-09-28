@@ -8,7 +8,6 @@ import sys
 sys.path.append('lib/')
 import mpctools as mpc
 import numpy as np
-import collections
 from hybridid import (PickleTool, NonlinearPlantSimulator, 
                       sample_prbs_like, SimData)
 
@@ -63,13 +62,6 @@ def _get_tworeac_parameters():
     parameters['k2'] = 0.3 # m^3/min.
     parameters['k3'] = 0.2 # m^3/min.
 
-    #parameters['tau'] = 2. # m^3 
-    #parameters['k3'] = 0.05 # m^3/min.
-    #parameters['beta'] = 16.
-    #parameters['beta'] = 8*parameters['k1']*parameters['k3']
-    #parameters['beta'] = parameters['beta']/(parameters['k2']**2)
-    #parameters['F'] = 0.1 # m^3/min.
-
     # Store the dimensions.
     parameters['Nx'] = 3
     parameters['Ng'] = 2
@@ -78,7 +70,7 @@ def _get_tworeac_parameters():
     parameters['Np'] = 1
 
     # Sample time.
-    parameters['sample_time'] = 0.5 # min.
+    parameters['sample_time'] = 1. # min.
 
     # Get the steady states.
     parameters['xs'] = np.array([1., 0.5, 0.5]) # to be updated.
@@ -92,7 +84,7 @@ def _get_tworeac_parameters():
     parameters['ub'] = dict(u=uub)
 
     # Number of time-steps to keep the plant at steady.
-    parameters['tsteps_steady'] = 120
+    parameters['tsteps_steady'] = 60
 
     # Measurement noise.
     parameters['Rv'] = 0*np.diag([1e-4, 1e-3])
@@ -157,18 +149,16 @@ def _gen_train_val_data(*, parameters,
         and generate training and validation data."""
     # Get the data list.
     data_list = []
-    Ng = parameters['Ng']
     ulb = parameters['lb']['u']
     uub = parameters['ub']['u']
     tsteps_steady = parameters['tsteps_steady']
     p = parameters['ps'][:, np.newaxis]
-    xs = parameters['xs'][:, np.newaxis]
     for _ in range(num_traj):
         plant = _get_tworeac_model(parameters=parameters, plant=True)
         us_init = np.tile(np.random.uniform(ulb, uub), (tsteps_steady, 1))
         u = sample_prbs_like(num_change=3, num_steps=Nsim, 
                              lb=ulb, ub=uub,
-                             mean_change=80, sigma_change=2, seed=seed+1)
+                             mean_change=40, sigma_change=2, seed=seed+1)
         u = np.concatenate((us_init, u), axis=0)
         # Run the open-loop simulation.
         for t in range(tsteps_steady + Nsim):
@@ -222,10 +212,10 @@ def main():
     parameters = _get_tworeac_parameters()
     parameters['xs'] = _get_tworeac_rectified_xs(parameters=parameters)
     # Check observability.
-    _check_observability(parameters=parameters)
+    #_check_observability(parameters=parameters)
     # Generate training data.
     training_data = _gen_train_val_data(parameters=parameters, 
-                                        num_traj=66, Nsim=240, seed=1)
+                                        num_traj=6, Nsim=120, seed=1)
     greybox_val_data = _get_greybox_val_preds(parameters=
                                             parameters, 
                                             training_data=training_data)
