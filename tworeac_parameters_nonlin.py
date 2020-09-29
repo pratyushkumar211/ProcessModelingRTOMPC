@@ -25,8 +25,8 @@ def _tworeac_plant_ode(x, u, p, parameters):
 
     # Write the ODEs.
     dCabydt = (Ca0-Ca)/tau - k1*Ca
-    dCbbydt = k1*Ca - 4*k2*(Cb**4) + 4*k3*(Cc**2) - Cb/tau
-    dCcbydt = 2*k2*(Cb**4) - 2*k3*(Cc**2) - Cc/tau
+    dCbbydt = k1*Ca - 3*k2*(Cb**3) + k3*Cc - Cb/tau
+    dCcbydt = k2*(Cb**3) - k3*Cc - Cc/tau
 
     # Return the derivative.
     return np.array([dCabydt, dCbbydt, dCcbydt])
@@ -59,7 +59,7 @@ def _get_tworeac_parameters():
     # Parameters.
     parameters = {}
     parameters['k1'] = 1. # m^3/min.
-    parameters['k2'] = 0.6 # m^3/min.
+    parameters['k2'] = 0.05 # m^3/min.
     parameters['k3'] = 0.1 # m^3/min.
 
     # Store the dimensions.
