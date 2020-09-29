@@ -87,7 +87,7 @@ def _get_tworeac_parameters():
     parameters['tsteps_steady'] = 60
 
     # Measurement noise.
-    parameters['Rv'] = np.diag([1e-4, 1e-3])
+    parameters['Rv'] = 0*np.diag([1e-4, 1e-3])
 
     # Return the parameters dict.
     return parameters
@@ -156,9 +156,9 @@ def _gen_train_val_data(*, parameters,
     for _ in range(num_traj):
         plant = _get_tworeac_model(parameters=parameters, plant=True)
         us_init = np.tile(np.random.uniform(ulb, uub), (tsteps_steady, 1))
-        u = sample_prbs_like(num_change=3, num_steps=Nsim, 
+        u = sample_prbs_like(num_change=4, num_steps=Nsim, 
                              lb=ulb, ub=uub,
-                             mean_change=40, sigma_change=2, seed=seed+1)
+                             mean_change=30, sigma_change=2, seed=seed+1)
         u = np.concatenate((us_init, u), axis=0)
         # Run the open-loop simulation.
         for t in range(tsteps_steady + Nsim):
@@ -250,7 +250,7 @@ def main():
     delta = _check_obsv_compute_delta(parameters=parameters)
     # Generate training data.
     training_data = _gen_train_val_data(parameters=parameters, 
-                                        num_traj=3, Nsim=120, seed=1)
+                                        num_traj=3, Nsim=120, seed=10)
     greybox_val_data = _get_greybox_val_preds(parameters=
                                             parameters, 
                                             training_data=training_data)

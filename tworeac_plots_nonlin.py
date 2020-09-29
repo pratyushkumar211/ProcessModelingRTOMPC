@@ -87,7 +87,7 @@ def plot_val_model_predictions(*, plantsim_data,
     axes.set_xlim([np.min(time), np.max(time)])
     figure.legend(handles = legend_handles,
                   labels = ('Plant', 'Grey-box', 'Hybrid-Model'), 
-                  loc = (0.3, 0.9), ncol=2)
+                  loc = (0.15, 0.9), ncol=3)
     # Return the figure object.
     return [figure]
 
