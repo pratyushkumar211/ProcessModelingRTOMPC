@@ -25,8 +25,8 @@ def _tworeac_plant_ode(x, u, p, parameters):
 
     # Write the ODEs.
     dCabydt = (Ca0-Ca)/tau - k1*Ca
-    dCbbydt = k1*Ca - k2*Cb + k3*Cc - Cb/tau
-    dCcbydt = k2*Cb - k3*Cc - Cc/tau
+    dCbbydt = k1*Ca - 3*k2*(Cb**3) + 3*k3*Cc - Cb/tau
+    dCcbydt = k2*(Cb**3) - k3*Cc - Cc/tau
 
     # Return the derivative.
     return np.array([dCabydt, dCbbydt, dCcbydt])
@@ -59,8 +59,8 @@ def _get_tworeac_parameters():
     # Parameters.
     parameters = {}
     parameters['k1'] = 1. # m^3/min.
-    parameters['k2'] = 0.3 # m^3/min.
-    parameters['k3'] = 0.2 # m^3/min.
+    parameters['k2'] = 0.6 # m^3/min.
+    parameters['k3'] = 0.1 # m^3/min.
 
     # Store the dimensions.
     parameters['Nx'] = 3
@@ -188,78 +188,22 @@ def _get_greybox_val_preds(*, parameters, training_data):
                    y=np.asarray(model.y[tsteps_steady:-1]).squeeze())
     return data
 
-def _get_tB_row(A, B, C, i):
-    """ Returns the ith row of tB."""
-    (Nx, Nu) = B.shape
-    tBi = [np.linalg.matrix_power(A, i-j-1) @ B 
-                if j<i 
-                else np.zeros((Nx, Nu)) 
-                for j in range(Nx-1)]
-    return C @ np.concatenate(tBi, axis=1)
-
-def _get_tB(A, B, C):
-    """ Get the matrix tB to describe the dynamics from 
-        input to state vector. """
-    Nx = A.shape[0]
-    tB = np.concatenate([_get_tB_row(A, B, C, i) 
-                         for i in range(Nx)])
-    return tB
-
-def _get_Obsv(C, A):
-    Nx = A.shape[0]
-    Obsv = []
-    for i in range(Nx):
-        Obsv.append(C @ np.linalg.matrix_power(A, i))
-    return np.concatenate(Obsv, axis=0)
-
-def _check_obsv_compute_delta(*, parameters):
-    """ Check the observability of the original linear system
-        and compute the matrix required to predict the correct 
-        grey-box state evolution. """
-    # Measurement matrix for the plant.
-    sample_time = parameters['sample_time']
-    tau = parameters['ps'].squeeze()
-    Nx = parameters['Nx']
-    C = np.array([[1., 0., 0.], 
-                  [0., 1., 0.]])
-    # Get the continuous time A/B matrices.
-    (k1, k2, k3) = (parameters['k1'], parameters['k2'], parameters['k3'])
-    A = np.array([[-k1-(1/tau), 0., 0.], 
-                  [k1, -k2 - (1/tau), k3], 
-                  [0., k2, -k3 -(1/tau)]])
-    B = np.array([[1/tau], [0.], [0.]]) 
-    (Ad, Bd) = c2d(A, B, sample_time)
-    Obsv = _get_Obsv(C, Ad)
-    tB = _get_tB(Ad, Bd, C)
-    #print("Rank of the continuous time Observability matrix is: " + 
-    #        str(np.linalg.matrix_rank(Obsv))) 
-    delta = np.array([[0., 0., 0.], 
-                      [0., -k2, k3]])
-    xmat = np.linalg.matrix_power(Ad, Nx-1)
-    xmat = xmat @ np.linalg.pinv(Obsv)
-    xmat = np.concatenate((xmat, -(xmat @ tB) + tB[-Nx:, :]), axis=1)
-    delta = delta @ xmat
-    return delta
-
 def main():
     """ Get the parameters/training/validation data."""
     # Get parameters.
     parameters = _get_tworeac_parameters()
     parameters['xs'] = _get_tworeac_rectified_xs(parameters=parameters)
-    # Check observability.
-    delta = _check_obsv_compute_delta(parameters=parameters)
     # Generate training data.
     training_data = _gen_train_val_data(parameters=parameters, 
-                                        num_traj=3, Nsim=120, seed=1)
+                                        num_traj=3, Nsim=120, seed=100)
     greybox_val_data = _get_greybox_val_preds(parameters=
                                             parameters, 
                                             training_data=training_data)
     tworeac_parameters = dict(parameters=parameters, 
-                              delta=delta,
                               training_data=training_data,
                               greybox_validation_data=greybox_val_data)
     # Save data.
     PickleTool.save(data_object=tworeac_parameters, 
-                    filename='tworeac_parameters_lin.pickle')
+                    filename='tworeac_parameters_nonlin.pickle')
 
 main()

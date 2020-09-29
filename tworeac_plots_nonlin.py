@@ -100,10 +100,10 @@ def plot_val_model_predictions(*, plantsim_data,
 def main():
     """ Load the pickle file and plot. """
     tworeac_parameters = PickleTool.load(filename=
-                                         "tworeac_parameters_lin.pickle", 
+                                         "tworeac_parameters_nonlin.pickle", 
                                          type='read')
     tworeac_train = PickleTool.load(filename=
-                                    "tworeac_train_lin.pickle", 
+                                    "tworeac_train_nonlin.pickle", 
                                     type='read')
     figures = []
     figures += plot_training_data(training_data=
@@ -111,11 +111,11 @@ def main():
                                   plot_range=(0, 3*60))
     figures += plot_val_model_predictions(plantsim_data=
                                   tworeac_parameters['training_data'][-1],
-            modelsim_datum=[tworeac_parameters['greybox_validation_data'], 
+            modelsim_datum=[tworeac_parameters['greybox_validation_data'],
                             tworeac_train['val_predictions']],
                     plot_range=(0, 6*60), 
                 tsteps_steady=tworeac_parameters['parameters']['tsteps_steady'])
-    with PdfPages('tworeac_plots_lin.pdf', 
+    with PdfPages('tworeac_plots_nonlin.pdf', 
                   'w') as pdf_file:
         for fig in figures:
             pdf_file.savefig(fig)

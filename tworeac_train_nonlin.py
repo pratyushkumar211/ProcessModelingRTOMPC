@@ -40,7 +40,7 @@ def train_model(model, train_data, trainval_data, val_data,
     tstart = time.time()
     model.fit(x=[train_data['inputs'], train_data['x0']], 
               y=train_data['outputs'], 
-            epochs=1000, batch_size=1,
+            epochs=2000, batch_size=1,
             validation_data = ([trainval_data['inputs'], trainval_data['x0']], 
                                 trainval_data['outputs']),
             callbacks = [checkpoint_callback])
@@ -60,11 +60,11 @@ def main():
     """ Main function to be executed. """
     # Load data.
     tworeac_parameters = PickleTool.load(filename=
-                                         'tworeac_parameters_lin.pickle',
+                                         'tworeac_parameters_nonlin.pickle',
                                          type='read')
     # Create the hybrid model.
     Np = 3
-    fnn_dims = [8, 2]
+    fnn_dims = [8, 4, 2]
     tworeac_model = create_tworeac_model(Np=Np, fnn_dims=fnn_dims,
                     tworeac_parameters=tworeac_parameters['parameters'])
     # Get the training data.
@@ -74,8 +74,8 @@ def main():
     (tworeac_model, training_time, 
           val_predictions) = train_model(tworeac_model, 
                                          train_data, trainval_data, val_data,
-                                         'tworeac_train_lin.txt', 
-                                         'tworeac_train_lin.ckpt')
+                                         'tworeac_train_nonlin.txt', 
+                                         'tworeac_train_nonlin.ckpt')
     fnn_weights = tworeac_model.get_weights()
     # Save the weights.
     tworeac_training_data = dict(fnn_weights=fnn_weights,
@@ -83,6 +83,6 @@ def main():
                                    training_time=training_time)
     # Save data.
     PickleTool.save(data_object=tworeac_training_data, 
-                    filename='tworeac_train_lin.pickle')
+                    filename='tworeac_train_nonlin.pickle')
 
 main()
