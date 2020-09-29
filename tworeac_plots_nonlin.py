@@ -108,12 +108,12 @@ def main():
     figures = []
     figures += plot_training_data(training_data=
                                   tworeac_parameters['training_data'][0], 
-                                  plot_range=(0, 3*60))
+                                  plot_range=(0, 4*60))
     figures += plot_val_model_predictions(plantsim_data=
                                   tworeac_parameters['training_data'][-1],
-            modelsim_datum=[tworeac_parameters['greybox_validation_data'],
+            modelsim_datum=[tworeac_parameters['greybox_validation_data'], 
                             tworeac_train['val_predictions']],
-                    plot_range=(0, 6*60), 
+                    plot_range=(0, 3*60), 
                 tsteps_steady=tworeac_parameters['parameters']['tsteps_steady'])
     with PdfPages('tworeac_plots_nonlin.pdf', 
                   'w') as pdf_file:
