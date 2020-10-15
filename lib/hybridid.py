@@ -135,8 +135,8 @@ def get_tworeac_train_val_data(*, Np, parameters, data_list):
         y_traj = data.y[tsteps_steady:, :][np.newaxis, ...]
         (ypseq_traj, upseq_traj) = ([], [])
         for t in range(tsteps_steady, Nsim):
-            ypseq = data.y[t+1-Np:t, :][::-1, :].reshape((Np-1)*Ny, )
-            upseq = data.u[t+1-Np:t][::-1]
+            ypseq = data.y[t+1-Np:t, :].reshape((Np-1)*Ny, )
+            upseq = data.u[t+1-Np:t]
             ypseq_traj.append(ypseq)
             upseq_traj.append(upseq)
         ypseq_traj = np.asarray(ypseq_traj)[np.newaxis, ...]
@@ -153,4 +153,28 @@ def get_tworeac_train_val_data(*, Np, parameters, data_list):
                          outputs=outputs[-2])
     val_data = dict(inputs=inputs[-1], x0=x0[-1],
                     outputs=outputs[-1])
+    breakpoint()
     return (train_data, trainval_data, val_data)
+
+def plot_profit_curve(*, us, costs, figure_size=PAPER_FIGSIZE, 
+                         ylabel_xcoordinate=-0.12, 
+                         left_label_frac=0.15):
+    """ Plot the profit curves. """
+    (figure, axes) = plt.subplots(nrows=1, ncols=1, 
+                                        sharex=True, 
+                                        figsize=figure_size, 
+                                    gridspec_kw=dict(left=left_label_frac))
+    xlabel = r'$C_{A0} \ (\textnormal{mol/m}^3)$'
+    ylabel = r'Cost ($\$ $)'
+    colors = ['b', 'g']
+    legends = ['Plant', 'Grey-box']
+    for (cost, color) in zip(costs, colors):
+        # Plot the corresponding data.
+        axes.plot(us, cost, color)
+    axes.legend(legends)
+    axes.set_xlabel(xlabel)
+    axes.set_ylabel(ylabel, rotation=False)
+    axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5) 
+    axes.set_xlim([np.min(us), np.max(us)])
+    # Return the figure object.
+    return [figure]
