@@ -60,8 +60,8 @@ def _get_tworeac_parameters():
     # Parameters.
     parameters = {}
     parameters['k1'] = 1. # m^3/min.
-    parameters['k2'] = 0.05 # m^3/min.
-    parameters['k3'] = 0.1 # m^3/min.
+    parameters['k2'] = 0.01 # m^3/min.
+    parameters['k3'] = 0.05 # m^3/min.
 
     # Store the dimensions.
     parameters['Nx'] = 3

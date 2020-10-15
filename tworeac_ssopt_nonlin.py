@@ -11,7 +11,7 @@ import casadi
 import matplotlib.pyplot as plt
 import mpctools as mpc
 from matplotlib.backends.backend_pdf import PdfPages
-from hybridid import (PickleTool, PAPER_FIGSIZE)
+from hybridid import (PickleTool, PAPER_FIGSIZE, plot_profit_curve)
 from tworeac_parameters_nonlin import (_tworeac_plant_ode, 
                                        _tworeac_greybox_ode)
 
@@ -49,32 +49,9 @@ def _greybox_ys(*, us, parameters):
 
 def cost(ys, us):
     """ Compute the steady-state cost. """
-    (cost, profit) = (100, 150)
+    (cost, profit) = (105, 160)
     # Return.
     return cost*us - profit*ys[:, -1:]
-
-def plot_profit_curve(*, us, costs, figure_size=PAPER_FIGSIZE, 
-                         ylabel_xcoordinate=-0.12, 
-                         left_label_frac=0.15):
-    """ Plot the profit curves. """
-    (figure, axes) = plt.subplots(nrows=1, ncols=1, 
-                                        sharex=True, 
-                                        figsize=figure_size, 
-                                    gridspec_kw=dict(left=left_label_frac))
-    xlabel = r'$C_{A0} \ (\textnormal{mol/m}^3)$'
-    ylabel = r'Cost ($\$ $)'
-    colors = ['b', 'g']
-    legends = ['Plant', 'Grey-box']
-    for (cost, color) in zip(costs, colors):
-        # Plot the corresponding data.
-        axes.plot(us, cost, color)
-    axes.legend(legends)
-    axes.set_xlabel(xlabel)
-    axes.set_ylabel(ylabel, rotation=False)
-    axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5) 
-    axes.set_xlim([np.min(us), np.max(us)])
-    # Return the figure object.
-    return [figure]
 
 def compute_cost_curves(*, parameters):
     """ Compute the profit curves for the three models. """
