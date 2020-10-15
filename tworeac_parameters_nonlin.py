@@ -1,3 +1,4 @@
+# [depends] %LIB%/hybridid.py
 # [makes] pickle
 """ Script to generate the necessary 
     parameters and training data for the 
@@ -25,7 +26,7 @@ def _tworeac_plant_ode(x, u, p, parameters):
 
     # Write the ODEs.
     dCabydt = (Ca0-Ca)/tau - k1*Ca
-    dCbbydt = k1*Ca - 3*k2*(Cb**3) + k3*Cc - Cb/tau
+    dCbbydt = k1*Ca - 3*k2*(Cb**3) + 3*k3*Cc - Cb/tau
     dCcbydt = k2*(Cb**3) - k3*Cc - Cc/tau
 
     # Return the derivative.

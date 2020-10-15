@@ -1,3 +1,5 @@
+# [depends] %LIB%/hybridid.py tworeac_parameters_nonlin.pickle
+# [makes] pickle
 """ Script to train the hybrid model for the 
     three reaction system. 
     Pratyush Kumar, pratyushkumar@ucsb.edu """

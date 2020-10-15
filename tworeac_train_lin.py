@@ -1,3 +1,5 @@
+# [depends] %LIB%/hybridid.py tworeac_parameters_lin.pickle
+# [makes] pickle
 """ Script to train the hybrid model for the 
     three reaction system. 
     Pratyush Kumar, pratyushkumar@ucsb.edu """
@@ -37,15 +39,12 @@ def train_model(model, train_data, trainval_data, val_data,
                                                     save_weights_only=True,
                                                     verbose=1)
     # Call the fit method to train.
-    tstart = time.time()
     model.fit(x=[train_data['inputs'], train_data['x0']], 
               y=train_data['outputs'], 
             epochs=1000, batch_size=1,
             validation_data = ([trainval_data['inputs'], trainval_data['x0']], 
                                 trainval_data['outputs']),
             callbacks = [checkpoint_callback])
-    tend = time.time()
-    training_time = tend - tstart
     
     # Get predictions on validation data.
     model.load_weights(ckpt_path)
@@ -54,7 +53,7 @@ def train_model(model, train_data, trainval_data, val_data,
                               y=model_predictions.squeeze())
 
     # Return the NN controller.
-    return (model, training_time, val_predictions)
+    return (model, val_predictions)
 
 def main():
     """ Main function to be executed. """
@@ -71,16 +70,16 @@ def main():
     (train_data, trainval_data, val_data) = get_tworeac_train_val_data(Np=Np,
                                 parameters=tworeac_parameters['parameters'],
                                 data_list=tworeac_parameters['training_data'])
-    (tworeac_model, training_time, 
-          val_predictions) = train_model(tworeac_model, 
+    (tworeac_model, 
+     val_predictions) = train_model(tworeac_model, 
                                          train_data, trainval_data, val_data,
                                          'tworeac_train_lin.txt', 
                                          'tworeac_train_lin.ckpt')
     fnn_weights = tworeac_model.get_weights()
     # Save the weights.
     tworeac_training_data = dict(fnn_weights=fnn_weights,
-                                   val_predictions=val_predictions,
-                                   training_time=training_time)
+                                 val_predictions=val_predictions,
+                                 Np=Np)
     # Save data.
     PickleTool.save(data_object=tworeac_training_data, 
                     filename='tworeac_train_lin.pickle')

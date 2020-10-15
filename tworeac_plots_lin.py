@@ -1,4 +1,4 @@
-# [depends] tworeac_parameters.pickle
+# [depends] tworeac_parameters_lin.pickle tworeac_train_lin.pickle
 # [depends] %LIB%/hybridid.py
 """ Script to plot the training data
     and grey-box + NN model predictions on validation data.

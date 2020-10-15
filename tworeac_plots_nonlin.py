@@ -1,4 +1,4 @@
-# [depends] tworeac_parameters.pickle
+# [depends] tworeac_parameters_nonlin.pickle tworeac_train_nonlin.pickle
 # [depends] %LIB%/hybridid.py
 """ Script to plot the training data
     and grey-box + NN model predictions on validation data.
@@ -90,12 +90,6 @@ def plot_val_model_predictions(*, plantsim_data,
                   loc = (0.15, 0.9), ncol=3)
     # Return the figure object.
     return [figure]
-
-#def plot_idmodel_vs_training_data():
-#    """ Function to plot the data requirements 
-#        of the hybrid model. """
-#    None
-#    return 
 
 def main():
     """ Load the pickle file and plot. """
