@@ -38,6 +38,22 @@ class PickleTool:
         with open(filename, "wb") as stream:
             pickle.dump(data_object, stream)
 
+def c2d(A, B, sample_time):
+    """ Custom c2d function for linear systems."""
+    
+    # First construct the incumbent matrix
+    # to take the exponential.
+    (Nx, Nu) = B.shape
+    M1 = np.concatenate((A, B), axis=1)
+    M2 = np.zeros((Nu, Nx+Nu))
+    M = np.concatenate((M1, M2), axis=0)
+    Mexp = scipy.linalg.expm(M*sample_time)
+
+    # Return the extracted matrices.
+    Ad = Mexp[:Nx, :Nx]
+    Bd = Mexp[:Nx, -Nu:]
+    return (Ad, Bd)
+    
 class NonlinearPlantSimulator:
     """Custom class for simulating non-linear plants."""
     def __init__(self, *, fxup, hx, Rv, Nx, Nu, Np, Ny, 

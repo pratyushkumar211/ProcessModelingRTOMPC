@@ -133,25 +133,29 @@ we can construct the original plant state
 using a history of measurements and control inputs.
 Denote this history as 
 \begin{align*}
-  \mathbf{y}_{k:k-N} &= [y(k)', y(k-\Delta)', ..., y(k-N\Delta)']' \\
-  \mathbf{u}_{k-1:k-N} &= [u(k-1)', u(k-2)', ..., u(k-N\Delta)']'
+  \mathbf{y}_{k+1-N_p:k} &= [y(k)', y(k-\Delta)', ..., y(k-(N_p-1)\Delta)']' \\
+  \mathbf{u}_{k+1-N_p:k-1} &= [u(k-\Delta)', u(k-2\Delta)', 
+                               ..., u(k-(N_p-1)\Delta)']'
 \end{align*}
 
-in which $\Delta$ is the sample 
-time between two consecutive
-prediction instants of the desired discrete time 
-model to be used in MPC. There exists a $\phi(\cdot)$ 
+in which $N_p$ is the number of 
+past measurements and
+$\Delta$ is the sample time between two consecutive
+measurements. There exists a $\phi(\cdot)$ 
 and a number of delay 
-time steps $N$, such that the plant state
+time steps $N_p$, such that the plant state
 at a given time can be written as
-$x(k) = \phi(\mathbf{y}_{k:k-N}, \mathbf{u}_{k-1:k-N})$.
+$x(k) = \phi(\mathbf{y}_{k+1-N_p:k}, \mathbf{u}_{k+1-N_p:k-1})$.
+For linear plants, this function $\phi(\cdot)$
+is known analytically in terms of the plant dynamic
+matrices.
 
 We augment the grey-box model using 
 neural networks as follows -
 \begin{align*}
 \dot x_g &= f_g(x_g, u) + 
-f_{NN}(\mathbf{y}_{k:k-N}, \mathbf{u}_{k:k-N})\\
-y &= h_g(x_g) + h_{NN}(\mathbf{y}_{k:k-N}, \mathbf{u}_{k-1:k-N})
+f_{NN}(\mathbf{y}_{k+1-N_p:k}, \mathbf{u}_{k+1-N_p:k})\\
+y &= h_g(x_g) + h_{NN}(\mathbf{y}_{k+1-N_p:k}, \mathbf{u}_{k+1-N_p:k-1})
 \end{align*}
 in which $f_{NN}(\cdot)$ and $h_{NN}(\cdot)$
 are standard feedforward neural networks. We add the current 
@@ -164,13 +168,13 @@ and $h_{NN}(\cdot)$ approximate
 the following differences between the true grey-box state dynamics
 and true measurement function with what is modeled.
 \begin{align*}
-  f_{NN}(\mathbf{y}_{k:k-N}, \mathbf{u}_{k:k-N}) &\approx 
-      Gf_p(\phi(\mathbf{y}_{k:k-N}, \mathbf{u}_{k-1:k-N}), u) - f_g(x_g, u) = 
-      Gf_p(x, u) - f_g(x_g, u) \\
-      h_{NN}(\mathbf{y}_{k:k-N}, \mathbf{u}_{k-1:k-N}) &\approx 
-      h_p(\phi(\mathbf{y}_{k:k-N}, \mathbf{u}_{k-1:k-N})) - h_g(x_g) = 
-      h_p(x) - h_g(x_g) 
+  f_{NN}(\mathbf{y}_{k+1-N_p:k}, \mathbf{u}_{k+1-N_p:k}) &\approx 
+      Gf_p(x, u) - f_g(Gx, u) \\
+      h_{NN}(\mathbf{y}_{k+1-N_p:k}, \mathbf{u}_{k+1-N_p:k-1}) &\approx
+      h_p(x) - h_g(Gx) 
 \end{align*}  
+in which $x(k) = \phi(\mathbf{y}_{k+1-N_p:k}, \mathbf{u}_{k+1-N_p:k-1})$
+is an unknown function of past measurements and inputs.
 
 \subsection{Conversion to discrete time and training}
 We note that the network $f_{NN}(\cdot)$ is an addition 
@@ -180,45 +184,41 @@ measurement function. The Runge-Kutta-4 (RK4) method
 is used for the discretization as follows
 
 \begin{align*}
-  k_1 &= f_g(x_g(k), u(k)) + f_{NN}(\mathbf{y}_{k:k-N}, \mathbf{u}_{k:k-N}) \\
+  k_1 &= f_g(x_g(k), u(k)) + 
+  f_{NN}(\mathbf{y}_{k+1-N_p:k}, \mathbf{u}_{k+1-N_p:k}) \\
   k_2 &= f_g(x_g(k) + (\Delta/2)k_1, u(k)) + 
-         f_{NN}(\mathbf{y}_{k+0.5:k-N+0.5}, 
-                \mathbf{u}_{k+0.5:k-N+0.5})\\
+  f_{NN}(\mathbf{y}_{k+1.5-N_p:k+0.5}, \mathbf{u}_{k+1.5-N_p:k+0.5})\\
   k_3 &= f_g(x_g(k) + (\Delta/2)k_2, u(k)) + 
-                f_{NN}(\mathbf{y}_{k+0.5:k-N+0.5}, 
-                      \mathbf{y}_{k+0.5:k-N+0.5})\\
+  f_{NN}(\mathbf{y}_{k+1.5-N_p:k+0.5}, \mathbf{u}_{k+1.5-N_p:k+0.5})\\
   k_4 &= f_g(x_g(k) + \Delta k_3, u(k)) + 
-                       f_{NN}(\mathbf{y}_{k+1:k-N+1}, 
-                              \mathbf{u}_{k+1:k-N+1})\\
+  f_{NN}(\mathbf{y}_{k+2-N_p:k+1}, \mathbf{u}_{k+2-N_p:k+1})\\
   x_g(k+\Delta) &= x_g(k) + (\Delta/6)(k_1 + 2k_2 + 2k_3 + k_4) \\
-  \hat{y}(k+\Delta) &= h_g(x_g(k+\Delta)) + h_{NN}(\mathbf{y}_{k+\Delta:k-N+\Delta}, 
-                                     \mathbf{u}_{k-1+\Delta:k-N+\Delta})
+  \hat{y}(k+\Delta) &= h_g(x_g(k+\Delta)) + 
+  h_{NN}(\mathbf{y}_{k+2-N_p:k+1}, \mathbf{u}_{k+2-N_p:k+1})
 \end{align*}
-in which the sequences $\mathbf{y}_{k+0.5:k-N+0.5}$ 
-and $\mathbf{u}_{k+0.5:k-N+0.5}$ are defined as 
+in which the sequences $\mathbf{y}_{k+1.5-N_p:k+0.5}$ 
+and $\mathbf{u}_{k+1.5-N_p:k+0.5}$ are defined as 
 \begin{align*}
-  \mathbf{y}_{k+0.5:k-N+0.5} &= 
-    [y(k + \Delta/2)', y(k-\Delta/2)', ..., y(k-N\Delta + \Delta/2)']' \\
-  \mathbf{u}_{k+0.5:k-N+0.5} &= 
-  [u(k + \Delta/2)', u(k-\Delta/2)', ..., u(k-N\Delta + \Delta/2)']' 
+  \mathbf{y}_{k+1.5-N_p:k+0.5} &= 
+    [y(k + \Delta/2)', y(k-\Delta/2)', ..., y(k-(N_p-1)\Delta + \Delta/2)']' \\
+    \mathbf{u}_{k+1.5-N_p:k+0.5} &= 
+  [u(k + \Delta/2)', u(k-\Delta/2)', ..., u(k-(N_p-1)\Delta + \Delta/2)']' 
 \end{align*}
 We assume a zero order hold on the control inputs between two consecutive 
 MPC execution instants, such that $u(k + \Delta/2) = u(k)$. To get the 
-measurements between two sample instants ($y(k + \Delta/2)$) for 
-the RK4 predictions, a linear interpolation can be used 
-or we can assume that additional 
-measurements from the plant are available 
-between two MPC execution instants as well.
+measurements between two sample instants (for e.g., $y(k + \Delta/2)$) for 
+the RK4 predictions, linear interpolation is used.
 
 The following optimization problem is solved to compute 
 the weights in the neural networks 
 \begin{align*}
- \underset{W_{fi}, b_{fi}, W_{hi}, b_{hi}}{\textnormal{min}} \sum_{i=0}^{N_s-1} 
- \dfrac{1}{2}(\hat{y}(i) - y(i))^2
+ \underset{W_{fi}, b_{fi}, W_{hi}, b_{hi}}{\textnormal{min}} \sum_{k=0}^{N_s-1} 
+ \dfrac{1}{2}(\hat{y}(k) - y(k))^2
 \end{align*}
 in which ($W_{fi}, b_{fi}, W_{hi}, b_{hi}$) are the weights in the 
 two neural networks ($f_{NN}(\cdot)$ and $h_{NN}(\cdot)$), 
-$\hat{y}$ are predictions of the augmented model, and $y$
+$\hat{y}$ are the predictions of the augmented
+grey-box + neural network model, and $y$
 are the measurements from the plant.
 Note that this optimization requires an estimate 
 of the initial grey-box state. We assume that 
@@ -232,7 +232,7 @@ the grey-box state at that steady state as the initial condition
 for the above multi-step-ahead prediction-error
 optimization.
 
-\subsection{Simple example}
+\subsection{Linear plant}
 
 Consider the following plant, model,
 and the expected function to be approximated 
@@ -248,8 +248,16 @@ These ODEs represent the dynamics of the reaction system
 $A \rightarrow B \rightleftharpoons C$ in a CSTR with constant 
 height and temperature. The control input is $u = C_{A0}$,
 the states are $x = [C_A, C_B, C_C]'$, 
-and the measurements are $y = [C_A, C_B]'$. The plant model 
-is observable with these choices of the measurements and dynamics.
+and the measurements are $y = [C_A, C_B]'$. 
+Assume the following 
+parameters for this model, $k_1 = 1 \ \textnormal{m}^3/\textnormal{min}, 
+\ k_2 = 0.3 \ \textnormal{m}^3/\textnormal{min},
+\ k_3 = 0.2 \ \textnormal{m}^3/\textnormal{min}$, 
+and $\tau = 5 \ \textnormal{min}$.
+The plant model 
+is linear ($dx/dt = Ax + Bu$) and 
+observable with the choices of 
+the parameters and measurements.
 
 \textbf{Model --}
 \begin{align*}
@@ -257,26 +265,75 @@ is observable with these choices of the measurements and dynamics.
   \dfrac{dC_B}{dt} &= k_1C_A - \dfrac{C_B}{\tau}
 \end{align*}
 i.e, we assume that we don't know about the second reaction while 
-performing grey-box modeling. Assume the following 
-parameter choices $k_1 = 1 \ \textnormal{m}^3/\textnormal{min}, 
-\ k_2 = 10^{-2} \ \textnormal{m}^3/\textnormal{min}
-\ k_3 = 10^{-3} \ \textnormal{m}^3/\textnormal{min}$, 
-and $\tau = 20 \ \textnormal{min}$. 
+performing grey-box modeling. 
+
+The current state $x(k)$ can be constructed using the history of 
+past measurements and inputs as 
+\begin{equation*}
+  x(k) = A^{N_p-1}_d
+  \mathcal{O}^{\dagger}(\mathbf{y}_{k+1-N_p:k} - 
+                        \mathcal{B}\mathbf{u}_{k+1-N_p:k-1}) + \\ 
+      \mathcal{B}_{nN_p-n+1:nN_p}\mathbf{u}_{k+1-N_p:k-1}
+\end{equation*}
+
+in which $A_d$ is the plant state transition matrix in discrete-time, 
+$\mathcal{O}$ is the observability matrix, 
+and $\mathcal{B}$ is a combination of the 
+discrete time matrices ($A_d$ and $B_d$) such that it 
+denotes the response of a vector of inputs to states, 
+and $\mathcal{B}_{nN_p-n+1:nN_p}$ denotes the last $n$
+rows of $\mathcal{B}$.
 
 Since the measurements are a simple linear function 
-of the grey-box and plant states, we use only one network to 
-augment the grey-box dynamics. The expected function 
-to be approximated with a neural network is
-\begin{align}
-  f_{NN}(\mathbf{y}_{k:k-N}, \mathbf{u}_{k-1:k-N}) \approx (e^{A\Delta})^N
-  \mathcal{O}(C, e^{A\Delta})^{\dagger}
-\end{align}
+of the grey-box and plant states, we use only one 
+neural network to 
+augment the grey-box dynamics. 
+The expected function 
+to be approximated with the network is
+\begin{align*}
+  f_{NN}(\mathbf{y}_{k+1-N_p:k}, \mathbf{u}_{k+1-N_p:k-1}) \approx 
+  \begin{bmatrix}
+  0 & 0 & 0 \\  
+  0 & -k_2 & k_3 
+  \end{bmatrix}x(k)
+\end{align*}
 
- 
+In this example, the network just approximates a linear function.
+The figure below shows validation performances of the grey-box 
+and augmented hybrid models. The structure 
+of the network is restricted to just a matrix and
+the augmented model was trained on 120 samples.
 
-\begin{figure}
+\begin{figure}[!h]
   \centering
-  \includegraphics[page=2, width=\textwidth]{tworeac_plots.pdf}
+  \includegraphics[page=2, width=\textwidth]{tworeac_plots_lin.pdf}
+\end{figure}
+
+\subsection{Nonlinear plant}
+The plant is made nonlinear by changing the side reaction 
+to a third order reaction ($A \rightarrow B $ and  $3B \rightleftharpoons C$),
+and is now simulated with the following ODEs
+\begin{align*}
+  \dfrac{dC_A}{dt} &= \dfrac{C_{A0} - C_A}{\tau} - k_1C_A\\
+  \dfrac{dC_B}{dt} &= k_1C_A - 3k_2C^3_B + 3k_3C_C- \dfrac{C_B}{\tau}\\
+  \dfrac{dC_C}{dt} &= k_2C^3_B - k_3C_C - \dfrac{C_C}{\tau}
+\end{align*}
+
+The grey-box model is kept the same. The parameters 
+in the model are modified to 
+$k_1 = 1 \ \textnormal{m}^3/\textnormal{min}, 
+\ k_2 = 0.05 \ \textnormal{m}^3/\textnormal{min},
+\ k_3 = 0.1 \ \textnormal{m}^3/\textnormal{min}$, 
+and $\tau = 5 \ \textnormal{min}$.
+An augmented model with a neural
+network architecture [8, 4, 2] is trained on 180 samples. The 
+tanh activation is used in the network. The figure below shows 
+validation performances of the grey-box and augmented 
+hybrid models.
+
+\begin{figure}[!h]
+  \centering
+  \includegraphics[page=2, width=\textwidth]{tworeac_plots_nonlin.pdf}
 \end{figure}
 
 %\textbf{Need to discuss the following issues:}

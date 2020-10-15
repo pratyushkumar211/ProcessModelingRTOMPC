@@ -21,6 +21,7 @@ DEFAULT_FIGURE_TYPE := paper
 # Set defaults for using backed up files vs. regenerating them. Can be
 # overridden locally by changing them in a file called Makefile.options.
 USE_MAT_BACKUPS := True
+USE_PICKLE_BACKUPS := False
 USE_DIA_BACKUPS := False
 
 ## We don't need figure windows popping up.
@@ -40,7 +41,7 @@ TEXSUFFIXES := .pdf .aux .log .bbl .blg .nav .out .snm .toc .synctex.gz \
 # confusing here: in the subfolders, we split paper/presentation/poster, whereas
 # these variables are article/talk/poster, so keep that in mind.
 ARTICLE_SRC := systemID_NNs.tex
-TALK_SRC := twccc.tex
+TALK_SRC := 
 POSTER_SRC := 
 
 PAPER_BIB := 
@@ -94,10 +95,14 @@ DIA_SRC :=
 ## to be shared to make plots. Dependencies should be specified for any subsequent
 ## files that use these data files. See README.md in $(DEPS_DIR) for more
 ## details. These .mat files can also be backed up in $(BACKUPS_DIR).
+## PY_PICKLE_SRC, are the pickle files that create .pickle files. These
+## .pickle files can also be backed up in $(BACKUP_DIR)
 
-PY_MAT_SRC := hvacnntrain.py
-OCT_MAT_SRC := hvacnntest.m
-MATLAB_MAT_SRC := hvacnndata.m
+PY_MAT_SRC := 
+OCT_MAT_SRC := 
+MATLAB_MAT_SRC := 
+PY_PICKLE_SRC := tworeac_parameters_lin.py tworeac_train_lin.py \
+				 tworeac_parameters_nonlin.py tworeac_train_nonlin.py \
 
 ## JL_MAT_SRC. These are .jl files on which you run Julia to produce a .mat file.
 ## Note that Julia's .mat files are in an HDF5 format, so you will need to use
@@ -108,11 +113,11 @@ JL_MAT_SRC :=
 ## OCT_DAT_SRC. Same as OCT_MAT_SRC, except that a .dat file is produced instead of
 ## a .mat file, and the .dat files cannot be backed up in $(BACKUPS_DIR).
  
-OCT_DAT_SRC :=
+OCT_DAT_SRC := 
 
 ## PY_PLOT files are .py files that create .pdf plots.
 
-PY_PLOT := plotshvacnn.py
+PY_PLOT := tworeac_plots_lin.py tworeac_plots_nonlin.py
 
 ## PY_MOVIE files are .py files that create movies as a .pdf document.
 
@@ -133,9 +138,9 @@ PY_TABLE :=
 
 SCRATCH_FILES := 
 
-## GITIGNORE files are extra files to be included in .gitignore. Wildcards are allowed.
+## HGIGNORE files are extra files to be included in .hgignore. Wildcards are allowed.
 
-GITIGNORE := 
+HGIGNORE := 
 
 ## ************************************************************************************************
 ## End of user specified files.
@@ -232,8 +237,10 @@ PY_MAT := $(addprefix $(BUILD_DIR)/, $(PY_MAT_SRC:.py=.mat))
 OCT_MAT := $(addprefix $(BUILD_DIR)/, $(OCT_MAT_SRC:.m=.mat))
 JL_MAT := $(addprefix $(BUILD_DIR)/, $(JL_MAT_SRC:.jl=.mat))
 MATLAB_MAT := $(addprefix $(BUILD_DIR)/, $(MATLAB_MAT_SRC:.m=.mat))
+PY_PICKLE := $(addprefix $(BUILD_DIR)/, $(PY_PICKLE_SRC:.py=.pickle))
 
 BACKUP_MAT := $(addprefix $(BACKUP_DIR)/, $(PY_MAT_SRC:.py=.mat) $(OCT_MAT_SRC:.m=.mat) $(JL_MAT_SRC:.jl=.mat) $(MATLAB_MAT_SRC:.m=.mat))
+BACKUP_PICKLE := $(addprefix $(BACKUP_DIR)/, $(PY_PICKLE_SRC:.py=.pickle))
 
 # Octave-produced .dat files. These are not backed up.
 OCT_DAT := $(addprefix $(BUILD_DIR)/, $(OCT_DAT_SRC:.m=.dat))
@@ -267,7 +274,8 @@ PDF_PARTS := $(FIG_PDF) $(GP_PDF) $(DIA_PDF) $(EXTRA_EPS_PDF)
 ## is created in $(DEPS_DIR)
 AUTODEPENDENCIES_SRC := $(PY_MAT_SRC) $(OCT_MAT_SRC) $(PY_PLOT) $(OCT_PLOT) \
                         $(OCT_DAT_SRC) $(PY_MOVIE) $(PY_TABLE) $(OCT_TABLE) \
-                        $(JL_MAT_SRC) $(GNUPLOT_SRC) $(PAPER_SRC) $(MATLAB_MAT_SRC)
+                        $(JL_MAT_SRC) $(GNUPLOT_SRC) $(PAPER_SRC) $(MATLAB_MAT_SRC) \
+                        $(PY_PICKLE_SRC)
 AUTODEPENDENCIES := $(addprefix $(DEPS_DIR)/, $(addsuffix .dep, $(AUTODEPENDENCIES_SRC)))
 -include $(AUTODEPENDENCIES)
 
@@ -276,7 +284,7 @@ AUTODEPENDENCIES := $(addprefix $(DEPS_DIR)/, $(addsuffix .dep, $(AUTODEPENDENCI
 ## target is "all". We also provide a "current" goal that users can edit in
 ## case they're only interested in a subset of files for the time being.
 
-.DEFAULT_GOAL := systemID_NNs.pdf
+.DEFAULT_GOAL := all
 
 all: $(ARTICLE_PDF) $(TALK_PDF) $(POSTER_PDF)
 .PHONY: all
@@ -290,10 +298,13 @@ matbackups: $(BACKUP_MAT)
 diabackups: $(BACKUP_DIA)
 .PHONY: diabackups
 
-install: .gitignore
+picklebackups: $(BACKUP_PICKLE)
+.PHONY: picklebackups
+
+install: .hgignore
 	$(PYTHON) $(SCRIPT_DIR)/INSTALL.py
 .PHONY: install
-forceinstall: .gitignore
+forceinstall: .hgignore
 	$(PYTHON) $(SCRIPT_DIR)/INSTALL.py --force
 .PHONY: forceinstall
 
@@ -345,8 +356,9 @@ CLEAN_FILES := \
     $(PAPER_XBIB) $(PAPER_BUILD_XBIB) \
 
 REALCLEAN_FILES := \
-    .gitignore $(OCT_DAT) $(CUSTOM_DAT) $(OCT_MAT) $(PY_MAT) $(JL_MAT) \
+    .hgignore $(OCT_DAT) $(CUSTOM_DAT) $(OCT_MAT) $(PY_MAT) $(JL_MAT) \
     $(AUTODEPENDENCIES) $(PY_PLOT_LOCAL_PDF) $(MATLAB_MAT) $(LIB_DIR)/**.pyc \
+    $(PY_PICKLE)
 
 clean:
 	@echo "Cleaning up."
@@ -357,17 +369,17 @@ realclean: clean
 	@rm -f $(REALCLEAN_FILES)
 .PHONY: realclean
 
-# Rule for .gitignore.
-GITIGNORE_DEFAULT := Makefile.options
-GITIGNORE_ALL := $(GITIGNORE) $(GITIGNORE_DEFAULT) $(CLEAN_FILES) $(REALCLEAN_FILES)
-.gitignore :
+# Rule for .hgignore.
+HGIGNORE_DEFAULT := Makefile.options
+HGIGNORE_ALL := $(HGIGNORE) $(HGIGNORE_DEFAULT) $(CLEAN_FILES) $(REALCLEAN_FILES)
+.hgignore :
 	@echo "Making $@"
 	@rm -f $@
-	@echo "# Automatically generated by Make. Add files to GITIGNORE variable in Makefile instead." > $@
+	@echo "# Automatically generated by Make. Add files to HGIGNORE variable in Makefile instead." > $@
 	@echo "syntax: glob" >> $@
-	@echo "$(GITIGNORE_ALL)" | tr ' ' '\n' >> $@
+	@echo "$(HGIGNORE_ALL)" | tr ' ' '\n' >> $@
 	@chmod a-w $@
-.PHONY : .gitignore
+.PHONY : .hgignore
 
 ## Handle automatic dependency generation.
 $(AUTODEPENDENCIES) : $(DEPS_DIR)/%.dep : % $(SCRIPT_DIR)/getdependencies.py
@@ -515,6 +527,17 @@ else
     endef
 endif
 
+# Define commands to make pickle files from .py files
+ifeq ($(USE_PICKLE_BACKUPS), True)
+    define do-python-pickle
+    $(do-use-backup-command)
+    endef
+else
+    define do-python-pickle
+    $(do-python-command)
+    endef
+endif
+
 ## Rules for creating shared mat files with Octave, Python, or Julia.
 $(PY_MAT) : $(BUILD_DIR)/%.mat : %.py
 	@$(do-python-mat)
@@ -527,6 +550,10 @@ $(JL_MAT) : $(BUILD_DIR)/%.mat : %.jl
 
 $(MATLAB_MAT) : $(BUILD_DIR)/%.mat : %.m
 	@$(do-matlab-mat)
+
+$(PY_PICKLE) : $(BUILD_DIR)/%.pickle : %.py
+	@$(do-python-pickle)
+
 ## Rule for generating .dat files  from .m files using Octave.
 
 $(OCT_DAT) : $(BUILD_DIR)/%.dat : %.m
@@ -659,6 +686,10 @@ $(BACKUP_MAT) : $(BACKUP_DIR)/%.mat : $(BUILD_DIR)/%.mat
 	@echo Saving backups of $<
 	@cp -f $< $@
 
+$(BACKUP_PICKLE) : $(BACKUP_DIR)/%.pickle : $(BUILD_DIR)/%.pickle
+	@echo Saving backups of $<
+	@cp -f $< $@
+
 ## Copy dia eps files to backup directory.
 $(BACKUP_DIA) : $(BACKUP_DIR)/%.eps : $(BUILD_DIR)/%.eps
 	@echo Saving backups of $<
@@ -687,3 +718,4 @@ $(MAKEFILE_JSON) : Makefile
 ## End of standard recipes.
 ## ************************************************************************************************
 
+## Start of custom recipies.

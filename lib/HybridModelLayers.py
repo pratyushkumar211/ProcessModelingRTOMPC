@@ -9,7 +9,6 @@ sys.path.append('')
 import time
 import numpy as np
 import tensorflow as tf
-from tworeac_parameters import _get_tworeac_parameters
 tf.keras.backend.set_floatx('float64')
 
 class TwoReacCell(tf.keras.layers.AbstractRNNCell):
@@ -135,9 +134,10 @@ class TwoReacModel(tf.keras.Model):
         # Dense layers for the black-box NN.
         fnn_layers = []
         for dim in fnn_dims[1:-1]:
-            fnn_layers.append(tf.keras.layers.Dense(dim, activation='relu'))
+            fnn_layers.append(tf.keras.layers.Dense(dim, activation='tanh'))
         fnn_layers.append(tf.keras.layers.Dense(fnn_dims[-1], 
-                                                kernel_initializer='zeros'))
+                                                kernel_initializer='zeros',
+                                                use_bias=False))
 
         # Construct the RNN layer and the model.
         tworeac_cell = TwoReacCell(Np, interp_layer, 
