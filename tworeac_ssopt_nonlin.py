@@ -1,11 +1,12 @@
 # [depends] %LIB%/hybridid.py tworeac_parameters_nonlin.pickle
-# [makes] pickle
+# [depends] tworeac_train_nonlin.pickle
 """ Script to use the trained hybrid model for 
     steady-state optimization.
     Pratyush Kumar, pratyushkumar@ucsb.edu """
 
 import sys
 sys.path.append('lib/')
+sys.path.append('../')
 import numpy as np
 import casadi
 import matplotlib.pyplot as plt
@@ -146,8 +147,9 @@ def solve_plant_hybrid_nlps(*, Np, fnn_weights, parameters):
      hybrid_us) = (hybrid_nlp_soln['f'].full().squeeze(axis=-1)[0], 
                     hybrid_nlp_soln['g'].full().squeeze()[-1])
 
-    print("Plant cost: " + str(plant_cost) + "Plant u: " + str(plant_us))
-    print("Hybrid cost: " + str(hybrid_cost) + "Plant u: " + str(hybrid_us))
+    print("Plant cost: " + str(plant_cost) + ", Plant u: " + str(plant_us))
+    print("Hybrid cost: " + str(hybrid_cost) + ", Plant u: " + str(hybrid_us))
+    return 
 
 def main():
     """ Main function to be executed. """
@@ -165,7 +167,9 @@ def main():
       cost_hybrid, us) = compute_cost_curves(Np=Np, fnn_weights=fnn_weights,
                                     parameters=tworeac_parameters['parameters'])
     figures = plot_profit_curve(us=us, 
-                                costs=[cost_plant, cost_greybox, cost_hybrid])
+                                costs=[cost_plant, cost_greybox, cost_hybrid],
+                                ylabel_xcoordinate=-0.18,
+                                left_label_frac=0.18)
     solve_plant_hybrid_nlps(Np=Np, fnn_weights=fnn_weights,
                             parameters=tworeac_parameters['parameters'])
     # Save data.
