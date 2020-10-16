@@ -165,8 +165,8 @@ def plot_profit_curve(*, us, costs, figure_size=PAPER_FIGSIZE,
                                     gridspec_kw=dict(left=left_label_frac))
     xlabel = r'$C_{A0} \ (\textnormal{mol/m}^3)$'
     ylabel = r'Cost ($\$ $)'
-    colors = ['b', 'g']
-    legends = ['Plant', 'Grey-box']
+    colors = ['b', 'g', 'm']
+    legends = ['Plant', 'Grey-box', 'Hybrid']
     for (cost, color) in zip(costs, colors):
         # Plot the corresponding data.
         axes.plot(us, cost, color)
