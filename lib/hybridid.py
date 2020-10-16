@@ -153,7 +153,6 @@ def get_tworeac_train_val_data(*, Np, parameters, data_list):
                          outputs=outputs[-2])
     val_data = dict(inputs=inputs[-1], x0=x0[-1],
                     outputs=outputs[-1])
-    breakpoint()
     return (train_data, trainval_data, val_data)
 
 def plot_profit_curve(*, us, costs, figure_size=PAPER_FIGSIZE, 
