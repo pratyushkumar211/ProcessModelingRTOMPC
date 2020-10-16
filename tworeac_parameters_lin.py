@@ -234,13 +234,13 @@ def _check_obsv_compute_delta(*, parameters):
     tB = _get_tB(Ad, Bd, C)
     #print("Rank of the continuous time Observability matrix is: " + 
     #        str(np.linalg.matrix_rank(Obsv))) 
-    delta = np.array([[0., 0., 0.], 
+    delta_matrix = np.array([[0., 0., 0.], 
                       [0., -k2, k3]])
     xmat = np.linalg.matrix_power(Ad, Nx-1)
     xmat = xmat @ np.linalg.pinv(Obsv)
     xmat = np.concatenate((xmat, -(xmat @ tB) + tB[-Nx:, :]), axis=1)
-    delta = delta @ xmat
-    return delta
+    delta_matrix = delta_matrix @ xmat
+    return delta_matrix
 
 def main():
     """ Get the parameters/training/validation data."""
@@ -248,7 +248,7 @@ def main():
     parameters = _get_tworeac_parameters()
     parameters['xs'] = _get_tworeac_rectified_xs(parameters=parameters)
     # Check observability.
-    delta = _check_obsv_compute_delta(parameters=parameters)
+    delta_matrix = _check_obsv_compute_delta(parameters=parameters)
     # Generate training data.
     training_data = _gen_train_val_data(parameters=parameters, 
                                         num_traj=3, Nsim=120, seed=10)
@@ -256,7 +256,7 @@ def main():
                                             parameters, 
                                             training_data=training_data)
     tworeac_parameters = dict(parameters=parameters, 
-                              delta=delta,
+                              delta_matrix=delta_matrix,
                               training_data=training_data,
                               greybox_validation_data=greybox_val_data)
     # Save data.

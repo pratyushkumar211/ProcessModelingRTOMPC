@@ -101,6 +101,54 @@ def compute_cost_curves(*, Np, fnn_weights, parameters):
     # Return the compiled model.
     return (cost_plant, cost_greybox, cost_hybrid, us)
 
+def solve_plant_hybrid_nlps(*, Np, fnn_weights, parameters):
+    """ Solve steady state NLPs for plant and 
+        hybrid models. """
+    ps = parameters['ps']
+    (ulb, uub) = (parameters['lb']['u'].squeeze(), 
+                parameters['ub']['u'].squeeze())
+    (Nx, Ng, Ny, Nu) = (parameters['Nx'], parameters['Ng'], 
+                        parameters['Ny'], parameters['Nu'])
+
+    # Get casadi funcs.
+    plant = lambda x, u: _tworeac_plant_ode(x, u, ps, parameters)
+    plant = mpc.getCasadiFunc(plant, [Nx, Nu], ['xs', 'us'])
+    hybrid = lambda x, u: _hybrid_ode(x, u, ps, Np, fnn_weights, parameters)
+    hybrid = mpc.getCasadiFunc(hybrid, [Ng, Nu], ['xs', 'us'])
+
+    # Variables.
+    xs = casadi.SX.sym('xs', Nx)
+    us = casadi.SX.sym('us', Nu)
+
+    # First construct the NLP for the plant.
+    plant_nlp = dict(x=casadi.vertcat(xs, us), 
+                     f=cost(xs.T[0:Ny], us), 
+                     g=casadi.vertcat(plant(xs, us), us))
+    plant_nlp = casadi.nlpsol('plant_nlp', 'ipopt', plant_nlp)
+    xguess = 0.8*np.ones((Nx+Nu, 1))
+    lbg = np.concatenate((np.zeros((Nx, 1)), np.array([[ulb]])), axis=0)
+    ubg = np.concatenate((np.zeros((Nx, 1)), np.array([[uub]])), axis=0)
+    plant_nlp_soln = plant_nlp(x0=xguess, lbg=lbg, ubg=ubg)
+    (plant_cost, plant_us) = (plant_nlp_soln['f'].full().squeeze(axis=-1)[0], 
+                               plant_nlp_soln['g'].full().squeeze()[-1])
+
+    # First construct the NLP for the hybrid model.
+    xs = casadi.SX.sym('xs', Ng)
+    hybrid_nlp = dict(x=casadi.vertcat(xs, us), 
+                      f=cost(xs.T[0:Ny], us), 
+                      g=casadi.vertcat(hybrid(xs, us), us))
+    hybrid_nlp = casadi.nlpsol('hybrid_nlp', 'ipopt', hybrid_nlp)
+    xguess = 0.8*np.ones((Ng+Nu, 1))
+    lbg = np.concatenate((np.zeros((Ng, 1)), np.array([[ulb]])), axis=0)
+    ubg = np.concatenate((np.zeros((Ng, 1)), np.array([[uub]])), axis=0)
+    hybrid_nlp_soln = hybrid_nlp(x0=xguess, lbg=lbg, ubg=ubg)
+    (hybrid_cost, 
+     hybrid_us) = (hybrid_nlp_soln['f'].full().squeeze(axis=-1)[0], 
+                    hybrid_nlp_soln['g'].full().squeeze()[-1])
+
+    print("Plant cost: " + str(plant_cost) + "Plant u: " + str(plant_us))
+    print("Hybrid cost: " + str(hybrid_cost) + "Plant u: " + str(hybrid_us))
+
 def main():
     """ Main function to be executed. """
     # Load data.
@@ -118,6 +166,8 @@ def main():
                                     parameters=tworeac_parameters['parameters'])
     figures = plot_profit_curve(us=us, 
                                 costs=[cost_plant, cost_greybox, cost_hybrid])
+    solve_plant_hybrid_nlps(Np=Np, fnn_weights=fnn_weights,
+                            parameters=tworeac_parameters['parameters'])
     # Save data.
     with PdfPages('tworeac_ssopt_nonlin.pdf', 'w') as pdf_file:
         for fig in figures:
