@@ -73,17 +73,17 @@ class TwoReacCell(tf.keras.layers.AbstractRNNCell):
         Delta = self.tworeac_parameters['sample_time']
 
         # Write-down the RK4 step for the NN grey-box augmentation.
-        ypseq_fnn = tf.concat((xG, ypseq), axis=-1)
+        ypseq_fnn = tf.concat((ypseq, xG), axis=-1)
         k1 = self._fg(xG, u) + self._fnn(ypseq_fnn, upseq)
         
         ypseq_interp = self.interp_layer(ypseq_fnn)
-        ypseq_fnn = tf.concat((xG + Delta*(k1/2), ypseq_interp), axis=-1)
+        ypseq_fnn = tf.concat((ypseq_interp, xG + Delta*(k1/2)), axis=-1)
         k2 = self._fg(xG + Delta*(k1/2), u) + self._fnn(ypseq_fnn, upseq)
         
-        ypseq_fnn = tf.concat((xG + Delta*(k2/2), ypseq_interp), axis=-1)
+        ypseq_fnn = tf.concat((ypseq_interp, xG + Delta*(k2/2)), axis=-1)
         k3 = self._fg(xG + Delta*(k2/2), u) + self._fnn(ypseq_fnn, upseq)
         
-        ypseq_fnn = tf.concat((xG + Delta*k3, ypseq_interp), axis=-1)
+        ypseq_fnn = tf.concat((ypseq_interp, xG + Delta*k3), axis=-1)
         k4 = self._fg(xG + Delta*k3, u) + self._fnn(ypseq_fnn, upseq)
         
         # Get the current output/state and the next time step.

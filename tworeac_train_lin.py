@@ -75,9 +75,9 @@ def main():
                                          train_data, trainval_data, val_data,
                                          'tworeac_train_lin.txt', 
                                          'tworeac_train_lin.ckpt')
-    fnn_weights = tworeac_model.get_weights()
+    fnn_weight = tworeac_model.get_weights()[0]
     # Save the weights.
-    tworeac_training_data = dict(fnn_weights=fnn_weights,
+    tworeac_training_data = dict(fnn_weight=fnn_weight,
                                  val_predictions=val_predictions,
                                  Np=Np)
     # Save data.
