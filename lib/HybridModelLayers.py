@@ -15,7 +15,7 @@ class TwoReacAddNNCell(tf.keras.layers.AbstractRNNCell):
     """
     def __init__(self, Np, interp_layer, 
                        fnn_layers, tworeac_parameters, **kwargs):
-        super(TwoReacCell, self).__init__(**kwargs)
+        super(TwoReacAddNNCell, self).__init__(**kwargs)
         self.Np = Np
         self.interp_layer = interp_layer
         self.fnn_layers = fnn_layers
@@ -63,7 +63,7 @@ class TwoReacAddNNCell(tf.keras.layers.AbstractRNNCell):
             Dimension of xG: (None, Ng)
             Dimension of input: (None, Nu+(Np-1)*(Ng+Nu))
         """
-        # Extract important variables.
+        # Extract variables.
         [xG] = states
         [u, ypseq, upseq] = tf.split(inputs, [self.Nu, 
                             (self.Np-1)*self.Ng, (self.Np-1)*self.Nu], axis=-1)
@@ -73,14 +73,19 @@ class TwoReacAddNNCell(tf.keras.layers.AbstractRNNCell):
         ypseq_fnn = tf.concat((ypseq, xG), axis=-1)
         k1 = self._fg(xG, u) + self._fnn(ypseq_fnn, upseq)
         
+        # Interpolate for k2 and k3.
         ypseq_interp = self.interp_layer(ypseq_fnn)
+
         ypseq_fnn = tf.concat((ypseq_interp, xG + Delta*(k1/2)), axis=-1)
         k2 = self._fg(xG + Delta*(k1/2), u) + self._fnn(ypseq_fnn, upseq)
         
         ypseq_fnn = tf.concat((ypseq_interp, xG + Delta*(k2/2)), axis=-1)
         k3 = self._fg(xG + Delta*(k2/2), u) + self._fnn(ypseq_fnn, upseq)
-        
-        ypseq_fnn = tf.concat((ypseq_interp, xG + Delta*k3), axis=-1)
+
+        # Update sequences for NN.
+        ypseq_fnn = tf.concat((ypseq[..., self.Ng:], 
+                                xG, xG + Delta*k3), axis=-1)
+        upseq = tf.concat((upseq[..., self.Nu:], u), axis=-1)
         k4 = self._fg(xG + Delta*k3, u) + self._fnn(ypseq_fnn, upseq)
         
         # Get the current output/state and the next time step.
@@ -93,17 +98,13 @@ class TwoReacAddNNCell(tf.keras.layers.AbstractRNNCell):
 class BlackBoxHybridCell(tf.keras.layers.AbstractRNNCell):
     """
     RNN Cell
-    dxG/dt  = fG(xG, u) + f_{NN}(y_{k+1-N_p:k}, u_{k+1-N_p:k-1}), y = xG
+    xG^+  = f_N(xG, y_{k+1-N_p:k-1}, u_{k+1-N_p:k-1}, u), y = xG
     """
-    def __init__(self, Np, interp_layer, 
-                       fnn_layers, tworeac_parameters, **kwargs):
-        super(TwoReacCell, self).__init__(**kwargs)
+    def __init__(self, Np, Ng, Nu, fnn_layers, **kwargs):
+        super(BlackBoxHybridCell, self).__init__(**kwargs)
         self.Np = Np
-        self.interp_layer = interp_layer
         self.fnn_layers = fnn_layers
-        self.tworeac_parameters = tworeac_parameters
-        (self.Ng, self.Nu) = (tworeac_parameters['Ng'],
-                              tworeac_parameters['Nu'])
+        (self.Ng, self.Nu) = (Ng, Nu)
 
     @property
     def state_size(self):
@@ -113,29 +114,9 @@ class BlackBoxHybridCell(tf.keras.layers.AbstractRNNCell):
     def output_size(self):
         return self.Ng        
 
-    def _fg(self, x, u):
-        """ Function to compute the 
-            derivative (RHS of the ODE)
-            for the two reaction model. """
-
-        # Extract the parameters.
-        k1 = self.tworeac_parameters['k1']
-        tau = self.tworeac_parameters['ps'].squeeze()
-        
-        # Get the state and control.
-        (Ca, Cb) = (x[..., 0:1], x[..., 1:2])
-        Ca0 = u[..., 0:1]
-        
-        # Write the ODEs.
-        dCabydt = (Ca0 - Ca)/tau - k1*Ca
-        dCbbydt = k1*Ca - Cb/tau
-
-        # Return the derivative.
-        return tf.concat([dCabydt, dCbbydt], axis=-1)
-
-    def _fnn(self, ypseq, upseq):
+    def _fnn(self, xG, ypseq, upseq, u):
         """ Compute the output of the feedforward network. """
-        fnn_output = tf.concat((ypseq, upseq), axis=-1)
+        fnn_output = tf.concat((xG, ypseq, upseq, u), axis=-1)
         for layer in self.fnn_layers:
             fnn_output = layer(fnn_output)
         return fnn_output
@@ -149,43 +130,24 @@ class BlackBoxHybridCell(tf.keras.layers.AbstractRNNCell):
         [xG] = states
         [u, ypseq, upseq] = tf.split(inputs, [self.Nu, 
                             (self.Np-1)*self.Ng, (self.Np-1)*self.Nu], axis=-1)
-        Delta = self.tworeac_parameters['sample_time']
-
-        # Write-down the RK4 step for the NN grey-box augmentation.
-        ypseq_fnn = tf.concat((ypseq, xG), axis=-1)
-        k1 = self._fg(xG, u) + self._fnn(ypseq_fnn, upseq)
-        
-        ypseq_interp = self.interp_layer(ypseq_fnn)
-        ypseq_fnn = tf.concat((ypseq_interp, xG + Delta*(k1/2)), axis=-1)
-        k2 = self._fg(xG + Delta*(k1/2), u) + self._fnn(ypseq_fnn, upseq)
-        
-        ypseq_fnn = tf.concat((ypseq_interp, xG + Delta*(k2/2)), axis=-1)
-        k3 = self._fg(xG + Delta*(k2/2), u) + self._fnn(ypseq_fnn, upseq)
-        
-        ypseq_fnn = tf.concat((ypseq_interp, xG + Delta*k3), axis=-1)
-        k4 = self._fg(xG + Delta*k3, u) + self._fnn(ypseq_fnn, upseq)
         
         # Get the current output/state and the next time step.
         y = xG
-        xGplus = xG + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
+        xGplus = self._fnn(xG, ypseq, upseq, u)
 
         # Return output and states at the next time-step.
         return (y, xGplus)
 
-class BlackBoxCell(tf.keras.layers.AbstractRNNCell):
+class TwoReacResidualCell(tf.keras.layers.AbstractRNNCell):
     """
     RNN Cell
-    dxG/dt  = fG(xG, u) + f_{NN}(y_{k+1-N_p:k}, u_{k+1-N_p:k-1}), y = xG
+    xG^+  = f_N(xG, y_{k+1-N_p:k-1}, u_{k+1-N_p:k-1}, u), y = xG
     """
-    def __init__(self, Np, interp_layer, 
-                       fnn_layers, tworeac_parameters, **kwargs):
-        super(TwoReacCell, self).__init__(**kwargs)
+    def __init__(self, Np, Ng, Nu, fnn_layers, **kwargs):
+        super(BlackBoxHybridCell, self).__init__(**kwargs)
         self.Np = Np
-        self.interp_layer = interp_layer
         self.fnn_layers = fnn_layers
-        self.tworeac_parameters = tworeac_parameters
-        (self.Ng, self.Nu) = (tworeac_parameters['Ng'],
-                              tworeac_parameters['Nu'])
+        (self.Ng, self.Nu) = (Ng, Nu)
 
     @property
     def state_size(self):
@@ -195,29 +157,9 @@ class BlackBoxCell(tf.keras.layers.AbstractRNNCell):
     def output_size(self):
         return self.Ng        
 
-    def _fg(self, x, u):
-        """ Function to compute the 
-            derivative (RHS of the ODE)
-            for the two reaction model. """
-
-        # Extract the parameters.
-        k1 = self.tworeac_parameters['k1']
-        tau = self.tworeac_parameters['ps'].squeeze()
-        
-        # Get the state and control.
-        (Ca, Cb) = (x[..., 0:1], x[..., 1:2])
-        Ca0 = u[..., 0:1]
-        
-        # Write the ODEs.
-        dCabydt = (Ca0 - Ca)/tau - k1*Ca
-        dCbbydt = k1*Ca - Cb/tau
-
-        # Return the derivative.
-        return tf.concat([dCabydt, dCbbydt], axis=-1)
-
-    def _fnn(self, ypseq, upseq):
+    def _fnn(self, xG, ypseq, upseq, u):
         """ Compute the output of the feedforward network. """
-        fnn_output = tf.concat((ypseq, upseq), axis=-1)
+        fnn_output = tf.concat((xG, ypseq, upseq, u), axis=-1)
         for layer in self.fnn_layers:
             fnn_output = layer(fnn_output)
         return fnn_output
@@ -231,25 +173,10 @@ class BlackBoxCell(tf.keras.layers.AbstractRNNCell):
         [xG] = states
         [u, ypseq, upseq] = tf.split(inputs, [self.Nu, 
                             (self.Np-1)*self.Ng, (self.Np-1)*self.Nu], axis=-1)
-        Delta = self.tworeac_parameters['sample_time']
-
-        # Write-down the RK4 step for the NN grey-box augmentation.
-        ypseq_fnn = tf.concat((ypseq, xG), axis=-1)
-        k1 = self._fg(xG, u) + self._fnn(ypseq_fnn, upseq)
-        
-        ypseq_interp = self.interp_layer(ypseq_fnn)
-        ypseq_fnn = tf.concat((ypseq_interp, xG + Delta*(k1/2)), axis=-1)
-        k2 = self._fg(xG + Delta*(k1/2), u) + self._fnn(ypseq_fnn, upseq)
-        
-        ypseq_fnn = tf.concat((ypseq_interp, xG + Delta*(k2/2)), axis=-1)
-        k3 = self._fg(xG + Delta*(k2/2), u) + self._fnn(ypseq_fnn, upseq)
-        
-        ypseq_fnn = tf.concat((ypseq_interp, xG + Delta*k3), axis=-1)
-        k4 = self._fg(xG + Delta*k3, u) + self._fnn(ypseq_fnn, upseq)
         
         # Get the current output/state and the next time step.
         y = xG
-        xGplus = xG + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
+        xGplus = self._fnn(xG, ypseq, upseq, u)
 
         # Return output and states at the next time-step.
         return (y, xGplus)
@@ -301,7 +228,7 @@ class TwoReacModel(tf.keras.Model):
                                                 use_bias=False))
 
         # Construct the RNN layer and the model.
-        tworeac_cell = TwoReacCell(Np, interp_layer, 
+        tworeac_cell = TwoReacAddNNCell(Np, interp_layer, 
                                    fnn_layers, tworeac_parameters)
         tworeac_layer = tf.keras.layers.RNN(tworeac_cell, return_sequences=True)
         layer_output = tworeac_layer(inputs=layer_input, 
