@@ -1,4 +1,5 @@
-# [depends] %LIB%/hybridid.py tworeac_parameters_nonlin.pickle
+# [depends] %LIB%/hybridid.py %LIB%/HybridModelLayers.py
+# [depends] tworeac_parameters_nonlin.pickle
 # [makes] pickle
 """ Script to train the hybrid model for the 
     three reaction system. 
@@ -62,8 +63,8 @@ def main():
                                          'tworeac_parameters_nonlin.pickle',
                                          type='read')
     # Create the hybrid model.
-    Np = 3
-    fnn_dims = [8, 4, 2]
+    Np = 4
+    fnn_dims = [9, 16, 2]
     tworeac_model = create_tworeac_model(Np=Np, fnn_dims=fnn_dims,
                     tworeac_parameters=tworeac_parameters['parameters'])
     # Get the training data.
