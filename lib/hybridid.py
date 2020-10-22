@@ -126,17 +126,16 @@ def get_tworeac_train_val_data(*, Np, parameters, data_list):
     """ Get the data for training in appropriate format. """
     tsteps_steady = parameters['tsteps_steady']
     (Ny, Nu) = (parameters['Ny'], parameters['Nu'])
-    Nsim = len(data_list[0].t)
-    Ntrain = Nsim - tsteps_steady
     (inputs, x0, outputs) = ([], [], [])
     for data in data_list:
+        Nsim = len(data.t)
         u_traj = data.u[tsteps_steady:][np.newaxis, :, np.newaxis]
         x0_traj = data.y[tsteps_steady, :][np.newaxis, :]
         y_traj = data.y[tsteps_steady:, :][np.newaxis, ...]
         (ypseq_traj, upseq_traj) = ([], [])
         for t in range(tsteps_steady, Nsim):
-            ypseq = data.y[t+1-Np:t, :].reshape((Np-1)*Ny, )
-            upseq = data.u[t+1-Np:t]
+            ypseq = data.y[t-Np:t, :].reshape(Np*Ny, )
+            upseq = data.u[t-Np:t]
             ypseq_traj.append(ypseq)
             upseq_traj.append(upseq)
         ypseq_traj = np.asarray(ypseq_traj)[np.newaxis, ...]

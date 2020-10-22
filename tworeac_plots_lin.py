@@ -1,4 +1,5 @@
 # [depends] tworeac_parameters_lin.pickle tworeac_train_lin.pickle
+# [depends] tworeac_ssopt_lin.pickle
 # [depends] %LIB%/hybridid.py
 """ Script to plot the training data
     and grey-box + NN model predictions on validation data.
@@ -9,7 +10,7 @@ sys.path.append('lib/')
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
-from hybridid import (PickleTool, PAPER_FIGSIZE)
+from hybridid import (PickleTool, PAPER_FIGSIZE, plot_profit_curve)
 
 def plot_training_data(*, training_data, plot_range,
                           figure_size=PAPER_FIGSIZE,
@@ -86,8 +87,8 @@ def plot_val_model_predictions(*, plantsim_data,
     axes.set_xlabel('Time (hr)')
     axes.set_xlim([np.min(time), np.max(time)])
     figure.legend(handles = legend_handles,
-                  labels = ('Plant', 'Grey-box', 'Hybrid-Model'), 
-                  loc = (0.15, 0.9), ncol=3)
+                  labels = ('Plant', 'Grey-box', 'Hybrid'), 
+                  loc = (0.2, 0.9), ncol=3)
     # Return the figure object.
     return [figure]
 
@@ -99,6 +100,9 @@ def main():
     tworeac_train = PickleTool.load(filename=
                                     "tworeac_train_lin.pickle", 
                                     type='read')
+    ssopt = PickleTool.load(filename=
+                            "tworeac_ssopt_lin.pickle", 
+                            type='read')
     figures = []
     figures += plot_training_data(training_data=
                                   tworeac_parameters['training_data'][0], 
@@ -109,6 +113,10 @@ def main():
                             tworeac_train['val_predictions']],
                     plot_range=(0, 6*60), 
                 tsteps_steady=tworeac_parameters['parameters']['tsteps_steady'])
+    
+    figures += plot_profit_curve(us=ssopt['us'],
+                                 costs=ssopt['costs'])
+
     with PdfPages('tworeac_plots_lin.pdf', 
                   'w') as pdf_file:
         for fig in figures:

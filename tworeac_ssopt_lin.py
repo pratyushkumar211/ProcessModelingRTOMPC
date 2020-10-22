@@ -1,4 +1,5 @@
 # [depends] %LIB%/hybridid.py tworeac_parameters_lin.pickle
+# [depends] tworeac_train_lin.pickle
 # [makes] pickle
 """ Script to use the trained hybrid model for 
     steady-state optimization.
@@ -61,10 +62,10 @@ def _hybrid_ys(*, us, Np, fnn_weight, parameters):
     B = np.array([[1/tau], [0.]])
     (Apast, Bpast) = np.split(fnn_weight.T, [3*Ny, ], axis=1) 
     # Correct the original A and B.
-    for i in range(Np-1):
+    for i in range(Np):
         A += Apast[:, i*Ny:(i+1)*Ny]
         B += Bpast[:, i*Nu:(i+1)*Nu]
-    A += Apast[:, (Np-1)*Ny:]
+    A += Apast[:, Np*Ny:]
     xs = -np.linalg.inv(A) @ (B @ us)
     # Return.
     return xs[0:Ny]
@@ -111,11 +112,7 @@ def main():
      cost_greybox, 
      cost_hybrid, us) = compute_cost_curves(Np=Np, fnn_weight=fnn_weight,
                                 parameters=tworeac_parameters['parameters'])
-    figures = plot_profit_curve(us=us,
-                                costs=[cost_plant, cost_greybox, cost_hybrid])
-    # Save data.
-    with PdfPages('tworeac_ssopt_lin.pdf', 'w') as pdf_file:
-        for fig in figures:
-            pdf_file.savefig(fig)
-
+    PickleTool.save(data_object=dict(us=us, 
+                            costs=[cost_plant, cost_greybox, cost_hybrid]),
+                    filename='tworeac_ssopt_lin.pickle')
 main()

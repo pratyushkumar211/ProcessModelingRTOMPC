@@ -65,8 +65,9 @@ class TwoReacAddNNCell(tf.keras.layers.AbstractRNNCell):
         """
         # Extract variables.
         [xG] = states
-        [u, ypseq, upseq] = tf.split(inputs, [self.Nu, 
-                            (self.Np-1)*self.Ng, (self.Np-1)*self.Nu], axis=-1)
+        [u, ypseq, upseq] = tf.split(inputs, 
+                            [self.Nu, self.Np*self.Ng, self.Np*self.Nu], 
+                            axis=-1)
         Delta = self.tworeac_parameters['sample_time']
 
         # Write-down the RK4 step for the NN grey-box augmentation.
@@ -91,17 +92,17 @@ class TwoReacAddNNCell(tf.keras.layers.AbstractRNNCell):
         # Get the current output/state and the next time step.
         y = xG
         xGplus = xG + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
-
+        
         # Return output and states at the next time-step.
         return (y, xGplus)
 
-class BlackBoxHybridCell(tf.keras.layers.AbstractRNNCell):
+class BlackBoxCell(tf.keras.layers.AbstractRNNCell):
     """
     RNN Cell
     xG^+  = f_N(xG, y_{k+1-N_p:k-1}, u_{k+1-N_p:k-1}, u), y = xG
     """
     def __init__(self, Np, Ng, Nu, fnn_layers, **kwargs):
-        super(BlackBoxHybridCell, self).__init__(**kwargs)
+        super(BlackBoxCell, self).__init__(**kwargs)
         self.Np = Np
         self.fnn_layers = fnn_layers
         (self.Ng, self.Nu) = (Ng, Nu)
@@ -128,8 +129,9 @@ class BlackBoxHybridCell(tf.keras.layers.AbstractRNNCell):
         """
         # Extract important variables.
         [xG] = states
-        [u, ypseq, upseq] = tf.split(inputs, [self.Nu, 
-                            (self.Np-1)*self.Ng, (self.Np-1)*self.Nu], axis=-1)
+        [u, ypseq, upseq] = tf.split(inputs, 
+                            [self.Nu, self.Np*self.Ng, self.Np*self.Nu], 
+                            axis=-1)
         
         # Get the current output/state and the next time step.
         y = xG
@@ -193,8 +195,9 @@ class TwoReacResidualCell(tf.keras.layers.AbstractRNNCell):
         """
         # Extract variables.
         [xG] = states
-        [u, ypseq, upseq] = tf.split(inputs, [self.Nu, 
-                            (self.Np-1)*self.Ng, (self.Np-1)*self.Nu], axis=-1)
+        [u, ypseq, upseq] = tf.split(inputs, 
+                            [self.Nu, self.Np*self.Ng, self.Np*self.Nu], 
+                            axis=-1)
         Delta = self.tworeac_parameters['sample_time']
 
         # Write-down the RK4 step.
@@ -225,7 +228,7 @@ class InterpolationLayer(tf.keras.layers.Layer):
         Return y of dimension: (None, (Np-1)*p)
         """
         yseq_interp = []
-        for t in range(self.Np-1):
+        for t in range(self.Np):
             yseq_interp.append(0.5*(yseq[..., t*self.p:(t+1)*self.p] + 
                                     yseq[..., (t+1)*self.p:(t+2)*self.p]))
         return tf.concat(yseq_interp, axis=-1)
@@ -235,20 +238,17 @@ class InterpolationLayer(tf.keras.layers.Layer):
 
 class TwoReacModel(tf.keras.Model):
     """ Custom model for the Two reaction model. """
-    def __init__(self, Np, fnn_dims, tworeac_parameters):
+    def __init__(self, Np, fnn_dims, tworeac_parameters, model_type):
         """ Create the dense layers for the NN, and 
             construct the overall model. """
 
         # Get the size and input layer, and initial state layer.
         (Ng, Nu) = (tworeac_parameters['Ng'], tworeac_parameters['Nu'])
         layer_input = tf.keras.Input(name='u_ypseq_upseq', 
-                        shape=(None, Nu+(Np-1)*(Ng+Nu)))
+                        shape=(None, Nu+Np*(Ng+Nu)))
         initial_state = tf.keras.Input(name='x0', shape=(Ng, ))
 
-        # Get the interpolation layer.
-        interp_layer = InterpolationLayer(p=Ng, Np=Np)
-
-        # Dense layers for the black-box NN.
+        # Dense layers for the NN.
         fnn_layers = []
         for dim in fnn_dims[1:-1]:
             fnn_layers.append(tf.keras.layers.Dense(dim, activation='tanh'))
@@ -256,11 +256,21 @@ class TwoReacModel(tf.keras.Model):
                                                 kernel_initializer='zeros',
                                                 use_bias=False))
 
-        # Construct the RNN layer and the model.
-        tworeac_cell = TwoReacResidualCell(Np, 
-                                   fnn_layers, tworeac_parameters)
+        # Build model depending on option.
+        if model_type == 'black-box':
+            tworeac_cell = BlackBoxCell(Np, Ng, Nu, fnn_layers)
+        elif model_type == 'residual':
+            tworeac_cell = TwoReacResidualCell(Np, fnn_layers, 
+                                               tworeac_parameters)
+        elif model_type == 'hybrid':
+            interp_layer = InterpolationLayer(p=Ng, Np=Np)
+            tworeac_cell = TwoReacAddNNCell(Np, interp_layer, fnn_layers, 
+                                            tworeac_parameters)
+
+        # Construct the RNN layer and the computation graph.
         tworeac_layer = tf.keras.layers.RNN(tworeac_cell, return_sequences=True)
         layer_output = tworeac_layer(inputs=layer_input, 
                                 initial_state=[initial_state])
+        # Construct model.
         super().__init__(inputs=[layer_input, initial_state], 
                          outputs=layer_output)

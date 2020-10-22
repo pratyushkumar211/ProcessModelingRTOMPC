@@ -1,4 +1,5 @@
 # [depends] %LIB%/hybridid.py tworeac_parameters_lin.pickle
+# [depends] %LIB%/HybridModelLayers.py
 # [makes] pickle
 """ Script to train the hybrid model for the 
     three reaction system. 
@@ -20,7 +21,8 @@ def create_tworeac_model(*, Np, fnn_dims, tworeac_parameters):
     """ Create/compile the two reaction model for training. """
     tworeac_model = TwoReacModel(Np=Np,
                                  fnn_dims=fnn_dims,
-                                 tworeac_parameters=tworeac_parameters)
+                                 tworeac_parameters=tworeac_parameters,
+                                 model_type='hybrid')
     # Compile the nn controller.
     tworeac_model.compile(optimizer='adam', 
                           loss='mean_squared_error')
@@ -41,7 +43,7 @@ def train_model(model, train_data, trainval_data, val_data,
     # Call the fit method to train.
     model.fit(x=[train_data['inputs'], train_data['x0']], 
               y=train_data['outputs'], 
-            epochs=1000, batch_size=1,
+            epochs=1500, batch_size=1,
             validation_data = ([trainval_data['inputs'], trainval_data['x0']], 
                                 trainval_data['outputs']),
             callbacks = [checkpoint_callback])
@@ -62,7 +64,7 @@ def main():
                                          'tworeac_parameters_lin.pickle',
                                          type='read')
     # Create the hybrid model.
-    Np = 3
+    Np = 2
     fnn_dims = [8, 2]
     tworeac_model = create_tworeac_model(Np=Np, fnn_dims=fnn_dims,
                     tworeac_parameters=tworeac_parameters['parameters'])
