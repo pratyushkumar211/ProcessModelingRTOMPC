@@ -22,16 +22,16 @@ def plot_training_data(*, training_data, plot_range,
                                         sharex=True, 
                                         figsize=figure_size)
     (start, end) = plot_range
-    ylabels = [r'$C_a \ (\textnormal{mol/m}^3)$', 
-               r'$C_b \ (\textnormal{mol/m}^3)$', 
-               r'$C_c \ (\textnormal{mol/m}^3)$',
-               r'$C_{a0} \ (\textnormal{mol/m}^3)$']
+    ylabels = [r'$C_A \ (\textnormal{mol/m}^3)$', 
+               r'$C_B \ (\textnormal{mol/m}^3)$', 
+               r'$C_C \ (\textnormal{mol/m}^3)$',
+               r'$C_{Af} \ (\textnormal{mol/m}^3)$']
     time = training_data.t/60
     data_list = [training_data.y[:, 0], training_data.y[:, 1], 
                  training_data.x[:, 2], training_data.u]
     for (axes, data, ylabel) in zip(axes_array, data_list, ylabels):
-        if ylabel in [r'$C_a \ (\textnormal{mol/m}^3)$' , 
-                      r'$C_b \ (\textnormal{mol/m}^3)$']:
+        if ylabel in [r'$C_A \ (\textnormal{mol/m}^3)$' , 
+                      r'$C_B \ (\textnormal{mol/m}^3)$']:
             axes.plot(time[start:end], data[start:end], 'bo', 
                       markersize=markersize)
         else:
@@ -57,7 +57,7 @@ def plot_val_model_predictions(*, plantsim_data,
     (start, end) = plot_range
     ylabels = [r'$C_A \ (\textnormal{mol/m}^3)$', 
                r'$C_B \ (\textnormal{mol/m}^3)$',
-               r'$C_{A0} \ (\textnormal{mol/m}^3)$']
+               r'$C_{Af} \ (\textnormal{mol/m}^3)$']
     model_legend_colors = ['g', 'm']
     legend_handles = []
     plant_data_list = [plantsim_data.y[tsteps_steady:, 0], 
@@ -71,7 +71,7 @@ def plot_val_model_predictions(*, plantsim_data,
         for (axes, plantdata, 
              modeldata, ylabel) in zip(axes_array, plant_data_list, 
                                        model_data_list, ylabels):
-            if ylabel == r'$C_c \ (\textnormal{mol/m}^3)$':
+            if ylabel == r'$C_C \ (\textnormal{mol/m}^3)$':
                 axes.plot(time[start:end], plantdata[start:end])
                 axes.plot(time[start:end], 
                             modeldata[start:end], model_legend_color)
@@ -115,7 +115,9 @@ def main():
                 tsteps_steady=tworeac_parameters['parameters']['tsteps_steady'])
     
     figures += plot_profit_curve(us=ssopt['us'],
-                                 costs=ssopt['costs'])
+                                 costs=ssopt['costs'], 
+                                 colors=['b', 'g', 'm'],
+                                legends=['Plant', 'Grey-box', 'Hybrid'])
 
     with PdfPages('tworeac_plots_lin.pdf', 
                   'w') as pdf_file:
