@@ -103,6 +103,7 @@ OCT_MAT_SRC :=
 MATLAB_MAT_SRC := 
 PY_PICKLE_SRC := tworeac_parameters_lin.py tworeac_train_lin.py \
 				 tworeac_parameters_nonlin.py tworeac_train_nonlin.py \
+				 tworeac_ssopt_lin.py tworeac_ssopt_nonlin.py
 
 ## JL_MAT_SRC. These are .jl files on which you run Julia to produce a .mat file.
 ## Note that Julia's .mat files are in an HDF5 format, so you will need to use
@@ -117,7 +118,7 @@ OCT_DAT_SRC :=
 
 ## PY_PLOT files are .py files that create .pdf plots.
 
-PY_PLOT := tworeac_plots_lin.py tworeac_plots_nonlin.py
+PY_PLOT := tworeac_plots_lin.py tworeac_plots_nonlin.py \
 
 ## PY_MOVIE files are .py files that create movies as a .pdf document.
 

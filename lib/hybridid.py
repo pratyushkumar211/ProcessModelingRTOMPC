@@ -154,7 +154,8 @@ def get_tworeac_train_val_data(*, Np, parameters, data_list):
                     outputs=outputs[-1])
     return (train_data, trainval_data, val_data)
 
-def plot_profit_curve(*, us, costs, figure_size=PAPER_FIGSIZE, 
+def plot_profit_curve(*, us, costs, colors, legends, 
+                         figure_size=PAPER_FIGSIZE,
                          ylabel_xcoordinate=-0.12, 
                          left_label_frac=0.15):
     """ Plot the profit curves. """
@@ -162,10 +163,8 @@ def plot_profit_curve(*, us, costs, figure_size=PAPER_FIGSIZE,
                                         sharex=True, 
                                         figsize=figure_size, 
                                     gridspec_kw=dict(left=left_label_frac))
-    xlabel = r'$C_{A0} \ (\textnormal{mol/m}^3)$'
+    xlabel = r'$C_{Af} \ (\textnormal{mol/m}^3)$'
     ylabel = r'Cost ($\$ $)'
-    colors = ['b', 'g', 'm']
-    legends = ['Plant', 'Grey-box', 'Hybrid']
     for (cost, color) in zip(costs, colors):
         # Plot the corresponding data.
         axes.plot(us, cost, color)

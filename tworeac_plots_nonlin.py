@@ -92,6 +92,50 @@ def plot_val_model_predictions(*, plantsim_data,
     # Return the figure object.
     return [figure]
 
+def plot_sub_gaps(*, num_samples, sub_gaps, colors, legends, 
+                  figure_size=PAPER_FIGSIZE,
+                  ylabel_xcoordinate=-0.12, 
+                  left_label_frac=0.15):
+    """ Plot the suboptimality gaps. """
+    (figure, axes) = plt.subplots(nrows=1, ncols=1, 
+                                  sharex=True, 
+                                  figsize=figure_size, 
+                                  gridspec_kw=dict(left=left_label_frac))
+    ylabel = r'$\% \ $ Suboptimality Gap'
+    xlabel = 'Number of training samples'
+    for (sub_gap, color) in zip(sub_gaps, colors):
+        # Plot the corresponding data.
+        axes.semilogy(num_samples, sub_gap, color)
+    axes.legend(legends)
+    axes.set_xlabel(xlabel)
+    axes.set_ylabel(ylabel)
+    axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5) 
+    axes.set_xlim([np.min(num_samples), np.max(num_samples)])
+    # Return the figure object.
+    return [figure]
+
+def plot_val_metrics(*, num_samples, val_metrics, colors, legends, 
+                     figure_size=PAPER_FIGSIZE,
+                     ylabel_xcoordinate=-0.15, 
+                     left_label_frac=0.15):
+    """ Plot validation metric on open loop data. """
+    (figure, axes) = plt.subplots(nrows=1, ncols=1, 
+                                        sharex=True, 
+                                        figsize=figure_size, 
+                                    gridspec_kw=dict(left=left_label_frac))
+    xlabel = 'Number of training samples'
+    ylabel = 'Mean squared error'
+    for (val_metric, color) in zip(val_metrics, colors):
+        # Plot the corresponding data.
+        axes.semilogy(num_samples, val_metric, color)
+    axes.legend(legends)
+    axes.set_xlabel(xlabel)
+    axes.set_ylabel(ylabel)
+    axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5) 
+    axes.set_xlim([np.min(num_samples), np.max(num_samples)])
+    # Return the figure object.
+    return [figure]
+
 def main():
     """ Load the pickle file and plot. """
     tworeac_parameters = PickleTool.load(filename=
@@ -104,18 +148,26 @@ def main():
     tworeac_train = PickleTool.load(filename=
                                     "tworeac_train_nonlin.pickle", 
                                     type='read')
+    num_samples = tworeac_train['num_samples']
+    val_metrics = tworeac_train['val_metrics']
     val_predictions = tworeac_train['val_predictions']
     ssopt = PickleTool.load(filename="tworeac_ssopt_nonlin.pickle", 
                             type='read')
+    sub_gaps = ssopt['sub_gaps']
     figures = []
+
+    # Plot training data.
     figures += plot_training_data(training_data=training_data[0], 
                                   plot_range=(0, 6*60))
+
+    # Plot predictions on validation data.
     modelsim_datum = [greybox_validation_data] + val_predictions
     figures += plot_val_model_predictions(plantsim_data=training_data[-1],
                                     modelsim_datum=modelsim_datum,
                                     plot_range=(0, 6*60), 
                                     tsteps_steady=parameters['tsteps_steady'])
 
+    # Plot cost curve.
     figures += plot_profit_curve(us=ssopt['us'], 
                                 costs=ssopt['costs'],
                                 colors=['blue', 'green', 
@@ -124,6 +176,17 @@ def main():
                                          'Residual', 'Hybrid'],
                                 ylabel_xcoordinate=-0.21,
                                 left_label_frac=0.21)
+
+    # PLot validation metrics.
+    figures += plot_val_metrics(num_samples=num_samples, 
+                                val_metrics=val_metrics, 
+                                colors=['dimgray', 'orange', 'tomato'], 
+                                legends=['Black-box', 'Residual', 'Hybrid'])
+    # Plot suboptimality gaps.
+    figures += plot_sub_gaps(num_samples=num_samples, 
+                             sub_gaps=sub_gaps, 
+                             colors=['dimgray', 'orange', 'tomato'], 
+                             legends=['Black-box', 'Residual', 'Hybrid'])
 
     with PdfPages('tworeac_plots_nonlin.pdf', 
                   'w') as pdf_file:

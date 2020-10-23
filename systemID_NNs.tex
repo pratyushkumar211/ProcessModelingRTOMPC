@@ -299,20 +299,31 @@ to be approximated with the network is
 \end{align*}
 
 In this example, the network just approximates a linear function.
-The figure below shows validation performances of the grey-box 
+The Figure \ref{fig:validation_linear} 
+below shows validation performances of the grey-box 
 and augmented hybrid models. The structure 
 of the network is restricted to just a matrix and
-the augmented model was trained on 120 samples.
+the augmented model was trained on 240 samples (4 hours).
 
 \begin{figure}[!h]
   \centering
   \includegraphics[page=2, width=\textwidth]{tworeac_plots_lin.pdf}
+  \caption{Model validation for the linear plant}
+  \label{fig:validation_linear}
 \end{figure}
+
+We notice that the augmented model accurately predicts the plant 
+behavior. The steady cost profile (Cost = $c_1C_{A0} - c_2C_B$)
+is shown in Figure \ref{fig:cost_linear}. 
 
 \begin{figure}[!h]
   \centering
   \includegraphics[page=1, width=\textwidth]{tworeac_ssopt_lin.pdf}
+  \caption{Steady state cost curve for 
+           the linear plant, grey-box, and hybrid model.}
+  \label{fig:cost_linear}
 \end{figure}
+
 
 \subsection{Nonlinear plant}
 The plant is made nonlinear by changing the side reaction 
@@ -327,23 +338,36 @@ and is now simulated with the following ODEs
 The grey-box model is kept the same. The parameters 
 in the model are modified to 
 $k_1 = 1 \ \textnormal{m}^3/\textnormal{min}, 
-\ k_2 = 0.05 \ \textnormal{m}^3/\textnormal{min},
-\ k_3 = 0.1 \ \textnormal{m}^3/\textnormal{min}$, 
+\ k_2 = 0.01 \ \textnormal{m}^3/\textnormal{min},
+\ k_3 = 0.05 \ \textnormal{m}^3/\textnormal{min}$, 
 and $\tau = 5 \ \textnormal{min}$.
 An augmented model with a neural
-network architecture [8, 4, 2] is trained on 180 samples. The 
-tanh activation is used in the network. The figure below shows 
+network architecture [8, 4, 2] is trained on 360 samples (6 hours). 
+The tanh activation is used in the network. The figure below shows 
 validation performances of the grey-box and augmented 
 hybrid models.
 
 \begin{figure}[!h]
   \centering
   \includegraphics[page=2, width=\textwidth]{tworeac_plots_nonlin.pdf}
+  \caption{Model validation for the non linear plant}
+  \label{fig:validation_nonlinear}
 \end{figure}
+
+We notice that the augmented model accurately predicts the plant 
+behavior. The steady cost profile (Cost = $c_1C_{A0} - c_2C_B$)
+is shown in Figure \ref{fig:cost_nonlinear}. Upon optimization 
+using casadi, the optimum cost and control for the plant are: $-19.62 \$$ 
+and 1.13 $\textnormal{mol}/\textnormal{m}^3$, and for the hybrid 
+grey-box and NN model are: $-19.91 \$$ 
+and 1.11 $\textnormal{mol}/\textnormal{m}^3$.
+
 
 \begin{figure}[!h]
   \centering
   \includegraphics[page=1, width=\textwidth]{tworeac_ssopt_nonlin.pdf}
+  \caption{Steady state cost curve for the nonlinear plant, grey-box, and hybrid model.}
+  \label{fig:cost_nonlinear}
 \end{figure}
 
 %\textbf{Need to discuss the following issues:}

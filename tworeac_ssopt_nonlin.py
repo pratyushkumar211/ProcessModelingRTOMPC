@@ -47,22 +47,24 @@ def _greybox_ys(*, us, parameters):
     # Return.
     return xs[0:Ng]
 
+def _blackbox_func(xs, us, Np, fnn_weights):
+    """ Blackbox fNN. """
+    xs = xs[:, np.newaxis]
+    nn_input = np.concatenate((np.tile(xs, (Np+1, 1)), 
+                                np.tile(us, (Np+1, 1))), axis=0)
+    for i in range(0, len(fnn_weights)-1, 2):
+        (W, b) = fnn_weights[i:i+2]
+        nn_input = np.tanh(W.T @ nn_input + b[:, np.newaxis])
+    nn_output = fnn_weights[-1].T @ nn_input
+    return -xs[:, 0] + nn_output[:, 0]
+
 def _blackbox_ys(*, us, Np, fnn_weights, parameters):
     """ Return the plant xs. 
         Solve: -xs + fnn(xs, 2*xs, 2*us, us) = 0 (continuous time SS) 
     """
-    def _fnn(xs, us, Np, fnn_weights):
-        xs = xs[:, np.newaxis]
-        nn_input = np.concatenate((np.tile(xs, (Np+1, 1)), 
-                                   np.tile(us, (Np+1, 1))), axis=0)
-        for i in range(0, len(fnn_weights)-1, 2):
-            (W, b) = fnn_weights[i:i+2]
-            nn_input = np.tanh(W.T @ nn_input + b[:, np.newaxis])
-        nn_output = fnn_weights[-1].T @ nn_input
-        return nn_output[:, 0]
     # Construct and return the plant.
     Ng = parameters['Ng']
-    blackbox = lambda xs: -xs + _fnn(xs, us, Np, fnn_weights)
+    blackbox = lambda xs: _blackbox_func(xs, us, Np, fnn_weights)
     blackbox = mpc.getCasadiFunc(blackbox, [Ng], ['xs'])
     rootfinder = casadi.rootfinder('fxu', 'newton', blackbox)
     xguess = 0.5*np.ones((Ng, 1))
@@ -70,10 +72,8 @@ def _blackbox_ys(*, us, Np, fnn_weights, parameters):
     # Return.
     return xGsys[-Ng:]
 
-def _residual_ys(*, us, Np, fnn_weights, parameters):
-    """ Return the plant xs. 
-        Solve: Ax + Bu + fnn() = 0 (continuous time SS) 
-    """
+def _residual_func(xGsys, us, ps, Ng, parameters, Np, fnn_weights):
+    """ Residual function. """
     def _fg(xs, us, ps, parameters):
         """ Grey-box part. """ 
         Delta = parameters['sample_time']
@@ -92,11 +92,15 @@ def _residual_ys(*, us, Np, fnn_weights, parameters):
             nn_input = np.tanh(W.T @ nn_input + b[:, np.newaxis])
         nn_output = fnn_weights[-1].T @ nn_input
         return nn_output[:, 0]
-    def _residual_func(xGsys, us, ps, Ng, parameters, Np, fnn_weights):
-        (xGs, ys) = np.split(xGsys, [Ng, ])
-        row1 = -xGs + _fg(xGs, us, ps, parameters)
-        row2 = -ys + xGs + _fnn(ys, us, Np, fnn_weights)
-        return np.concatenate((row1, row2), axis=0)
+    (xGs, ys) = np.split(xGsys, [Ng, ])
+    row1 = -xGs + _fg(xGs, us, ps, parameters)
+    row2 = -ys + xGs + _fnn(ys, us, Np, fnn_weights)
+    return np.concatenate((row1, row2), axis=0)
+
+def _residual_ys(*, us, Np, fnn_weights, parameters):
+    """ Return the plant xs. 
+        Solve: Ax + Bu + fnn() = 0 (continuous time SS) 
+    """
     # Construct and return the plant.
     ps = parameters['ps']
     Ng = parameters['Ng']
@@ -109,21 +113,22 @@ def _residual_ys(*, us, Np, fnn_weights, parameters):
     # Return.
     return xGsys[-Ng:]
 
+def _hybrid_ode(xs, us, ps, Np, fnn_weights, parameters):
+    """ Feed forward evaluation. """
+    xs_greybox = _tworeac_greybox_ode(xs, us, ps, parameters)
+    xs = xs[:, np.newaxis]
+    nn_input = np.concatenate((np.tile(xs, (Np+1, 1)), 
+                               np.tile(us, (Np, 1))), axis=0)
+    for i in range(0, len(fnn_weights)-1, 2):
+        (W, b) = fnn_weights[i:i+2]
+        nn_input = np.tanh(W.T @ nn_input + b[:, np.newaxis])
+    nn_output = fnn_weights[-1].T @ nn_input
+    return xs_greybox + nn_output[:, 0]
+
 def _hybrid_ys(*, us, Np, fnn_weights, parameters):
     """ Return the plant xs. 
         Solve: Ax + Bu + fnn() = 0 (continuous time SS) 
     """
-    def _hybrid_ode(xs, us, ps, Np, fnn_weights, parameters):
-        """ Feed forward evaluation. """
-        xs_greybox = _tworeac_greybox_ode(xs, us, ps, parameters)
-        xs = xs[:, np.newaxis]
-        nn_input = np.concatenate((np.tile(xs, (Np+1, 1)), 
-                                   np.tile(us, (Np, 1))), axis=0)
-        for i in range(0, len(fnn_weights)-1, 2):
-            (W, b) = fnn_weights[i:i+2]
-            nn_input = np.tanh(W.T @ nn_input + b[:, np.newaxis])
-        nn_output = fnn_weights[-1].T @ nn_input
-        return xs_greybox + nn_output[:, 0]
     # Construct and return the plant.
     ps = parameters['ps']
     Ng = parameters['Ng']
@@ -174,26 +179,21 @@ def compute_cost_curves(*, Nps, model_types, fnn_weights, parameters):
     # Return the compiled model.
     return (costs, us)
 
-def solve_plant_hybrid_nlps(*, Np, fnn_weights, parameters):
-    """ Solve steady state NLPs for plant and 
-        hybrid models. """
+def plant_opt(parameters):
+    """ Compute plant optimal. """
+    # Get parameters and casadi funcs.
     ps = parameters['ps']
     (ulb, uub) = (parameters['lb']['u'].squeeze(), 
-                parameters['ub']['u'].squeeze())
-    (Nx, Ng, Ny, Nu) = (parameters['Nx'], parameters['Ng'], 
-                        parameters['Ny'], parameters['Nu'])
-
-    # Get casadi funcs.
+                  parameters['ub']['u'].squeeze())
+    (Nx, Ny, Nu) = (parameters['Nx'], 
+                    parameters['Ny'],
+                    parameters['Nu'])
     plant = lambda x, u: _tworeac_plant_ode(x, u, ps, parameters)
     plant = mpc.getCasadiFunc(plant, [Nx, Nu], ['xs', 'us'])
-    hybrid = lambda x, u: _hybrid_ode(x, u, ps, Np, fnn_weights, parameters)
-    hybrid = mpc.getCasadiFunc(hybrid, [Ng, Nu], ['xs', 'us'])
 
-    # Variables.
+    # Construct NLP and solve.
     xs = casadi.SX.sym('xs', Nx)
     us = casadi.SX.sym('us', Nu)
-
-    # First construct the NLP for the plant.
     plant_nlp = dict(x=casadi.vertcat(xs, us), 
                      f=cost(xs.T[0:Ny], us), 
                      g=casadi.vertcat(plant(xs, us), us))
@@ -202,26 +202,79 @@ def solve_plant_hybrid_nlps(*, Np, fnn_weights, parameters):
     lbg = np.concatenate((np.zeros((Nx, 1)), np.array([[ulb]])), axis=0)
     ubg = np.concatenate((np.zeros((Nx, 1)), np.array([[uub]])), axis=0)
     plant_nlp_soln = plant_nlp(x0=xguess, lbg=lbg, ubg=ubg)
-    (plant_cost, plant_us) = (plant_nlp_soln['f'].full().squeeze(axis=-1)[0], 
-                               plant_nlp_soln['g'].full().squeeze()[-1])
+    (opt_cost, opt_us) = (plant_nlp_soln['f'].full().squeeze(axis=-1)[0], 
+                  plant_nlp_soln['g'].full().squeeze()[-1])
+    # Return.
+    return (opt_cost, opt_us)
 
-    # First construct the NLP for the hybrid model.
-    xs = casadi.SX.sym('xs', Ng)
-    hybrid_nlp = dict(x=casadi.vertcat(xs, us), 
-                      f=cost(xs.T[0:Ny], us), 
-                      g=casadi.vertcat(hybrid(xs, us), us))
-    hybrid_nlp = casadi.nlpsol('hybrid_nlp', 'ipopt', hybrid_nlp)
-    xguess = 0.8*np.ones((Ng+Nu, 1))
-    lbg = np.concatenate((np.zeros((Ng, 1)), np.array([[ulb]])), axis=0)
-    ubg = np.concatenate((np.zeros((Ng, 1)), np.array([[uub]])), axis=0)
-    hybrid_nlp_soln = hybrid_nlp(x0=xguess, lbg=lbg, ubg=ubg)
-    (hybrid_cost, 
-     hybrid_us) = (hybrid_nlp_soln['f'].full().squeeze(axis=-1)[0], 
-                    hybrid_nlp_soln['g'].full().squeeze()[-1])
+def compute_suboptimality_gaps(*, Nps, model_types, 
+                                  trained_weights, parameters):
+    """ Solve steady state NLPs for plant and 
+        hybrid models. """
+    def _construct_and_solve_nlp(model_type, Ng, Nu, Np, 
+                                 fnn_weights, parameters):
+        """ Construct and solve NLP depending on model type. """
+        if model_type == 'residual':
+            model = lambda xGsys, us: _residual_func(xGsys, us, ps, Ng, 
+                                                    parameters, Np, fnn_weights)
+            model = mpc.getCasadiFunc(model, [2*Ng, Nu], ['xGsys', 'us'])
+            xGsys = casadi.SX.sym('xGsys', 2*Ng)
+            us = casadi.SX.sym('us', Nu)
+            # First construct the NLP for the hybrid model.
+            model_nlp = dict(x=casadi.vertcat(xGsys, us), 
+                             f=cost(xGsys.T[Ng:], us), 
+                             g=casadi.vertcat(model(xGsys, us), us))
+            model_nlp = casadi.nlpsol('model_nlp', 'ipopt', model_nlp)
+            xguess = 0.8*np.ones((2*Ng+Nu, 1))
+            lbg = np.concatenate((np.zeros((2*Ng, 1)), np.array([[ulb]])), 
+                                  axis=0)
+            ubg = np.concatenate((np.zeros((2*Ng, 1)), np.array([[uub]])), 
+                                  axis=0)
+        else:
+            if model_type == 'black-box':
+                model = lambda xs, us: _blackbox_func(xs, us, Np, fnn_weights)
+            else:
+                model = lambda xs, us: _hybrid_ode(xs, us, ps, Np, 
+                                                   fnn_weights, parameters)
+            model = mpc.getCasadiFunc(model, [Ng, Nu], ['xs', 'us'])
+            xs = casadi.SX.sym('xs', Ng)
+            us = casadi.SX.sym('us', Nu)
+            # First construct the NLP for the hybrid model.
+            model_nlp = dict(x=casadi.vertcat(xs, us), 
+                             f=cost(xs.T[0:Ng], us), 
+                             g=casadi.vertcat(model(xs, us), us))
+            model_nlp = casadi.nlpsol('model_nlp', 'ipopt', model_nlp)
+            xguess = 0.8*np.ones((Ng+Nu, 1))
+            lbg = np.concatenate((np.zeros((Ng, 1)), np.array([[ulb]])), axis=0)
+            ubg = np.concatenate((np.zeros((Ng, 1)), np.array([[uub]])), axis=0)
+        model_nlp_soln = model_nlp(x0=xguess, lbg=lbg, ubg=ubg)
+        us_opt = model_nlp_soln['g'].full()[-Nu:, :]
+        return us_opt
+    # Get plant optimal costs.
+    (plant_opt_cost, _) = plant_opt(parameters)
 
-    print("Plant cost: " + str(plant_cost) + ", Plant u: " + str(plant_us))
-    print("Hybrid cost: " + str(hybrid_cost) + ", Plant u: " + str(hybrid_us))
-    return None
+    # Get some parameters.    
+    ps = parameters['ps']
+    (ulb, uub) = (parameters['lb']['u'].squeeze(), 
+                parameters['ub']['u'].squeeze())
+    (Ng, Nu) = (parameters['Ng'], parameters['Nu'])
+
+    # Create lists to store suboptimality gaps, and do calcs.
+    sub_gaps = []
+    for (Np, model_type, 
+         model_trained_weights) in zip(Nps, model_types, trained_weights):
+        model_sub_gaps = []
+        for fnn_weights in model_trained_weights:
+            # Get casadi funcs and variables.
+            model_us = _construct_and_solve_nlp(model_type, Ng, Nu, Np, 
+                                                fnn_weights, parameters)
+            plant_ys = _plant_ys(us=model_us, parameters=parameters)
+            plant_cost = cost(plant_ys.T, model_us).squeeze()
+            gap = 100*np.abs((plant_cost-plant_opt_cost)/plant_opt_cost)
+            model_sub_gaps.append(gap)
+        model_sub_gaps = np.asarray(model_sub_gaps).squeeze()
+        sub_gaps.append(model_sub_gaps)
+    return sub_gaps
 
 def main():
     """ Main function to be executed. """
@@ -238,29 +291,16 @@ def main():
                          tworeac_train['trained_weights'])
     
     # Create cost curves.
-    #xps = _plant_ys(us=np.array([[1.]]), 
-    #                parameters=parameters)
-    #xGs = _greybox_ys(us=np.array([[1.]]),
-    #                  parameters=parameters)
-    #xbs = _blackbox_ys(us=np.array([[1.]]), Np=Nps[0], 
-    #                   fnn_weights=trained_weights[0][0], 
-    #                   parameters=parameters)
-    #xrs = _residual_ys(us=np.array([[1.]]), Np=Nps[1], 
-    #                   fnn_weights=trained_weights[1][0], 
-    #                   parameters=parameters)
-    #xhs = _hybrid_ys(us=np.array([[1.]]), Np=Nps[2], 
-    #                   fnn_weights=trained_weights[2][0], 
-    #                   parameters=parameters)
     fnn_weights = []
     for model_trained_weights in trained_weights:
         fnn_weights.append(model_trained_weights[-1])
     (costs, us) = compute_cost_curves(Nps=Nps, model_types=model_types,
                                       fnn_weights=fnn_weights,
                                       parameters=parameters)
-    #solve_plant_hybrid_nlps(Np=Np, fnn_weights=fnn_weights,
-    #                        parameters=tworeac_parameters['parameters'])
-
-    PickleTool.save(data_object=dict(us=us, costs=costs),
+    sub_gaps = compute_suboptimality_gaps(Nps=Nps, model_types=model_types,
+                                          trained_weights=trained_weights, 
+                                          parameters=parameters)
+    PickleTool.save(data_object=dict(us=us, costs=costs, sub_gaps=sub_gaps),
                     filename='tworeac_ssopt_nonlin.pickle')
 
 main()
