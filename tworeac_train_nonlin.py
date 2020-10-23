@@ -17,11 +17,12 @@ from HybridModelLayers import TwoReacModel
 # Set the tensorflow graph-level seed.
 tf.random.set_seed(1)
 
-def create_tworeac_model(*, Np, fnn_dims, tworeac_parameters):
+def create_tworeac_model(*, Np, fnn_dims, tworeac_parameters, model_type):
     """ Create/compile the two reaction model for training. """
     tworeac_model = TwoReacModel(Np=Np,
                                  fnn_dims=fnn_dims,
-                                 tworeac_parameters=tworeac_parameters)
+                                 tworeac_parameters=tworeac_parameters, 
+                                 model_type=model_type)
     # Compile the nn controller.
     tworeac_model.compile(optimizer='adam', 
                           loss='mean_squared_error')
@@ -52,9 +53,11 @@ def train_model(model, train_data, trainval_data, val_data,
     model_predictions = model.predict(x=[val_data['inputs'], val_data['x0']])
     val_predictions = SimData(t=None, x=None, u=None,
                               y=model_predictions.squeeze())
-
+    # Get prediction error on the validation data.
+    val_metric = model.evaluate(x=[val_data['inputs'], val_data['x0']], 
+                               y=val_data['outputs'])
     # Return the NN controller.
-    return (model, val_predictions)
+    return (model, val_predictions, val_metric)
 
 def main():
     """ Main function to be executed. """
@@ -62,25 +65,72 @@ def main():
     tworeac_parameters = PickleTool.load(filename=
                                          'tworeac_parameters_nonlin.pickle',
                                          type='read')
-    # Create the hybrid model.
-    Np = 4
-    fnn_dims = [9, 16, 2]
-    tworeac_model = create_tworeac_model(Np=Np, fnn_dims=fnn_dims,
-                    tworeac_parameters=tworeac_parameters['parameters'])
-    # Get the training data.
-    (train_data, trainval_data, val_data) = get_tworeac_train_val_data(Np=Np,
-                                parameters=tworeac_parameters['parameters'],
-                                data_list=tworeac_parameters['training_data'])
-    (tworeac_model, 
-          val_predictions) = train_model(tworeac_model, 
-                                         train_data, trainval_data, val_data,
-                                         'tworeac_train_nonlin.txt', 
-                                         'tworeac_train_nonlin.ckpt')
-    fnn_weights = tworeac_model.get_weights()
+    (parameters, training_data) = (tworeac_parameters['parameters'],
+                                   tworeac_parameters['training_data'])
+
+    # Number of samples.
+    num_samples = [num_sample for num_sample in range(24*60, 24*60+1, 12*60)]
+    
+    # Create lists.
+    Nps = [2, 3, 2]
+    fnn_dims = [[9, 8, 2], [9, 16, 2], [8, 4, 2]]
+    model_types = ['black-box', 'residual', 'hybrid']
+    trained_weights = []
+    val_metrics = []
+    val_predictions = []
+    
+    # Filenames.
+    ckpt_path = 'tworeac_train_nonlin.ckpt'
+    stdout_filename = 'tworeac_train_nonlin.txt'
+
+    # Loop over the model choices.
+    for (model_type, fnn_dim, Np) in zip(model_types, fnn_dims, Nps):
+        
+        model_trained_weights = []
+        model_val_metrics = []
+
+        # Get the training data.
+        (train_data, 
+         trainval_data, 
+         val_data) = get_tworeac_train_val_data(Np=Np,
+                                                parameters=parameters, 
+                                                data_list=training_data)
+
+        # Loop over the number of samples.
+        for num_sample in num_samples:
+            
+            # Create model.
+            tworeac_model = create_tworeac_model(Np=Np, fnn_dims=fnn_dim,
+                                                 tworeac_parameters=parameters, 
+                                                 model_type=model_type)
+            (tworeac_model, 
+             val_prediction, 
+             val_metric) = train_model(tworeac_model, 
+                                            train_data, trainval_data, val_data,
+                                            stdout_filename, ckpt_path)
+            fnn_weights = tworeac_model.get_weights()
+
+            # Save info.
+            model_trained_weights.append(fnn_weights)
+            model_val_metrics.append(val_metric)
+
+        # Save info.
+        val_predictions.append(val_prediction)
+        val_metrics.append(np.asarray(model_val_metrics))
+        trained_weights.append(model_trained_weights)
+
+    # Num samples array for quick plotting.
+    num_samples = np.asarray(num_samples) + trainval_data['inputs'].shape[1]
+
     # Save the weights.
-    tworeac_training_data = dict(fnn_weights=fnn_weights,
+    tworeac_training_data = dict(Nps=Nps,
+                                 model_types=model_types,
+                                 fnn_dims=fnn_dims,
+                                 trained_weights=trained_weights,
                                  val_predictions=val_predictions,
-                                 Np=Np)
+                                 val_metrics=val_metrics,
+                                 num_samples=num_samples)
+    
     # Save data.
     PickleTool.save(data_object=tworeac_training_data, 
                     filename='tworeac_train_nonlin.pickle')

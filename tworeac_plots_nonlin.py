@@ -1,4 +1,5 @@
 # [depends] tworeac_parameters_nonlin.pickle tworeac_train_nonlin.pickle
+# [depends] tworeac_ssopt_nonlin.pickle
 # [depends] %LIB%/hybridid.py
 """ Script to plot the training data
     and grey-box + NN model predictions on validation data.
@@ -9,11 +10,11 @@ sys.path.append('lib/')
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
-from hybridid import (PickleTool, PAPER_FIGSIZE)
+from hybridid import (PickleTool, PAPER_FIGSIZE, plot_profit_curve)
 
 def plot_training_data(*, training_data, plot_range,
                           figure_size=PAPER_FIGSIZE,
-                          ylabel_xcoordinate=-0.1, 
+                          ylabel_xcoordinate=-0.1,
                           linewidth=0.8, 
                           markersize=1.):
     """ Plot the performance loss economic MPC parameters."""
@@ -21,16 +22,16 @@ def plot_training_data(*, training_data, plot_range,
                                         sharex=True, 
                                         figsize=figure_size)
     (start, end) = plot_range
-    ylabels = [r'$C_a \ (\textnormal{mol/m}^3)$', 
-               r'$C_b \ (\textnormal{mol/m}^3)$', 
-               r'$C_c \ (\textnormal{mol/m}^3)$',
-               r'$C_{a0} \ (\textnormal{mol/m}^3)$']
+    ylabels = [r'$C_A \ (\textnormal{mol/m}^3)$', 
+               r'$C_B \ (\textnormal{mol/m}^3)$', 
+               r'$C_C \ (\textnormal{mol/m}^3)$',
+               r'$C_{Af} \ (\textnormal{mol/m}^3)$']
     time = training_data.t/60
     data_list = [training_data.y[:, 0], training_data.y[:, 1], 
                  training_data.x[:, 2], training_data.u]
     for (axes, data, ylabel) in zip(axes_array, data_list, ylabels):
-        if ylabel in [r'$C_a \ (\textnormal{mol/m}^3)$' , 
-                      r'$C_b \ (\textnormal{mol/m}^3)$']:
+        if ylabel in [r'$C_A \ (\textnormal{mol/m}^3)$' , 
+                      r'$C_B \ (\textnormal{mol/m}^3)$']:
             axes.plot(time[start:end], data[start:end], 'bo', 
                       markersize=markersize)
         else:
@@ -38,7 +39,7 @@ def plot_training_data(*, training_data, plot_range,
         axes.set_ylabel(ylabel)
         axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
     axes.set_xlabel('Time (hr)')
-    axes.set_xlim([np.min(time), np.max(time)])
+    axes.set_xlim([np.min(time[start:end]), np.max(time[start:end])])
     # Return the figure object.
     return [figure]
 
@@ -56,8 +57,8 @@ def plot_val_model_predictions(*, plantsim_data,
     (start, end) = plot_range
     ylabels = [r'$C_A \ (\textnormal{mol/m}^3)$', 
                r'$C_B \ (\textnormal{mol/m}^3)$',
-               r'$C_{A0} \ (\textnormal{mol/m}^3)$']
-    model_legend_colors = ['g', 'm']
+               r'$C_{Af} \ (\textnormal{mol/m}^3)$']
+    model_legend_colors = ['green', 'dimgray', 'orange', 'tomato']
     legend_handles = []
     plant_data_list = [plantsim_data.y[tsteps_steady:, 0], 
                        plantsim_data.y[tsteps_steady:, 1], 
@@ -84,10 +85,10 @@ def plot_val_model_predictions(*, plantsim_data,
         legend_handles += model_legend_handle
     legend_handles.insert(0, plant_legend_handle[0])
     axes.set_xlabel('Time (hr)')
-    axes.set_xlim([np.min(time), np.max(time)])
-    figure.legend(handles = legend_handles,
-                  labels = ('Plant', 'Grey-box', 'Hybrid-Model'), 
-                  loc = (0.15, 0.9), ncol=3)
+    axes.set_xlim([np.min(time[start:end]), np.max(time[start:end])])
+    labels = ('Plant', 'Grey-box', 'Black-box', 'Residual', 'Hybrid')
+    figure.legend(handles = legend_handles, labels = labels, 
+                  loc = (0.16, 0.9), ncol=3)
     # Return the figure object.
     return [figure]
 
@@ -96,19 +97,34 @@ def main():
     tworeac_parameters = PickleTool.load(filename=
                                          "tworeac_parameters_nonlin.pickle", 
                                          type='read')
+    (parameters, training_data, 
+     greybox_validation_data) = (tworeac_parameters['parameters'], 
+                                 tworeac_parameters['training_data'], 
+                                 tworeac_parameters['greybox_validation_data'])
     tworeac_train = PickleTool.load(filename=
                                     "tworeac_train_nonlin.pickle", 
                                     type='read')
+    val_predictions = tworeac_train['val_predictions']
+    ssopt = PickleTool.load(filename="tworeac_ssopt_nonlin.pickle", 
+                            type='read')
     figures = []
-    figures += plot_training_data(training_data=
-                                  tworeac_parameters['training_data'][0], 
-                                  plot_range=(0, 4*60))
-    figures += plot_val_model_predictions(plantsim_data=
-                                  tworeac_parameters['training_data'][-1],
-            modelsim_datum=[tworeac_parameters['greybox_validation_data'], 
-                            tworeac_train['val_predictions']],
-                    plot_range=(0, 3*60), 
-                tsteps_steady=tworeac_parameters['parameters']['tsteps_steady'])
+    figures += plot_training_data(training_data=training_data[0], 
+                                  plot_range=(0, 6*60))
+    modelsim_datum = [greybox_validation_data] + val_predictions
+    figures += plot_val_model_predictions(plantsim_data=training_data[-1],
+                                    modelsim_datum=modelsim_datum,
+                                    plot_range=(0, 6*60), 
+                                    tsteps_steady=parameters['tsteps_steady'])
+
+    figures += plot_profit_curve(us=ssopt['us'], 
+                                costs=ssopt['costs'],
+                                colors=['blue', 'green', 
+                                        'dimgray', 'orange', 'tomato'],
+                                legends=['Plant', 'Grey-box', 'Black-box', 
+                                         'Residual', 'Hybrid'],
+                                ylabel_xcoordinate=-0.21,
+                                left_label_frac=0.21)
+
     with PdfPages('tworeac_plots_nonlin.pdf', 
                   'w') as pdf_file:
         for fig in figures:

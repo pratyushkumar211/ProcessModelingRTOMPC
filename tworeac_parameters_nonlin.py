@@ -144,8 +144,9 @@ def _get_tworeac_model(*, parameters, plant=True):
                                     sample_time = parameters['sample_time'], 
                                         x0 = xs)
 
-def _gen_train_val_data(*, parameters,
-                           num_traj, Nsim, seed):
+def _gen_train_val_data(*, parameters, num_traj, 
+                           Nsim_train, Nsim_trainval, 
+                           Nsim_val, seed):
     """ Simulate the plant model 
         and generate training and validation data."""
     # Get the data list.
@@ -154,14 +155,36 @@ def _gen_train_val_data(*, parameters,
     uub = parameters['ub']['u']
     tsteps_steady = parameters['tsteps_steady']
     p = parameters['ps'][:, np.newaxis]
-    for _ in range(num_traj):
+
+    # Start to generate data.
+    for traj in range(num_traj):
+        
+        # Get the plant and initial steady input.
         plant = _get_tworeac_model(parameters=parameters, plant=True)
         us_init = np.tile(np.random.uniform(ulb, uub), (tsteps_steady, 1))
-        u = sample_prbs_like(num_change=6, num_steps=Nsim, 
-                             lb=ulb, ub=uub,
-                             mean_change=30, sigma_change=2, seed=seed+1)
+        
+        # Get input trajectories for different simulatios.
+        if traj == num_traj-1:
+            "Get input for train val simulation."
+            Nsim = Nsim_val
+            u = sample_prbs_like(num_change=24, num_steps=Nsim_val, 
+                                 lb=ulb, ub=uub,
+                                 mean_change=30, sigma_change=2, seed=seed+1)
+        elif traj == num_traj-2:
+            "Get input for validation simulation."
+            Nsim = Nsim_trainval
+            u = sample_prbs_like(num_change=12, num_steps=Nsim_trainval, 
+                                 lb=ulb, ub=uub,
+                                 mean_change=10, sigma_change=2, seed=seed+1)
+        else:
+            "Get input for training simulation."
+            Nsim = Nsim_train
+            u = sample_prbs_like(num_change=48, num_steps=Nsim_train, 
+                                 lb=ulb, ub=uub,
+                                 mean_change=30, sigma_change=2, seed=seed+1)
+
+        # Complete input profile and run open-loop simulation.
         u = np.concatenate((us_init, u), axis=0)
-        # Run the open-loop simulation.
         for t in range(tsteps_steady + Nsim):
             plant.step(u[t:t+1, :], p)
         data_list.append(SimData(t=np.asarray(plant.t[0:-1]).squeeze(),
@@ -191,15 +214,21 @@ def _get_greybox_val_preds(*, parameters, training_data):
 
 def main():
     """ Get the parameters/training/validation data."""
+    
     # Get parameters.
     parameters = _get_tworeac_parameters()
     parameters['xs'] = _get_tworeac_rectified_xs(parameters=parameters)
+    
     # Generate training data.
     training_data = _gen_train_val_data(parameters=parameters, 
-                                        num_traj=3, Nsim=180, seed=100)
+                                        num_traj=3, Nsim_train=1440,
+                                        Nsim_trainval=120, Nsim_val=720, 
+                                        seed=100)
     greybox_val_data = _get_greybox_val_preds(parameters=
                                             parameters, 
                                             training_data=training_data)
+    
+    # Create a dict and save.
     tworeac_parameters = dict(parameters=parameters, 
                               training_data=training_data,
                               greybox_validation_data=greybox_val_data)
