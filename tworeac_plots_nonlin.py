@@ -94,7 +94,7 @@ def plot_val_model_predictions(*, plantsim_data,
 
 def plot_sub_gaps(*, num_samples, sub_gaps, colors, legends, 
                   figure_size=PAPER_FIGSIZE,
-                  ylabel_xcoordinate=-0.12, 
+                  ylabel_xcoordinate=-0.11, 
                   left_label_frac=0.15):
     """ Plot the suboptimality gaps. """
     (figure, axes) = plt.subplots(nrows=1, ncols=1, 
@@ -102,7 +102,8 @@ def plot_sub_gaps(*, num_samples, sub_gaps, colors, legends,
                                   figsize=figure_size, 
                                   gridspec_kw=dict(left=left_label_frac))
     ylabel = r'$\% \ $ Suboptimality Gap'
-    xlabel = 'Number of training samples'
+    xlabel = 'Hours training samples'
+    num_samples = num_samples/60
     for (sub_gap, color) in zip(sub_gaps, colors):
         # Plot the corresponding data.
         axes.semilogy(num_samples, sub_gap, color)
@@ -116,15 +117,16 @@ def plot_sub_gaps(*, num_samples, sub_gaps, colors, legends,
 
 def plot_val_metrics(*, num_samples, val_metrics, colors, legends, 
                      figure_size=PAPER_FIGSIZE,
-                     ylabel_xcoordinate=-0.15, 
+                     ylabel_xcoordinate=-0.13, 
                      left_label_frac=0.15):
     """ Plot validation metric on open loop data. """
     (figure, axes) = plt.subplots(nrows=1, ncols=1, 
                                         sharex=True, 
                                         figsize=figure_size, 
                                     gridspec_kw=dict(left=left_label_frac))
-    xlabel = 'Number of training samples'
-    ylabel = 'Mean squared error'
+    xlabel = 'Hours training samples'
+    ylabel = 'MSE'
+    num_samples = num_samples/60
     for (val_metric, color) in zip(val_metrics, colors):
         # Plot the corresponding data.
         axes.semilogy(num_samples, val_metric, color)
@@ -133,6 +135,8 @@ def plot_val_metrics(*, num_samples, val_metrics, colors, legends,
     axes.set_ylabel(ylabel)
     axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5) 
     axes.set_xlim([np.min(num_samples), np.max(num_samples)])
+    figure.suptitle('Mean squared error (MSE) - Validation data', 
+                    x=0.52, y=0.92)
     # Return the figure object.
     return [figure]
 

@@ -69,13 +69,12 @@ def main():
                                    tworeac_parameters['training_data'])
 
     # Number of samples.
-    #num_samples = [num_sample for num_sample in range(24*60, 24*60+1, 12*60)]
-    num_samples = [60, 3*60]
+    num_samples = [num_sample for num_sample in range(48*60, 48*60+1, 60)]
 
     # Create lists.
     Nps = [2, 3, 2]
-    fnn_dims = [[9, 16, 16, 2], [9, 16, 16, 2], [8, 4, 2]]
-    model_types = ['black-box', 'residual', 'hybrid']
+    fnn_dims = [[9, 16, 16, 2], [9, 16, 16, 2], [8, 16, 2]]
+    model_types = ['black-box']
     trained_weights = []
     val_metrics = []
     val_predictions = []
@@ -106,7 +105,7 @@ def main():
                                                  model_type=model_type)
             train_samples = dict(x0=train_data['x0'],
                             inputs=train_data['inputs'][:, :num_sample, :],
-                            outputs=train_data['outputs'][:, :num_sample, :]) 
+                            outputs=train_data['outputs'][:, :num_sample, :])
             (tworeac_model, 
              val_prediction, 
              val_metric) = train_model(tworeac_model, 
