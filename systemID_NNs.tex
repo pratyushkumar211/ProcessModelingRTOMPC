@@ -1,5 +1,5 @@
 \documentclass{article}
-
+\usepackage[total={6in, 8in}]{geometry}
 %% The graphicx and color packages should give you all the color,
 %% figure inclusion, and text/figure resizing capabilities you need.
 \usepackage{graphicx}
@@ -101,7 +101,7 @@
 \newcommand{\bbX}{\mathbb{X}}
 \newcommand{\bbP}{\mathbb{P}}
 
-\title{Data-based completion of grey-box models with neural networks}
+\title{Hybrid nonlinear system identification using neural networks}
 \author{Pratyush Kumar}
 \date{\today}
 
@@ -112,12 +112,13 @@
 \section{Process modeling}
 Consider a nonlinear plant evolving in continuous time as
 \begin{align*}
-  \dot x_p &= f_p(x_p, u, w) \\
+  \dot{x}_p &= f_p(x_p, u, w) \\
   y &= h_p(x_p) + v
 \end{align*}
 in which $x_p \in \bbR^{n_p}$ is the plant state, 
 $u \in \bbU$ is the manipulated control input,
-and $y \in \bbR^p$ is the measurement. 
+$y \in \bbR^p$ is the measurement, $w$ is the process noise, 
+and $v$ is the measurement noise.
 
 \subsection{Completion of the u-y model}
 We assume that grey-box modeling is performed 
@@ -140,9 +141,9 @@ we can construct the original plant state
 using a history of measurements and control inputs.
 Denote this history as 
 \begin{align*}
-  \mathbf{y}_{k-N_p:k-1} &= [y(k-\Delta)', ..., y(k-N_p\Delta)']' \\
-  \mathbf{u}_{k-N_p:k-1} &= [u(k-\Delta)', 
-                               ..., u(k-N_p\Delta)']'
+  \mathbf{y}_{k-N_p:k-1} &= [y(k-N_p\Delta)', ... \ , y(k-\Delta)']' \\
+  \mathbf{u}_{k-N_p:k-1} &= [u(k-N_p\Delta)', 
+                               ... \ , u(k-\Delta)']'
 \end{align*}
 
 in which $N_p$ is the number of 
@@ -157,24 +158,39 @@ For linear plants, this function $\phi(\cdot)$
 is known analytically in terms of the plant dynamic
 matrices.
 
-We augment the grey-box model using 
+We augment the grey-box model using
 neural networks as follows -
-\begin{align*}
+\begin{align} \label{eq:hybrid_cont_time}
 \dot x_g &= f_g(x_g, u) + 
-f_N(h_g(x_g), z, u)\\
+f_N(x_g, z, u) \notag \\
 y &= h_g(x_g) 
-\end{align*}
+\end{align}
 in which $f_N(\cdot)$ is a feedforward neural network
 and $z(k) = [\mathbf{y}'_{k-N_p:k-1}, \mathbf{u}'_{k-N_p:k-1}]'$.
+This model is converted to discrete-time using the 
+Runge-Kutta 4 method, and the vector of past controls
+and measurements ($z$) is also viewed as a state. The discrete-time 
+model is represented as 
+\begin{align*}
+  x_g^+ &= f_h(x_g, z, u) \\
+  z^+ &= f_z(z, x_g, u)\\
+  y &= h_g(x_g) 
+\end{align*}
+in which, $f_h(\cdot)$ is a obtained by discretization
+of \eqref{eq:hybrid_cont_time} using the Runge-Kutta 4 method, 
+and $f_z$ is known analytically.
 
-Alternative modeling choices are:
+A few alternative modeling choices are:
 \begin{itemize}
 	\item Black-box: $y^+ = f_N(y, z, u)$, (purely black-box)
-	\item Hybrid 1: $\dot x_g = f_N(x_g, z, u), \ y = h_g(x_g)$, 
+  \item Hybrid 1: $x_g^+ = f_N(x_g, z, u), 
+                   \ z^+ = f_z(z, x_g, u), \ y = h_g(x_g)$, 
   (states have meaning)
-  \item Hybrid 2: $\dot x_g = f_g(x_g, u), \ y = h_g(x_g) + h_N(z)$, 
+  \item Hybrid 2: $x_g^+ = f_g(x_g, u), 
+                   \ z^+ = f_z(z, x_g, u), \ y = h_g(x_g) + h_N(z)$, 
 	(model residual)
-	\item Hybrid 3: $\dot x_g = f_g(x_g, u, p(h_g(x_g), z)), \ y = h_g(x_g)$, (use NNs to learn some parameters)
+  \item Hybrid 3: $\dot x_g = f_g(x_g, u, p(h_g(x_g), z)),
+  \ z^+ = f_z(z, x_g, u), \ y = h_g(x_g)$, (use NNs to learn some parameters)
 \end{itemize}
 
 %It is expected that the functions $f_{NN}(\cdot)$ 
@@ -192,22 +208,22 @@ Alternative modeling choices are:
 
 \subsection{Conversion to discrete time and training}
 We note that the network $f_N(\cdot)$ is an addition 
-to the grey-box dynamics in continuous time. 
+to the grey-box dynamics in continuous time in \eqref{eq:hybrid_cont_time}. 
 The Runge-Kutta-4 (RK4) method 
 is used for the discretization as follows
 
 \begin{align*}
   k_1 &= f_g(x_g, u) + 
-  f_N(h_g(x_g), \mathbf{y}_{k-N_p:k-1}, \mathbf{u}_{k+1-N_p:k}) \\
+  f_N(x_g, \mathbf{y}_{k-N_p:k-1}, \mathbf{u}_{k-N_p:k-1}, u) \\
   x_g & := x_g + (\Delta/2)k_1 \\
   k_2 &= f_g(x_g, u) + 
-  f_N(h_g(x_g), \mathbf{y}_{k+0.5-N_p:k-0.5}, \mathbf{u}_{k+1-N_p:k})\\
+  f_N(x_g, \mathbf{y}_{k+0.5-N_p:k-0.5}, \mathbf{u}_{k-N_p:k-1}, u)\\
   x_g & := x_g + (\Delta/2)k_2 \\
   k_3 &= f_g(x_g, u) + 
-  f_N(h_g(x_g), \mathbf{y}_{k+0.5-N_p:k-0.5}, \mathbf{u}_{k+1-N_p:k})\\
+  f_N(x_g, \mathbf{y}_{k+0.5-N_p:k-0.5}, \mathbf{u}_{k-N_p:k-1}, u)\\
   x_g & := x_g + \Delta k_3 \\
   k_4 &= f_g(x_g, u) + 
-  f_N(h_g(x_g), \mathbf{y}_{k+1-N_p:k}, \mathbf{u}_{k+1-N_p:k})\\
+  f_N(x_g, \mathbf{y}_{k+1-N_p:k}, \mathbf{u}_{k-N_p:k-1}, u)\\
   x_g(k+\Delta) &= x_g(k) + (\Delta/6)(k_1 + 2k_2 + 2k_3 + k_4) \\
   \hat{y}(k+\Delta) &= h_g(x_g(k+\Delta)) 
 \end{align*}
@@ -237,105 +253,105 @@ the grey-box state at that steady state as the initial condition
 for the above multi-step-ahead prediction-error
 optimization.
 
-\subsection{Linear plant}
+%\subsection{Linear plant}
 
-Consider the following plant, model,
-and the expected function to be approximated 
-with a neural network.
+%Consider the following plant, model,
+%and the expected function to be approximated 
+%with a neural network.
 
-\textbf{Plant --}
-\begin{align*}
-  \dfrac{dC_A}{dt} &= \dfrac{C_{Af} - C_A}{\tau} - k_1C_A\\
-  \dfrac{dC_B}{dt} &= k_1C_A - k_2C_B + k_3C_C- \dfrac{C_B}{\tau}\\
-  \dfrac{dC_C}{dt} &= k_2C_B - k_3C_C - \dfrac{C_C}{\tau}
-\end{align*}
-These ODEs represent the dynamics of the reaction system
-$A \rightarrow B \rightleftharpoons C$ in a CSTR with constant 
-height and temperature. The control input is $u = C_{Af}$,
-the states are $x = [C_A, C_B, C_C]'$, 
-and the measurements are $y = [C_A, C_B]'$. 
-Assume the following 
-parameters for this model, $k_1 = 1 \ \textnormal{m}^3/\textnormal{min}, 
-\ k_2 = 0.3 \ \textnormal{m}^3/\textnormal{min},
-\ k_3 = 0.2 \ \textnormal{m}^3/\textnormal{min}$, 
-and $\tau = 5 \ \textnormal{min}$.
-The plant model 
-is linear ($dx/dt = Ax + Bu$) and 
-observable with the choices of 
-the parameters and measurements.
+%\textbf{Plant --}
+%\begin{align*}
+%  \dfrac{dC_A}{dt} &= \dfrac{C_{Af} - C_A}{\tau} - k_1C_A\\
+%  \dfrac{dC_B}{dt} &= k_1C_A - k_2C_B + k_3C_C- \dfrac{C_B}{\tau}\\
+%  \dfrac{dC_C}{dt} &= k_2C_B - k_3C_C - \dfrac{C_C}{\tau}
+%\end{align*}
+%These ODEs represent the dynamics of the reaction system
+%$A \rightarrow B \rightleftharpoons C$ in a CSTR with constant 
+%height and temperature. The control input is $u = C_{Af}$,
+%the states are $x = [C_A, C_B, C_C]'$, 
+%and the measurements are $y = [C_A, C_B]'$. 
+%Assume the following 
+%parameters for this model, $k_1 = 1 \ \textnormal{m}^3/\textnormal{min}, 
+%\ k_2 = 0.3 \ \textnormal{m}^3/\textnormal{min},
+%\ k_3 = 0.2 \ \textnormal{m}^3/\textnormal{min}$, 
+%and $\tau = 5 \ \textnormal{min}$.
+%The plant model 
+%is linear ($dx/dt = Ax + Bu$) and 
+%observable with the choices of 
+%the parameters and measurements.
 
-\textbf{Model --}
-\begin{align*}
-  \dfrac{dC_A}{dt} &= \dfrac{C_{Af} - C_A}{\tau} - k_1C_A\\
-  \dfrac{dC_B}{dt} &= k_1C_A - \dfrac{C_B}{\tau}
-\end{align*}
-i.e, we assume that we don't know about the second reaction while 
-performing grey-box modeling. 
+%\textbf{Model --}
+%\begin{align*}
+%  \dfrac{dC_A}{dt} &= \dfrac{C_{Af} - C_A}{\tau} - k_1C_A\\
+%  \dfrac{dC_B}{dt} &= k_1C_A - \dfrac{C_B}{\tau}
+%\end{align*}
+%i.e, we assume that we don't know about the second reaction while 
+%performing grey-box modeling. 
 
-The current plant state $x_p(k)$ can be constructed using the history of 
-past measurements and inputs as 
-\begin{equation*}
-  x_p(k) = A^{N_p-1}_d
-  \mathcal{O}^{\dagger}(\mathbf{y}_{k+1-N_p:k} - 
-                        \mathcal{B}\mathbf{u}_{k+1-N_p:k-1}) + \\ 
-      \mathcal{B}_{nN_p-n+1:nN_p}\mathbf{u}_{k+1-N_p:k-1}
-\end{equation*}
+%The current plant state $x_p(k)$ can be constructed using the history of 
+%past measurements and inputs as 
+%\begin{equation*}
+%  x_p(k) = A^{N_p-1}_d
+%  \mathcal{O}^{\dagger}(\mathbf{y}_{k+1-N_p:k} - 
+%                        \mathcal{B}\mathbf{u}_{k+1-N_p:k-1}) + \\ 
+%      \mathcal{B}_{nN_p-n+1:nN_p}\mathbf{u}_{k+1-N_p:k-1}
+%\end{equation*}
 
-in which $A_d$ is the plant state transition matrix in discrete-time, 
-$\mathcal{O}$ is the observability matrix, 
-and $\mathcal{B}$ is a combination of the 
-discrete time matrices ($A_d$ and $B_d$) such that it 
-denotes the response of a vector of inputs to states, 
-and $\mathcal{B}_{nN_p-n+1:nN_p}$ denotes the last $n$
-rows of $\mathcal{B}$.
+%in which $A_d$ is the plant state transition matrix in discrete-time, 
+%$\mathcal{O}$ is the observability matrix, 
+%and $\mathcal{B}$ is a combination of the 
+%discrete time matrices ($A_d$ and $B_d$) such that it 
+%denotes the response of a vector of inputs to states, 
+%and $\mathcal{B}_{nN_p-n+1:nN_p}$ denotes the last $n$
+%rows of $\mathcal{B}$.
 
-Since the measurements are a simple linear function 
-of the grey-box and plant states, we use only one 
-neural network to 
-augment the grey-box dynamics. 
-The expected function 
-to be approximated with the network is
-\begin{align*}
-  f_N(\mathbf{y}_{k-N_p:k}, \mathbf{u}_{k+1-N_p:k-1}) \approx 
-  \begin{bmatrix}
-  0 & 0 & 0 \\  
-  0 & -k_2 & k_3 
-  \end{bmatrix}x_p(k)
-\end{align*}
+%Since the measurements are a simple linear function 
+%of the grey-box and plant states, we use only one 
+%neural network to 
+%augment the grey-box dynamics. 
+%The expected function 
+%to be approximated with the network is
+%\begin{align*}
+%  f_N(\mathbf{y}_{k-N_p:k}, \mathbf{u}_{k+1-N_p:k-1}) \approx 
+%  \begin{bmatrix}
+%  0 & 0 & 0 \\  
+%  0 & -k_2 & k_3 
+%  \end{bmatrix}x_p(k)
+%\end{align*}
 
-In this example, the network just approximates a linear function.
-The Figure \ref{fig:validation_linear} 
-below shows validation performances of the grey-box 
-and augmented hybrid models. The structure 
-of the network is restricted to just a matrix and
-the augmented model was trained on 240 samples (4 hours).
+%In this example, the network just approximates a linear function.
+%The Figure \ref{fig:validation_linear} 
+%below shows validation performances of the grey-box 
+%and augmented hybrid models. The structure 
+%of the network is restricted to just a matrix and
+%the augmented model was trained on 240 samples (4 hours).
 
-THe Figures \ref{fig:cost_nonlinear_5hours} and 
-\ref{fig:cost_nonlinear_5hours} 
+%THe Figures \ref{fig:cost_nonlinear_5hours} and 
+%\ref{fig:cost_nonlinear_5hours} 
 
-\begin{figure}[!h]
-  \centering
-  \includegraphics[page=2, width=\textwidth]{tworeac_plots_lin.pdf}
-  \caption{Model validation for the linear plant}
-  \label{fig:validation_linear}
-\end{figure}
+%\begin{figure}[!h]
+%  \centering
+%  \includegraphics[page=2, width=\textwidth]{tworeac_plots_lin.pdf}
+%  \caption{Model validation for the linear plant}
+%  \label{fig:validation_linear}
+%\end{figure}
 
-We notice that the augmented model accurately predicts the plant 
-behavior. The steady cost profile (Cost = $c_1C_{Af} - c_2C_B$)
-is shown in Figure \ref{fig:cost_linear}. 
+%We notice that the augmented model accurately predicts the plant 
+%behavior. The steady cost profile (Cost = $c_1C_{Af} - c_2C_B$)
+%is shown in Figure \ref{fig:cost_linear}. 
 
-\begin{figure}[!h]
-  \centering
-  \includegraphics[page=3, width=\textwidth]{tworeac_plots_lin.pdf}
-  \caption{Steady state cost curve for 
-           the linear plant, grey-box, and hybrid model.}
-  \label{fig:cost_linear}
-\end{figure}
+%\begin{figure}[!h]
+%  \centering
+%  \includegraphics[page=3, width=\textwidth]{tworeac_plots_lin.pdf}
+%  \caption{Steady state cost curve for 
+%           the linear plant, grey-box, and hybrid model.}
+%  \label{fig:cost_linear}
+%\end{figure}
 
-\subsection{Nonlinear plant}
-The plant is made nonlinear by changing the side reaction 
-to a third order reaction ($A \rightarrow B $ and  $3B \rightleftharpoons C$),
-and is now simulated with the following ODEs
+\subsection{Nonlinear reactor example}
+We consider a nonlinear reactor with 
+two reactions ($A \rightarrow B $ and  $3B \rightleftharpoons C$),
+simulated with the following ODEs
 \begin{align*}
   \dfrac{dC_A}{dt} &= \dfrac{C_{Af} - C_A}{\tau} - k_1C_A\\
   \dfrac{dC_B}{dt} &= k_1C_A - 3k_2C^3_B + 3k_3C_C- \dfrac{C_B}{\tau}\\
