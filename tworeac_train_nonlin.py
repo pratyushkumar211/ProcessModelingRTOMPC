@@ -69,11 +69,11 @@ def main():
                                    tworeac_parameters['training_data'])
 
     # Number of samples.
-    num_samples = [hour*60 for hour in [6]]
+    num_samples = [hour*60 for hour in [1, 2, 3, 6]]
 
     # Create lists.
     Nps = [2, 2]
-    fnn_dims = [[9, 16, 16, 2], [8, 16, 2]]
+    fnn_dims = [[9, 16, 2], [8, 16, 2]]
     model_types = ['black-box', 'hybrid']
     trained_weights = []
     val_metrics = []

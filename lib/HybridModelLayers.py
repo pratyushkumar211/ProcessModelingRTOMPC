@@ -68,7 +68,7 @@ class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
         [xG, z] = tf.split(xGz, [self.Ng, self.Np*(self.Ng+self.Nu)],
                            axis=-1)
         (ypseq, upseq) = tf.split(z, [self.Np*self.Ng, self.Np*self.Nu],
-                           axis=-1)
+                                  axis=-1)
         u = inputs
         Delta = self.tworeac_parameters['sample_time']
         

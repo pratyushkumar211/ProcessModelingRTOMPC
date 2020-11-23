@@ -207,9 +207,9 @@ def main():
                                     left_label_frac=0.21)
 
     cost_mse_curve_legends = [r'$N_s = 3 \ \textnormal{hours}$',
+                              r'$N_s = 4 \ \textnormal{hours}$',
                               r'$N_s = 5 \ \textnormal{hours}$',
-                              r'$N_s = 8 \ \textnormal{hours}$',
-                              r'$N_s = 11 \ \textnormal{hours}$']
+                              r'$N_s = 8 \ \textnormal{hours}$']
     for model_cost_mse in ssopt['cost_mses']:
         figures += plot_cost_mse_curve(us=ssopt['us'], 
                                        cost_mses=model_cost_mse,
