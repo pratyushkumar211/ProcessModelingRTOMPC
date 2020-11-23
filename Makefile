@@ -21,7 +21,7 @@ DEFAULT_FIGURE_TYPE := paper
 # Set defaults for using backed up files vs. regenerating them. Can be
 # overridden locally by changing them in a file called Makefile.options.
 USE_MAT_BACKUPS := True
-USE_PICKLE_BACKUPS := False
+USE_PICKLE_BACKUPS := True
 USE_DIA_BACKUPS := False
 
 ## We don't need figure windows popping up.
@@ -119,6 +119,7 @@ OCT_DAT_SRC :=
 ## PY_PLOT files are .py files that create .pdf plots.
 
 PY_PLOT := tworeac_plots_lin.py tworeac_plots_nonlin.py \
+		   tworeac_distmodels_nonlin.py
 
 ## PY_MOVIE files are .py files that create movies as a .pdf document.
 

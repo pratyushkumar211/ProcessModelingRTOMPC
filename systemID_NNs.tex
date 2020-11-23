@@ -92,6 +92,14 @@
 \newcommand{\Ms}{\bm{\mathrm{M}}} % Transition catalog.
 \newcommand{\Ns}{\bm{\mathrm{N}}} % Transition counter.
 
+\newcommand{\useq}{\mathbf{u}}
+\newcommand{\xseq}{\mathbf{x}}
+\newcommand{\bbR}{\mathbb{R}}
+\newcommand{\bbW}{\mathbb{W}}
+\newcommand{\bbU}{\mathbb{U}}
+\newcommand{\bbI}{\mathbb{I}}
+\newcommand{\bbX}{\mathbb{X}}
+\newcommand{\bbP}{\mathbb{P}}
 
 \title{Data-based completion of grey-box models with neural networks}
 \author{Pratyush Kumar}
@@ -104,14 +112,12 @@
 \section{Process modeling}
 Consider a nonlinear plant evolving in continuous time as
 \begin{align*}
-  \dot x &= f_p(x, u) \\
-  y &= h_p(x)
+  \dot x_p &= f_p(x_p, u, w) \\
+  y &= h_p(x_p) + v
 \end{align*}
-in which $x$ is the plant state (vector), $u$ is the manipulated control input,
-and $y$ is the measurement. Assume that we don't have any 
-disturbances/measurement and process noise 
-for now, and we'll add those after we 
-understand the issues in the nominal case.
+in which $x_p \in \bbR^{n_p}$ is the plant state, 
+$u \in \bbU$ is the manipulated control input,
+and $y \in \bbR^p$ is the measurement. 
 
 \subsection{Completion of the u-y model}
 We assume that grey-box modeling is performed 
@@ -123,8 +129,9 @@ we have the following grey-box model in continuous time
   y &= h_g(x_g)
 \end{align*}
 
-in which $x_g$ are the grey-box states, which are some subset 
-of the plant states (denote $x_g = Gx$) chosen to 
+in which $x_g \in \bbR^{n_g}$ are the grey-box states, 
+which are some subset 
+of the plant states (denote $x_g = Gx_p$) chosen to 
 be modeled. The dynamics of these grey-box states 
 potentially have some missing terms 
 in their ODEs.
@@ -133,9 +140,9 @@ we can construct the original plant state
 using a history of measurements and control inputs.
 Denote this history as 
 \begin{align*}
-  \mathbf{y}_{k+1-N_p:k} &= [y(k)', y(k-\Delta)', ..., y(k-(N_p-1)\Delta)']' \\
-  \mathbf{u}_{k+1-N_p:k-1} &= [u(k-\Delta)', u(k-2\Delta)', 
-                               ..., u(k-(N_p-1)\Delta)']'
+  \mathbf{y}_{k-N_p:k-1} &= [y(k-\Delta)', ..., y(k-N_p\Delta)']' \\
+  \mathbf{u}_{k-N_p:k-1} &= [u(k-\Delta)', 
+                               ..., u(k-N_p\Delta)']'
 \end{align*}
 
 in which $N_p$ is the number of 
@@ -145,7 +152,7 @@ measurements. There exists a $\phi(\cdot)$
 and a number of delay 
 time steps $N_p$, such that the plant state
 at a given time can be written as
-$x(k) = \phi(\mathbf{y}_{k+1-N_p:k}, \mathbf{u}_{k+1-N_p:k-1})$.
+$x_p(k) = \phi(\mathbf{y}_{k-N_p:k}, \mathbf{u}_{k-N_p:k-1})$.
 For linear plants, this function $\phi(\cdot)$
 is known analytically in terms of the plant dynamic
 matrices.
@@ -154,69 +161,67 @@ We augment the grey-box model using
 neural networks as follows -
 \begin{align*}
 \dot x_g &= f_g(x_g, u) + 
-f_{NN}(\mathbf{y}_{k+1-N_p:k}, \mathbf{u}_{k+1-N_p:k})\\
-y &= h_g(x_g) + h_{NN}(\mathbf{y}_{k+1-N_p:k}, \mathbf{u}_{k+1-N_p:k-1})
+f_N(h_g(x_g), z, u)\\
+y &= h_g(x_g) 
 \end{align*}
-in which $f_{NN}(\cdot)$ and $h_{NN}(\cdot)$
-are standard feedforward neural networks. We add the current 
-control $u(k)$ as an input to the network $f_{NN}(\cdot)$ because 
-there may be a mismatch in the actuator to the grey-box dynamics
-as well.
+in which $f_N(\cdot)$ is a feedforward neural network
+and $z(k) = [\mathbf{y}'_{k-N_p:k-1}, \mathbf{u}'_{k-N_p:k-1}]'$.
 
-It is expected that the functions $f_{NN}(\cdot)$ 
-and $h_{NN}(\cdot)$ approximate
-the following differences between the true grey-box state dynamics
-and true measurement function with what is modeled.
-\begin{align*}
-  f_{NN}(\mathbf{y}_{k+1-N_p:k}, \mathbf{u}_{k+1-N_p:k}) &\approx 
-      Gf_p(x, u) - f_g(Gx, u) \\
-      h_{NN}(\mathbf{y}_{k+1-N_p:k}, \mathbf{u}_{k+1-N_p:k-1}) &\approx
-      h_p(x) - h_g(Gx) 
-\end{align*}  
-in which $x(k) = \phi(\mathbf{y}_{k+1-N_p:k}, \mathbf{u}_{k+1-N_p:k-1})$
-is an unknown function of past measurements and inputs.
+Alternative modeling choices are:
+\begin{itemize}
+	\item Black-box: $y^+ = f_N(y, z, u)$, (purely black-box)
+	\item Hybrid 1: $\dot x_g = f_N(x_g, z, u), \ y = h_g(x_g)$, 
+  (states have meaning)
+  \item Hybrid 2: $\dot x_g = f_g(x_g, u), \ y = h_g(x_g) + h_N(z)$, 
+	(model residual)
+	\item Hybrid 3: $\dot x_g = f_g(x_g, u, p(h_g(x_g), z)), \ y = h_g(x_g)$, (use NNs to learn some parameters)
+\end{itemize}
+
+%It is expected that the functions $f_{NN}(\cdot)$ 
+%and $h_{NN}(\cdot)$ approximate
+%the following differences between the true grey-box state dynamics
+%and true measurement function with what is modeled.
+%\begin{align*}
+%  f_{NN}(\mathbf{y}_{k+1-N_p:k}, \mathbf{u}_{k+1-N_p:k}) &\approx 
+%      Gf_p(x, u) - f_g(Gx, u) \\
+%      h_{NN}(\mathbf{y}_{k+1-N_p:k}, \mathbf{u}_{k+1-N_p:k-1}) &\approx
+%      h_p(x) - h_g(Gx) 
+%\end{align*}  
+%in which $x(k) = \phi(\mathbf{y}_{k+1-N_p:k}, \mathbf{u}_{k+1-N_p:k-1})$
+%is an unknown function of past measurements and inputs.
 
 \subsection{Conversion to discrete time and training}
-We note that the network $f_{NN}(\cdot)$ is an addition 
-to the grey-box dynamics in continuous time, whereas 
-$h_{NN}(\cdot)$ is an addition directly to the 
-measurement function. The Runge-Kutta-4 (RK4) method 
+We note that the network $f_N(\cdot)$ is an addition 
+to the grey-box dynamics in continuous time. 
+The Runge-Kutta-4 (RK4) method 
 is used for the discretization as follows
 
 \begin{align*}
-  k_1 &= f_g(x_g(k), u(k)) + 
-  f_{NN}(\mathbf{y}_{k+1-N_p:k}, \mathbf{u}_{k+1-N_p:k}) \\
-  k_2 &= f_g(x_g(k) + (\Delta/2)k_1, u(k)) + 
-  f_{NN}(\mathbf{y}_{k+1.5-N_p:k+0.5}, \mathbf{u}_{k+1.5-N_p:k+0.5})\\
-  k_3 &= f_g(x_g(k) + (\Delta/2)k_2, u(k)) + 
-  f_{NN}(\mathbf{y}_{k+1.5-N_p:k+0.5}, \mathbf{u}_{k+1.5-N_p:k+0.5})\\
-  k_4 &= f_g(x_g(k) + \Delta k_3, u(k)) + 
-  f_{NN}(\mathbf{y}_{k+2-N_p:k+1}, \mathbf{u}_{k+2-N_p:k+1})\\
+  k_1 &= f_g(x_g, u) + 
+  f_N(h_g(x_g), \mathbf{y}_{k-N_p:k-1}, \mathbf{u}_{k+1-N_p:k}) \\
+  x_g & := x_g + (\Delta/2)k_1 \\
+  k_2 &= f_g(x_g, u) + 
+  f_N(h_g(x_g), \mathbf{y}_{k+0.5-N_p:k-0.5}, \mathbf{u}_{k+1-N_p:k})\\
+  x_g & := x_g + (\Delta/2)k_2 \\
+  k_3 &= f_g(x_g, u) + 
+  f_N(h_g(x_g), \mathbf{y}_{k+0.5-N_p:k-0.5}, \mathbf{u}_{k+1-N_p:k})\\
+  x_g & := x_g + \Delta k_3 \\
+  k_4 &= f_g(x_g, u) + 
+  f_N(h_g(x_g), \mathbf{y}_{k+1-N_p:k}, \mathbf{u}_{k+1-N_p:k})\\
   x_g(k+\Delta) &= x_g(k) + (\Delta/6)(k_1 + 2k_2 + 2k_3 + k_4) \\
-  \hat{y}(k+\Delta) &= h_g(x_g(k+\Delta)) + 
-  h_{NN}(\mathbf{y}_{k+2-N_p:k+1}, \mathbf{u}_{k+2-N_p:k+1})
+  \hat{y}(k+\Delta) &= h_g(x_g(k+\Delta)) 
 \end{align*}
-in which the sequences $\mathbf{y}_{k+1.5-N_p:k+0.5}$ 
-and $\mathbf{u}_{k+1.5-N_p:k+0.5}$ are defined as 
-\begin{align*}
-  \mathbf{y}_{k+1.5-N_p:k+0.5} &= 
-    [y(k + \Delta/2)', y(k-\Delta/2)', ..., y(k-(N_p-1)\Delta + \Delta/2)']' \\
-    \mathbf{u}_{k+1.5-N_p:k+0.5} &= 
-  [u(k + \Delta/2)', u(k-\Delta/2)', ..., u(k-(N_p-1)\Delta + \Delta/2)']' 
-\end{align*}
-We assume a zero order hold on the control inputs between two consecutive 
-MPC execution instants, such that $u(k + \Delta/2) = u(k)$. To get the 
-measurements between two sample instants (for e.g., $y(k + \Delta/2)$) for 
-the RK4 predictions, linear interpolation is used.
+in which the sequence $\mathbf{y}_{k+0.5-N_p:k-0.5}$ is obtained by 
+linear interpolation.
 
 The following optimization problem is solved to compute 
-the weights in the neural networks 
+the weights in the neural network
 \begin{align*}
- \underset{W_{fi}, b_{fi}, W_{hi}, b_{hi}}{\textnormal{min}} \sum_{k=0}^{N_s-1} 
- \dfrac{1}{2}(\hat{y}(k) - y(k))^2
-\end{align*}
-in which ($W_{fi}, b_{fi}, W_{hi}, b_{hi}$) are the weights in the 
-two neural networks ($f_{NN}(\cdot)$ and $h_{NN}(\cdot)$), 
+\underset{W_i, b_i}{\textnormal{min}} \sum_{k=0}^{N_s-1} 
+\dfrac{1}{2}(\hat{y}(k) - y(k))^2
+ \end{align*}
+in which $W_i$, $b_i$ are the weights in each hidden layer of the NN, 
+$N_s$ is the number of training samples, 
 $\hat{y}$ are the predictions of the augmented
 grey-box + neural network model, and $y$
 are the measurements from the plant.
@@ -240,13 +245,13 @@ with a neural network.
 
 \textbf{Plant --}
 \begin{align*}
-  \dfrac{dC_A}{dt} &= \dfrac{C_{A0} - C_A}{\tau} - k_1C_A\\
+  \dfrac{dC_A}{dt} &= \dfrac{C_{Af} - C_A}{\tau} - k_1C_A\\
   \dfrac{dC_B}{dt} &= k_1C_A - k_2C_B + k_3C_C- \dfrac{C_B}{\tau}\\
   \dfrac{dC_C}{dt} &= k_2C_B - k_3C_C - \dfrac{C_C}{\tau}
 \end{align*}
 These ODEs represent the dynamics of the reaction system
 $A \rightarrow B \rightleftharpoons C$ in a CSTR with constant 
-height and temperature. The control input is $u = C_{A0}$,
+height and temperature. The control input is $u = C_{Af}$,
 the states are $x = [C_A, C_B, C_C]'$, 
 and the measurements are $y = [C_A, C_B]'$. 
 Assume the following 
@@ -261,16 +266,16 @@ the parameters and measurements.
 
 \textbf{Model --}
 \begin{align*}
-  \dfrac{dC_A}{dt} &= \dfrac{C_{A0} - C_A}{\tau} - k_1C_A\\
+  \dfrac{dC_A}{dt} &= \dfrac{C_{Af} - C_A}{\tau} - k_1C_A\\
   \dfrac{dC_B}{dt} &= k_1C_A - \dfrac{C_B}{\tau}
 \end{align*}
 i.e, we assume that we don't know about the second reaction while 
 performing grey-box modeling. 
 
-The current state $x(k)$ can be constructed using the history of 
+The current plant state $x_p(k)$ can be constructed using the history of 
 past measurements and inputs as 
 \begin{equation*}
-  x(k) = A^{N_p-1}_d
+  x_p(k) = A^{N_p-1}_d
   \mathcal{O}^{\dagger}(\mathbf{y}_{k+1-N_p:k} - 
                         \mathcal{B}\mathbf{u}_{k+1-N_p:k-1}) + \\ 
       \mathcal{B}_{nN_p-n+1:nN_p}\mathbf{u}_{k+1-N_p:k-1}
@@ -291,11 +296,11 @@ augment the grey-box dynamics.
 The expected function 
 to be approximated with the network is
 \begin{align*}
-  f_{NN}(\mathbf{y}_{k+1-N_p:k}, \mathbf{u}_{k+1-N_p:k-1}) \approx 
+  f_N(\mathbf{y}_{k-N_p:k}, \mathbf{u}_{k+1-N_p:k-1}) \approx 
   \begin{bmatrix}
   0 & 0 & 0 \\  
   0 & -k_2 & k_3 
-  \end{bmatrix}x(k)
+  \end{bmatrix}x_p(k)
 \end{align*}
 
 In this example, the network just approximates a linear function.
@@ -305,6 +310,9 @@ and augmented hybrid models. The structure
 of the network is restricted to just a matrix and
 the augmented model was trained on 240 samples (4 hours).
 
+THe Figures \ref{fig:cost_nonlinear_5hours} and 
+\ref{fig:cost_nonlinear_5hours} 
+
 \begin{figure}[!h]
   \centering
   \includegraphics[page=2, width=\textwidth]{tworeac_plots_lin.pdf}
@@ -313,24 +321,23 @@ the augmented model was trained on 240 samples (4 hours).
 \end{figure}
 
 We notice that the augmented model accurately predicts the plant 
-behavior. The steady cost profile (Cost = $c_1C_{A0} - c_2C_B$)
+behavior. The steady cost profile (Cost = $c_1C_{Af} - c_2C_B$)
 is shown in Figure \ref{fig:cost_linear}. 
 
 \begin{figure}[!h]
   \centering
-  \includegraphics[page=1, width=\textwidth]{tworeac_ssopt_lin.pdf}
+  \includegraphics[page=3, width=\textwidth]{tworeac_plots_lin.pdf}
   \caption{Steady state cost curve for 
            the linear plant, grey-box, and hybrid model.}
   \label{fig:cost_linear}
 \end{figure}
-
 
 \subsection{Nonlinear plant}
 The plant is made nonlinear by changing the side reaction 
 to a third order reaction ($A \rightarrow B $ and  $3B \rightleftharpoons C$),
 and is now simulated with the following ODEs
 \begin{align*}
-  \dfrac{dC_A}{dt} &= \dfrac{C_{A0} - C_A}{\tau} - k_1C_A\\
+  \dfrac{dC_A}{dt} &= \dfrac{C_{Af} - C_A}{\tau} - k_1C_A\\
   \dfrac{dC_B}{dt} &= k_1C_A - 3k_2C^3_B + 3k_3C_C- \dfrac{C_B}{\tau}\\
   \dfrac{dC_C}{dt} &= k_2C^3_B - k_3C_C - \dfrac{C_C}{\tau}
 \end{align*}
@@ -341,11 +348,18 @@ $k_1 = 1 \ \textnormal{m}^3/\textnormal{min},
 \ k_2 = 0.01 \ \textnormal{m}^3/\textnormal{min},
 \ k_3 = 0.05 \ \textnormal{m}^3/\textnormal{min}$, 
 and $\tau = 5 \ \textnormal{min}$.
-An augmented model with a neural
-network architecture [8, 4, 2] is trained on 360 samples (6 hours). 
-The tanh activation is used in the network. The figure below shows 
-validation performances of the grey-box and augmented 
-hybrid models.
+
+\newpage
+Three models are compared: black-box, residual, and hybrid model with additive 
+NN to the grey-box dynamics. The chosen model architectures 
+are [9, 16, 16, 2], [9, 16, 16, 2], and [8, 16, 2] respectively.
+The Figure \ref{fig:validation_nonlinear} shows model validation on open loop 
+data after training with 10 hours of data.
+
+The Figures \ref{fig:cost_nonlinear_5hours} and \ref{fig:cost_nonlinear_10hours}
+show the steady state cost curve after training with 5 and 10 hours 
+of data respectively. We notice that the hybrid model is more data efficient 
+compared to the alternatives.
 
 \begin{figure}[!h]
   \centering
@@ -354,20 +368,37 @@ hybrid models.
   \label{fig:validation_nonlinear}
 \end{figure}
 
-We notice that the augmented model accurately predicts the plant 
-behavior. The steady cost profile (Cost = $c_1C_{A0} - c_2C_B$)
-is shown in Figure \ref{fig:cost_nonlinear}. Upon optimization 
-using casadi, the optimum cost and control for the plant are: $-19.62 \$$ 
-and 1.13 $\textnormal{mol}/\textnormal{m}^3$, and for the hybrid 
-grey-box and NN model are: $-19.91 \$$ 
-and 1.11 $\textnormal{mol}/\textnormal{m}^3$.
+%We notice that the augmented model accurately predicts the plant 
+%behavior. The steady cost profile (Cost = $c_1C_{A0} - c_2C_B$)
+%is shown in Figure \ref{fig:cost_nonlinear}. Upon optimization 
+%using casadi, the optimum cost and control for the plant are: $-19.62 \$$ 
+%and 1.13 $\textnormal{mol}/\textnormal{m}^3$, and for the hybrid 
+%grey-box and NN model are: $-19.91 \$$ 
+%and 1.11 $\textnormal{mol}/\textnormal{m}^3$.
 
 
 \begin{figure}[!h]
   \centering
-  \includegraphics[page=1, width=\textwidth]{tworeac_ssopt_nonlin.pdf}
-  \caption{Steady state cost curve for the nonlinear plant, grey-box, and hybrid model.}
-  \label{fig:cost_nonlinear}
+  \includegraphics[page=3, width=\textwidth]{tworeac_plots_nonlin.pdf}
+  \caption{Steady state cost curve for the nonlinear plant, grey-box, 
+  black-box, residual, and hybrid model after training with 5 hours of data.}
+  \label{fig:cost_nonlinear_5hours}
+\end{figure}
+
+\begin{figure}[!h]
+  \centering
+  \includegraphics[page=4, width=\textwidth]{tworeac_plots_nonlin.pdf}
+  \caption{Steady state cost curve for the nonlinear plant, grey-box, 
+  black-box, residual, and hybrid model after training with 10 hours of data.}
+  \label{fig:cost_nonlinear_10hours}
+\end{figure}
+
+\begin{figure}[!h]
+  \centering
+  \includegraphics[page=1, width=\textwidth]{tworeac_distmodels_nonlin.pdf}
+  \caption{Steady state grey-box states and disturbance estimates based on 
+  output and input disturbance models}
+  \label{fig:cost_nonlinear_10hours}
 \end{figure}
 
 %\textbf{Need to discuss the following issues:}

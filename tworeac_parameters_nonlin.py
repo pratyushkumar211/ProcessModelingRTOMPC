@@ -173,13 +173,13 @@ def _gen_train_val_data(*, parameters, num_traj,
         elif traj == num_traj-2:
             "Get input for validation simulation."
             Nsim = Nsim_trainval
-            u = sample_prbs_like(num_change=12, num_steps=Nsim_trainval, 
+            u = sample_prbs_like(num_change=6, num_steps=Nsim_trainval, 
                                  lb=ulb, ub=uub,
-                                 mean_change=10, sigma_change=2, seed=seed+2)
+                                 mean_change=20, sigma_change=2, seed=seed+2)
         else:
             "Get input for training simulation."
             Nsim = Nsim_train
-            u = sample_prbs_like(num_change=96, num_steps=Nsim_train, 
+            u = sample_prbs_like(num_change=48, num_steps=Nsim_train, 
                                  lb=ulb, ub=uub,
                                  mean_change=30, sigma_change=2, seed=seed+3)
 
@@ -221,7 +221,7 @@ def main():
     
     # Generate training data.
     training_data = _gen_train_val_data(parameters=parameters, 
-                                        num_traj=3, Nsim_train=2880,
+                                        num_traj=3, Nsim_train=1440,
                                         Nsim_trainval=120, Nsim_val=720, 
                                         seed=100)
     greybox_val_data = _get_greybox_val_preds(parameters=

@@ -73,7 +73,7 @@ class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
         Delta = self.tworeac_parameters['sample_time']
         
         # Get k1.
-        k1 = self._fg(xG, u) + self._fnn(xg, z)
+        k1 = self._fg(xG, u) + self._fnn(xG, z)
         
         # Interpolate for k2 and k3.
         ypseq_interp = self.interp_layer(tf.concat((ypseq, xG), axis=-1))

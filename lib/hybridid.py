@@ -3,7 +3,6 @@
 import sys
 import numpy as np
 import mpctools as mpc
-import pandas as pd
 import scipy.linalg
 import cvxopt as cvx
 import matplotlib.pyplot as plt
@@ -126,32 +125,36 @@ def get_tworeac_train_val_data(*, Np, parameters, data_list):
     """ Get the data for training in appropriate format. """
     tsteps_steady = parameters['tsteps_steady']
     (Ny, Nu) = (parameters['Ny'], parameters['Nu'])
-    (inputs, x0, outputs) = ([], [], [])
+    (inputs, xGz0, outputs) = ([], [], [])
     for data in data_list:
-        Nsim = len(data.t)
-        u_traj = data.u[tsteps_steady:][np.newaxis, :, np.newaxis]
-        x0_traj = data.y[tsteps_steady, :][np.newaxis, :]
-        y_traj = data.y[tsteps_steady:, :][np.newaxis, ...]
-        (ypseq_traj, upseq_traj) = ([], [])
-        for t in range(tsteps_steady, Nsim):
-            ypseq = data.y[t-Np:t, :].reshape(Np*Ny, )
-            upseq = data.u[t-Np:t]
-            ypseq_traj.append(ypseq)
-            upseq_traj.append(upseq)
-        ypseq_traj = np.asarray(ypseq_traj)[np.newaxis, ...]
-        upseq_traj = np.asarray(upseq_traj)[np.newaxis, ...]
-        # Collect the trajectories in list. 
-        inputs.append(np.concatenate((u_traj, ypseq_traj, upseq_traj), axis=-1))
-        x0.append(x0_traj)
+        t = tsteps_steady
+        
+        # Get input trajectory.
+        u_traj = data.u[t:][np.newaxis, :, np.newaxis]
+        
+        # Get initial state.
+        x0 = data.y[t, :][np.newaxis, :]
+        yp0seq = data.y[t-Np:t, :].reshape(Np*Ny, )[np.newaxis, :]
+        up0seq = data.u[t-Np:t][np.newaxis, :]
+        xGz0_traj = np.concatenate((x0, yp0seq, up0seq), axis=-1)
+
+        # Get output trajectory.       
+        y_traj = data.y[t:, :][np.newaxis, ...]
+        
+        # Collect the trajectories in list.
+        inputs.append(u_traj)
+        xGz0.append(xGz0_traj)
         outputs.append(y_traj)
+    
     # Get the training and validation data for training in compact dicts.
     train_data = dict(inputs=np.concatenate(inputs[:-2], axis=0),
-                      x0=np.concatenate(x0[:-2], axis=0),
+                      xGz0=np.concatenate(xGz0[:-2], axis=0),
                       outputs=np.concatenate(outputs[:-2], axis=0))
-    trainval_data = dict(inputs=inputs[-2], x0=x0[-2],
+    trainval_data = dict(inputs=inputs[-2], xGz0=xGz0[-2],
                          outputs=outputs[-2])
-    val_data = dict(inputs=inputs[-1], x0=x0[-1],
+    val_data = dict(inputs=inputs[-1], xGz0=xGz0[-1],
                     outputs=outputs[-1])
+    # Return.
     return (train_data, trainval_data, val_data)
 
 def plot_profit_curve(*, us, costs, colors, legends, 
@@ -173,5 +176,97 @@ def plot_profit_curve(*, us, costs, colors, legends,
     axes.set_ylabel(ylabel, rotation=False)
     axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5) 
     axes.set_xlim([np.min(us), np.max(us)])
+    figlabel = r'$\ell(y, u), \ \textnormal{subject to} \ f(x, u)=0, y=h(x)$'
+    figure.suptitle(figlabel,
+                    x=0.55, y=0.94)
     # Return the figure object.
     return [figure]
+
+def _eigval_eigvec_test(X,Y):
+    """Return True if an eigenvector of X corresponding to 
+    an eigenvalue of magnitude greater than or equal to 1
+    is not in the nullspace of Y.
+    Else Return False."""
+    (eigvals, eigvecs) = np.linalg.eig(X)
+    eigvecs = eigvecs[:, np.absolute(eigvals)>=1.]
+    for eigvec in eigvecs.T:
+        if np.linalg.norm(Y @ eigvec)<=1e-8:
+            return False
+    else:
+        return True
+
+def assert_detectable(A, C):
+    """Assert if the provided (A, C) pair is detectable."""
+    assert _eigval_eigvec_test(A, C)
+
+def get_augmented_matrices_for_filter(A, B, C, Bd, Cd, Qwx, Qwd):
+    """ Get the Augmented A, B, C, and the noise covariance matrix."""
+    Nx = A.shape[0]
+    Nu = B.shape[1]
+    Nd = Bd.shape[1]
+    # Augmented A.
+    Aaug1 = np.concatenate((A, Bd), axis=1)
+    Aaug2 = np.concatenate((np.zeros((Nd, Nx)), np.eye(Nd)), axis=1)
+    Aaug = np.concatenate((Aaug1, Aaug2), axis=0)
+    # Augmented B.
+    Baug = np.concatenate((B, np.zeros((Nd, Nu))), axis=0)
+    # Augmented C.
+    Caug = np.concatenate((C, Cd), axis=1)
+    # Augmented Noise Covariance.
+    Qwaug = scipy.linalg.block_diag(Qwx, Qwd)
+    # Check that the augmented model is detectable. 
+    assert_detectable(Aaug, Caug)
+    return (Aaug, Baug, Caug, Qwaug)
+
+def dlqe(A,C,Q,R):
+    """
+    Get the discrete-time Kalman filter for the given system.
+    """
+    P = scipy.linalg.solve_discrete_are(A.T,C.T,Q,R)
+    L = scipy.linalg.solve(C.dot(P).dot(C.T) + R, C.dot(P)).T
+    return (L, P)
+    
+class KalmanFilter:
+
+    def __init__(self, *, A, B, C, Qw, Rv, xprior):
+        """ Class to construct and perform state estimation
+        using Kalman Filtering.
+        """
+
+        # Store the matrices.
+        self.A = A
+        self.B = B 
+        self.C = C
+        self.Qw = Qw
+        self.Rv = Rv
+        
+        # Compute the kalman filter gain.
+        self._computeFilter()
+        
+        # Create lists for saving data. 
+        self.xhat = [xprior]
+        self.xhat_pred = []
+        self.y = []
+        self.uprev = []
+
+    def _computeFilter(self):
+        "Solve the DARE to compute the optimal L."
+        (self.L, _) = dlqe(self.A, self.C, self.Qw, self.Rv) 
+
+    def solve(self, y, uprev):
+        """ Take a new measurement and do 
+            the prediction and filtering steps."""
+        xhat = self.xhat[-1]
+        xhat_pred = self.A @ xhat + self.B @ uprev
+        xhat = xhat_pred + self.L @ (y - self.C @ xhat_pred)
+        # Save data.
+        self._save_data(xhat, xhat_pred, y, uprev)
+        return xhat
+        
+    def _save_data(self, xhat, xhat_pred, y, uprev):
+        """ Save the state estimates,
+            Can be used for plotting later."""
+        self.xhat.append(xhat)
+        self.xhat_pred.append(xhat_pred)
+        self.y.append(y)
+        self.uprev.append(uprev)

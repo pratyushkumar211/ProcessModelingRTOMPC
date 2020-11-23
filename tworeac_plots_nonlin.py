@@ -58,7 +58,7 @@ def plot_val_model_predictions(*, plantsim_data,
     ylabels = [r'$C_A \ (\textnormal{mol/m}^3)$', 
                r'$C_B \ (\textnormal{mol/m}^3)$',
                r'$C_{Af} \ (\textnormal{mol/m}^3)$']
-    model_legend_colors = ['green', 'dimgray', 'orange', 'tomato']
+    model_legend_colors = ['green', 'tomato']
     legend_handles = []
     plant_data_list = [plantsim_data.y[tsteps_steady:, 0], 
                        plantsim_data.y[tsteps_steady:, 1], 
@@ -86,9 +86,9 @@ def plot_val_model_predictions(*, plantsim_data,
     legend_handles.insert(0, plant_legend_handle[0])
     axes.set_xlabel('Time (hr)')
     axes.set_xlim([np.min(time[start:end]), np.max(time[start:end])])
-    labels = ('Plant', 'Grey-box', 'Black-box', 'Residual', 'Hybrid')
+    labels = ('Plant', 'Grey-box', 'Hybrid')
     figure.legend(handles = legend_handles, labels = labels, 
-                  loc = (0.16, 0.9), ncol=3)
+                  loc = (0.13, 0.9), ncol=3)
     # Return the figure object.
     return [figure]
 
@@ -102,11 +102,11 @@ def plot_sub_gaps(*, num_samples, sub_gaps, colors, legends,
                                   figsize=figure_size, 
                                   gridspec_kw=dict(left=left_label_frac))
     ylabel = r'$\% \ $ Suboptimality Gap'
-    xlabel = 'Hours training samples'
+    xlabel = 'Hours of training samples'
     num_samples = num_samples/60
     for (sub_gap, color) in zip(sub_gaps, colors):
         # Plot the corresponding data.
-        axes.semilogy(num_samples, sub_gap, color)
+        axes.plot(num_samples, sub_gap, color)
     axes.legend(legends)
     axes.set_xlabel(xlabel)
     axes.set_ylabel(ylabel)
@@ -117,14 +117,14 @@ def plot_sub_gaps(*, num_samples, sub_gaps, colors, legends,
 
 def plot_val_metrics(*, num_samples, val_metrics, colors, legends, 
                      figure_size=PAPER_FIGSIZE,
-                     ylabel_xcoordinate=-0.13, 
+                     ylabel_xcoordinate=-0.11, 
                      left_label_frac=0.15):
     """ Plot validation metric on open loop data. """
     (figure, axes) = plt.subplots(nrows=1, ncols=1, 
                                         sharex=True, 
                                         figsize=figure_size, 
                                     gridspec_kw=dict(left=left_label_frac))
-    xlabel = 'Hours training samples'
+    xlabel = 'Hours of training samples'
     ylabel = 'MSE'
     num_samples = num_samples/60
     for (val_metric, color) in zip(val_metrics, colors):
@@ -138,6 +138,29 @@ def plot_val_metrics(*, num_samples, val_metrics, colors, legends,
     figure.suptitle('Mean squared error (MSE) - Validation data', 
                     x=0.52, y=0.92)
     # Return the figure object.
+    return [figure]
+
+def plot_cost_mse_curve(*, us, cost_mses,
+                         colors, legends, ylim,
+                         figure_size=PAPER_FIGSIZE,
+                         ylabel_xcoordinate=-0.2,
+                         left_label_frac=0.21):
+    """ Plot the profit curves. """
+    (figure, axes) = plt.subplots(nrows=1, ncols=1,
+                                  sharex=True,
+                                  figsize=figure_size,
+                                  gridspec_kw=dict(left=left_label_frac))
+    xlabel = r'$C_{Af} \ (\textnormal{mol/m}^3)$'
+    ylabel = r'$e(C_{Af})$'
+    for (cost_mse, color) in zip(cost_mses, colors):
+        # Plot the corresponding data.
+        axes.plot(us, cost_mse, color)
+    axes.legend(legends)
+    axes.set_xlabel(xlabel)
+    axes.set_ylabel(ylabel, rotation=True)
+    axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
+    axes.set_xlim([np.min(us), np.max(us)])
+    #axes.set_ylim(ylim)
     return [figure]
 
 def main():
@@ -160,11 +183,12 @@ def main():
     sub_gaps = ssopt['sub_gaps']
     figures = []
 
-    # Plot training data.
+    # Plot training data
     figures += plot_training_data(training_data=training_data[0], 
                                   plot_range=(0, 6*60))
 
     # Plot predictions on validation data.
+    val_predictions.pop(0)
     modelsim_datum = [greybox_validation_data] + val_predictions
     figures += plot_val_model_predictions(plantsim_data=training_data[-1],
                                     modelsim_datum=modelsim_datum,
@@ -172,25 +196,38 @@ def main():
                                     tsteps_steady=parameters['tsteps_steady'])
 
     # Plot cost curve.
-    figures += plot_profit_curve(us=ssopt['us'], 
-                                costs=ssopt['costs'],
-                                colors=['blue', 'green', 
-                                        'dimgray', 'orange', 'tomato'],
-                                legends=['Plant', 'Grey-box', 'Black-box', 
-                                         'Residual', 'Hybrid'],
-                                ylabel_xcoordinate=-0.21,
-                                left_label_frac=0.21)
+    for costs in ssopt['costss']:
+        figures += plot_profit_curve(us=ssopt['us'], 
+                                    costs=costs,
+                                    colors=['blue', 'green', 
+                                            'dimgray', 'tomato'],
+                                    legends=['Plant', 'Grey-box', 'Black-box', 
+                                             'Hybrid'],
+                                    ylabel_xcoordinate=-0.21,
+                                    left_label_frac=0.21)
+
+    cost_mse_curve_legends = [r'$N_s = 3 \ \textnormal{hours}$',
+                              r'$N_s = 5 \ \textnormal{hours}$',
+                              r'$N_s = 8 \ \textnormal{hours}$',
+                              r'$N_s = 11 \ \textnormal{hours}$']
+    for model_cost_mse in ssopt['cost_mses']:
+        figures += plot_cost_mse_curve(us=ssopt['us'], 
+                                       cost_mses=model_cost_mse,
+                                       colors=['blue', 'green',
+                                               'dimgray', 'tomato'],
+                                       ylim = [0., 15.],
+                                       legends=cost_mse_curve_legends)
 
     # PLot validation metrics.
     figures += plot_val_metrics(num_samples=num_samples, 
                                 val_metrics=val_metrics, 
-                                colors=['dimgray', 'orange', 'tomato'], 
-                                legends=['Black-box', 'Residual', 'Hybrid'])
+                                colors=['dimgray', 'tomato'], 
+                                legends=['Black-box', 'Hybrid'])
     # Plot suboptimality gaps.
     figures += plot_sub_gaps(num_samples=num_samples, 
                              sub_gaps=sub_gaps, 
-                             colors=['dimgray', 'orange', 'tomato'], 
-                             legends=['Black-box', 'Residual', 'Hybrid'])
+                             colors=['dimgray', 'tomato'], 
+                             legends=['Black-box', 'Hybrid'])
 
     with PdfPages('tworeac_plots_nonlin.pdf', 
                   'w') as pdf_file:

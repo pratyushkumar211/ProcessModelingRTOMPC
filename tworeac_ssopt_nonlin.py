@@ -276,6 +276,20 @@ def compute_suboptimality_gaps(*, Nps, model_types,
         sub_gaps.append(model_sub_gaps)
     return sub_gaps
 
+def compute_cost_mses(costss):
+    """ Get the absolute difference between the 
+        plant cost and model costs. """
+    num_models = len(costss[0][2:])
+    cost_mses = []
+    for i in range(num_models):
+        model_cost_mse = []
+        for costs in costss:
+            plant = costs[0]
+            Delta = np.abs(plant - costs[i+2]).squeeze()
+            model_cost_mse.append(Delta)
+        cost_mses.append(model_cost_mse)
+    return cost_mses
+
 def main():
     """ Main function to be executed. """
     # Load data.
@@ -286,21 +300,31 @@ def main():
     tworeac_train = PickleTool.load(filename='tworeac_train_nonlin.pickle',
                                     type='read')
     (Nps, model_types, 
-     trained_weights) = (tworeac_train['Nps'], 
-                         tworeac_train['model_types'],
-                         tworeac_train['trained_weights'])
-    
+     trained_weights,
+     num_samples) = (tworeac_train['Nps'], 
+                     tworeac_train['model_types'],
+                     tworeac_train['trained_weights'],
+                     tworeac_train['num_samples'])
+
     # Create cost curves.
-    fnn_weights = []
-    for model_trained_weights in trained_weights:
-        fnn_weights.append(model_trained_weights[-1])
-    (costs, us) = compute_cost_curves(Nps=Nps, model_types=model_types,
-                                      fnn_weights=fnn_weights,
-                                      parameters=parameters)
-    sub_gaps = compute_suboptimality_gaps(Nps=Nps, model_types=model_types,
-                                          trained_weights=trained_weights, 
+    costss = []
+    num_samples = list(num_samples)
+    for (i, num_sample) in enumerate(num_samples):
+        fnn_weights = []
+        for model_trained_weights in trained_weights:
+            fnn_weights.append(model_trained_weights[i])
+        (costs, us) = compute_cost_curves(Nps=Nps, model_types=model_types,
+                                          fnn_weights=fnn_weights,
                                           parameters=parameters)
-    PickleTool.save(data_object=dict(us=us, costs=costs, sub_gaps=sub_gaps),
+        costss.append(costs)
+    
+    cost_mses = compute_cost_mses(costss=costss)
+    sub_gaps = compute_suboptimality_gaps(Nps=Nps, model_types=model_types,
+                                          trained_weights=trained_weights,
+                                          parameters=parameters)
+    PickleTool.save(data_object=dict(us=us, costss=costss, 
+                                     cost_mses=cost_mses,
+                                     sub_gaps=sub_gaps),
                     filename='tworeac_ssopt_nonlin.pickle')
 
 main()
