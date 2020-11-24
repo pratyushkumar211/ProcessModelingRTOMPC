@@ -298,10 +298,22 @@ layers common in chemical process industries. The optimization problem solved is
 \end{align*}
 in which $x_s$, $y_s$, $u_s$ are the state, output, and control respectively at
 steady-states. For the nonlinear reactor example, the cost is chosen as
-$\ell(y_s, u_s) = c_1C_{Af} - c_2C_B$, which measures the raw material
-cost and product profit. The Figure \ref{fig:cost_curves} shows the 
-cost curves of the plant, grey-box, black-box, and hybrid model 
-obtained with 8 hours of training data.
+$\ell(y_s, u_s) = c_1C_{Af} - c_2C_B$, which measures the raw material cost and
+product profit. The Figure \ref{fig:cost_curves} shows the cost curves of the
+plant, grey-box, black-box, and hybrid model obtained with 8 hours of training
+data. We first notice from the cost curve of the grey-box model that an
+optimization with the grey-box model results in the optimizer recommending a
+full supply of the raw material $A$. Since some of the product $B$ reacts to
+form an undesired side product $C$ in the plant, this recommendation incurres a
+cost as observed from the plant cost curve. An intuitive approach to correct
+this type of plant-model mismatch is to augment the grey-box model with
+integrating disturbance models and estimate the plant model mismatch from data
+at one steady state. This strategy however, cannot recover the plant cost curve
+in the entire actuator constraint set as the integrating disturbance models are
+often linear. We notice that the cost curve of the hybrid model is almost the
+same as the cost curve of the plant model in the entire actuator constraint set.
+The cost curve of the black-box model is also shown and we notice that it is not
+as closely aligned with the plant as compared to the hybrid model.
 
 \begin{figure}[!h]
   \centering
@@ -313,18 +325,38 @@ obtained with 8 hours of training data.
 
 \begin{figure}[!h]
   \centering
-  \includegraphics[page=4, width=\textwidth]{tworeac_plots_nonlin.pdf}
+  \includegraphics[page=7, width=\textwidth]{tworeac_plots_nonlin.pdf}
   \caption{Steady-state cost curve for the nonlinear plant, grey-box, black-box,
   residual, and hybrid model after training with 10 hours of data.}
-  \label{fig:cost_nonlinear_10hours}
+  \label{fig:cost_error_bb}
 \end{figure}
 
-\section{Conclusion}
-Hey.
-%\begin{figure}[!h] \centering \includegraphics[page=1,
-%  width=\textwidth]{tworeac_distmodels_nonlin.pdf} \caption{Steady state
-%  grey-box states and disturbance estimates based on output and input
-%  disturbance models} \label{fig:cost_nonlinear_10hours} \end{figure}
+Finally, we analyze the variation in the cost curves of the black-box and hybrid
+models with increasing number of training samples. We analyze the following cost
+error metric in the entire actuator constraint set
+\begin{align*}
+  e(u_s) = \vert \ell(y_p(u_s), u_s) - \ell(y_m(u_s), u_s) \vert
+\end{align*}
+in which $y_p(\cdot)$ and $y_m(\cdot)$ denote the plant and model steady state
+output respectively. The Figures \ref{fig:cost_error_bb} and
+\ref{fig:cost_error_hybrid} show the variation in this cost error metric in the
+actuator constraint set with increasing number of training samples for the
+black-box and hybrid model respectively. We observe that with an increase in the
+number of training samples, the error metric for the hybrid model approaches
+near zero values for a wide range of actuator values in the constraint set. The
+error metric of the black-box model remains relatively larger than that of the
+hybrid model in the constraint set with increase in training data. The
+implication of this error metric going to zero for all actuator values in the
+constraint set is that the optimum computed for the steady-state economic
+optimization problem with the trained model will be the same as the true plant
+optimum.
 
+\begin{figure}[!h]
+  \centering
+  \includegraphics[page=8, width=\textwidth]{tworeac_plots_nonlin.pdf}
+  \caption{Steady-state cost curve for the nonlinear plant, grey-box, black-box,
+  residual, and hybrid model after training with 10 hours of data.}
+  \label{fig:cost_error_hybrid}
+\end{figure}
 
 \end{document}
