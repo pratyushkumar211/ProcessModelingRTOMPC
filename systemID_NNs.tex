@@ -298,15 +298,16 @@ layers common in chemical process industries. The optimization problem solved is
 \end{align*}
 in which $x_s$, $y_s$, $u_s$ are the state, output, and control respectively at
 steady-states. For the nonlinear reactor example, the cost is chosen as
-$\ell(y_s, u_s) = c_1C_{Af} - c_2C_B$, which is a measure of the raw material
-cost and product profit. The Figure  
-\ref{fig:cost_curves}
+$\ell(y_s, u_s) = c_1C_{Af} - c_2C_B$, which measures the raw material
+cost and product profit. The Figure \ref{fig:cost_curves} shows the 
+cost curves of the plant, grey-box, black-box, and hybrid model 
+obtained with 8 hours of training data.
 
 \begin{figure}[!h]
   \centering
   \includegraphics[page=6, width=\textwidth]{tworeac_plots_nonlin.pdf}
   \caption{Steady-state cost curve for the nonlinear plant, grey-box, black-box,
-  residual, and hybrid model after training with 5 hours of data.}
+  and hybrid model after training with 8 hours of data.}
   \label{fig:cost_curves}
 \end{figure}
 
