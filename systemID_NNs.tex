@@ -130,11 +130,11 @@ history of measurements and control inputs. Denote this history as
 \end{align*}
 
 in which $N_p$ is the number of past measurements and $\Delta$ is the sample
-time between two consecutive measurements. There exists a $\phi(\cdot)$ and a
-number of delay time steps $N_p$, such that the plant state at a given time can
-be written as $x_p(k) = \phi(\mathbf{y}_{k-N_p:k}, \mathbf{u}_{k-N_p:k-1})$. For
-linear plants, this function $\phi(\cdot)$ is known analytically in terms of the
-plant dynamic matrices.
+time between two consecutive measurements. There exists a function $\phi(\cdot)$
+and a number of delay time steps $N_p$, such that the plant state at a given
+time can be written as $x_p(k) = \phi(\mathbf{y}_{k-N_p:k},
+\mathbf{u}_{k-N_p:k-1})$. For linear plants, this function $\phi(\cdot)$ is
+known analytically in terms of the plant dynamic matrices.
 
 We augment the grey-box model using neural networks as follows -
 \begin{align} \label{eq:hybrid_cont_time}
@@ -175,6 +175,7 @@ continuous time in \eqref{eq:hybrid_cont_time}. The Runge-Kutta-4 (RK4) method
 is used for the discretization as follows
 
 \begin{align*}
+  x_{gk} &= x_g(k) \\
   k_1 &= f_g(x_g, u) + 
   f_N(x_g, \mathbf{y}_{k-N_p:k-1}, \mathbf{u}_{k-N_p:k-1}, u) \\
   x_g & := x_g + (\Delta/2)k_1 \\
@@ -186,7 +187,7 @@ is used for the discretization as follows
   x_g & := x_g + \Delta k_3 \\
   k_4 &= f_g(x_g, u) + 
   f_N(x_g, \mathbf{y}_{k+1-N_p:k}, \mathbf{u}_{k-N_p:k-1}, u)\\
-  x_g(k+\Delta) &= x_g(k) + (\Delta/6)(k_1 + 2k_2 + 2k_3 + k_4) \\
+  x_g(k+\Delta) &= x_{gk} + (\Delta/6)(k_1 + 2k_2 + 2k_3 + k_4) \\
   \hat{y}(k+\Delta) &= h_g(x_g(k+\Delta)) 
 \end{align*}
 in which the sequence $\mathbf{y}_{k+0.5-N_p:k-0.5}$ is obtained by linear
@@ -197,20 +198,22 @@ neural network
 \begin{align*}
 \underset{W_i, b_i}{\textnormal{min}} \sum_{k=0}^{N_s-1} 
 \dfrac{1}{N_s}(\hat{y}(k) - y(k))^2
- \end{align*}
-in which $W_i$, $b_i$ are the weights in each hidden layer of the NN, $N_s$ is
-the number of training samples, $\hat{y}$ are the predictions of the augmented
-grey-box + neural network model, $N_s$ is the number of training samples, and
-$y$ are the measurements from the plant. Note that this optimization requires an
-estimate of the initial grey-box state. We assume that before the open-loop
-system identification experiment performed for data collection, the plant is
-being operated at some steady-state such that input to output responses of the
-plant and grey-box model are aligned with the use of an integrating disturbance
-model. We can use the grey-box state at that steady state as the initial
-condition for the above multi-step-ahead prediction-error optimization.
+\end{align*}
+in which $W_i$, $b_i$ are the weights in each hidden layer of the network, $N_s$
+is the number of training samples, $\hat{y}$ are the predictions of the
+hybrid grey-box + neural network model, $N_s$ is the number of training
+samples, and $y$ are the measurements from the plant. Note that this
+optimization requires an estimate of the initial grey-box state. We assume that
+before the open-loop system identification experiment is performed for data
+collection, the plant is being operated at some steady-state such that input to
+output responses of the plant and grey-box model can be aligned with the use of an
+integrating disturbance model. We can use the grey-box state at that steady
+state as the initial condition for the above multi-step-ahead prediction-error
+optimization.
 
 \subsection{Nonlinear reactor example}
-We consider a nonlinear reactor with two reactions ($A \rightarrow B $ and  $3B
+We now demonstrate the application of the above hybrid modeling framework
+via a simulation study on a simple chemical process example. We consider a nonlinear reactor with two reactions ($A \rightarrow B $ and  $3B
 \rightleftharpoons C$), simulated using the following ordinary differential
 equations (ODEs)
 \begin{align*}
@@ -227,14 +230,14 @@ second side reaction ($3B \rightleftharpoons C $) is not available
 \end{align*}
 The control input is $u = C_{Af}$, the states in the plant model are $x = [C_A,
 C_B, C_C]'$, and the measurements are $y = [C_A, C_B]'$. We assume the following
-parameters values, $k_1 = 1 \ \textnormal{m}^3/\textnormal{min}, \ k_2 = 0.01 \
+parameter values, $k_1 = 1 \ \textnormal{m}^3/\textnormal{min}, \ k_2 = 0.01 \
 \textnormal{m}^3/\textnormal{min}, \ k_3 = 0.05 \
 \textnormal{m}^3/\textnormal{min}$, and $\tau = 5 \ \textnormal{min}$.
 
 We examine the performance of the hybrid modeling framework
 \eqref{eq:hybrid_discrete_time} in simulation studies. First, we generate
 training data by simulating the plant model using a pseudo-random-binary-signal
-(PRBS) manipulated input profile. Second, we train a black-box neural network
+(PRBS) of the manipulated control input. Second, we train a black-box neural network
 and the hybrid model \eqref{eq:hybrid_discrete_time} with network architectures
 of [9, 16, 2] and [8, 16, 2]. Third, we examine the trained model predictions
 and a mean squared error (MSE) performance metric on validation data generated
@@ -243,13 +246,13 @@ using the trained models and their differences with the steady-state cost curve
 of the plant model. These simulations and analyses shed light on the data
 requirements of the hybrid and black-box modeling frameworks, and enable an
 understanding of their performance if used for real-time economic optimization
-in chemical plants.
+purposes in chemical plants.
 
 The Figure \ref{fig:validation_pred} shows predictions of the trained black-box
 and hybrid models after training with 8 hours (480 samples) of data. We observe
 that both the models can match the plant data accurately. The black-box model
 shows slightly worse predictions in a few places. However, both the trained
-models are adequate for real-time optimization in a feedback control system.
+models are adequate for real-time optimization purpose in a feedback control system.
 
 \begin{figure}[!h]
   \centering
@@ -281,7 +284,8 @@ data requirements.
   \caption{Mean squared error (MSE) performance metric obtained with the
            black-box and hybrid model with increase in the number of training
            samples. We notice that the hybrid model slightly outperforms the
-           black-box model in data requirements.}
+           black-box model in data requirements and 
+           overall prediction accuracy.}
   \label{fig:validation_mse}
 \end{figure}
 
@@ -294,7 +298,8 @@ layers common in chemical process industries. The optimization problem solved is
 \begin{align*}
   \underset{u_s}{\textnormal{min}} & \quad \ell(y_s, u_s) \\
   x_s &= f(x_s, u_s)\\ 
-  y_s &= h(x_s)
+  y_s &= h(x_s) \\
+  \underline{u} \leq &u_s \leq \overline{u}
 \end{align*}
 in which $x_s$, $y_s$, $u_s$ are the state, output, and control respectively at
 steady-states. For the nonlinear reactor example, the cost is chosen as
@@ -304,7 +309,7 @@ plant, grey-box, black-box, and hybrid model obtained with 8 hours of training
 data. We first notice from the cost curve of the grey-box model that an
 optimization with the grey-box model results in the optimizer recommending a
 full supply of the raw material $A$. Since some of the product $B$ reacts to
-form an undesired side product $C$ in the plant, this recommendation incurres a
+form an undesired side product $C$ in the plant, this recommendation incurs a
 cost as observed from the plant cost curve. An intuitive approach to correct
 this type of plant-model mismatch is to augment the grey-box model with
 integrating disturbance models and estimate the plant model mismatch from data
@@ -326,8 +331,10 @@ as closely aligned with the plant as compared to the hybrid model.
 \begin{figure}[!h]
   \centering
   \includegraphics[page=7, width=\textwidth]{tworeac_plots_nonlin.pdf}
-  \caption{Steady-state cost curve for the nonlinear plant, grey-box, black-box,
-  residual, and hybrid model after training with 10 hours of data.}
+  \caption{Variation of the cost error metric ($e(C_{Af})$) in the actuator
+           constraint set with increase in the training data for the 
+           black-box neural network. The metric improves in the 
+           constraint set with an increase in training data.}
   \label{fig:cost_error_bb}
 \end{figure}
 
@@ -354,8 +361,10 @@ optimum.
 \begin{figure}[!h]
   \centering
   \includegraphics[page=8, width=\textwidth]{tworeac_plots_nonlin.pdf}
-  \caption{Steady-state cost curve for the nonlinear plant, grey-box, black-box,
-  residual, and hybrid model after training with 10 hours of data.}
+  \caption{Variation of the cost error metric ($e(C_{Af})$) in the actuator
+  constraint set with increase in the training data for the 
+  hybrid grey-box and neural network model. The metric improves in the 
+  constraint set with an increase in training data.}
   \label{fig:cost_error_hybrid}
 \end{figure}
 

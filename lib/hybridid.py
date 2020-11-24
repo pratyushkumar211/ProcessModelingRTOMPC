@@ -176,9 +176,9 @@ def plot_profit_curve(*, us, costs, colors, legends,
     axes.set_ylabel(ylabel, rotation=False)
     axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5) 
     axes.set_xlim([np.min(us), np.max(us)])
-    figlabel = r'$\ell(y, u), \ \textnormal{subject to} \ f(x, u)=0, y=h(x)$'
-    figure.suptitle(figlabel,
-                    x=0.55, y=0.94)
+    #figlabel = r'$\ell(y, u), \ \textnormal{subject to} \ f(x, u)=0, y=h(x)$'
+    #figure.suptitle(figlabel,
+    #                x=0.55, y=0.94)
     # Return the figure object.
     return [figure]
 

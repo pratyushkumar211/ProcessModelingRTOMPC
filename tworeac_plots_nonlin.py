@@ -58,7 +58,7 @@ def plot_val_model_predictions(*, plantsim_data,
     ylabels = [r'$C_A \ (\textnormal{mol/m}^3)$', 
                r'$C_B \ (\textnormal{mol/m}^3)$',
                r'$C_{Af} \ (\textnormal{mol/m}^3)$']
-    model_legend_colors = ['green', 'tomato']
+    model_legend_colors = ['green', 'dimgray', 'tomato']
     legend_handles = []
     plant_data_list = [plantsim_data.y[tsteps_steady:, 0], 
                        plantsim_data.y[tsteps_steady:, 1], 
@@ -86,9 +86,9 @@ def plot_val_model_predictions(*, plantsim_data,
     legend_handles.insert(0, plant_legend_handle[0])
     axes.set_xlabel('Time (hr)')
     axes.set_xlim([np.min(time[start:end]), np.max(time[start:end])])
-    labels = ('Plant', 'Grey-box', 'Hybrid')
+    labels = ('Plant', 'Grey-box', 'Black-box', 'Hybrid')
     figure.legend(handles = legend_handles, labels = labels, 
-                  loc = (0.13, 0.9), ncol=3)
+                  loc = (0.07, 0.9), ncol=4)
     # Return the figure object.
     return [figure]
 
@@ -188,7 +188,7 @@ def main():
                                   plot_range=(0, 6*60))
 
     # Plot predictions on validation data.
-    val_predictions.pop(0)
+    #val_predictions.pop(0)
     modelsim_datum = [greybox_validation_data] + val_predictions
     figures += plot_val_model_predictions(plantsim_data=training_data[-1],
                                     modelsim_datum=modelsim_datum,
