@@ -232,12 +232,12 @@ def _get_plant_parameters():
     # Get the steady states.
     parameters['xs'] = np.array([50., 1., 0., 0., 313.,
                                  50., 1., 0., 0., 313.])
-    parameters['us'] = np.array([5., 0., 1., 0.])
+    parameters['us'] = np.array([5., -1000., 1., -1000.])
     parameters['ps'] = np.array([10., 300])
 
     # Get the constraints.
-    #parameters['ulb'] = np.array([30., -8000., 5., -8000.])
-    #parameters['uub'] = np.array([50., 0., 15., 0.])
+    parameters['ulb'] = np.array([30., -2000., 5., -2000.])
+    parameters['uub'] = np.array([50., 0., 15., 0.])
 
     # The C matrix for the plant.
     parameters['yindices'] = [0, 1, 2, 4, 5, 6, 7, 9]
