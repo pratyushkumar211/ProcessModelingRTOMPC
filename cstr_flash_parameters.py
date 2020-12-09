@@ -76,26 +76,22 @@ def _plant_ode(x, u, p, parameters):
     return np.array([dHrbydt, dCArbydt, dCBrbydt, dCCrbydt, dTrbydt,
                      dHbbydt, dCAbbydt, dCBbbydt, dCCbbydt, dTbbydt])
 
-#def _greybox_ode(x, u, p, parameters):
-#    """ Simple ODE describing the grey-box plant. """
-#
-#    # Extract the parameters.
-#    alphaA = parameters['alphaA']
-#    alphaB = parameters['alphaB']
-#    alphaC = parameters['alphaC']
-#    pho = parameters['pho']
-#    Cp = parameters['Cp']
-#    Ar = parameters['Ar']
-#    Ab = parameters['Ab']
-#    kr = parameters['kr']
-#    kb = parameters['kb']
-#    delH1 = parameters['delH1']
-#    delH2 = parameters['delH2']
-#    EbyR = parameters['EbyR']
-#    k1star = parameters['k1star']
-#    k2star = parameters['k2star']
-#    Td = parameters['Td']
-#    purgeFrac = parameters['purgeFrac']
+def _greybox_ode(x, u, p, parameters):
+    """ Simple ODE describing the grey-box plant. """
+
+    # Extract the parameters.
+    alphaA = parameters['alphaA']
+    alphaB = parameters['alphaB']
+    pho = parameters['pho']
+    Cp = parameters['Cp']
+    Ar = parameters['Ar']
+    Ab = parameters['Ab']
+    kr = parameters['kr']
+    kb = parameters['kb']
+    delH1 = parameters['delH1']
+    EbyR = parameters['EbyR']
+    k1star = parameters['k1star']
+    Td = parameters['Td']
 
 #    # Extract the plant states into meaningful names.
 #    (Hr, CAr, CBr, Tr) = x[0:5]
@@ -143,59 +139,50 @@ def _measurement(x, parameters):
     # Return the measurement.
     return x[yindices]
 
-#def _get_greybox_parameters():
-#    """ Get the parameter values for the 
-#        CSTRs with flash example. """
-#
-#    # Parameters.
-#    parameters = {}
-#    parameters['alphaA'] = 6.
-#    parameters['alphaB'] = 1.
-#    parameters['alphaC'] = 0.5 
-#    parameters['pho'] = 30. # Kg/m^3
-#    parameters['Cp'] = 4. # KJ/(Kg-K)
-#    parameters['Ar'] = 3. # m^2 
-#    parameters['Ab'] = 2. # m^2 
-#    parameters['kr'] = 10. # m^2
-#    parameters['kb'] = 10. # m^2
-#    parameters['delH1'] = 500 # kJ/mol
-#    parameters['delH2'] = 400 # kJ/mol
-#    parameters['delH3'] = 100 # kJ/mol
-#    parameters['EbyR'] = 150 # K
-#    parameters['k1star'] = 40. # 1/min
-#    parameters['k2star'] = 20. # 1/min
-#    parameters['k3star'] = 10. # 1/min
-#    parameters['Td'] = 300 # K
-#    parameters['purgeFrac'] = 0.01
+def _get_greybox_parameters():
+    """ Get the parameter values for the 
+        CSTRs with flash example. """
+
+    # Parameters.
+    alphaA = parameters['alphaA']
+    alphaB = parameters['alphaB']
+    pho = parameters['pho']
+    Cp = parameters['Cp']
+    Ar = parameters['Ar']
+    Ab = parameters['Ab']
+    kr = parameters['kr']
+    kb = parameters['kb']
+    delH1 = parameters['delH1']
+    EbyR = parameters['EbyR']
+    k1star = parameters['k1star']
+    Td = parameters['Td']
 
     # Store the dimensions.
-#    Nx, Nu, Np, Ny = 10, 4, 2, 8
-#    parameters['Nx'] = Nx
-#    parameters['Nu'] = Nu
-#    parameters['Ny'] = Ny
-#    parameters['Np'] = Np
+    Nx, Nu, Np, Ny = 8, 4, 2, 8
+    parameters['Nx'] = Nx
+    parameters['Nu'] = Nu
+    parameters['Ny'] = Ny
+    parameters['Np'] = Np
 
     # Sample time.
-#    parameters['Delta'] = 1.
+    parameters['Delta'] = 1. # min
 
     # Get the steady states.
-#    parameters['xs'] = np.array([50., 1., 0., 0., 313.,
-#                                 50., 1., 0., 0., 313.])
-#    parameters['us'] = np.array([30., -10000., 10., 0.])
-#    parameters['ps'] = np.array([5., 300])
+    parameters['xs'] = np.array([50., 1., 0., 0., 313.,
+                                 50., 1., 0., 0., 313.])
+    parameters['us'] = np.array([30., -10000., 10., 0.])
+    parameters['ps'] = np.array([5., 300])
 
     # Get the constraints.
-#    parameters['ulb'] = np.array([30., -8000., 5., 0.])
-#    parameters['uub'] = np.array([50., 0., 15., 8000.])
+    parameters['ulb'] = np.array([30., -8000., 5., 0.])
+    parameters['uub'] = np.array([50., 0., 15., 8000.])
 
     # The C matrix for the plant.
-#    parameters['yindices'] = [0, 1, 2, 4, 5, 6, 7, 9]
-#    parameters['tsteps_steady'] = 60
-#    parameters['Rv'] = 0*np.diag(np.array([1e-4, 1e-6, 1e-6, 1e-4, 
-#                                           1e-4, 1e-6, 1e-6, 1e-4]))
+    parameters['yindices'] = [0, 4, 5, 9]
+    parameters['tsteps_steady'] = 60
 
     # Return the parameters dict.
-#    return parameters
+    return parameters
 
 def _get_plant_parameters():
     """ Get the parameter values for the 
@@ -236,11 +223,11 @@ def _get_plant_parameters():
     parameters['ps'] = np.array([10., 300])
 
     # Get the constraints.
-    parameters['ulb'] = np.array([30., -2000., 5., -2000.])
-    parameters['uub'] = np.array([50., 0., 15., 0.])
+    parameters['ulb'] = np.array([2., -2000., 0.5, -2000.])
+    parameters['uub'] = np.array([10., 0., 1.5, 0.])
 
     # The C matrix for the plant.
-    parameters['yindices'] = [0, 1, 2, 4, 5, 6, 7, 9]
+    parameters['yindices'] = [0, 4, 5, 9]
     parameters['tsteps_steady'] = 60
     parameters['Rv'] = 0*np.diag(np.array([1e-4, 1e-6, 1e-6, 1e-4, 
                                            1e-4, 1e-6, 1e-6, 1e-4]))
