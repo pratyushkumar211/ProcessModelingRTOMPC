@@ -27,11 +27,9 @@ def _plant_ode(x, u, p, parameters):
     kb = parameters['kb']
     delH1 = parameters['delH1']
     delH2 = parameters['delH2']
-    delH3 = parameters['delH3']
     EbyR = parameters['EbyR']
     k1star = parameters['k1star']
     k2star = parameters['k2star']
-    k3star = parameters['k3star']
     Td = parameters['Td']
 
     # Extract the plant states into meaningful names.
@@ -49,36 +47,33 @@ def _plant_ode(x, u, p, parameters):
     # The outlet mass flow rates.
     Fr = kr*np.sqrt(Hr)
     Fb = kb*np.sqrt(Hb)
-    Fp = purgeFrac*D
 
     # The rate constants.
     k1 = k1star*np.exp(-EbyR/Tr)
     k2 = k2star*np.exp(-EbyR/Tr)
-    k3 = k3star*np.exp(-EbyR/Tr)
 
     # The rate of reactions.
     r1 = k1*CAr
     r2 = k2*(CBr**3)
-    r3 = k3*CCr
 
     # Write the CSTR odes.
     dHrbydt = (F + D - Fr)/Ar
     dCArbydt = (F*(CAf - CAr) + D*(CAd - CAr))/(Ar*Hr) - r1
-    dCBrbydt = (-F*CBr + D*(CBd - CBr))/(Ar*Hr) + r1 - 3*r2 + 3*r3
-    dCCrbydt = (-F*CCr + D*(CCd - CCr))/(Ar*Hr) + r2 - r3
-    dTrbydt = (F*(Tf - Tr) + D*(Td - Tr))/(Ar*Hr) 
-    dTrbydt = dTrbydt + (r1*delH1 + r2*delH2 + r3*delH3)/(pho*Cp)
+    dCBrbydt = (-F*CBr + D*(CBd - CBr))/(Ar*Hr) + r1 - 3*r2
+    dCCrbydt = (-F*CCr + D*(CCd - CCr))/(Ar*Hr) + r2
+    dTrbydt = (F*(Tf - Tr) + D*(Td - Tr))/(Ar*Hr)
+    dTrbydt = dTrbydt + (r1*delH1 + r2*delH2)/(pho*Cp)
     dTrbydt = dTrbydt + Qr/(pho*Ar*Cp*Hr)
 
     # Write the flash odes.
-    dHbbydt = (Fr - Fb - D - Fp)/Ab
-    dCAbbydt = (Fr*(CAr - CAb) - (D + Fp)*(CAd - CAb))/(Ab*Hb)
-    dCBbbydt = (Fr*(CBr - CBb) - (D + Fp)*(CBd - CBb))/(Ab*Hb)
-    dCCbbydt = (Fr*(CCr - CCb) - (D + Fp)*(CCd - CCb))/(Ab*Hb)
+    dHbbydt = (Fr - Fb - D)/Ab
+    dCAbbydt = (Fr*(CAr - CAb) - D*(CAd - CAb))/(Ab*Hb)
+    dCBbbydt = (Fr*(CBr - CBb) - D*(CBd - CBb))/(Ab*Hb)
+    dCCbbydt = (Fr*(CCr - CCb) - D*(CCd - CCb))/(Ab*Hb)
     dTbbydt = (Fr*(Tr - Tb))/(Ab*Hb) + Qb/(pho*Ab*Cp*Hb)
 
     # Return the derivative.
-    return np.array([dHrbydt, dCArbydt, dCBrbydt, dCCrbydt, dTrbydt, 
+    return np.array([dHrbydt, dCArbydt, dCBrbydt, dCCrbydt, dTrbydt,
                      dHbbydt, dCAbbydt, dCBbbydt, dCCbbydt, dTbbydt])
 
 #def _greybox_ode(x, u, p, parameters):
@@ -211,21 +206,18 @@ def _get_plant_parameters():
     parameters['alphaA'] = 6.
     parameters['alphaB'] = 0.6
     parameters['alphaC'] = 0.5 
-    parameters['pho'] = 30. # Kg/m^3
-    parameters['Cp'] = 8. # KJ/(Kg-K)
-    parameters['Ar'] = 3. # m^2 
-    parameters['Ab'] = 2. # m^2 
-    parameters['kr'] = 10. # m^2
-    parameters['kb'] = 10. # m^2
+    parameters['pho'] = 10. # Kg/m^3
+    parameters['Cp'] = 3. # KJ/(Kg-K)
+    parameters['Ar'] = 2. # m^2 
+    parameters['Ab'] = 1. # m^2 
+    parameters['kr'] = 5. # m^2
+    parameters['kb'] = 5. # m^2
     parameters['delH1'] = 30 # kJ/mol
-    parameters['delH2'] = 20 # kJ/mol
-    parameters['delH3'] = 10 # kJ/mol
+    parameters['delH2'] = 10 # kJ/mol
     parameters['EbyR'] = 10 # K
-    parameters['k1star'] = 10. # 1/min
-    parameters['k2star'] = 1. # 1/min
-    parameters['k3star'] = 2. # 1/min
+    parameters['k1star'] = 30. # 1/min
+    parameters['k2star'] = 10. # 1/min
     parameters['Td'] = 300 # K
-    parameters['purgeFrac'] = 0.01
 
     # Store the dimensions.
     Nx, Nu, Np, Ny = 10, 4, 2, 8
@@ -235,17 +227,17 @@ def _get_plant_parameters():
     parameters['Np'] = Np
 
     # Sample time.
-    parameters['Delta'] = 1.
+    parameters['Delta'] = 1. # min
 
     # Get the steady states.
     parameters['xs'] = np.array([50., 1., 0., 0., 313.,
                                  50., 1., 0., 0., 313.])
-    parameters['us'] = np.array([100., -500000., 10., -8000.])
+    parameters['us'] = np.array([5., 0., 1., 0.])
     parameters['ps'] = np.array([10., 300])
 
     # Get the constraints.
-    parameters['ulb'] = np.array([30., -8000., 5., -8000.])
-    parameters['uub'] = np.array([50., 0., 15., 0.])
+    #parameters['ulb'] = np.array([30., -8000., 5., -8000.])
+    #parameters['uub'] = np.array([50., 0., 15., 0.])
 
     # The C matrix for the plant.
     parameters['yindices'] = [0, 1, 2, 4, 5, 6, 7, 9]
