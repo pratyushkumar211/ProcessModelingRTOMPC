@@ -39,10 +39,10 @@ def _plant_ode(x, u, p, parameters):
     (CAf, Tf) = p[0:2]
 
     # The flash vapor phase mass fractions.
-    denominator = alphaA*CAb + alphaB*CBb + alphaC*CCb
-    CAd = alphaA*CAb/denominator
-    CBd = alphaB*CBb/denominator
-    CCd = alphaB*CCb/denominator
+    den = alphaA*CAb + alphaB*CBb + alphaC*CCb
+    CAd = alphaA*CAb/den
+    CBd = alphaB*CBb/den
+    CCd = alphaB*CCb/den
 
     # The outlet mass flow rates.
     Fr = kr*np.sqrt(Hr)
@@ -67,9 +67,9 @@ def _plant_ode(x, u, p, parameters):
 
     # Write the flash odes.
     dHbbydt = (Fr - Fb - D)/Ab
-    dCAbbydt = (Fr*(CAr - CAb) - D*(CAd - CAb))/(Ab*Hb)
-    dCBbbydt = (Fr*(CBr - CBb) - D*(CBd - CBb))/(Ab*Hb)
-    dCCbbydt = (Fr*(CCr - CCb) - D*(CCd - CCb))/(Ab*Hb)
+    dCAbbydt = (Fr*(CAr - CAb) + D*(CAb - CAd))/(Ab*Hb)
+    dCBbbydt = (Fr*(CBr - CBb) + D*(CBb - CBd))/(Ab*Hb)
+    dCCbbydt = (Fr*(CCr - CCb) + D*(CCb - CCd))/(Ab*Hb)
     dTbbydt = (Fr*(Tr - Tb))/(Ab*Hb) + Qb/(pho*Ab*Cp*Hb)
 
     # Return the derivative.
@@ -93,46 +93,42 @@ def _greybox_ode(x, u, p, parameters):
     k1star = parameters['k1star']
     Td = parameters['Td']
 
-#    # Extract the plant states into meaningful names.
-#    (Hr, CAr, CBr, Tr) = x[0:5]
-#    (Hb, CAb, CBb, Tb) = x[5:10]
-#    (F, Qr, D, Qb) = u[0:4]
-#    (CAf, Tf) = p[0:2]
+    # Extract the plant states into meaningful names.
+    (Hr, CAr, CBr, Tr) = x[0:4]
+    (Hb, CAb, CBb, Tb) = x[4:8]
+    (F, Qr, D, Qb) = u[0:4]
+    (CAf, Tf) = p[0:2]
 
     # The flash vapor phase mass fractions.
-#    denominator = alphaA*CAb + alphaB*CBb + alphaC*CCb
-#    CAd = alphaA*CAb/denominator
-#    CBd = alphaB*CBb/denominator
-#    CCd = alphaB*CCb/denominator
+    den = alphaA*CAb + alphaB*CBb
+    CAd = alphaA*CAb/den
+    CBd = alphaB*CBb/den
 
     # The outlet mass flow rates.
-#    Fr = kr*np.sqrt(Hr)
-#    Fb = kb*np.sqrt(Hb)
-#    Fp = purgeFrac*D
+    Fr = kr*np.sqrt(Hr)
+    Fb = kb*np.sqrt(Hb)
 
-    # The rate constants.
-#    k1 = k1star*np.exp(-EbyR/Tr)
-#    k2 = k2star*np.exp(-EbyR/Tr)
+    # Rate constant and reaction rate.
+    k1 = k1star*np.exp(-EbyR/Tr)
+    r1 = k1*CAr
 
     # Write the CSTR odes.
-#    dHrbydt = (F + D - Fr)/Ar
-#    dCArbydt = (F*(CAf - CAr) + D*(CAd - CAr))/(Ar*Hr) - k1*CAr
-#    dCBrbydt = (-F*CBr + D*(CBd - CBr))/(Ar*Hr) + k1*CAr - 3*k2*(CBr**3)
-#    dCBrbydt = dCBrbydt + 3*k3*CCr
-#    dCCrbydt = (-F*CCr + D*(CCd - CCr))/(Ar*Hr) + k2*(CBr**3) - k3*CCr
-#    dTrbydt = (F*(Tf - Tr) + D*(Td - Tr))/(Ar*Hr) 
-#    dTrbydt = dTrbydt + (k1*CAr*delH1 + k2*(CBr**3)*delH2)/(pho*Cp)
-#    dTrbydt = dTrbydt + Qr/(pho*Ar*Cp*Hr)
+    dHrbydt = (F + D - Fr)/Ar
+    dCArbydt = (F*(CAf - CAr) + D*(CAd - CAr))/(Ar*Hr) - r1
+    dCBrbydt = (-F*CBr + D*(CBd - CBr))/(Ar*Hr) + r1
+    dTrbydt = (F*(Tf - Tr) + D*(Td - Tr))/(Ar*Hr)
+    dTrbydt = dTrbydt + (r1*delH1)/(pho*Cp)
+    dTrbydt = dTrbydt + Qr/(pho*Ar*Cp*Hr)
 
     # Write the flash odes.
-#    dHbbydt = (Fr - Fb - D - Fp)/Ab
-#    dCAbbydt = (Fr*(CAr - CAb) - (D + Fp)*(CAd - CAb))/(Ab*Hb)
-#    dCBbbydt = (Fr*(CBr - CBb) - (D + Fp)*(CBd - CBb))/(Ab*Hb)
-#    dCCbbydt = (Fr*(CCr - CCb) - (D + Fp)*(Ccd - CCb))/(Ab*Hb)
-#    dTbbydt = (Fr*(Tr - Tb))/(Ab*Hb) + Qb/(pho*Ab*Cp*Hb)
+    dHbbydt = (Fr - Fb - D)/Ab
+    dCAbbydt = (Fr*(CAr - CAb) + D*(CAb - CAd))/(Ab*Hb)
+    dCBbbydt = (Fr*(CBr - CBb) + D*(CBb - CBd))/(Ab*Hb)
+    dTbbydt = (Fr*(Tr - Tb))/(Ab*Hb) + Qb/(pho*Ab*Cp*Hb)
 
     # Return the derivative.
-#   return np.array([dCabydt, dCbbydt])
+    return np.array([dHrbydt, dCArbydt, dCBrbydt, dTrbydt,
+                     dHbbydt, dCAbbydt, dCBbbydt, dTbbydt])
 
 def _measurement(x, parameters):
     yindices = parameters['yindices']
@@ -144,22 +140,23 @@ def _get_greybox_parameters():
         CSTRs with flash example. """
 
     # Parameters.
-    alphaA = parameters['alphaA']
-    alphaB = parameters['alphaB']
-    pho = parameters['pho']
-    Cp = parameters['Cp']
-    Ar = parameters['Ar']
-    Ab = parameters['Ab']
-    kr = parameters['kr']
-    kb = parameters['kb']
-    delH1 = parameters['delH1']
-    EbyR = parameters['EbyR']
-    k1star = parameters['k1star']
-    Td = parameters['Td']
+    parameters = {}
+    parameters['alphaA'] = 6.
+    parameters['alphaB'] = 0.6
+    parameters['pho'] = 8. # Kg/m^3
+    parameters['Cp'] = 3. # KJ/(Kg-K)
+    parameters['Ar'] = 2. # m^2 
+    parameters['Ab'] = 2. # m^2 
+    parameters['kr'] = 3. # m^2
+    parameters['kb'] = 2. # m^2
+    parameters['delH1'] = 30 # kJ/mol
+    parameters['EbyR'] = 100 # K
+    parameters['k1star'] = 1e-2 # 1/min
+    parameters['Td'] = 300 # K
 
     # Store the dimensions.
-    Nx, Nu, Np, Ny = 8, 4, 2, 8
-    parameters['Nx'] = Nx
+    Ng, Nu, Np, Ny = 8, 4, 2, 4
+    parameters['Ng'] = Ng
     parameters['Nu'] = Nu
     parameters['Ny'] = Ny
     parameters['Np'] = Np
@@ -168,18 +165,14 @@ def _get_greybox_parameters():
     parameters['Delta'] = 1. # min
 
     # Get the steady states.
-    parameters['xs'] = np.array([50., 1., 0., 0., 313.,
-                                 50., 1., 0., 0., 313.])
-    parameters['us'] = np.array([30., -10000., 10., 0.])
-    parameters['ps'] = np.array([5., 300])
-
-    # Get the constraints.
-    parameters['ulb'] = np.array([30., -8000., 5., 0.])
-    parameters['uub'] = np.array([50., 0., 15., 8000.])
+    parameters['xs'] = np.array([50., 1., 0., 313.,
+                                 50., 1., 0., 313.])
+    parameters['us'] = np.array([5., -1000., 1., -1000.])
+    parameters['ps'] = np.array([10., 300])
 
     # The C matrix for the plant.
-    parameters['yindices'] = [0, 4, 5, 9]
     parameters['tsteps_steady'] = 60
+    parameters['yindices'] = [0, 3, 4, 7]
 
     # Return the parameters dict.
     return parameters
@@ -192,22 +185,22 @@ def _get_plant_parameters():
     parameters = {}
     parameters['alphaA'] = 6.
     parameters['alphaB'] = 0.6
-    parameters['alphaC'] = 0.5 
-    parameters['pho'] = 10. # Kg/m^3
+    parameters['alphaC'] = 0.5
+    parameters['pho'] = 8. # Kg/m^3
     parameters['Cp'] = 3. # KJ/(Kg-K)
     parameters['Ar'] = 2. # m^2 
-    parameters['Ab'] = 1. # m^2 
-    parameters['kr'] = 5. # m^2
-    parameters['kb'] = 5. # m^2
+    parameters['Ab'] = 2. # m^2 
+    parameters['kr'] = 3. # m^2
+    parameters['kb'] = 2. # m^2
     parameters['delH1'] = 30 # kJ/mol
     parameters['delH2'] = 10 # kJ/mol
-    parameters['EbyR'] = 10 # K
-    parameters['k1star'] = 30. # 1/min
-    parameters['k2star'] = 10. # 1/min
+    parameters['EbyR'] = 100 # K
+    parameters['k1star'] = 1e-2 # 1/min
+    parameters['k2star'] = 1e-1 # 1/min
     parameters['Td'] = 300 # K
 
     # Store the dimensions.
-    Nx, Nu, Np, Ny = 10, 4, 2, 8
+    Nx, Nu, Np, Ny = 10, 4, 2, 4
     parameters['Nx'] = Nx
     parameters['Nu'] = Nu
     parameters['Ny'] = Ny
@@ -219,18 +212,17 @@ def _get_plant_parameters():
     # Get the steady states.
     parameters['xs'] = np.array([50., 1., 0., 0., 313.,
                                  50., 1., 0., 0., 313.])
-    parameters['us'] = np.array([5., -1000., 1., -1000.])
-    parameters['ps'] = np.array([10., 300])
+    parameters['us'] = np.array([4., 0., 1., 0.])
+    parameters['ps'] = np.array([4., 300])
 
     # Get the constraints.
-    parameters['ulb'] = np.array([2., -2000., 0.5, -2000.])
-    parameters['uub'] = np.array([10., 0., 1.5, 0.])
+    parameters['ulb'] = np.array([2., -1000., 0.5, -1000.])
+    parameters['uub'] = np.array([6., 1000., 1.5, 1000.])
 
     # The C matrix for the plant.
     parameters['yindices'] = [0, 4, 5, 9]
     parameters['tsteps_steady'] = 60
-    parameters['Rv'] = 0*np.diag(np.array([1e-4, 1e-6, 1e-6, 1e-4, 
-                                           1e-4, 1e-6, 1e-6, 1e-4]))
+    parameters['Rv'] = 0*np.diag(np.array([1e-4, 1e-4, 1e-4, 1e-4]))
 
     # Return the parameters dict.
     return parameters
@@ -256,10 +248,10 @@ def _get_rectified_xs(*, parameters):
 
 def _get_model(*, parameters, plant=True):
     """ Return a nonlinear plant simulator object."""
+    measurement = lambda x: _measurement(x, parameters)
     if plant:
         # Construct and return the plant.
         plant_ode = lambda x, u, p: _plant_ode(x, u, p, parameters)
-        measurement = lambda x: _measurement(x, parameters)
         xs = parameters['xs'][:, np.newaxis]
         return NonlinearPlantSimulator(fxup = plant_ode,
                                         hx = measurement,
@@ -272,17 +264,16 @@ def _get_model(*, parameters, plant=True):
                                         x0 = xs)
     else:
         # Construct and return the grey-box model.
-        tworeac_greybox_ode = lambda x, u, p: _tworeac_greybox_ode(x, u, 
-                                                               p, parameters)
-        xs = parameters['xs'][:-1, np.newaxis]
-        return NonlinearPlantSimulator(fxup = tworeac_greybox_ode,
-                                        hx = _tworeac_measurement,
+        greybox_ode = lambda x, u, p: _greybox_ode(x, u, p, parameters)
+        xs = parameters['xs'][:, np.newaxis]
+        return NonlinearPlantSimulator(fxup = greybox_ode,
+                                        hx = measurement,
                                         Rv = 0*np.eye(parameters['Ny']), 
                                         Nx = parameters['Ng'], 
                                         Nu = parameters['Nu'], 
                                         Np = parameters['Np'], 
                                         Ny = parameters['Ny'],
-                                    sample_time = parameters['sample_time'], 
+                                        sample_time = parameters['Delta'], 
                                         x0 = xs)
 
 def _gen_train_val_data(*, parameters, num_traj,
@@ -336,41 +327,43 @@ def _gen_train_val_data(*, parameters, num_traj,
     # Return the data list.
     return data_list
 
-#def _get_greybox_val_preds(*, parameters, training_data):
-#    """ Use the input profile to compute 
-#        the prediction of the grey-box model
-#        on the validation data. """
-#    model = _get_tworeac_model(parameters=parameters, plant=False)
-#    tsteps_steady = parameters['tsteps_steady']
-#    p = parameters['ps'][:, np.newaxis]
-#    u = training_data[-1].u[:, np.newaxis]
-#    Nsim = u.shape[0]
-    # Run the open-loop simulation.
-#    for t in range(Nsim):
-#        model.step(u[t:t+1, :], p)
-#    data = SimData(t=None,
-#                   x=None,
-#                   u=None,
-#                   y=np.asarray(model.y[tsteps_steady:-1]).squeeze())
-#    return data
+def _get_greybox_val_preds(*, parameters, training_data):
+    """ Use the input profile to compute 
+        the prediction of the grey-box model
+        on the validation data. """
+    model = _get_model(parameters=parameters, plant=False)
+    tsteps_steady = parameters['tsteps_steady']
+    p = parameters['ps'][:, np.newaxis]
+    u = training_data[-1].u
+    Nsim = u.shape[0]
+   # Run the open-loop simulation.
+    for t in range(Nsim):
+        model.step(u[t:t+1, :], p)
+    data = SimData(t=None,
+                   x=None,
+                   u=None,
+                   y=np.asarray(model.y[tsteps_steady:-1]).squeeze())
+    return data
 
 def main():
     """ Get the parameters/training/validation data."""
     # Get parameters.
-    parameters = _get_plant_parameters()
-    parameters['xs'] = _get_rectified_xs(parameters=parameters)
-    breakpoint()
+    plant_pars = _get_plant_parameters()
+    plant_pars['xs'] = _get_rectified_xs(parameters=plant_pars)
+    greybox_pars = _get_greybox_parameters()
+
     # Generate training data.
-    training_data = _gen_train_val_data(parameters=parameters, num_traj=3,
+    training_data = _gen_train_val_data(parameters=plant_pars, num_traj=3,
                                         Nsim_train=27*60, Nsim_trainval=3*60,
                                         Nsim_val=12*60, seed=10)
-    #greybox_val_data = _get_greybox_val_preds(parameters=
-    #                                        parameters, 
-    #                                        training_data=training_data)
-    cstr_flash_parameters = dict(parameters=parameters, 
-                              training_data=training_data)
+    greybox_val_data = _get_greybox_val_preds(parameters=greybox_pars, 
+                                              training_data=training_data)
+    cstr_flash_parameters = dict(plant_pars=plant_pars,
+                                 greybox_pars=greybox_pars,
+                                 training_data=training_data,
+                                 greybox_val_data=greybox_val_data)
     # Save data.
-    PickleTool.save(data_object=cstr_flash_parameters, 
+    PickleTool.save(data_object=cstr_flash_parameters,
                     filename='cstr_flash_parameters.pickle')
 
 main()

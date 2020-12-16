@@ -157,6 +157,42 @@ def get_tworeac_train_val_data(*, Np, parameters, data_list):
     # Return.
     return (train_data, trainval_data, val_data)
 
+def get_cstr_train_val_data(*, Np, parameters, data_list):
+    """ Get the data for training in appropriate format. """
+    tsteps_steady = parameters['tsteps_steady']
+    (Ny, Nu) = (parameters['Ny'], parameters['Nu'])
+    (inputs, xGz0, outputs) = ([], [], [])
+    for data in data_list:
+        t = tsteps_steady
+        
+        # Get input trajectory.
+        u_traj = data.u[t:][np.newaxis, :, np.newaxis]
+        
+        # Get initial state.
+        x0 = data.y[t, :][np.newaxis, :]
+        yp0seq = data.y[t-Np:t, :].reshape(Np*Ny, )[np.newaxis, :]
+        up0seq = data.u[t-Np:t][np.newaxis, :]
+        xGz0_traj = np.concatenate((x0, yp0seq, up0seq), axis=-1)
+
+        # Get output trajectory.       
+        y_traj = data.y[t:, :][np.newaxis, ...]
+        
+        # Collect the trajectories in list.
+        inputs.append(u_traj)
+        xGz0.append(xGz0_traj)
+        outputs.append(y_traj)
+    
+    # Get the training and validation data for training in compact dicts.
+    train_data = dict(inputs=np.concatenate(inputs[:-2], axis=0),
+                      xGz0=np.concatenate(xGz0[:-2], axis=0),
+                      outputs=np.concatenate(outputs[:-2], axis=0))
+    trainval_data = dict(inputs=inputs[-2], xGz0=xGz0[-2],
+                         outputs=outputs[-2])
+    val_data = dict(inputs=inputs[-1], xGz0=xGz0[-1],
+                    outputs=outputs[-1])
+    # Return.
+    return (train_data, trainval_data, val_data)
+
 def plot_profit_curve(*, us, costs, colors, legends, 
                          figure_size=PAPER_FIGSIZE,
                          ylabel_xcoordinate=-0.12, 
