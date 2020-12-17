@@ -167,8 +167,8 @@ def _get_greybox_parameters():
     # Get the steady states.
     parameters['xs'] = np.array([50., 1., 0., 313.,
                                  50., 1., 0., 313.])
-    parameters['us'] = np.array([5., -1000., 1., -1000.])
-    parameters['ps'] = np.array([10., 300])
+    parameters['us'] = np.array([5., 0., 1., 0.])
+    parameters['ps'] = np.array([4., 300])
 
     # The C matrix for the plant.
     parameters['tsteps_steady'] = 60
@@ -333,16 +333,19 @@ def _get_greybox_val_preds(*, parameters, training_data):
         on the validation data. """
     model = _get_model(parameters=parameters, plant=False)
     tsteps_steady = parameters['tsteps_steady']
+    Ng = parameters['Ng']
     p = parameters['ps'][:, np.newaxis]
     u = training_data[-1].u
     Nsim = u.shape[0]
    # Run the open-loop simulation.
     for t in range(Nsim):
         model.step(u[t:t+1, :], p)
-    data = SimData(t=None,
-                   x=None,
-                   u=None,
-                   y=np.asarray(model.y[tsteps_steady:-1]).squeeze())
+    # Insert Nones.
+    x = np.asarray(model.x[0:-1]).squeeze()
+    x = np.insert(x, [3, 7], np.nan*np.ones((Nsim, 2)), axis=1)
+    data = SimData(t=np.asarray(model.t[0:-1]).squeeze(), x=x,
+                   u=np.asarray(model.u).squeeze(),
+                   y=np.asarray(model.y[0:-1]).squeeze())
     return data
 
 def main():

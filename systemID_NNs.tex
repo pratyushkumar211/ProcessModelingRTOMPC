@@ -169,7 +169,7 @@ A few alternative modeling choices are:
   u), \ y = h_g(x_g)$, (use NNs to learn some parameters)
 \end{itemize}
 
-\subsection{Conversion to discrete time and training}
+\section{Conversion to discrete time and training}
 We note that the network $f_N(\cdot)$ is an addition to the grey-box dynamics in
 continuous time in \eqref{eq:hybrid_cont_time}. The Runge-Kutta-4 (RK4) method
 is used for the discretization as follows
@@ -211,7 +211,7 @@ integrating disturbance model. We can use the grey-box state at that steady
 state as the initial condition for the above multi-step-ahead prediction-error
 optimization.
 
-\subsection{Nonlinear reactor example}
+\section{Nonlinear reactor example}
 We now demonstrate the application of the above hybrid modeling framework
 via a simulation study on a simple chemical process example. We consider a nonlinear reactor with two reactions ($A \rightarrow B $ and  $3B
 \rightleftharpoons C$), simulated using the following ordinary differential
@@ -367,5 +367,81 @@ optimum.
   constraint set with an increase in training data.}
   \label{fig:cost_error_hybrid}
 \end{figure}
+
+\section{Large, CSTR and flash in series example}
+\begin{figure}[!h]
+  \centering
+  \includegraphics[width=\textwidth, height=0.4\textheight]{cstr_flash.pdf}
+  \caption{Schematic of the CSTR and flash plant. The CSTR facilitates two 
+  reactions, the first reaction ($A \rightarrow B$) forms the primary product $B$, and the second reaction ($3B \rightarrow C$) 
+  consumes the desired product $B$ and forms the undesired product $C$.
+  The non-adiabatic flash separates the reactant $A$ and 
+  products $B$ and $C$. The major component in the vapor phase 
+  is $A$, and it is recycled back after cooling to the CSTR.}
+  \label{fig:cstr_flash}
+\end{figure}
+\newpage
+\textbf{Plant -- }
+\begin{align*}
+  \dfrac{dH_r}{dt} &= \dfrac{F + D -F_r}{A_r}\\
+  \dfrac{dC_{Ar}}{dt} &= \dfrac{F(C_{Af} -C_{Ar}) + 
+                         D(C_{Ad} -C_{Ar})}{A_rH_r} - r_1 \\
+  \dfrac{dC_{Br}}{dt} &= \dfrac{-FC_{Br} + 
+                          D(C_{Bd} -C_{Br})}{A_rH_r} + r_1 -3r_2\\
+  \dfrac{dC_{Cr}}{dt} &= \dfrac{-FC_{Cr} + 
+  D(C_{Cd} -C_{Cr})}{A_rH_r} + r_2\\
+  \dfrac{dT_r}{dt} &= \dfrac{F(T_f - T_r) + D(T_d -T_r)}{A_rH_r} + 
+                      \dfrac{r_1\Delta H_1 + r_2\Delta H_2}{\rho C_p} + 
+                      \dfrac{Q_r}{\rho A_r C_p H_r}\\
+  \dfrac{dH_b}{dt} &= \dfrac{F_r - F_b - D}{A_b} \\
+  \dfrac{dC_{Ab}}{dt} &= \dfrac{F_r(C_{Ar} -C_{Ab}) + 
+                          D(C_{Ab} -C_{Ad})}{A_bH_b} \\
+  \dfrac{dC_{Bb}}{dt} &= \dfrac{F_r(C_{Br} -C_{Bb}) + 
+                          D(C_{Bb} -C_{Bd})}{A_bH_b} \\
+  \dfrac{dC_{Cb}}{dt} &= \dfrac{F_r(C_{Cr} -C_{Cb}) + 
+                          D(C_{Cb} -C_{Cd})}{A_bH_b} \\
+  \dfrac{dT_b}{dt} &= \dfrac{F_r(T_r - T_b)}{A_bH_b} +
+                      \dfrac{Q_b}{\rho A_b C_p H_b}\\
+\end{align*}
+
+The sample time for plant measurements is $1$ min, the 
+plant states are ($H_r, C_{Ar}, C_{Br}, C_{Cr}, T_r, 
+H_b, C_{Ab}, C_{Bb}, C_{Cb}, T_b$), and the measurements are just 
+the heights and temperatures of the CSTR and flash. \\
+
+\textbf{Grey-box model -- }
+\begin{align*}
+  \dfrac{dH_r}{dt} &= \dfrac{F + D -F_r}{A_r}\\
+  \dfrac{dC_{Ar}}{dt} &= \dfrac{F(C_{Af} -C_{Ar}) + 
+                         D(C_{Ad} -C_{Ar})}{A_rH_r} - r_1 \\
+  \dfrac{dC_{Br}}{dt} &= \dfrac{-FC_{Br} + 
+                          D(C_{Bd} -C_{Br})}{A_rH_r} + r_1\\
+  \dfrac{dT_r}{dt} &= \dfrac{F(T_f - T_r) + D(T_d -T_r)}{A_rH_r} + 
+                      \dfrac{r_1\Delta H_1}{\rho C_p} + 
+                      \dfrac{Q_r}{\rho A_r C_p H_r}\\
+  \dfrac{dH_b}{dt} &= \dfrac{F_r - F_b - D}{A_b} \\
+  \dfrac{dC_{Ab}}{dt} &= \dfrac{F_r(C_{Ar} -C_{Ab}) + 
+                          D(C_{Ab} -C_{Ad})}{A_bH_b} \\
+  \dfrac{dC_{Bb}}{dt} &= \dfrac{F_r(C_{Br} -C_{Bb}) + 
+                          D(C_{Bb} -C_{Bd})}{A_bH_b} \\
+  \dfrac{dT_b}{dt} &= \dfrac{F_r(T_r - T_b)}{A_bH_b} +
+                      \dfrac{Q_b}{\rho A_b C_p H_b}\\
+\end{align*}
+
+The grey-box model assumes no knowledge of the second 
+reaction ($3B \rightarrow C$), which produces the undesired 
+product $C$. Note that since only heights and temperatures are 
+measured, all the states in the plant model are 
+not observable and only asymptotically detectable. 
+
+The economic objective is -- 
+\begin{align*}
+  \underset{u_s}{\textnormal{min}} \quad 
+  \ell(u_s, x_s) \quad := & \quad c_1F + c_2Q_r + 
+                                      c_3Q_b - c_4C_{Bb} \\
+  x_s &= f(x_s, u_s)\\ 
+  y_s &= h(x_s) \\
+  \underline{u} \leq &u_s \leq \overline{u}
+\end{align*}
 
 \end{document}

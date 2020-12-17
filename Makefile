@@ -89,7 +89,7 @@ STANDALONE_TEX_SRC :=
 
 ## DIA_SRC files are made in dia. They are exported as eps.
 
-DIA_SRC := 
+DIA_SRC := cstr_flash.dia
 
 ## PY_MAT_SRC, OCT_MAT_SRC. These are .py and .m files that create .mat files
 ## to be shared to make plots. Dependencies should be specified for any subsequent
