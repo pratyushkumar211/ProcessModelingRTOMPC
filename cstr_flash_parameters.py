@@ -141,17 +141,17 @@ def _get_greybox_parameters():
 
     # Parameters.
     parameters = {}
-    parameters['alphaA'] = 6.
-    parameters['alphaB'] = 0.6
-    parameters['pho'] = 8. # Kg/m^3
-    parameters['Cp'] = 3. # KJ/(Kg-K)
+    parameters['alphaA'] = 1.
+    parameters['alphaB'] = 0.5
+    parameters['pho'] = 5. # Kg/m^3
+    parameters['Cp'] = 6. # KJ/(Kg-K)
     parameters['Ar'] = 2. # m^2 
     parameters['Ab'] = 2. # m^2 
     parameters['kr'] = 3. # m^2
     parameters['kb'] = 2. # m^2
-    parameters['delH1'] = 30 # kJ/mol
-    parameters['EbyR'] = 100 # K
-    parameters['k1star'] = 1e-2 # 1/min
+    parameters['delH1'] = 40 # kJ/mol
+    parameters['EbyR'] = 200 # K
+    parameters['k1star'] = 0.5 # 1/min
     parameters['Td'] = 300 # K
 
     # Store the dimensions.
@@ -167,7 +167,7 @@ def _get_greybox_parameters():
     # Get the steady states.
     parameters['xs'] = np.array([50., 1., 0., 313.,
                                  50., 1., 0., 313.])
-    parameters['us'] = np.array([5., 0., 1., 0.])
+    parameters['us'] = np.array([10., 0., 4., 0.])
     parameters['ps'] = np.array([4., 300])
 
     # The C matrix for the plant.
@@ -186,17 +186,17 @@ def _get_plant_parameters():
     parameters['alphaA'] = 6.
     parameters['alphaB'] = 0.6
     parameters['alphaC'] = 0.5
-    parameters['pho'] = 8. # Kg/m^3
-    parameters['Cp'] = 3. # KJ/(Kg-K)
+    parameters['pho'] = 5. # Kg/m^3
+    parameters['Cp'] = 2. # KJ/(Kg-K)
     parameters['Ar'] = 2. # m^2 
     parameters['Ab'] = 2. # m^2 
     parameters['kr'] = 3. # m^2
     parameters['kb'] = 2. # m^2
-    parameters['delH1'] = 30 # kJ/mol
-    parameters['delH2'] = 10 # kJ/mol
-    parameters['EbyR'] = 100 # K
-    parameters['k1star'] = 1e-2 # 1/min
-    parameters['k2star'] = 1e-1 # 1/min
+    parameters['delH1'] = 40. # kJ/mol
+    parameters['delH2'] = 20. # kJ/mol
+    parameters['EbyR'] = 200 # K
+    parameters['k1star'] = 0.5 # 1/min
+    parameters['k2star'] = 0.3 # 1/min
     parameters['Td'] = 300 # K
 
     # Store the dimensions.
@@ -212,12 +212,12 @@ def _get_plant_parameters():
     # Get the steady states.
     parameters['xs'] = np.array([50., 1., 0., 0., 313.,
                                  50., 1., 0., 0., 313.])
-    parameters['us'] = np.array([4., 0., 1., 0.])
-    parameters['ps'] = np.array([4., 300])
+    parameters['us'] = np.array([10., 0., 4., 0.])
+    parameters['ps'] = np.array([5., 300])
 
     # Get the constraints.
-    parameters['ulb'] = np.array([2., -1000., 0.5, -1000.])
-    parameters['uub'] = np.array([6., 1000., 1.5, 1000.])
+    parameters['ulb'] = np.array([5., -1000., 2, -1000.])
+    parameters['uub'] = np.array([15., 1000., 6, 1000.])
 
     # The C matrix for the plant.
     parameters['yindices'] = [0, 4, 5, 9]
@@ -354,7 +354,6 @@ def main():
     plant_pars = _get_plant_parameters()
     plant_pars['xs'] = _get_rectified_xs(parameters=plant_pars)
     greybox_pars = _get_greybox_parameters()
-
     # Generate training data.
     training_data = _gen_train_val_data(parameters=plant_pars, num_traj=3,
                                         Nsim_train=27*60, Nsim_trainval=3*60,
