@@ -244,13 +244,11 @@ class CstrFlashGreyBlackCell(tf.keras.layers.AbstractRNNCell):
     xG^+  = f_N(xG, z, u), y = xG
     z^+ = z
     """
-    def __init__(self, Np, interp_layer,
-                       fnn_layers, cstr_flash_parameters, **kwargs):
+    def __init__(self, Np, fnn_layers, cstr_flash_parameters, **kwargs):
         super(CstrFlashGreyBlackCell, self).__init__(**kwargs)
         self.Np = Np
-        self.interp_layer = interp_layer
         self.fnn_layers = fnn_layers
-        self.parameters = cstr_flash_parameters
+        self.yindices = cstr_flash_parameters['yindices']
         (self.Ng, self.Ny, self.Nu) = (cstr_flash_parameters['Ng'],
                                        cstr_flash_parameters['Ny'],
                                        cstr_flash_parameters['Nu'])
@@ -272,9 +270,8 @@ class CstrFlashGreyBlackCell(tf.keras.layers.AbstractRNNCell):
 
     def _hxg(self, xg):
         """ Measurement function. """
-        yindices = self.parameters['yindices']
         # Return the measured grey-box states.
-        return tf.gather(xg, yindices, axis=-1)
+        return tf.gather(xg, self.yindices, axis=-1)
 
     def call(self, inputs, states):
         """ Call function of the hybrid RNN cell.
@@ -413,16 +410,21 @@ class TwoReacModel(tf.keras.Model):
                          outputs=layer_output)
 
 class CstrFlashModel(tf.keras.Model):
-    """ Custom model for the Two reaction model. """
-    def __init__(self, Np, fnn_dims, tworeac_parameters, model_type):
-        """ Create the dense layers for the NN, and 
-            construct the overall model. """
+    """ Custom model for the CSTR FLASH model. """
+    def __init__(self, Np, fnn_dims, cstr_flash_parameters, model_type):
 
         # Get the size and input layer, and initial state layer.
-        (Ng, Nu) = (tworeac_parameters['Ng'], tworeac_parameters['Nu'])
+        (Ng, Ny, Nu) = (cstr_flash_parameters['Ng'],
+                        cstr_flash_parameters['Ny'],
+                        cstr_flash_parameters['Nu'])
         layer_input = tf.keras.Input(name='u', shape=(None, Nu))
-        initial_state = tf.keras.Input(name='xGz0',
-                                       shape=(Ng + Np*(Ng+Nu), ))
+
+        if model_type == 'black-box':
+            initial_state = tf.keras.Input(name='yz0',
+                                           shape=(Ny + Np*(Ny+Nu), ))
+        else:
+            initial_state = tf.keras.Input(name='xGz0',
+                                           shape=(Ng + Np*(Ny+Nu), ))
 
         # Dense layers for the NN.
         fnn_layers = []
@@ -434,18 +436,19 @@ class CstrFlashModel(tf.keras.Model):
 
         # Build model depending on option.
         if model_type == 'black-box':
-            tworeac_cell = BlackBoxCell(Np, Ng, Nu, fnn_layers)
+            cstr_flash_cell = BlackBoxCell(Np, Ny, Nu, fnn_layers)
         if model_type == 'hybrid':
-            interp_layer = InterpolationLayer(p=Ng, Np=Np)
-            tworeac_cell = TwoReacHybridCell(Np, interp_layer, fnn_layers,
-                                             tworeac_parameters)
-        #elif model_type == 'residual':
-        #    tworeac_cell = TwoReacResidualCell(Np, fnn_layers,
-        #                                       tworeac_parameters)
+            interp_layer = InterpolationLayer(p=Ny, Np=Np)
+            cstr_flash_cell = CstrFlashHybridCell(Np, interp_layer, fnn_layers,
+                                                  cstr_flash_parameters)
+        if model_type == 'grey-black':
+            cstr_flash_cell = CstrFlashGreyBlackCell(Np, fnn_layers,
+                                                     cstr_flash_parameters)
 
         # Construct the RNN layer and the computation graph.
-        tworeac_layer = tf.keras.layers.RNN(tworeac_cell, return_sequences=True)
-        layer_output = tworeac_layer(inputs=layer_input, 
+        cstr_flash_layer = tf.keras.layers.RNN(cstr_flash_cell,
+                                               return_sequences=True)
+        layer_output = tworeac_layer(inputs=layer_input,
                                      initial_state=[initial_state])
         # Construct model.
         super().__init__(inputs=[layer_input, initial_state], 
