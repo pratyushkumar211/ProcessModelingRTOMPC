@@ -110,7 +110,7 @@ class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
         self.Np = Np
         self.interp_layer = interp_layer
         self.fnn_layers = fnn_layers
-        self.cstr_flash_parameters = cstr_flash_parameters
+        self.parameters = cstr_flash_parameters
         (self.Ng, self.Ny, self.Nu) = (cstr_flash_parameters['Ng'],
                                        cstr_flash_parameters['Ny'],
                                        cstr_flash_parameters['Nu'])
@@ -129,31 +129,64 @@ class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
             for the two reaction model. """
 
         # Extract the parameters.
-        alphaA = parameters['alphaA']
-        alphaB = parameters['alphaB']
-        pho = parameters['pho']
-        Cp = parameters['Cp']
-        Ar = parameters['Ar']
-        Ab = parameters['Ab']
-        kr = parameters['kr']
-        kb = parameters['kb']
-        delH1 = parameters['delH1']
-        EbyR = parameters['EbyR']
-        k1star = parameters['k1star']
-        Td = parameters['Td']
+        alphaA = self.parameters['alphaA']
+        alphaB = self.parameters['alphaB']
+        pho = self.parameters['pho']
+        Cp = self.parameters['Cp']
+        Ar = self.parameters['Ar']
+        Ab = self.parameters['Ab']
+        kr = self.parameters['kr']
+        kb = self.parameters['kb']
+        delH1 = self.parameters['delH1']
+        EbyR = self.parameters['EbyR']
+        k1star = self.parameters['k1star']
+        Td = self.parameters['Td']
 
         # Extract the plant states into meaningful names.
-        (Hr, CAr, CBr, Tr) = x[..., 0:4]
-        (Hb, CAb, CBb, Tb) = x[..., 4:8]
-        (F, Qr, D, Qb) = u[0:4]
-        (CAf, Tf) = p[0:2]
+        (Hr, CAr) = x[..., 0:1], x[..., 1:2]
+        (CBr, Tr) = x[..., 2:3], x[..., 3:4] 
+        (Hb, CAb) = x[..., 4:5], x[..., 5:6] 
+        (CBb, Tb) = x[..., 6:7], x[..., 7:8] 
+        (F, Qr) = u[..., 0:1], u[..., 1:2]
+        (D, Qb) = u[..., 2:3], u[..., 3:4]
+        (CAf, Tf) = p[..., 0:1], p[..., 1:2]
         
-        # Write the ODEs.
-        dCabydt = (Caf - Ca)/tau - k1*Ca
-        dCbbydt = k1*Ca - Cb/tau
+        # The flash vapor phase mass fractions.
+        den = alphaA*CAb + alphaB*CBb
+        CAd = alphaA*CAb/den
+        CBd = alphaB*CBb/den
+
+        # The outlet mass flow rates.
+        Fr = kr*tf.math.sqrt(Hr)
+        Fb = kb*tf.math.sqrt(Hb)
+
+        # Rate constant and reaction rate.
+        k1 = k1star*tf.math.exp(-EbyR/Tr)
+        r1 = k1*CAr
+
+        # Write the CSTR odes.
+        dHrbydt = (F + D - Fr)/Ar
+        dCArbydt = (F*(CAf - CAr) + D*(CAd - CAr))/(Ar*Hr) - r1
+        dCBrbydt = (-F*CBr + D*(CBd - CBr))/(Ar*Hr) + r1
+        dTrbydt = (F*(Tf - Tr) + D*(Td - Tr))/(Ar*Hr)
+        dTrbydt = dTrbydt + (r1*delH1)/(pho*Cp)
+        dTrbydt = dTrbydt + Qr/(pho*Ar*Cp*Hr)
+
+        # Write the flash odes.
+        dHbbydt = (Fr - Fb - D)/Ab
+        dCAbbydt = (Fr*(CAr - CAb) + D*(CAb - CAd))/(Ab*Hb)
+        dCBbbydt = (Fr*(CBr - CBb) + D*(CBb - CBd))/(Ab*Hb)
+        dTbbydt = (Fr*(Tr - Tb))/(Ab*Hb) + Qb/(pho*Ab*Cp*Hb)
 
         # Return the derivative.
-        return tf.concat([dCabydt, dCbbydt], axis=-1)
+        return tf.concat([dHrbydt, dCArbydt, dCBrbydt, dTrbydt,
+                          dHbbydt, dCAbbydt, dCBbbydt, dTbbydt], axis=-1)
+
+    def _hxg(self, xg):
+        """ Measurement function."""
+        yindices = self.parameters['yindices']
+        # Return the measured grey-box states.
+        return tf.gather(xg, yindices, axis=-1)
 
     def _fnn(self, xg, z):
         """ Compute the output of the feedforward network. """
@@ -164,23 +197,24 @@ class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
 
     def call(self, inputs, states):
         """ Call function of the hybrid RNN cell.
-            Dimension of states: (None, Ng + Np*(Ng + Nu))
+            Dimension of states: (None, Ng + Np*(Ny + Nu))
             Dimension of input: (None, Nu)
         """
         # Extract variables.
         [xGz] = states
-        [xG, z] = tf.split(xGz, [self.Ng, self.Np*(self.Ng+self.Nu)],
+        [xG, z] = tf.split(xGz, [self.Ng, self.Np*(self.Ny+self.Nu)],
                            axis=-1)
-        (ypseq, upseq) = tf.split(z, [self.Np*self.Ng, self.Np*self.Nu],
+        (ypseq, upseq) = tf.split(z, [self.Np*self.Ny, self.Np*self.Nu],
                                   axis=-1)
         u = inputs
-        Delta = self.tworeac_parameters['sample_time']
+        Delta = self.parameters['Delta']
         
         # Get k1.
         k1 = self._fg(xG, u) + self._fnn(xG, z)
         
         # Interpolate for k2 and k3.
-        ypseq_interp = self.interp_layer(tf.concat((ypseq, xG), axis=-1))
+        hxG = self._hxg(xG)
+        ypseq_interp = self.interp_layer(tf.concat((ypseq, hxG), axis=-1))
         z = tf.concat((ypseq_interp, upseq), axis=-1)
         
         # Get k2.
@@ -190,104 +224,78 @@ class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
         k3 = self._fg(xG + Delta*(k2/2), u) + self._fnn(xG + Delta*(k2/2), z)
 
         # Get k4.
-        ypseq_shifted = tf.concat((ypseq[..., self.Ng:], xG), axis=-1)
+        ypseq_shifted = tf.concat((ypseq[..., self.Ng:], hxG), axis=-1)
         z = tf.concat((ypseq_shifted, upseq), axis=-1)
         k4 = self._fg(xG + Delta*k3, u) + self._fnn(xG + Delta*k3, z)
         
         # Get the current output/state and the next time step.
-        y = xG
+        y = hxG
         xGplus = xG + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
         zplus = tf.concat((ypseq_shifted, upseq[..., self.Nu:], u), axis=-1)
         xplus = tf.concat((xGplus, zplus), axis=-1)
-
+        
         # Return output and states at the next time-step.
         return (y, xplus)
 
 class CstrFlashGreyBlackCell(tf.keras.layers.AbstractRNNCell):
     """
     RNN Cell
-    dxG/dt  = fG(xG, u) + f_N(xG, y_{k-N_p:k-1}, u_{k-N_p:k-1}), y = xG
+    z = y_{k-N_p:k-1}, u_{k-N_p:k-1}
+    xG^+  = f_N(xG, z, u), y = xG
+    z^+ = z
     """
     def __init__(self, Np, interp_layer,
-                       fnn_layers, tworeac_parameters, **kwargs):
-        super(TwoReacHybridCell, self).__init__(**kwargs)
+                       fnn_layers, cstr_flash_parameters, **kwargs):
+        super(CstrFlashGreyBlackCell, self).__init__(**kwargs)
         self.Np = Np
         self.interp_layer = interp_layer
         self.fnn_layers = fnn_layers
-        self.tworeac_parameters = tworeac_parameters
-        (self.Ng, self.Nu) = (tworeac_parameters['Ng'],
-                              tworeac_parameters['Nu'])
+        self.parameters = cstr_flash_parameters
+        (self.Ng, self.Ny, self.Nu) = (cstr_flash_parameters['Ng'],
+                                       cstr_flash_parameters['Ny'],
+                                       cstr_flash_parameters['Nu'])
 
     @property
     def state_size(self):
-        return self.Ng + self.Np*(self.Ng + self.Nu)
+        return self.Ng + self.Np*(self.Ny + self.Nu)
     
     @property
     def output_size(self):
-        return self.Ng        
+        return self.Ng
 
-    def _fg(self, x, u):
-        """ Function to compute the 
-            derivative (RHS of the ODE)
-            for the two reaction model. """
-
-        # Extract the parameters.
-        k1 = self.tworeac_parameters['k1']
-        tau = self.tworeac_parameters['ps'].squeeze()
-        
-        # Get the state and control.
-        (Ca, Cb) = (x[..., 0:1], x[..., 1:2])
-        Caf = u[..., 0:1]
-        
-        # Write the ODEs.
-        dCabydt = (Caf - Ca)/tau - k1*Ca
-        dCbbydt = k1*Ca - Cb/tau
-
-        # Return the derivative.
-        return tf.concat([dCabydt, dCbbydt], axis=-1)
-
-    def _fnn(self, xg, z):
+    def _fnn(self, xg, z, u):
         """ Compute the output of the feedforward network. """
-        fnn_output = tf.concat((xg, z), axis=-1)
+        fnn_output = tf.concat((xg, z, u), axis=-1)
         for layer in self.fnn_layers:
             fnn_output = layer(fnn_output)
         return fnn_output
 
+    def _hxg(self, xg):
+        """ Measurement function. """
+        yindices = self.parameters['yindices']
+        # Return the measured grey-box states.
+        return tf.gather(xg, yindices, axis=-1)
+
     def call(self, inputs, states):
         """ Call function of the hybrid RNN cell.
-            Dimension of states: (None, Ng + Np*(Ng + Nu))
+            Dimension of states: (None, Ng + Np*(Ny + Nu))
             Dimension of input: (None, Nu)
         """
         # Extract variables.
         [xGz] = states
-        [xG, z] = tf.split(xGz, [self.Ng, self.Np*(self.Ng+self.Nu)],
+        [xG, z] = tf.split(xGz, [self.Ng, self.Np*(self.Ny+self.Nu)],
                            axis=-1)
-        (ypseq, upseq) = tf.split(z, [self.Np*self.Ng, self.Np*self.Nu],
+        (ypseq, upseq) = tf.split(z, [self.Np*self.Ny, self.Np*self.Nu],
                                   axis=-1)
         u = inputs
-        Delta = self.tworeac_parameters['sample_time']
-        
-        # Get k1.
-        k1 = self._fg(xG, u) + self._fnn(xG, z)
-        
-        # Interpolate for k2 and k3.
-        ypseq_interp = self.interp_layer(tf.concat((ypseq, xG), axis=-1))
-        z = tf.concat((ypseq_interp, upseq), axis=-1)
-        
-        # Get k2.
-        k2 = self._fg(xG + Delta*(k1/2), u) + self._fnn(xG + Delta*(k1/2), z)
-
-        # Get k3.
-        k3 = self._fg(xG + Delta*(k2/2), u) + self._fnn(xG + Delta*(k2/2), z)
-
-        # Get k4.
-        ypseq_shifted = tf.concat((ypseq[..., self.Ng:], xG), axis=-1)
-        z = tf.concat((ypseq_shifted, upseq), axis=-1)
-        k4 = self._fg(xG + Delta*k3, u) + self._fnn(xG + Delta*k3, z)
+                
+        # Get shifted y.
+        hxG = self._hxg(xG)
+        ypseq_shifted = tf.concat((ypseq[..., self.Ny:], hxG), axis=-1)
         
         # Get the current output/state and the next time step.
-        y = xG
-        xGplus = xG + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
+        y = hxG
+        xGplus = self._fnn(xG, z, u)
         zplus = tf.concat((ypseq_shifted, upseq[..., self.Nu:], u), axis=-1)
         xplus = tf.concat((xGplus, zplus), axis=-1)
 
@@ -297,124 +305,50 @@ class CstrFlashGreyBlackCell(tf.keras.layers.AbstractRNNCell):
 class BlackBoxCell(tf.keras.layers.AbstractRNNCell):
     """
     RNN Cell
-    xG^+  = f_N(xG, y_{k-N_p:k-1}, u_{k-N_p:k-1}, u), y = xG
+    y^+  = f_N(y, y_{k-N_p:k-1}, u_{k-N_p:k-1}, u), y = y
     """
-    def __init__(self, Np, Ng, Nu, fnn_layers, **kwargs):
+    def __init__(self, Np, Ny, Nu, fnn_layers, **kwargs):
         super(BlackBoxCell, self).__init__(**kwargs)
         self.Np = Np
         self.fnn_layers = fnn_layers
-        (self.Ng, self.Nu) = (Ng, Nu)
+        (self.Ny, self.Nu) = (Ny, Nu)
 
     @property
     def state_size(self):
-        return self.Ng + self.Np*(self.Ng + self.Nu)
+        return self.Ny + self.Np*(self.Ny + self.Nu)
     
     @property
     def output_size(self):
-        return self.Ng
+        return self.Ny
 
-    def _fnn(self, xG, ypseq, upseq, u):
+    def _fnn(self, y, ypseq, upseq, u):
         """ Compute the output of the feedforward network. """
-        fnn_output = tf.concat((xG, ypseq, upseq, u), axis=-1)
+        fnn_output = tf.concat((y, ypseq, upseq, u), axis=-1)
         for layer in self.fnn_layers:
             fnn_output = layer(fnn_output)
         return fnn_output
 
     def call(self, inputs, states):
         """ Call function of the hybrid RNN cell.
-            Dimension of states: (None, Ng + Np*(Ng + Nu))
+            Dimension of states: (None, Ny + Np*(Ny + Nu))
             Dimension of input: (None, Nu)
         """
         # Extract important variables.
-        [xGz] = states
-        [xG, z] = tf.split(xGz, [self.Ng, self.Np*(self.Ng+self.Nu)],
-                           axis=-1)
-        (ypseq, upseq) = tf.split(z, [self.Np*self.Ng, self.Np*self.Nu],
+        [yz] = states
+        [y, z] = tf.split(yz, [self.Ny, self.Np*(self.Ny + self.Nu)],
+                          axis=-1)
+        (ypseq, upseq) = tf.split(z, [self.Np*self.Ny, self.Np*self.Nu],
                            axis=-1)
         u = inputs
         
         # Get the current output/state and the next time step.
-        y = xG
-        xGplus = self._fnn(xG, ypseq, upseq, u)
-        zplus = tf.concat((ypseq[..., self.Ng:], xG, upseq[..., self.Nu:], u),
+        yplus = self._fnn(y, ypseq, upseq, u)
+        zplus = tf.concat((ypseq[..., self.Ny:], y, upseq[..., self.Nu:], u),
                            axis=-1)
-        xplus = tf.concat((xGplus, zplus), axis=-1)
+        xplus = tf.concat((yplus, zplus), axis=-1)
 
         # Return output and states at the next time-step.
         return (y, xplus)
-
-#class TwoReacResidualCell(tf.keras.layers.AbstractRNNCell):
-#    """
-#    RNN Cell
-#    xG^+  = f_g(xG, u), y = xG + f_N(y_{k+1-N_p:k-1}, u_{k+1-N_p:k-1})
-#    """
-#    def __init__(self, Np, fnn_layers, tworeac_parameters, **kwargs):
-#        super(TwoReacResidualCell, self).__init__(**kwargs)
-#        self.Np = Np
-#        self.fnn_layers = fnn_layers
-#        self.tworeac_parameters = tworeac_parameters
-#        (self.Ng, self.Nu) = (tworeac_parameters['Ng'],
-#                              tworeac_parameters['Nu'])
-#
-#    @property
-#    def state_size(self):
-#        return self.Ng
-#    
-#    @property
-#    def output_size(self):
-#        return self.Ng        
-#
-#    def _fg(self, x, u):
-#        """ Function to compute the 
-#            derivative (RHS of the ODE)
-#            for the two reaction model. """
-#
-#        # Extract the parameters.
-#        k1 = self.tworeac_parameters['k1']
-#        tau = self.tworeac_parameters['ps'].squeeze()
-#        
-#        # Get the state and control.
-#        (Ca, Cb) = (x[..., 0:1], x[..., 1:2])
-#        Ca0 = u[..., 0:1]
-#        
-#        # Write the ODEs.
-#        dCabydt = (Ca0 - Ca)/tau - k1*Ca
-#        dCbbydt = k1*Ca - Cb/tau
-#
-#        # Return the derivative.
-#        return tf.concat([dCabydt, dCbbydt], axis=-1)
-#
-#   def _fnn(self, ypseq, upseq):
-#        """ Compute the output of the feedforward network. """
-#        fnn_output = tf.concat((ypseq, upseq), axis=-1)
-#        for layer in self.fnn_layers:
-#            fnn_output = layer(fnn_output)
-#        return fnn_output
-#
-#    def call(self, inputs, states):
-#        """ Call function of the hybrid RNN cell.
-#            Dimension of xG: (None, Ng)
-#            Dimension of input: (None, Nu+(Np-1)*(Ng+Nu))
-#        """
-#        # Extract variables.
-#        [xG] = states
-#        [u, ypseq, upseq] = tf.split(inputs, 
-#                            [self.Nu, self.Np*self.Ng, self.Np*self.Nu], 
-#                            axis=-1)
-#        Delta = self.tworeac_parameters['sample_time']
-
-        # Write-down the RK4 step.
-#        k1 = self._fg(xG, u)
-#        k2 = self._fg(xG + Delta*(k1/2), u)
-#        k3 = self._fg(xG + Delta*(k2/2), u)
-#        k4 = self._fg(xG + Delta*k3, u)
-        
-        # Get the current output/state and the next time step.
-#        y = xG + self._fnn(ypseq, upseq)
-#        xGplus = xG + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
-
-#        # Return output and states at the next time-step.
-#        return (y, xGplus)
 
 class InterpolationLayer(tf.keras.layers.Layer):
     """

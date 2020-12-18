@@ -160,7 +160,8 @@ analytically.
 
 A few alternative modeling choices are:
 \begin{itemize}
-	\item Black-box: $y^+ = f_N(y, z, u)$, (purely black-box)
+  \item Black-box: $y^+ = f_N(y, z, u), \ z^+ = f_z(z, y, u)$
+        (purely black-box).
   \item Hybrid 1: $x_g^+ = f_N(x_g, z, u), \ z^+ = f_z(z, x_g, u), \ y =
                    h_g(x_g)$, (states have meaning)
   \item Hybrid 2: $x_g^+ = f_g(x_g, u), \ z^+ = f_z(z, x_g, u), \ y = h_g(x_g) +
