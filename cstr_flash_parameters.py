@@ -149,7 +149,7 @@ def _get_greybox_parameters():
     parameters['Ab'] = 2. # m^2 
     parameters['kr'] = 3. # m^2
     parameters['kb'] = 2. # m^2
-    parameters['delH1'] = 40 # kJ/mol
+    parameters['delH1'] = 70. # kJ/mol
     parameters['EbyR'] = 200 # K
     parameters['k1star'] = 0.5 # 1/min
     parameters['Td'] = 300 # K
@@ -178,7 +178,7 @@ def _get_greybox_parameters():
     return parameters
 
 def _get_plant_parameters():
-    """ Get the parameter values for the 
+    """ Get the parameter values for the
         CSTRs with flash example. """
 
     # Parameters.
@@ -188,12 +188,12 @@ def _get_plant_parameters():
     parameters['alphaC'] = 0.5
     parameters['pho'] = 5. # Kg/m^3
     parameters['Cp'] = 2. # KJ/(Kg-K)
-    parameters['Ar'] = 2. # m^2 
-    parameters['Ab'] = 2. # m^2 
+    parameters['Ar'] = 2. # m^2
+    parameters['Ab'] = 2. # m^2
     parameters['kr'] = 3. # m^2
     parameters['kb'] = 2. # m^2
     parameters['delH1'] = 40. # kJ/mol
-    parameters['delH2'] = 20. # kJ/mol
+    parameters['delH2'] = 40. # kJ/mol
     parameters['EbyR'] = 200 # K
     parameters['k1star'] = 0.5 # 1/min
     parameters['k2star'] = 0.3 # 1/min
@@ -216,8 +216,8 @@ def _get_plant_parameters():
     parameters['ps'] = np.array([5., 300])
 
     # Get the constraints.
-    parameters['ulb'] = np.array([5., -1000., 2, -1000.])
-    parameters['uub'] = np.array([15., 1000., 6, 1000.])
+    parameters['ulb'] = np.array([5., -500., 2, -500.])
+    parameters['uub'] = np.array([15., 500., 6, 500.])
 
     # The C matrix for the plant.
     parameters['yindices'] = [0, 4, 5, 9]
@@ -347,6 +347,14 @@ def _get_greybox_val_preds(*, parameters, training_data):
                    u=np.asarray(model.u).squeeze(),
                    y=np.asarray(model.y[0:-1]).squeeze())
     return data
+
+def _get_gb_mhe_processed_training_data(*, parameters, training_data):
+    """ Filter the training data using a combination 
+        of grey-box model and an input disturbance model. """
+    
+
+    
+    return 
 
 def main():
     """ Get the parameters/training/validation data."""

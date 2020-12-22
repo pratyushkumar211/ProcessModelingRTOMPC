@@ -451,5 +451,5 @@ class CstrFlashModel(tf.keras.Model):
         layer_output = tworeac_layer(inputs=layer_input,
                                      initial_state=[initial_state])
         # Construct model.
-        super().__init__(inputs=[layer_input, initial_state], 
+        super().__init__(inputs=[layer_input, initial_state],
                          outputs=layer_output)

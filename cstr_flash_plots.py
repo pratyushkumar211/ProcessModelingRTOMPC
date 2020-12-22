@@ -128,7 +128,7 @@ def get_datum(*, simdata_list, plot_range):
 def main():
     """ Load the pickle file and plot. """
     cstr_flash_parameters = PickleTool.load(filename=
-                                            "cstr_flash_parameters.pickle", 
+                                            "cstr_flash_parameters.pickle",
                                             type='read')
     
     simdata_list = [cstr_flash_parameters['training_data'][-1], 
@@ -138,7 +138,7 @@ def main():
     legend_names = ['Plant', 'Grey-Box']
     legend_colors = ['b', 'g']
     figures = []
-    figures += plot_openloop_data(t=t, u=u, ydatum=ydatum, 
+    figures += plot_openloop_data(t=t, u=u, ydatum=ydatum,
                                   xdatum=xdatum,
                                   legend_names=legend_names,
                                   legend_colors=legend_colors)
@@ -151,7 +151,6 @@ def main():
     
     #figures += plot_profit_curve(us=ssopt['us'],
     #                             costs=ssopt['costs'])
-
     with PdfPages('cstr_flash_plots.pdf', 'w') as pdf_file:
         for fig in figures:
             pdf_file.savefig(fig)

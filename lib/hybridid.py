@@ -122,7 +122,7 @@ def sample_prbs_like(*, num_change, num_steps,
 
 class NonlinearMHEEstimator:
 
-    def __init__(self, *, fxuw, hx, N, Nx, Nu, Ny,
+    def __init__(self, *, fxu, hx, N, Nx, Nu, Ny,
                  xprior, u, y, P0inv, Qwinv, Rvinv):
         """ Class to construct and perform state estimation
         using moving horizon estimation.
@@ -145,7 +145,7 @@ class NonlinearMHEEstimator:
         u: -T:-1
         The constructor solves and gets a smoothed estimate of x at time 0.
         """
-        self.fxuw = fxuw
+        self.fxu = fxu
         self.hx = hx
 
         # Penalty matrices.
@@ -403,3 +403,42 @@ class KalmanFilter:
         self.xhat_pred.append(xhat_pred)
         self.y.append(y)
         self.uprev.append(uprev)
+
+def get_mhe_models_and_matrices(fxu, hx, Bd, Cd,
+                                Nmhe, Qwx, Qwd, Rv,
+                                xs, us, ds, ys):
+        """ Get the models, proir estimates
+            and data, and the penalty matrices
+            to setup an MHE solver. """
+
+    def state_space_model(fxud, Nx, Nd):
+        """Augmented state-space model for moving horizon estimation."""
+        return lambda x, u : np.concatenate((fxud(x[0:Nx], u, x[Nx:]), 
+                                         np.zeros((Nd,))), axis=0)
+    
+    def measurement_model(hxd, Nx):
+        """Augmented measurement model for moving horizon estimation."""
+        return lambda x : hxd(x[0:Nx], x[Nx:])
+
+    # Prior estimates and data.
+    xprior = np.concatenate((xs, ds), axis=0)
+    xprior = np.repeat(xprior.T, Nmhe, axis=0)
+    u = np.repeat(us, Nmhe, axis=0)
+    y = np.repeat(ys, Nmhe+1, axis=0)
+
+    # Penalty matrices.
+    Qwxinv = np.linalg.inv(Qwx)
+    Qwdinv = np.linalg.inv(Qwd)
+    Qwinv = scipy.linalg.block_diag(Qwxinv, Qwdinv)
+    P0inv = Qwinv
+    Rvinv = np.linalg.inv(Rv)
+
+    # Get the augmented models.
+    fxuw = mpc.getCasadiFunc(state_space_model(fxud, Nx, Nd), 
+                             [Nx+Nd, Nu], ["x", "u"],
+                             rk4=True, 
+                             Delta=sample_time, 
+                             M=num_rk4_discretization_steps)
+    hx = mpc.getCasadiFunc(measurement_model(hxd, Nx), [Nx+Nd], ["x"])
+    # Return the required quantities for MHE.
+    return (fxuw, hx, P0inv, Qwinv, Rvinv, xprior, u, y)
