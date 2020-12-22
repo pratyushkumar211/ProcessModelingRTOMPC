@@ -4,7 +4,6 @@ import sys
 import numpy as np
 import mpctools as mpc
 import scipy.linalg
-import cvxopt as cvx
 import matplotlib.pyplot as plt
 import casadi
 import collections
@@ -15,7 +14,7 @@ FIGURE_SIZE_A4 = (9, 10)
 PRESENTATION_FIGSIZE = (6, 6)
 PAPER_FIGSIZE = (5, 6)
 
-SimData = collections.namedtuple('SimData', 
+SimData = collections.namedtuple('SimData',
                                 ['t', 'x', 'u', 'y'])
 
 class PickleTool:
@@ -94,9 +93,9 @@ class NonlinearPlantSimulator:
         self.t.append(self.t[-1]+self.sample_time)
 
 def _sample_repeats(num_change, num_simulation_steps,
-                       mean_change, sigma_change):
+                    mean_change, sigma_change):
     """ Sample the number of times a repeat in each
-    of the sampled vector is required."""
+        of the sampled vector is required."""
     repeat = sigma_change*np.random.randn(num_change-1) + mean_change
     repeat = np.floor(repeat)
     repeat = np.where(repeat<=0., 0., repeat)
@@ -104,7 +103,7 @@ def _sample_repeats(num_change, num_simulation_steps,
     return repeat.astype(int)
 
 def sample_prbs_like(*, num_change, num_steps, 
-                    lb, ub, mean_change, sigma_change, seed=1):
+                        lb, ub, mean_change, sigma_change, seed=1):
     """Sample a PRBS like sequence.
     num_change: Number of changes in the signal.
     num_simulation_steps: Number of steps in the signal.
@@ -138,7 +137,7 @@ def get_tworeac_train_val_data(*, Np, parameters, data_list):
         up0seq = data.u[t-Np:t][np.newaxis, :]
         xGz0_traj = np.concatenate((x0, yp0seq, up0seq), axis=-1)
 
-        # Get output trajectory.       
+        # Get output trajectory.
         y_traj = data.y[t:, :][np.newaxis, ...]
         
         # Collect the trajectories in list.
@@ -157,31 +156,33 @@ def get_tworeac_train_val_data(*, Np, parameters, data_list):
     # Return.
     return (train_data, trainval_data, val_data)
 
-def get_cstr_train_val_data(*, Np, parameters, data_list):
+def get_cstr_flash_train_val_data(*, Np, parameters,
+                                     plant_data_list, greybox_data_list):
     """ Get the data for training in appropriate format. """
     tsteps_steady = parameters['tsteps_steady']
-    (Ny, Nu) = (parameters['Ny'], parameters['Nu'])
-    (inputs, xGz0, outputs) = ([], [], [])
+    (Ng, Ny, Nu) = (parameters['Ng'], parameters['Ny'], parameters['Nu'])
+    (inputs, xGz0, yz0, outputs) = ([], [], [], [])
     for data in data_list:
         t = tsteps_steady
-        
         # Get input trajectory.
-        u_traj = data.u[t:][np.newaxis, :, np.newaxis]
+        u_traj = data.u[t:, :][np.newaxis, ...]
         
-        # Get initial state.
-        x0 = data.y[t, :][np.newaxis, :]
-        yp0seq = data.y[t-Np:t, :].reshape(Np*Ny, )[np.newaxis, :]
-        up0seq = data.u[t-Np:t][np.newaxis, :]
-        xGz0_traj = np.concatenate((x0, yp0seq, up0seq), axis=-1)
 
-        # Get output trajectory.       
+        # Get initial state.
+        yp0seq = data.y[t-Np:t, :].reshape(Np*Ny, )[np.newaxis, :]
+        up0seq = data.u[t-Np:t:, ].reshape(Np*Nu, )[np.newaxis, :]
+        z0 = np.concatenate((yp0seq, up0seq), axis=-1)
+
+        y0 = data.y[t, :][np.newaxis, :]
+
+
+        xGz0_traj = np.concatenate((x0, yp0seq, up0seq), axis=-1)
+        # Get output trajectory.
         y_traj = data.y[t:, :][np.newaxis, ...]
-        
         # Collect the trajectories in list.
         inputs.append(u_traj)
         xGz0.append(xGz0_traj)
         outputs.append(y_traj)
-    
     # Get the training and validation data for training in compact dicts.
     train_data = dict(inputs=np.concatenate(inputs[:-2], axis=0),
                       xGz0=np.concatenate(xGz0[:-2], axis=0),
