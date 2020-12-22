@@ -120,6 +120,96 @@ def sample_prbs_like(*, num_change, num_steps,
                              mean_change, sigma_change)
     return np.repeat(values, repeat, axis=0)
 
+class NonlinearMHEEstimator:
+
+    def __init__(self, *, fxuw, hx, N, Nx, Nu, Ny,
+                 xprior, u, y, P0inv, Qwinv, Rvinv):
+        """ Class to construct and perform state estimation
+        using moving horizon estimation. 
+        
+        Problem setup:
+        The current time is T
+        Measurement available: u_[T-N:T-1], y_[T-N:T]
+
+        Optimization problem:
+        min_{x_[T-N:T]} |x(T-N)-xprior|_{P0inv} + sum{t=T-N to t=N-1} |x(k+1)-x(k)|_{Qwinv} + sum{t=T-N to t=T} |y(k)-h(x(k))|_{Rvinv}
+
+        subject to: x(k+1) = f(x(k), u(k), w(k)), y(k) = h(x) + v(k), k=T-N to T-1
+        x is the augmented state.
+
+        xprior is an array of previous smoothed estimates, xhat(k:k) from -T:-1
+        y: -T:0
+        u: -T:-1
+        The constructor solves and gets a smoothed estimate of x at 0.
+        """
+        self.fxuw = fxuw
+        self.hx = hx
+
+        # Penalty matrices.
+        self.P0inv = P0inv
+        self.Qwinv = Qwinv
+        self.Rvinv = Rvinv
+
+        # Sizes.
+        self.Nx = Nx
+        self.Nu = Nu
+        self.Ny = Ny
+        self.N = N
+
+        # Create lists for saving data. 
+        self.xhat = list(xprior)
+        self.y = list(y)
+        self.u = list(u)
+
+        # Build the estimator.
+        self._setup_moving_horizon_estimator()
+
+    def _setup_moving_horizon_estimator(self):
+        """ Construct a MHE solver."""
+        N = dict(x=self.Nx, u=self.Nu, y=self.Ny, t=self.N)
+        funcargs = dict(f=["x", "u"], h=["x"], l=["w", "v"], lx=["x", "x0bar"])
+        l = mpc.getCasadiFunc(self._stage_cost, [N["x"], N["y"]],
+                              funcargs["l"])
+        lx = mpc.getCasadiFunc(self._prior_cost, [N["x"], N["x"]],
+                              funcargs["lx"])
+        self.moving_horizon_estimator = mpc.nmhe(f=self.fxuw, h=self.hx, wAdditive=True,
+                                                 N=N, l=l, lx=lx, u=self.u, y=self.y,
+                                                 funcargs=funcargs, x0bar=self.xhat[0], verbosity=0)
+        self.moving_horizon_estimator.solve()
+        self.moving_horizon_estimator.saveguess()
+        self.xhat.append(self.moving_horizon_estimator.var["x"][-1])
+
+    def _stage_cost(self, w, v):
+        """Stage cost in moving horizon estimation."""
+        return mpc.mtimes(w.T, self.Qwinv, w) + mpc.mtimes(v.T, self.Rvinv, v)
+
+    def _prior_cost(self, x, xprior):
+        """Prior cost in moving horizon estimation."""
+        dx = x - xprior
+        return mpc.mtimes(dx.T, self.P0inv, dx)
+        
+    def solve(self, y, uprev):
+        """Use the new data, solve the NLP, and store data.
+        At this time:
+        xhat: list of length T+1
+        y: list of length T+1
+        uprev: list of length T 
+        """
+        self.moving_horizon_estimator.par["x0bar"] = [self.xhat[-self.N]]
+        self.moving_horizon_estimator.par["y"] = self.y[-self.N:] + [y.squeeze(axis=-1)]        
+        self.moving_horizon_estimator.par["u"] = self.u[-self.N+1:] + [uprev.squeeze(axis=-1)]
+        self.moving_horizon_estimator.solve()
+        self.moving_horizon_estimator.saveguess()
+        xhat = np.asarray(self.moving_horizon_estimator.var["x"][-1]).squeeze(axis=-1)
+        self._append_data(xhat, y, uprev)
+        return xhat
+
+    def _append_data(self, xhat, y, uprev):
+        """ Append the data to the lists."""
+        self.xhat.append(xhat)
+        self.y.append(y)
+        self.u.append(uprev)
+        
 def get_tworeac_train_val_data(*, Np, parameters, data_list):
     """ Get the data for training in appropriate format. """
     tsteps_steady = parameters['tsteps_steady']
@@ -162,11 +252,11 @@ def get_cstr_flash_train_val_data(*, Np, parameters,
     tsteps_steady = parameters['tsteps_steady']
     (Ng, Ny, Nu) = (parameters['Ng'], parameters['Ny'], parameters['Nu'])
     (inputs, xGz0, yz0, outputs) = ([], [], [], [])
-    for data in data_list:
+    for (pdata, gb) in zip(plant_data_list, greybox_data_list):
         t = tsteps_steady
+        
         # Get input trajectory.
         u_traj = data.u[t:, :][np.newaxis, ...]
-        
 
         # Get initial state.
         yp0seq = data.y[t-Np:t, :].reshape(Np*Ny, )[np.newaxis, :]
