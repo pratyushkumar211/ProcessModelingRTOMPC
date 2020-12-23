@@ -360,7 +360,7 @@ def _get_mhe_estimator(*, parameters):
 
     def state_space_model(Ng, Nd, ps, parameters):
         """ Augmented state-space model for moving horizon estimation. """
-        return lambda x, u : np.concatenate((_greybox_ode(x[:Ng], 
+        return lambda x, u : np.concatenate((_plant_ode(x[:Ng], 
                                                           u, ps, parameters),
                                              np.zeros((Nd,))), axis=0)
     
@@ -369,16 +369,16 @@ def _get_mhe_estimator(*, parameters):
         return lambda x : _measurement(x[:Ng], parameters)
 
     # Get sizes.
-    (Ng, Nu, Ny) = (parameters['Ng'], parameters['Nu'], parameters['Ny'])
+    (Ng, Nu, Ny) = (parameters['Nx'], parameters['Nu'], parameters['Ny'])
     Nd = Ny
 
     # Get the disturbance model.
     Bd = np.zeros((Ng, Nd))
     Bd[1, 0] = 1.
     Bd[2, 1] = 1.
-    Bd[5, 2] = 1.
-    Bd[6, 3] = 1.
-    Cd = np.zeros((Ny, Nd))
+    Bd[6, 2] = 1.
+    Bd[7, 3] = 1.
+    Cd = np.ones((Ny, Nd))
 
     # Initial states.
     xs = parameters['xs'][:, np.newaxis]
@@ -388,9 +388,9 @@ def _get_mhe_estimator(*, parameters):
     ds = np.zeros((Nd, 1))
 
     # Noise covariances.
-    Qwx = 1e-10*np.eye(Ng)
-    Qwd = 1e-2*np.eye(Nd)
-    Rv = 1e-10*np.eye(Ny)
+    Qwx = np.diag([10, 1, 1, 1, 100, 10, 1, 1, 1, 100])
+    Qwd = np.diag([1., 1., 1., 1.])
+    Rv = np.diag([10, 100., 10., 100.])
 
     # MHE horizon length.
     Nmhe = 10
@@ -415,7 +415,7 @@ def _get_mhe_estimator(*, parameters):
     # Get the augmented models.
     fxu = mpc.getCasadiFunc(fxud, [Ng+Nd, Nu], ["x", "u"],
                             rk4=True, Delta=parameters['Delta'], 
-                            M=1)
+                            M=10)
     hx = mpc.getCasadiFunc(hxd, [Ng+Nd], ["x"])
     
     # Create a filter object and return.
@@ -427,11 +427,8 @@ def _get_mhe_estimator(*, parameters):
                                  P0inv=P0inv, 
                                  Qwinv=Qwinv, Rvinv=Rvinv)
 
-def _get_gb_mhe_processed_training_data(*, parameters, training_data):
-
-
-
-    return 
+#def _get_gb_mhe_processed_training_data(*, parameters, training_data):
+#    return 
 
 def main():
     """ Get the parameters/training/validation data."""
@@ -445,7 +442,7 @@ def main():
                                         Nsim_train=27*60, Nsim_trainval=3*60,
                                         Nsim_val=12*60, seed=10)
     
-    _get_mhe_estimator(parameters=greybox_pars)
+    _get_mhe_estimator(parameters=plant_pars)
     breakpoint()
     #_get_gb_mhe_processed_training_data(parameters=greybox_pars,
     #                                    training_data=training_data)

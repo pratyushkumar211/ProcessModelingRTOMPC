@@ -9,8 +9,10 @@ import sys
 sys.path.append('lib/')
 import mpctools as mpc
 import numpy as np
+import scipy.linalg
 from hybridid import (PickleTool, NonlinearPlantSimulator, 
-                      c2d, sample_prbs_like, SimData)
+                      c2d, sample_prbs_like, SimData,
+                      NonlinearMHEEstimator)
 
 def _tworeac_plant_ode(x, u, p, parameters):
     """ Simple ODE describing a 2D system. """
@@ -212,6 +214,83 @@ def _get_greybox_val_preds(*, parameters, training_data):
                    y=np.asarray(model.y[tsteps_steady:-1]).squeeze())
     return data
 
+def _get_mhe_estimator(*, parameters):
+    """ Filter the training data using a combination 
+        of grey-box model and an input disturbance model. """
+
+    #ef get_state_estimates(filter, y, uprev, Nx):
+    #    """Use the filter object to perform state estimation."""
+    #    return np.split(filter.solve(y, uprev), [Nx])
+
+    def state_space_model(Ng, Nd, ps, parameters):
+        """ Augmented state-space model for moving horizon estimation. """
+        return lambda x, u : np.concatenate((_tworeac_plant_ode(x[:Ng], 
+                                                          u, ps, parameters),
+                                             np.zeros((Nd,))), axis=0)
+    
+    def measurement_model(Ng):
+        """ Augmented measurement model for moving horizon estimation. """
+        return lambda x : _tworeac_measurement(x[:Ng])
+
+    # Get sizes.
+    (Ng, Nu, Ny) = (parameters['Nx'], parameters['Nu'], parameters['Ny'])
+    Nd = Ny
+
+    # Get the disturbance model.
+    Bd = np.zeros((Ng, Nd))
+    Bd[0, 0] = 1.
+    Bd[1, 1] = 1.
+    #Bd[6, 2] = 1.
+    #Bd[7, 3] = 1.
+    Cd = np.ones((Ny, Nd))
+
+    # Initial states.
+    xs = parameters['xs'][:, np.newaxis]
+    ps = parameters['ps'][:, np.newaxis]
+    us = parameters['us'][:, np.newaxis]
+    ys = _tworeac_measurement(xs)
+    ds = np.zeros((Nd, 1))
+
+    # Noise covariances.
+    Qwx = np.eye(Ng)
+    Qwd = np.eye(Nd)
+    Rv = np.eye(Ny)
+
+    # MHE horizon length.
+    Nmhe = 10
+
+    # Continuous time functions, fxu and hx.
+    fxud = state_space_model(Ng, Nd, ps, parameters)
+    hxd = measurement_model(Ng)
+    
+    # Initial data.
+    xprior = np.concatenate((xs, ds), axis=0)
+    xprior = np.repeat(xprior.T, Nmhe, axis=0)
+    u = np.repeat(us.T, Nmhe, axis=0)
+    y = np.repeat(ys.T, Nmhe+1, axis=0)
+    
+    # Penalty matrices.
+    Qwxinv = np.linalg.inv(Qwx)
+    Qwdinv = np.linalg.inv(Qwd)
+    Qwinv = scipy.linalg.block_diag(Qwxinv, Qwdinv)
+    P0inv = Qwinv
+    Rvinv = np.linalg.inv(Rv)
+
+    # Get the augmented models.
+    fxu = mpc.getCasadiFunc(fxud, [Ng+Nd, Nu], ["x", "u"],
+                            rk4=True, Delta=parameters['sample_time'], 
+                            M=10)
+    hx = mpc.getCasadiFunc(hxd, [Ng+Nd], ["x"])
+    
+    # Create a filter object and return.
+    return NonlinearMHEEstimator(fxu=fxu, hx=hx, 
+                                 Nmhe=Nmhe, Nx=Ng+Nd, 
+                                 Nu=Nu, Ny=Ny,
+                                 xprior=xprior, 
+                                 u=u, y=y, 
+                                 P0inv=P0inv, 
+                                 Qwinv=Qwinv, Rvinv=Rvinv)
+
 def main():
     """ Get the parameters/training/validation data."""
     
@@ -227,7 +306,7 @@ def main():
     greybox_val_data = _get_greybox_val_preds(parameters=
                                             parameters, 
                                             training_data=training_data)
-    
+    _get_mhe_estimator(parameters=parameters)
     # Create a dict and save.
     tworeac_parameters = dict(parameters=parameters, 
                               training_data=training_data,
