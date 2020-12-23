@@ -381,7 +381,7 @@ optimum.
   is $A$, and it is recycled back after cooling to the CSTR.}
   \label{fig:cstr_flash}
 \end{figure}
-\newpage
+%\newpage
 \textbf{Plant -- }
 \begin{align*}
   \dfrac{dH_r}{dt} &= \dfrac{F + D -F_r}{A_r}\\
@@ -394,6 +394,9 @@ optimum.
   \dfrac{dT_r}{dt} &= \dfrac{F(T_f - T_r) + D(T_d -T_r)}{A_rH_r} + 
                       \dfrac{r_1\Delta H_1 + r_2\Delta H_2}{\rho C_p} + 
                       \dfrac{Q_r}{\rho A_r C_p H_r}\\
+\end{align*}
+
+\begin{align*}
   \dfrac{dH_b}{dt} &= \dfrac{F_r - F_b - D}{A_b} \\
   \dfrac{dC_{Ab}}{dt} &= \dfrac{F_r(C_{Ar} -C_{Ab}) + 
                           D(C_{Ab} -C_{Ad})}{A_bH_b} \\
