@@ -122,7 +122,7 @@ def sample_prbs_like(*, num_change, num_steps,
 
 class NonlinearMHEEstimator:
 
-    def __init__(self, *, fxu, hx, N, Nx, Nu, Ny,
+    def __init__(self, *, fxu, hx, Nmhe, Nx, Nu, Ny,
                  xprior, u, y, P0inv, Qwinv, Rvinv):
         """ Class to construct and perform state estimation
         using moving horizon estimation.
@@ -157,13 +157,13 @@ class NonlinearMHEEstimator:
         self.Nx = Nx
         self.Nu = Nu
         self.Ny = Ny
-        self.N = N
+        self.N = Nmhe
 
         # Create lists for saving data. 
         self.xhat = list(xprior)
         self.y = list(y)
         self.u = list(u)
-
+        
         # Build the estimator.
         self._setup_mhe_estimator()
 
@@ -174,16 +174,20 @@ class NonlinearMHEEstimator:
         l = mpc.getCasadiFunc(self._stage_cost, [N["x"], N["y"]],
                               funcargs["l"])
         lx = mpc.getCasadiFunc(self._prior_cost, [N["x"], N["x"]],
-                              funcargs["lx"])
-        self.mhe_estimator = mpc.nmhe(f=self.fxuw,
+                               funcargs["lx"])
+        guess = dict(x=self.xhat[-1], w=np.zeros((self.Nx,)),
+                     v=np.zeros((self.Ny,)))
+        self.mhe_estimator = mpc.nmhe(f=self.fxu,
                                       h=self.hx, wAdditive=True,
                                       N=N, l=l, lx=lx, u=self.u, y=self.y,
-                                      funcargs=funcargs, 
+                                      funcargs=funcargs,
+                                      guess=guess,
                                       x0bar=self.xhat[0],
                                       verbosity=0)
         self.mhe_estimator.solve()
         self.mhe_estimator.saveguess()
-        self.xhat.append(self.mhe_estimator.var["x"][-1])
+        xhat = np.asarray(self.mhe_estimator.var["x"][-1]).squeeze(axis=-1)
+        self.xhat.append(xhat)
 
     def _stage_cost(self, w, v):
         """ Stage cost in moving horizon estimation. """
@@ -201,9 +205,10 @@ class NonlinearMHEEstimator:
             y: list of length T+1
             uprev: list of length T
         """
-        self.mhe_estimator.par["x0bar"] = [self.xhat[-self.N]]
-        self.mhe_estimator.par["y"] = self.y[-self.N:] + [y.squeeze(axis=-1)]        
-        self.mhe_estimator.par["u"] = self.u[-self.N+1:] + [uprev.squeeze(axis=-1)]
+        N = self.N
+        self.mhe_estimator.par["x0bar"] = [self.xhat[-N]]
+        self.mhe_estimator.par["y"] = self.y[-N:] + [y]        
+        self.mhe_estimator.par["u"] = self.u[-N+1:] + [uprev]
         self.mhe_estimator.solve()
         self.mhe_estimator.saveguess()
         xhat = np.asarray(self.mhe_estimator.var["x"][-1]).squeeze(axis=-1)
@@ -211,7 +216,7 @@ class NonlinearMHEEstimator:
         return xhat
 
     def _append_data(self, xhat, y, uprev):
-        """ Append the data to the lists."""
+        """ Append the data to the lists. """
         self.xhat.append(xhat)
         self.y.append(y)
         self.u.append(uprev)
@@ -403,42 +408,3 @@ class KalmanFilter:
         self.xhat_pred.append(xhat_pred)
         self.y.append(y)
         self.uprev.append(uprev)
-
-def get_mhe_models_and_matrices(fxu, hx, Bd, Cd,
-                                Nmhe, Qwx, Qwd, Rv,
-                                xs, us, ds, ys):
-        """ Get the models, proir estimates
-            and data, and the penalty matrices
-            to setup an MHE solver. """
-
-    def state_space_model(fxud, Nx, Nd):
-        """Augmented state-space model for moving horizon estimation."""
-        return lambda x, u : np.concatenate((fxud(x[0:Nx], u, x[Nx:]), 
-                                         np.zeros((Nd,))), axis=0)
-    
-    def measurement_model(hxd, Nx):
-        """Augmented measurement model for moving horizon estimation."""
-        return lambda x : hxd(x[0:Nx], x[Nx:])
-
-    # Prior estimates and data.
-    xprior = np.concatenate((xs, ds), axis=0)
-    xprior = np.repeat(xprior.T, Nmhe, axis=0)
-    u = np.repeat(us, Nmhe, axis=0)
-    y = np.repeat(ys, Nmhe+1, axis=0)
-
-    # Penalty matrices.
-    Qwxinv = np.linalg.inv(Qwx)
-    Qwdinv = np.linalg.inv(Qwd)
-    Qwinv = scipy.linalg.block_diag(Qwxinv, Qwdinv)
-    P0inv = Qwinv
-    Rvinv = np.linalg.inv(Rv)
-
-    # Get the augmented models.
-    fxuw = mpc.getCasadiFunc(state_space_model(fxud, Nx, Nd), 
-                             [Nx+Nd, Nu], ["x", "u"],
-                             rk4=True, 
-                             Delta=sample_time, 
-                             M=num_rk4_discretization_steps)
-    hx = mpc.getCasadiFunc(measurement_model(hxd, Nx), [Nx+Nd], ["x"])
-    # Return the required quantities for MHE.
-    return (fxuw, hx, P0inv, Qwinv, Rvinv, xprior, u, y)
