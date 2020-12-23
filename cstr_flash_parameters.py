@@ -9,8 +9,10 @@ import sys
 sys.path.append('lib/')
 import mpctools as mpc
 import numpy as np
+import scipy.linalg
 from hybridid import (PickleTool, NonlinearPlantSimulator,
-                      c2d, sample_prbs_like, SimData)
+                      c2d, sample_prbs_like, SimData,
+                      NonlinearMHEEstimator)
 
 def _plant_ode(x, u, p, parameters):
     """ ODEs describing the 10-D system. """
@@ -348,12 +350,87 @@ def _get_greybox_val_preds(*, parameters, training_data):
                    y=np.asarray(model.y[0:-1]).squeeze())
     return data
 
-def _get_gb_mhe_processed_training_data(*, parameters, training_data):
+def _get_mhe_estimator(*, parameters):
     """ Filter the training data using a combination 
         of grey-box model and an input disturbance model. """
-    
 
+    #ef get_state_estimates(filter, y, uprev, Nx):
+    #    """Use the filter object to perform state estimation."""
+    #    return np.split(filter.solve(y, uprev), [Nx])
+
+    def state_space_model(Ng, Nd, ps, parameters):
+        """ Augmented state-space model for moving horizon estimation. """
+        return lambda x, u : np.concatenate((_greybox_ode(x[:Ng], 
+                                                          u, ps, parameters),
+                                             np.zeros((Nd,))), axis=0)
     
+    def measurement_model(Ng, parameters):
+        """ Augmented measurement model for moving horizon estimation. """
+        return lambda x : _measurement(x[:Ng], parameters)
+
+    # Get sizes.
+    (Ng, Nu, Ny) = (parameters['Ng'], parameters['Nu'], parameters['Ny'])
+    Nd = Ny
+
+    # Get the disturbance model.
+    Bd = np.zeros((Ng, Nd))
+    Bd[1, 0] = 1.
+    Bd[2, 1] = 1.
+    Bd[5, 2] = 1.
+    Bd[6, 3] = 1.
+    Cd = np.zeros((Ny, Nd))
+
+    # Initial states.
+    xs = parameters['xs'][:, np.newaxis]
+    ps = parameters['ps'][:, np.newaxis]
+    us = parameters['us'][:, np.newaxis]
+    ys = _measurement(xs, parameters)
+    ds = np.zeros((Nd, 1))
+
+    # Noise covariances.
+    Qwx = 1e-10*np.eye(Ng)
+    Qwd = 1e-2*np.eye(Nd)
+    Rv = 1e-10*np.eye(Ny)
+
+    # MHE horizon length.
+    Nmhe = 10
+
+    # Continuous time functions, fxu and hx.
+    fxud = state_space_model(Ng, Nd, ps, parameters)
+    hxd = measurement_model(Ng, parameters)
+    
+    # Initial data.
+    xprior = np.concatenate((xs, ds), axis=0)
+    xprior = np.repeat(xprior.T, Nmhe, axis=0)
+    u = np.repeat(us.T, Nmhe, axis=0)
+    y = np.repeat(ys.T, Nmhe+1, axis=0)
+    
+    # Penalty matrices.
+    Qwxinv = np.linalg.inv(Qwx)
+    Qwdinv = np.linalg.inv(Qwd)
+    Qwinv = scipy.linalg.block_diag(Qwxinv, Qwdinv)
+    P0inv = Qwinv
+    Rvinv = np.linalg.inv(Rv)
+
+    # Get the augmented models.
+    fxu = mpc.getCasadiFunc(fxud, [Ng+Nd, Nu], ["x", "u"],
+                            rk4=True, Delta=parameters['Delta'], 
+                            M=1)
+    hx = mpc.getCasadiFunc(hxd, [Ng+Nd], ["x"])
+    
+    # Create a filter object and return.
+    return NonlinearMHEEstimator(fxu=fxu, hx=hx, 
+                                 Nmhe=Nmhe, Nx=Ng+Nd, 
+                                 Nu=Nu, Ny=Ny,
+                                 xprior=xprior, 
+                                 u=u, y=y, 
+                                 P0inv=P0inv, 
+                                 Qwinv=Qwinv, Rvinv=Rvinv)
+
+def _get_gb_mhe_processed_training_data(*, parameters, training_data):
+
+
+
     return 
 
 def main():
@@ -362,11 +439,18 @@ def main():
     plant_pars = _get_plant_parameters()
     plant_pars['xs'] = _get_rectified_xs(parameters=plant_pars)
     greybox_pars = _get_greybox_parameters()
+
     # Generate training data.
     training_data = _gen_train_val_data(parameters=plant_pars, num_traj=3,
                                         Nsim_train=27*60, Nsim_trainval=3*60,
                                         Nsim_val=12*60, seed=10)
-    greybox_val_data = _get_greybox_val_preds(parameters=greybox_pars, 
+    
+    _get_mhe_estimator(parameters=greybox_pars)
+    breakpoint()
+    #_get_gb_mhe_processed_training_data(parameters=greybox_pars,
+    #                                    training_data=training_data)
+    
+    greybox_val_data = _get_greybox_val_preds(parameters=greybox_pars,
                                               training_data=training_data)
     cstr_flash_parameters = dict(plant_pars=plant_pars,
                                  greybox_pars=greybox_pars,
