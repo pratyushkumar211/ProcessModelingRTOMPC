@@ -157,7 +157,7 @@ def _get_greybox_parameters():
     parameters['Td'] = 300 # K
 
     # Store the dimensions.
-    Ng, Nu, Np, Ny = 8, 4, 2, 4
+    Ng, Nu, Np, Ny = 8, 4, 2, 8
     parameters['Ng'] = Ng
     parameters['Nu'] = Nu
     parameters['Ny'] = Ny
@@ -174,7 +174,7 @@ def _get_greybox_parameters():
 
     # The C matrix for the plant.
     parameters['tsteps_steady'] = 60
-    parameters['yindices'] = [0, 3, 4, 7]
+    parameters['yindices'] = [0, 1, 2, 3, 4, 5, 6, 7]
 
     # Return the parameters dict.
     return parameters
@@ -202,7 +202,7 @@ def _get_plant_parameters():
     parameters['Td'] = 300 # K
 
     # Store the dimensions.
-    Nx, Nu, Np, Ny = 10, 4, 2, 10
+    Nx, Nu, Np, Ny = 10, 4, 2, 8
     parameters['Nx'] = Nx
     parameters['Nu'] = Nu
     parameters['Ny'] = Ny
@@ -222,11 +222,10 @@ def _get_plant_parameters():
     parameters['uub'] = np.array([15., 500., 6, 500.])
 
     # The C matrix for the plant.
-    #parameters['yindices'] = [0, 4, 5, 9]
-    parameters['yindices'] = [i for i in range(10)]
+    parameters['yindices'] = [0, 1, 2, 4, 5, 6, 7, 9]
     parameters['tsteps_steady'] = 60
-    #parameters['Rv'] = 0*np.diag(np.array([1e-4, 1e-4, 1e-4, 1e-4]))
     parameters['Rv'] = 0*np.eye(Ny)
+
     # Return the parameters dict.
     return parameters
 
@@ -297,7 +296,8 @@ def _gen_train_val_data(*, parameters, num_traj,
         # Get the plant and initial steady input.
         plant = _get_model(parameters=parameters, plant=True)
         np.random.seed(seed)
-        us_init = np.tile(np.random.uniform(ulb, uub), (tsteps_steady, 1))
+        #us_init = np.tile(np.random.uniform(ulb, uub), (tsteps_steady, 1))
+        us_init = np.tile(parameters['us'][np.newaxis, :], (tsteps_steady, 1))
 
         # Get input trajectories for different simulatios.
         if traj == num_traj-1:
@@ -357,7 +357,7 @@ def _get_mhe_estimator(*, parameters):
 
     def state_space_model(Ng, Bd, Nd, ps, parameters):
         """ Augmented state-space model for moving horizon estimation. """
-        return lambda x, u : np.concatenate((_plant_ode(x[:Ng], 
+        return lambda x, u : np.concatenate((_greybox_ode(x[:Ng], 
                                             u, ps, parameters) + Bd @ x[Ng:],
                                              np.zeros((Nd,))), axis=0)
     
@@ -366,16 +366,17 @@ def _get_mhe_estimator(*, parameters):
         return lambda x : _measurement(x[:Ng], parameters)
 
     # Get sizes.
-    (Ng, Nu, Ny) = (parameters['Nx'], parameters['Nu'], parameters['Ny'])
+    (Ng, Nu, Ny) = (parameters['Ng'], parameters['Nu'], parameters['Ny'])
     Nd = Ny
 
     # Get the disturbance model.
     Bd = np.eye(Ng)
     #Bd[1, 0] = 1.
     #Bd[2, 1] = 1.
-    #Bd[6, 2] = 1.
+    #Bd[3, 1] = 1.
+    #Bd[5, 2] = 1.
+    #Bd[6, 3] = 1.
     #Bd[7, 3] = 1.
-    #Cd = np.zeros((Ny, Nd))
 
     # Initial states.
     xs = parameters['xs'][:, np.newaxis]
@@ -387,7 +388,7 @@ def _get_mhe_estimator(*, parameters):
     # Noise covariances.
     Qwx = np.eye(Ng)
     Qwd = np.eye(Nd)
-    Rv = np.eye(Ny)
+    Rv = 1e-6*np.eye(Ny)
 
     # MHE horizon length.
     Nmhe = 15
@@ -418,34 +419,35 @@ def _get_mhe_estimator(*, parameters):
     # Create a filter object and return.
     return NonlinearMHEEstimator(fxu=fxu, hx=hx, 
                                  Nmhe=Nmhe, Nx=Ng+Nd, 
-                                 Nu=Nu, Ny=Ny,
-                                 xprior=xprior,
-                                 u=u, y=y,
-                                 P0inv=P0inv,
-                                 Qwinv=Qwinv, Rvinv=Rvinv)
+                                 Nu=Nu, Ny=Ny, xprior=xprior,
+                                 u=u, y=y, P0inv=P0inv,
+                                 Qwinv=Qwinv, Rvinv=Rvinv), Bd
 
 def _get_gb_mhe_processed_training_data(*, parameters, training_data):
     """ Process all the training data and add grey-box state estimates. """
     
-    def get_state_estimates(mhe_estimator, y, uprev, Nx):
+    def get_state_estimates(mhe_estimator, y, uprev, Ng):
         """Use the filter object to perform state estimation. """
-        return np.split(mhe_estimator.solve(y, uprev), [Nx])
+        return np.split(mhe_estimator.solve(y, uprev), [Ng])
 
     # Data list.
-    Nx = parameters['Nx']
+    Ng = parameters['Ng']
     processed_data = []
     for data in training_data:
-        mhe_estimator = _get_mhe_estimator(parameters=parameters)
-        Nsim = 600 #len(data.t)
+        mhe_estimator, Bd = _get_mhe_estimator(parameters=parameters)
+        Nsim = 100 #len(data.t)
         (u, y) = (data.u, data.y)
-        xhats = [mhe_estimator.xhat[-1][:Nx]]
+        xhats = [mhe_estimator.xhat[-1][:Ng]]
+        dhats = [mhe_estimator.xhat[-1][Ng:]]
         for t in range(Nsim-1):
             print(t)
             uprevt = u[t:t+1, :].T
             yt = y[t+1:t+2, :].T
-            xhat, dhat = get_state_estimates(mhe_estimator, yt, uprevt, Nx)
+            xhat, dhat = get_state_estimates(mhe_estimator, yt, uprevt, Ng)
             xhats.append(xhat)
+            dhats.append(dhat)
         xhats = np.asarray(xhats)
+        dhats = np.asarray(dhats)
         breakpoint()
         processed_data.append(SimData(t=data.t, u=data.u, y=data.y,
                                       x=xhat))
@@ -464,7 +466,7 @@ def main():
                                         Nsim_train=27*60, Nsim_trainval=3*60,
                                         Nsim_val=12*60, seed=10)
     
-    _get_gb_mhe_processed_training_data(parameters=plant_pars, 
+    _get_gb_mhe_processed_training_data(parameters=greybox_pars,
                                         training_data=training_data)
     breakpoint()
     #_get_gb_mhe_processed_training_data(parameters=greybox_pars,

@@ -222,10 +222,10 @@ def _get_mhe_estimator(*, parameters):
     #    """Use the filter object to perform state estimation."""
     #    return np.split(filter.solve(y, uprev), [Nx])
 
-    def state_space_model(Ng, Nd, ps, parameters):
+    def state_space_model(Ng, Bd, Nd, ps, parameters):
         """ Augmented state-space model for moving horizon estimation. """
         return lambda x, u : np.concatenate((_tworeac_plant_ode(x[:Ng], 
-                                                          u, ps, parameters),
+                                             u, ps, parameters) + Bd @ x[Ng:],
                                              np.zeros((Nd,))), axis=0)
     
     def measurement_model(Ng):
@@ -257,10 +257,10 @@ def _get_mhe_estimator(*, parameters):
     Rv = np.eye(Ny)
 
     # MHE horizon length.
-    Nmhe = 10
+    Nmhe = 50
 
     # Continuous time functions, fxu and hx.
-    fxud = state_space_model(Ng, Nd, ps, parameters)
+    fxud = state_space_model(Ng, Bd, Nd, ps, parameters)
     hxd = measurement_model(Ng)
     
     # Initial data.
@@ -279,7 +279,7 @@ def _get_mhe_estimator(*, parameters):
     # Get the augmented models.
     fxu = mpc.getCasadiFunc(fxud, [Ng+Nd, Nu], ["x", "u"],
                             rk4=True, Delta=parameters['sample_time'], 
-                            M=10)
+                            M=20)
     hx = mpc.getCasadiFunc(hxd, [Ng+Nd], ["x"])
     
     # Create a filter object and return.
