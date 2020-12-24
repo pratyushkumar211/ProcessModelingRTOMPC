@@ -13,12 +13,14 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from hybridid import (PickleTool, PAPER_FIGSIZE, plot_profit_curve)
 
-ylabels = [r'$H_r \ (\textnormal{m})$', 
+ylabels = [r'$H_r \ (\textnormal{m})$',
+           r'$C_{Ar} \ (\textnormal{mol/m}^3)$', 
            r'$T_r \ (K)$',
            r'$H_b \ (\textnormal{m})$', 
+           r'$C_{Ab} \ (\textnormal{mol/m}^3)$',
            r'$T_b \ (K)$']
 
-xlabels = [r'$H_r \ (\textnormal{m})$', 
+xlabels = [r'$H_r \ (\textnormal{m})$',
            r'$C_{Ar} \ (\textnormal{mol/m}^3)$', 
            r'$C_{Br} \ (\textnormal{mol/m}^3)$',
            r'$C_{Cr} \ (\textnormal{mol/m}^3)$',
@@ -30,9 +32,9 @@ xlabels = [r'$H_r \ (\textnormal{m})$',
            r'$T_b \ (K)$']
 
 ulabels = [r'$F \ (\textnormal{m}^3/\textnormal{min})$',
-           r'$Q_r \ (\textnormal{kJ/min})$',
+           r'$Q_r \ (\textnormal{KJ/min})$',
            r'$D \ (\textnormal{m}^3/\textnormal{min})$',
-           r'$Q_b \ (\textnormal{kJ/min})$']
+           r'$Q_b \ (\textnormal{KJ/min})$']
 
 def plot_inputs(t, u, figure_size, ylabel_xcoordinate):
     """ Plot the training input data."""
@@ -130,13 +132,16 @@ def main():
     cstr_flash_parameters = PickleTool.load(filename=
                                             "cstr_flash_parameters.pickle",
                                             type='read')
-    
+    cstr_flash_train = PickleTool.load(filename="cstr_flash_train.pickle",
+                                       type='read')
+    val_predictions = cstr_flash_train['val_predictions']
     simdata_list = [cstr_flash_parameters['training_data'][-1], 
                     cstr_flash_parameters['greybox_val_data']]
     (t, u, ydatum, xdatum) = get_datum(simdata_list=simdata_list, 
-                                       plot_range = (60, 12*60))
-    legend_names = ['Plant', 'Grey-Box']
-    legend_colors = ['b', 'g']
+                                       plot_range = (120, 12*60))
+    ydatum.append(val_predictions[0].y[:600, :])
+    legend_names = ['Plant', 'Grey-Box', 'Black-box']
+    legend_colors = ['b', 'g', 'm']
     figures = []
     figures += plot_openloop_data(t=t, u=u, ydatum=ydatum,
                                   xdatum=xdatum,
