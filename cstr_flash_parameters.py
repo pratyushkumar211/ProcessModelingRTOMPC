@@ -289,13 +289,13 @@ def _gen_train_val_data(*, parameters, num_traj,
     uub = parameters['uub']
     tsteps_steady = parameters['tsteps_steady']
     p = parameters['ps'][:, np.newaxis]
-
+    np.random.seed(seed)
+    
     # Start to generate data.
     for traj in range(num_traj):
         
         # Get the plant and initial steady input.
         plant = _get_model(parameters=parameters, plant=True)
-        np.random.seed(seed)
         us_init = np.tile(np.random.uniform(ulb, uub), (tsteps_steady, 1))
 
         # Get input trajectories for different simulatios.
@@ -304,20 +304,20 @@ def _gen_train_val_data(*, parameters, num_traj,
             Nsim = Nsim_val
             u = sample_prbs_like(num_change=24, num_steps=Nsim_val,
                                  lb=ulb, ub=uub,
-                                 mean_change=30, sigma_change=2, seed=seed+1)
+                                 mean_change=30, sigma_change=2, seed=seed)
         elif traj == num_traj-2:
             "Get input for validation simulation."
             Nsim = Nsim_trainval
-            u = sample_prbs_like(num_change=9, num_steps=Nsim_trainval,
+            u = sample_prbs_like(num_change=6, num_steps=Nsim_trainval,
                                  lb=ulb, ub=uub,
-                                 mean_change=20, sigma_change=2, seed=seed+2)
+                                 mean_change=30, sigma_change=2, seed=seed)
         else:
             "Get input for training simulation."
             Nsim = Nsim_train
-            u = sample_prbs_like(num_change=54, num_steps=Nsim_train, 
+            u = sample_prbs_like(num_change=8, num_steps=Nsim_train, 
                                  lb=ulb, ub=uub,
-                                 mean_change=30, sigma_change=2, seed=seed+3)
-
+                                 mean_change=30, sigma_change=2, seed=seed)
+        seed += 1
         # Complete input profile and run open-loop simulation.
         u = np.concatenate((us_init, u), axis=0)
         for t in range(tsteps_steady + Nsim):
@@ -433,7 +433,7 @@ def _get_gb_mhe_processed_training_data(*, parameters, training_data):
     processed_data = []
     for data in training_data:
         mhe_estimator, Bd = _get_mhe_estimator(parameters=parameters)
-        Nsim = 150 #len(data.t)
+        Nsim = len(data.t)
         (u, y) = (data.u, data.y)
         xhats = [mhe_estimator.xhat[-1][:Ng]]
         dhats = [mhe_estimator.xhat[-1][Ng:]]
@@ -445,7 +445,6 @@ def _get_gb_mhe_processed_training_data(*, parameters, training_data):
             dhats.append(dhat)
         xhats = np.asarray(xhats)
         dhats = np.asarray(dhats)
-        breakpoint()
         processed_data.append(SimData(t=data.t, u=data.u, y=data.y,
                                       x=xhats))
     # Return the processed data list.
@@ -459,8 +458,8 @@ def main():
     greybox_pars = _get_greybox_parameters()
 
     # Generate training data.
-    training_data = _gen_train_val_data(parameters=plant_pars, num_traj=3,
-                                        Nsim_train=27*60, Nsim_trainval=3*60,
+    training_data = _gen_train_val_data(parameters=plant_pars, num_traj=130,
+                                        Nsim_train=4*60, Nsim_trainval=3*60,
                                         Nsim_val=12*60, seed=10)
     
     greybox_processed_data = _get_gb_mhe_processed_training_data(parameters=

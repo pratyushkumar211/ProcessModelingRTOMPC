@@ -15,12 +15,13 @@ from hybridid import (PickleTool, get_cstr_flash_train_val_data,
 from HybridModelLayers import CstrFlashModel
 
 # Set the tensorflow global and graph-level seed.
-tf.random.set_seed(123)
+tf.random.set_seed(1)
 
-def create_model(*, Np, fnn_dims, cstr_flash_parameters, model_type):
+def create_model(*, Np, fnn_dims, xuyscales, cstr_flash_parameters, model_type):
     """ Create/compile the two reaction model for training. """
     cstr_flash_model = CstrFlashModel(Np=Np,
                                    fnn_dims=fnn_dims,
+                                   xuyscales=xuyscales,
                                    cstr_flash_parameters=cstr_flash_parameters,
                                    model_type=model_type)
     # Compile the nn controller.
@@ -29,7 +30,7 @@ def create_model(*, Np, fnn_dims, cstr_flash_parameters, model_type):
     # Return the compiled model.
     return cstr_flash_model
 
-def train_model(model, x0key, scale, train_data, trainval_data, val_data,
+def train_model(model, x0key, xuyscales, train_data, trainval_data, val_data,
                 stdout_filename, ckpt_path):
     """ Function to train the NN controller."""
     # Std out.
@@ -43,7 +44,7 @@ def train_model(model, x0key, scale, train_data, trainval_data, val_data,
     # Call the fit method to train.
     model.fit(x=[train_data['inputs'], train_data[x0key]],
               y=train_data['outputs'], 
-              epochs=1000, batch_size=1,
+              epochs=100, batch_size=4,
         validation_data = ([trainval_data['inputs'], trainval_data[x0key]], 
                             trainval_data['outputs']),
             callbacks = [checkpoint_callback])
@@ -52,10 +53,10 @@ def train_model(model, x0key, scale, train_data, trainval_data, val_data,
     model.load_weights(ckpt_path)
     model_predictions = model.predict(x=[val_data['inputs'], val_data[x0key]])
     val_predictions = SimData(t=None, x=None, u=None,
-                              y=model_predictions.squeeze()*scale['yscale'])
+                              y=model_predictions.squeeze()*xuyscales['yscale'])
     # Get prediction error on the validation data.
-    val_metric = model.evaluate(x=[val_data['inputs'], val_data[x0key]],
-                                y=val_data['outputs'])
+    val_metric = model.evaluate(x = [val_data['inputs'], val_data[x0key]],
+                                y = val_data['outputs'])
     # Return the NN controller.
     return (model, val_predictions, val_metric)
 
@@ -70,13 +71,13 @@ def main():
                                 cstr_flash_parameters['greybox_processed_data'])
 
     # Number of samples.
-    num_samples = [hour*60 for hour in [1]]
+    num_samples = [hour*60 for hour in [4]]
 
     # Create lists.
     Nps = [9, 9, 9]
     #fnn_dims = [[96, 128, 6], [102, 128, 8], [102, 128, 8]]
-    fnn_dims = [[102, 256, 256, 8]]
-    model_types = ['grey-black']
+    fnn_dims = [[102, 16, 8]]
+    model_types = ['hybrid']
     trained_weights = []
     val_metrics = []
     val_predictions = []
@@ -94,7 +95,7 @@ def main():
         # Get the training data.
         (train_data,
          trainval_data,
-         val_data, scale) = get_cstr_flash_train_val_data(Np=Np,
+         val_data, xuyscales) = get_cstr_flash_train_val_data(Np=Np,
                                 parameters=greybox_pars,
                                 greybox_processed_data=greybox_processed_data)
         # Loop over the number of samples.
@@ -102,6 +103,7 @@ def main():
             
             # Create model.
             cstr_flash_model = create_model(Np=Np, fnn_dims=fnn_dim,
+                                            xuyscales=xuyscales,
                                             cstr_flash_parameters=greybox_pars,
                                             model_type=model_type)
 
@@ -115,7 +117,7 @@ def main():
             train_samples[x0key] = train_data[x0key]
             (cstr_flash_model,
              val_prediction,
-             val_metric) = train_model(cstr_flash_model, x0key, scale, 
+             val_metric) = train_model(cstr_flash_model, x0key, xuyscales, 
                                        train_samples, trainval_data, val_data,
                                        stdout_filename, ckpt_path)
             fnn_weights = cstr_flash_model.get_weights()
