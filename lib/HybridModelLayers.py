@@ -438,14 +438,14 @@ class CstrFlashModel(tf.keras.Model):
         else:
             initial_state = tf.keras.Input(name='xGz0',
                                            shape=(Ng + Np*(Ny+Nu), ))
-
+        
         # Dense layers for the NN.
         fnn_layers = []
         for dim in fnn_dims[1:-1]:
             fnn_layers.append(tf.keras.layers.Dense(dim,
                                             activation='tanh'))
         fnn_layers.append(tf.keras.layers.Dense(fnn_dims[-1], 
-                                                kernel_initializer='zeros'))
+                                        kernel_initializer='zeros'))
 
         # Build model depending on option.
         if model_type == 'black-box':

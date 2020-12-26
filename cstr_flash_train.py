@@ -44,7 +44,7 @@ def train_model(model, x0key, xuyscales, train_data, trainval_data, val_data,
     # Call the fit method to train.
     model.fit(x=[train_data['inputs'], train_data[x0key]],
               y=train_data['outputs'], 
-              epochs=100, batch_size=4,
+              epochs=100, batch_size=8,
         validation_data = ([trainval_data['inputs'], trainval_data[x0key]], 
                             trainval_data['outputs']),
             callbacks = [checkpoint_callback])
@@ -74,9 +74,9 @@ def main():
     num_samples = [hour*60 for hour in [4]]
 
     # Create lists.
-    Nps = [9, 9, 9]
+    Nps = [9]
     #fnn_dims = [[96, 128, 6], [102, 128, 8], [102, 128, 8]]
-    fnn_dims = [[102, 16, 8]]
+    fnn_dims = [[102, 64, 64, 8]]
     model_types = ['hybrid']
     trained_weights = []
     val_metrics = []
@@ -98,6 +98,7 @@ def main():
          val_data, xuyscales) = get_cstr_flash_train_val_data(Np=Np,
                                 parameters=greybox_pars,
                                 greybox_processed_data=greybox_processed_data)
+
         # Loop over the number of samples.
         for num_sample in num_samples:
             
@@ -112,9 +113,9 @@ def main():
                 x0key = 'yz0'
             else:
                 x0key = 'xGz0'
-            train_samples = dict(inputs=train_data['inputs'][:, :num_sample, :],
-                            outputs=train_data['outputs'][:, :num_sample, :])
-            train_samples[x0key] = train_data[x0key]
+            train_samples=dict(inputs=train_data['inputs'][:64, :num_sample, :],
+                            outputs=train_data['outputs'][:64, :num_sample, :])
+            train_samples[x0key] = train_data[x0key][:64, ]
             (cstr_flash_model,
              val_prediction,
              val_metric) = train_model(cstr_flash_model, x0key, xuyscales, 
