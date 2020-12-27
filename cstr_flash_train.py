@@ -44,7 +44,7 @@ def train_model(model, x0key, xuyscales, train_data, trainval_data, val_data,
     # Call the fit method to train.
     model.fit(x=[train_data['inputs'], train_data[x0key]],
               y=train_data['outputs'], 
-              epochs=500, batch_size=8,
+              epochs=1000, batch_size=8,
         validation_data = ([trainval_data['inputs'], trainval_data[x0key]], 
                             trainval_data['outputs']),
             callbacks = [checkpoint_callback])
@@ -118,7 +118,7 @@ def main():
             train_samples[x0key] = train_data[x0key][:64, ]
             (cstr_flash_model,
              val_prediction,
-             val_metric) = train_model(cstr_flash_model, x0key, xuyscales, 
+             val_metric) = train_model(cstr_flash_model, x0key, xuyscales,
                                        train_samples, trainval_data, val_data,
                                        stdout_filename, ckpt_path)
             fnn_weights = cstr_flash_model.get_weights()
