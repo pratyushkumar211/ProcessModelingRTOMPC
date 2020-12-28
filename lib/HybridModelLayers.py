@@ -445,7 +445,7 @@ class CstrFlashModel(tf.keras.Model):
             fnn_layers.append(tf.keras.layers.Dense(dim,
                                             activation='tanh'))
         fnn_layers.append(tf.keras.layers.Dense(fnn_dims[-1], 
-                                        kernel_initializer='zeros'))
+                                            kernel_initializer='zeros'))
 
         # Build model depending on option.
         if model_type == 'black-box':

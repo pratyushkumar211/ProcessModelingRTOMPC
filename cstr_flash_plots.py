@@ -37,7 +37,7 @@ ulabels = [r'$F \ (\textnormal{m}^3/\textnormal{min})$',
            r'$Q_b \ (\textnormal{KJ/min})$']
 
 def plot_inputs(t, u, figure_size, ylabel_xcoordinate):
-    """ Plot the training input data."""
+    """ Plot the training input data. """
     nrow = len(ulabels)
     (figure, axes) = plt.subplots(nrows=nrow, ncols=1,
                                   sharex=True, figsize=figure_size,
@@ -140,7 +140,7 @@ def main():
     (t, u, ydatum, xdatum) = get_datum(simdata_list=simdata_list, 
                                        plot_range = (120, 12*60))
     ydatum.append(val_predictions[0].y[:600, :])
-    legend_names = ['Plant', 'Grey-Box', 'Black-box']
+    legend_names = ['Plant', 'Grey-Box', 'Hybrid']
     legend_colors = ['b', 'g', 'm']
     figures = []
     figures += plot_openloop_data(t=t, u=u, ydatum=ydatum,

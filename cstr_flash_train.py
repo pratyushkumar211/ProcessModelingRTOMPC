@@ -15,7 +15,7 @@ from hybridid import (PickleTool, get_cstr_flash_train_val_data,
 from HybridModelLayers import CstrFlashModel
 
 # Set the tensorflow global and graph-level seed.
-tf.random.set_seed(1)
+tf.random.set_seed(2)
 
 def create_model(*, Np, fnn_dims, xuyscales, cstr_flash_parameters, model_type):
     """ Create/compile the two reaction model for training. """
@@ -47,7 +47,7 @@ def train_model(model, x0key, xuyscales, train_data, trainval_data, val_data,
               epochs=1000, batch_size=8,
         validation_data = ([trainval_data['inputs'], trainval_data[x0key]], 
                             trainval_data['outputs']),
-            callbacks = [checkpoint_callback])
+        callbacks = [checkpoint_callback])
 
     # Get predictions on validation data.
     model.load_weights(ckpt_path)
@@ -113,9 +113,9 @@ def main():
                 x0key = 'yz0'
             else:
                 x0key = 'xGz0'
-            train_samples=dict(inputs=train_data['inputs'][:64, :num_sample, :],
-                            outputs=train_data['outputs'][:64, :num_sample, :])
-            train_samples[x0key] = train_data[x0key][:64, ]
+            train_samples=dict(inputs=train_data['inputs'][:128,:num_sample, :],
+                            outputs=train_data['outputs'][:128,:num_sample, :])
+            train_samples[x0key] = train_data[x0key][:128, :]
             (cstr_flash_model,
              val_prediction,
              val_metric) = train_model(cstr_flash_model, x0key, xuyscales,
