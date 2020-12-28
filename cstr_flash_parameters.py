@@ -224,7 +224,7 @@ def _get_plant_parameters():
     # The C matrix for the plant.
     parameters['yindices'] = [0, 1, 4, 5, 6, 9]
     parameters['tsteps_steady'] = 120
-    parameters['Rv'] = 0*np.eye(Ny)
+    parameters['Rv'] = 0*np.diag([0.8, 1e-3, 1.4, 0.8, 1e-3, 1.4])
 
     # Return the parameters dict.
     return parameters
@@ -458,7 +458,7 @@ def main():
     greybox_pars = _get_greybox_parameters()
 
     # Generate training data.
-    training_data = _gen_train_val_data(parameters=plant_pars, num_traj=130,
+    training_data = _gen_train_val_data(parameters=plant_pars, num_traj=18,
                                         Nsim_train=4*60, Nsim_trainval=3*60,
                                         Nsim_val=12*60, seed=10)
     
