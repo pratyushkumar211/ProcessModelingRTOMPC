@@ -54,7 +54,7 @@ def c2d(A, B, sample_time):
     
 class NonlinearPlantSimulator:
     """Custom class for simulating non-linear plants."""
-    def __init__(self, *, fxup, hx, Rv, Nx, Nu, Np, Ny, 
+    def __init__(self, *, fxup, hx, Rv, Nx, Nu, Np, Ny,
                  sample_time, x0):
         
         # Set attributes.
@@ -119,6 +119,253 @@ def sample_prbs_like(*, num_change, num_steps,
     repeat = _sample_repeats(num_change, num_steps,
                              mean_change, sigma_change)
     return np.repeat(values, repeat, axis=0)
+
+class PIController:
+    """ PI controller class."""
+    def __init__(self, *, K, tau, us, sample_time, 
+                 ulb, uub, pitype, taus=None):
+        (self.K, self.tau) = (K, tau)
+        (self.ulb, self.uub, self.us) = (ulb, uub, us)
+        self.sample_time = sample_time
+        self.i = [np.array([[0.]])]
+        if pitype == "ideal":
+            self.control_law = self.idealpi_control_law
+        elif pitype == "antiwindup":
+            self.control_law = self.piaw_control_law
+        elif pitype == "foxboro":
+            self.control_law = self.foxpi_control_law
+        elif pitype == "astrom":
+            self.taus = taus
+            self.control_law = self.astrompi_control_law
+
+    def idealpi_control_law(self, y, ysp):
+        e = ysp - y
+        u = self.us + self.K*e + (self.K/self.tau)*self.i[-1]
+        self.i.append(self.i[-1] + e*self.sample_time)
+        return np.clip(u, self.ulb, self.uub)
+
+    def piaw_control_law(self, y, ysp):
+        e = ysp - y
+        u = self.us + self.K*e + (self.K/self.tau)*self.i[-1]
+        if u > self.ulb and u < self.uub:
+            self.i.append(self.i[-1] + e*self.sample_time)
+            return u
+        else:
+            self.i.append(self.i[-1])
+            return np.clip(u, self.ulb, self.uub)
+
+    def foxpi_control_law(self, y, ysp):
+        e = ysp - y
+        u = self.K*e + (self.K/self.tau)*self.i[-1]
+        usat = np.clip(u, self.ulb - self.us, self.uub - self.us)
+        self.i.append(self.i[-1] + 
+                      (-self.i[-1]/self.tau + usat/self.K)*self.sample_time)
+        return usat + self.us
+
+    def astrompi_control_law(self, y, ysp):
+        e = ysp - y
+        u = self.K*e + (self.K/self.tau)*self.i[-1]
+        usat = np.clip(u, self.ulb - self.us, self.uub - self.us)
+        es = usat - u
+        self.i.append(self.i[-1] + 
+                      self.sample_time*(e + (self.tau/(self.K*self.taus))*es))
+        return usat + self.us
+
+class RTOPIController:
+
+    def __init__(self):
+
+
+
+    def control_law(self):
+
+        return
+
+class NonlinearEMPCController:
+
+    def __init__(self, *, Akf, Bkf, Bpkf, Rv,
+                 Ampc, Bmpc, Bpmpc, C, Nhours_forecast,
+                 K, tau, uspi, pitype, xp0, xi0,
+                 Qcool_bounds, Tzone_bounds, 
+                 roc_penalty, slack_penalty,
+                 plantDelta, mpcDelta, 
+                 energy_prices, disturbances, alpha):
+
+        # Set some default values.
+        (self.Akf, self.Bkf, self.Bpkf) = (Akf, Bkf, Bpkf) 
+        (self.C, self.Rv) = (C, Rv)
+        (self.Ampc, self.Bmpc, self.Bpmpc) = (Ampc, Bmpc, Bpmpc)
+        self.N = int(Nhours_forecast*3600/mpcDelta)
+        self.roc_penalty = roc_penalty
+        self.slack_penalty = slack_penalty
+        self.alpha = alpha
+        (self.K, self.tau, self.uspi, self.pitype) = (K, tau, uspi, pitype) 
+        (self.Qcool_lb, self.Qcool_ub) = Qcool_bounds
+        (self.Tlb, self.Tub) = Tzone_bounds
+        (self.Nx, self.Nu, self.Ny, self.Np, self.Ns) = (3, 1, 1, 3, 4)
+        (self.xp0, self.xi0) = (xp0, xi0)
+        self.mpcparameters = np.concatenate((energy_prices, 
+                                             disturbances), axis=1)
+
+        # Get the sample times of the two controllers.
+        self.plantDelta = plantDelta
+        self.mpcDelta = mpcDelta
+        self.Delta_ratio = int(mpcDelta/plantDelta)
+
+        # Create lists to save and examine open-loop solutions.
+        self.xseqs = []
+        self.useqs = []
+        self.eseqs = []
+        self.upiseqs = []
+
+        # Setup the filter and the regulator.
+        self._setup_filter()
+        self._setup_regulator()
+
+    def _setup_filter(self):
+        """ Setup the Kalman filter."""
+        Bkf = np.concatenate((self.Bkf, self.Bpkf), axis=1)
+        Qw = (self.Bkf @ self.Bkf.T)*(self.Rv**2)
+        Qw = Qw + 1e-8*np.eye(2)
+        xprior = self.xp0
+        self.filter = KalmanFilter(A=self.Akf, B=Bkf, 
+                                   C=self.C, Qw=Qw, 
+                                   Rv=self.Rv, xprior=xprior)
+
+    def _get_state_estimate(self, past_y, past_upi, past_p):
+        """ Reconcile the past PI control inputs, disturbances 
+            and get a state estimate of the plant. """
+        for (y, upi, p) in zip(past_y, past_upi, past_p):
+            xhatp = self.filter.solve(y, np.concatenate((upi, p), axis=0))
+        return xhatp    
+
+    def control_law(self, simt, xi, past_y, past_upi, past_p):
+        """ Get the MPC control law. """
+        xhatp = self._get_state_estimate(past_y, past_upi, past_p)
+        xhat = np.concatenate((xhatp, xi), axis=0)
+        u = self._solve_empc(xhat, simt)
+        return np.tile(u, (self.Delta_ratio, 1))
+
+    def _solve_empc(self, xhat, simt):
+        """ Use the parameters and solve the nonlinear economic MPC problem."""
+        # Get the MPC forecasting horizon here.
+        mpc_N = slice(int((simt+1)*(1/self.Delta_ratio)), 
+                      int((simt+1)*(1/self.Delta_ratio))+self.N, 1)
+        self.regulator.par["p"] = list(self.mpcparameters[mpc_N, :])
+        self.regulator.par['u_prev'] = self.uprev
+        self.regulator.fixvar("x", 0, xhat)
+        self.regulator.solve()
+        self.regulator.saveguess()
+        self._save_open_loop_solution()
+        self.uprev = np.asarray(self.regulator.var["u"][0])
+        return self.uprev
+
+    def _setup_regulator(self):
+        """ Construct a MHE solver. """
+        N = dict(x=self.Nx, u=self.Nu, p=self.Np,
+                 t=self.N, e=self.Ns, s=self.Ns)
+        funcargs = dict(f=["x", "u", "p"], 
+                        l=["x", "u", "Du", "p", "s"],
+                        e=["x", "u", "s"])
+        fxup = mpc.getCasadiFunc(lambda x, u, p: 
+                                 self._fxup(x, u, p, self.pitype), 
+                                 [self.Nx, self.Nu, self.Np], 
+                                 funcargs['f'])
+        l = mpc.getCasadiFunc(self._stage_cost, 
+                              [self.Nx, self.Nu, 
+                               self.Nu, self.Np, self.Ns],
+                              funcargs["l"])
+        e = mpc.getCasadiFunc(self._temp_cool_bounds, 
+                              [self.Nx, self.Nu, self.Ns],
+                              funcargs["e"])
+        # Setup the regulator and solve.
+        x0 = np.concatenate((self.xp0, self.xi0), axis=0)[:, 0]
+        mpcparameters = self.mpcparameters[0:self.N, :]
+        uprev = self.xp0[0:1]
+        self.regulator = mpc.nmpc(f=fxup, l=l, e=e,
+                                  N=N, funcargs=funcargs, 
+                                  x0=x0,
+                                  p=mpcparameters, 
+                                  uprev=uprev)
+        self.regulator.solve()
+        self.uprev = np.asarray(self.regulator.var["u"][0])
+        self.regulator.saveguess()
+        self._save_open_loop_solution()
+
+    def _save_open_loop_solution(self):
+        """ Save open solutions from the regulator to examine later. """
+        xseq = np.asarray(casadi.horzcat(*self.regulator.var['x'])).T
+        useq = np.asarray(self.regulator.var["u"])
+        eseq = useq - xseq[:-1, 0]
+        upiseq = self.K*eseq + (self.K/self.tau)*xseq[:-1, 2]
+        self.xseqs.append(xseq)
+        self.useqs.append(useq)
+        self.eseqs.append(eseq)
+        self.upiseqs.append(upiseq)
+
+    def _stage_cost(self, x, u, Du, p, s):
+        """ Compute the PI control input, 
+            economic objective, and the rate of penalty. """
+        (xzone, xi) = (x[0:1], x[2:])
+        upi = self.K*(u-xzone) + (self.K/self.tau)*xi
+        stagecost = p[0:1]*upi + self.roc_penalty*mpc.mtimes(Du.T, Du)
+        stagecost += mpc.mtimes(self.slack_penalty, s)
+        return stagecost
+    
+    def _temp_cool_bounds(self, x, u, s):
+        """ Compute the PI control input 
+            economic objective, and the rate of penalty."""
+        (xzone, xi) = (x[0:1], x[2:])
+        e1 = -xzone + self.Tlb -s[0:1] # temperature lower bound.
+        e2 = xzone - self.Tub -s[1:2] # temperature upper bound.
+        upi = self.K*(u-xzone) + (self.K/self.tau)*xi
+        e3 = -upi + self.Qcool_lb -s[2:3] # Cooling duty lower bound.
+        e4 =  upi - self.Qcool_ub -s[3:4] # Cooling duty upper bound.
+        return mpc.vcat([e1, e2, e3, e4])
+
+    def _fdelta(self, *, u, ulb, uub, alpha):
+        """ Return an expanded differentiable
+        dirac delta function. """
+        u = 1./(1+casadi.exp(-alpha*(uub-u)))
+        u = u + 1./(1+casadi.exp(-alpha*(u-ulb))) - 1
+        return u
+
+    def _fsat(self, *, u, ulb, uub, alpha):
+        """ Approximation to the saturation function. """
+        u = 2*(u-ulb)/(uub-ulb) - 1
+        gsatu = u/casadi.power(1+casadi.power(u, alpha), 1/alpha)
+        return (uub-ulb)*(gsatu+1)/2 + ulb
+
+    def _fxup(self, x, u, p, pitype):
+        """ The augmented time evolution function for economic MPC."""
+        (xp, xi, pamb) = (x[0:2], x[2:], p[1:3])
+        # Compute the PI control input and the increment in the 
+        # integral mode.
+        upi = self.K*(u-xp[0:1]) + (self.K/self.tau)*xi
+        if pitype == "ideal":
+            fi = u - xp[0:1]
+        if pitype == "antiwindup":
+            fi = u - xp[0:1]
+            fi *= self._fdelta(u=upi, ulb=self.Qcool_lb-self.uspi, 
+                               uub=self.Qcool_ub-self.uspi, 
+                               alpha=self.alpha)
+        if pitype == "foxboro":
+            fi = -xi/self.tau
+            fi += self._fsat(u=upi, ulb=self.Qcool_lb-self.uspi, 
+                             uub=self.Qcool_ub-self.uspi, 
+                             alpha=self.alpha)/self.K
+        upi += self.uspi
+        xp = mpc.mtimes(self.Ampc, xp) + mpc.mtimes(self.Bmpc, upi) 
+        xp += mpc.mtimes(self.Bpmpc, pamb)
+        xi += self.mpcDelta*fi
+        return mpc.vcat([xp, xi])
+        
+def online_simulation():
+    """ Online simulation with either the RTO-PI controller
+        or nonlinear economic MPC controller. """
+
+
+    return
 
 class NonlinearMHEEstimator:
 
