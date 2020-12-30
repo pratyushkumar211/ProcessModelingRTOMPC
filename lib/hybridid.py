@@ -214,13 +214,13 @@ class NonlinearEMPCRegulator:
         guess = self.init_guess
         uprev = self.init_guess['u']
         self.regulator = mpc.nmpc(f=fxu, l=l, N=N, funcargs=funcargs,
-                                  x0=x0, p=mpcparameters,
+                                  x0=x0, p=empc_pars,
                                   uprev=uprev, guess=guess)
         self.regulator.solve()
         self.regulator.saveguess()
         useq = np.asarray(self.regulator.var["u"])
         self.uprev = useq[0]
-        self.regulator.saveguess()
+        self.useq.append(useq)
 
     def _stage_cost(self, x, u, Du, p):
         """ Compute the PI control input,
@@ -232,7 +232,7 @@ class NonlinearEMPCRegulator:
     def solve(self, x0, empc_pars):
         """Setup and the solve the dense QP, output is 
         the first element of the sequence.
-        If the problem is reparametrized, go back to original 
+        If the problem is reparametrized, go back to original
         input variable.
         """
         self.regulator.par["p"] = np.concatenate((empc_pars['c_u'], 
@@ -352,12 +352,152 @@ class NonlinearMHEEstimator:
         self.y.append(y)
         self.u.append(uprev)
 
-def online_simulation():
+class NonlinearEMPCController:
+    """ Class that instantiates the NonlinearMHE, 
+        NonlinearEMPCRegulator classes
+        into one and solves nonlinear economic MPC problems.
+
+        fxu is a continous time model.
+        hx is same in both the continous and discrete time.
+    """
+    def __init__(self, *, fxu, hx, Bd, Cd, sample_time,
+                 Nx, Nu, Ny, Nd, 
+                 xs, us, ds, ys,
+                 empc_pars, ulb, uub, Nmpc,
+                 Qwx, Qwd, Rv, Nmhe):
+        
+        # Save attributes.
+        self.fxu = fxu
+        self.hx = hx
+
+        # Known steady states of the system.
+        self.xs = xs
+        self.us = us
+        self.ds = ds
+        self.ys = ys
+
+        # MHE Parameters.
+        self.Qwx = Qwx
+        self.Qwd = Qwd
+        self.Rv = Rv
+        self.Nmhe = Nmhe
+        self.filter = NonlinearEMPCController.setup_filter(fxu=fxu, hx=hx, 
+                                                        sample_time=sample_time,
+                                                        Nmhe=Nmhe, Nx=Nx, 
+                                                        Nu=Nu, Ny=Ny, Nd=Nd, 
+                                                        Qwx=Qwx, Qwd=Qwd, 
+                                                        Rv=Rv, xs=xs, us=us, 
+                                                        ds=ds, ys=ys)
+
+        # MPC Regulator parameters.
+        self.empc_pars = empc_pars
+        self.ulb = ulb
+        self.uub = uub
+        self.Nmpc = Nmpc
+
+        # Sizes.
+        self.Nx = Nx
+        self.Nu = Nu
+        self.Ny = Ny
+        self.Nd = Nd
+
+        self.regulator = NonlinearMPCController.setup_regulator(fxud=fxud, 
+                                                        sample_time=sample_time,
+                                                        Nmpc=Nmpc, Nx=Nx, 
+                                                        Nu=Nu, Nd=Nd,
+                                                        xs=xs, us=us, ds=ds, 
+                                                        Q=Q, R=R, P=P,
+                                                        ulb=ulb, uub=uub)
+
+    @staticmethod
+    def setup_filter(fxud, hxd, sample_time, num_rk4_discretization_steps, 
+                     Nmhe, Nx, Nu, Ny, Nd, Qwx, Qwd, Rv, xs, us, ds, ys):
+        """ Augment the system with an integrating 
+        disturbance and setup the Kalman Filter."""
+        (fxuw, hx, P0inv, Qwinv, Rvinv, xprior, u, y) = NonlinearMPCController.get_mhe_models_and_matrices(fxud, hxd, sample_time, 
+                                                                                                           num_rk4_discretization_steps,
+                                                                                                           Nx, Nu, Nd, Nmhe, 
+                                                                                                           Qwx, Qwd, Rv, xs, us, ds, ys)
+        return NonlinearMHEEstimator(fxuw=fxuw, hx=hx, N=Nmhe, Nx=Nx+Nd, Nu=Nu, Ny=Ny,
+                                     xprior=xprior, u=u, y=y, P0inv=P0inv, Qwinv=Qwinv, Rvinv=Rvinv)
+
+    @staticmethod
+    def setup_regulator(fxud, sample_time, num_rk4_discretization_steps, 
+                        Nmpc, Nx, Nu, Nd, xs, us, ds, Q, R, P, ulb, uub):
+        """ Augment the system for rate of change penalty and 
+        build the regulator."""
+        fxud = mpc.getCasadiFunc(fxud, [Nx, Nu, Nd], ["x", "u", "ds"],
+                                 rk4=True, Delta=sample_time,M=num_rk4_discretization_steps)
+        return NonlinearMPCRegulator(fxud=fxud,
+                                     xs=xs, us=us, ds=ds, 
+                                     Nx=Nx, Nu=Nu, Nd=Nd,
+                                     N=Nmpc, Q=Q, R=R, P=P, 
+                                     ulb=ulb, uub=uub, AxN=AxN, bxN=bxN)
+    
+    @staticmethod
+    def get_mhe_models_and_matrices(fxud, hxd, sample_time,
+                                    Nx, Nu, Nd, Nmhe, Qwx, Qwd, Rv, xs, us, ds, ys):
+        """ Get the models, proir estimates and data, and the penalty matrices to setup an MHE solver."""
+
+        # Prior estimates and data.
+        xprior = np.concatenate((xs, ds), axis=0)
+        xprior = np.repeat(xprior.T, Nmhe, axis=0)
+        u = np.repeat(us, Nmhe, axis=0)
+        y = np.repeat(ys, Nmhe+1, axis=0)
+
+        # Penalty matrices.
+        Qwxinv = np.linalg.inv(Qwx)
+        Qwdinv = np.linalg.inv(Qwd)
+        Qwinv = scipy.linalg.block_diag(Qwxinv, Qwdinv)
+        P0inv = Qwinv
+        Rvinv = np.linalg.inv(Rv)
+
+        # Get the augmented models.
+        fxuw = mpc.getCasadiFunc(NonlinearMPCController.mhe_state_space_model(fxud, Nx, Nd), [Nx+Nd, Nu], ["x", "u"],
+                                                                              rk4=True, Delta=sample_time, M=num_rk4_discretization_steps)
+        hx = mpc.getCasadiFunc(NonlinearMPCController.mhe_measurement_model(hxd, Nx), [Nx+Nd], ["x"])
+        # Return the required quantities for MHE.
+        return (fxuw, hx, P0inv, Qwinv, Rvinv, xprior, u, y)
+
+    def mhe_state_space_model(self):
+        """Augmented state-space model for moving horizon estimation."""
+        return lambda x, u : np.concatenate((fxu(x[0:Nx], u), np.zeros((Nd,))), axis=0)
+    
+    @staticmethod
+    def mhe_measurement_model(hxd, Nx):
+        """Augmented measurement model for moving horizon estimation."""
+        return lambda x : hx(x[0:Nx], x[Nx:])
+
+    def control_law(self, simt, y):
+        """
+        Takes the measurement and the previous control input
+        and compute the current control input.
+        """
+        (xhat, ds) =  self.get_state_estimates(y, self.uprev)
+        self.uprev = NonlinearMPCController.get_control_input(self.regulator, xhat, xs, us, ds)
+        return self.uprev
+    
+    def get_state_estimates(self, y, uprev):
+        """Use the filter object to perform state estimation."""
+        return np.split(self.filter.solve(y, uprev), [self.Nx])
+
+    def get_control_input(self, x):
+        """ Use the nonlinear regulator to solve the.""" 
+        return self.regulator.solve(x, xs, us, ds)[0:1, np.newaxis]
+
+def online_empc_simulation(plant, controller, *, Nsim=None,
+                           disturbances=None, stdout_filename=None):
     """ Online simulation with either the RTO-PI controller
         or nonlinear economic MPC controller. """
-
-
-    return
+    sys.stdout = open(stdout_filename, 'w')
+    measurement = plant.y[0] # Get the latest plant measurement.
+    disturbances = disturbances[..., np.newaxis] 
+    for (simt, disturbance) in zip(range(Nsim), disturbances):
+        print("Simulation Step:" + f"{simt}")
+        control_input = controller.control_law(simt, measurement)
+        print("Computation time:" + str(controller.computation_times[-1]))
+        measurement = plant.step(control_input, disturbance)
+    return plant
 
 def get_tworeac_train_val_data(*, Np, parameters, data_list):
     """ Get the data for training in appropriate format. """
