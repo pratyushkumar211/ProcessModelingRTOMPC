@@ -461,17 +461,17 @@ class NonlinearEMPCController:
         Takes the measurement and the previous control input
         and compute the current control input.
         """
-        (xhat, ds) =  self.get_state_estimates(y, self.uprev)
+        xdhat =  self.filter.solve(y, uprev)
         self.uprev = NonlinearMPCController.get_control_input(self.regulator, xhat, xs, us, ds)
         return self.uprev
     
-    def get_state_estimates(self, y, uprev):
-        """Use the filter object to perform state estimation."""
-        return np.split(self.filter.solve(y, uprev), [self.Nx])
+    #def get_state_estimates(self, y, uprev):
+    #    """Use the filter object to perform state estimation."""
+    #    return np.split(self.filter.solve(y, uprev), [self.Nx])
 
-    def get_control_input(self, x):
-        """ Use the nonlinear regulator to solve the.""" 
-        return self.regulator.solve(x, xs, us, ds)[0:1, np.newaxis]
+    #def get_control_input(self, x):
+    #    """ Use the nonlinear regulator to solve the.""" 
+    #    return self.regulator.solve(x, xs, us, ds)[0:1, np.newaxis]
 
 def online_simulation(plant, controller, *, Nsim=None,
                       disturbances=None, stdout_filename=None):
