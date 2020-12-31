@@ -160,7 +160,7 @@ class RTOPIController:
 
 class NonlinearEMPCRegulator:
 
-    def __init__(self, *, fxu, lxup, Nx, Nu,
+    def __init__(self, *, fxu, lxup, Nx, Nu, Np,
                  Nmpc, ulb, uub, init_guess, init_empc_pars):
         """ Class to construct and solve nonlinear MPC -- Regulation. 
         
@@ -180,9 +180,10 @@ class NonlinearEMPCRegulator:
         self.Nmpc = Nmpc
         self.Nx = Nx
         self.Nu = Nu
+        self.Np = Np
 
         # Create lists for saving data. 
-        self.x0 = [init_guess['x']]
+        self.x0 = []
         self.useq = []
 
         # Initial guess and parameters.
@@ -203,20 +204,24 @@ class NonlinearEMPCRegulator:
                         l=["x", "u", "p"])
         fxu = mpc.getCasadiFunc(self.fxu, [self.Nx, self.Nu], 
                                  funcargs['f'])
-        l = mpc.getCasadiFunc(self.lxup,
-                              [self.Nx, self.Nu, self.Np],
-                              funcargs["l"])
-        x0 = self.x0[-1]
+        lxup = mpc.getCasadiFunc(self.lxup,
+                                 [self.Nx, self.Nu, self.Np],
+                                 funcargs["l"])
+        # Some parameters for the regulator.
         empc_pars = self.init_empc_pars
         guess = self.init_guess
-        uprev = self.init_guess['u']
-        self.regulator = mpc.nmpc(f=fxu, l=l, N=N, funcargs=funcargs,
-                                  x0=x0, p=empc_pars,
+        x0 = guess['x']
+        uprev = guess['u']
+        lb = dict(u=self.ulb)
+        ub = dict(u=self.uub)
+        self.regulator = mpc.nmpc(f=fxu, l=lxup, N=N, funcargs=funcargs,
+                                  x0=x0, p=empc_pars, lb=lb, ub=ub,
                                   uprev=uprev, guess=guess)
         self.regulator.solve()
         self.regulator.saveguess()
-        useq = np.asarray(self.regulator.var["u"])
-        self.uprev = np.asarray(self.regulator.var["u"][0])
+        useq = np.asarray(casadi.horzcat(*self.regulator.var['u'])).T
+        self.uprev = useq[0, :]
+        breakpoint()
         self.useq.append(useq)
 
     def solve(self, x0, empc_pars):
@@ -351,9 +356,9 @@ class NonlinearEMPCController:
         Bd is in continuous time.
     """
     def __init__(self, *, fxu, hx, lxup, Bd, Cd, sample_time,
-                     Nx, Nu, Ny, Nd,
+                     Nx, Nu, Ny, Nd, Np,
                      xs, us, ds, ys,
-                     init_empc_pars,
+                     empc_pars,
                      ulb, uub, Nmpc,
                      Qwx, Qwd, Rv, Nmhe):
         
@@ -370,6 +375,7 @@ class NonlinearEMPCController:
         self.Nu = Nu
         self.Ny = Ny
         self.Nd = Nd
+        self.Np = Np
 
         # Steady states of the system.
         self.xs = xs
@@ -378,11 +384,11 @@ class NonlinearEMPCController:
         self.ys = ys
 
         # MPC Regulator parameters.
-        self.init_empc_pars = init_empc_pars
+        self.empc_pars = empc_pars
         self.ulb = ulb
         self.uub = uub
         self.Nmpc = Nmpc
-        self.setup_regulator()
+        self._setup_regulator()
 
         # MHE Parameters.
         self.Qwx = Qwx
@@ -397,8 +403,8 @@ class NonlinearEMPCController:
 
     def _aug_ss_model(self):
         """Augmented state-space model for moving horizon estimation."""
-        return lambda x, u: np.concatenate((fxu(x[0:self.Nx], 
-                                                u) + self.Bd @ x[-self.Nd:], 
+        return lambda x, u: np.concatenate((self.fxu(x[0:self.Nx],
+                                                u) + self.Bd @ x[-self.Nd:],
                                              np.zeros((self.Nd,))), axis=0)
     
     def _mhe_hx_model(self):
@@ -446,15 +452,17 @@ class NonlinearEMPCController:
         fxud = mpc.getCasadiFunc(self._aug_ss_model(),
                                 [self.Nx + self.Nd, self.Nu], ["x", "u"],
                                 rk4=True, Delta=self.sample_time, M=1)
-        init_guess = dict(x=self.xs, u=self.us)
-        self.regulator  = NonlinearMPCRegulator(fxu=fxud,
+        init_guess = dict(x=np.concatenate((self.xs, self.ds), axis=0), 
+                          u=self.us)
+        init_empc_pars = self.empc_pars[0, :]
+        self.regulator  = NonlinearEMPCRegulator(fxu=fxud,
                                      lxup = self.lxup,
                                      Nx=self.Nx + self.Nd,
-                                     Nu=self.Nu,
+                                     Nu=self.Nu, Np=self.Np,
                                      Nmpc=self.Nmpc,
                                      ulb=self.ulb, uub=self.uub,
                                      init_guess=init_guess,
-                                     init_empc_pars=self.init_empc_pars)
+                                     init_empc_pars=init_empc_pars)
 
     def control_law(self, simt, y):
         """
@@ -495,7 +503,7 @@ def _get_energy_price(*, num_days, sample_time):
     energy_price[10:14, :] = 10*np.ones((4, 1))
     energy_price[14:18, :] = 6*np.ones((4, 1))
     energy_price[18:24, :] = 1*np.ones((6, 1))
-    energy_price = np.tile(energy_price, (num_days, 1))
+    energy_price = 0.01*np.tile(energy_price, (num_days, 1))
     return _resample_fast(x=energy_price,
                           xDelta=60,
                           newDelta=sample_time,
@@ -504,13 +512,13 @@ def _get_energy_price(*, num_days, sample_time):
 def get_cstr_flash_empc_pars(*, num_days, sample_time):
     """ Get the parameters for Empc and RTO simulations. """
     energy_price = _get_energy_price(num_days=num_days, sample_time=sample_time)
-    raw_mat_price = _resample_fast(x=np.array([[1., 2.]]), 
-                                  xDelta=24*60, 
-                                  newDelta=sample_time, 
+    raw_mat_price = _resample_fast(x=np.array([[1.], [2.]]), 
+                                  xDelta=24*60,
+                                  newDelta=sample_time,
                                   resample_type='zoh')
-    product_price = _resample_fast(x=np.array([[2., 1.]]), 
+    product_price = _resample_fast(x=np.array([[20.], [1.]]), 
                                    xDelta=24*60,
-                                   newDelta=sample_time, 
+                                   newDelta=sample_time,
                                    resample_type='zoh')
     # Return as a concatenated vector.
     return np.concatenate((energy_price, raw_mat_price, product_price), axis=1)

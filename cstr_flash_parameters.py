@@ -65,7 +65,7 @@ def _plant_ode(x, u, p, parameters):
     dCCrbydt = (-F*CCr + D*(CCd - CCr))/(Ar*Hr) + r2
     dTrbydt = (F*(Tf - Tr) + D*(Td - Tr))/(Ar*Hr)
     dTrbydt = dTrbydt + (r1*delH1 + r2*delH2)/(pho*Cp)
-    dTrbydt = dTrbydt + Qr/(pho*Ar*Cp*Hr)
+    dTrbydt = dTrbydt - Qr/(pho*Ar*Cp*Hr)
 
     # Write the flash odes.
     dHbbydt = (Fr - Fb - D)/Ab
@@ -120,7 +120,7 @@ def _greybox_ode(x, u, p, parameters):
     dCBrbydt = (-F*CBr + D*(CBd - CBr))/(Ar*Hr) + r1
     dTrbydt = (F*(Tf - Tr) + D*(Td - Tr))/(Ar*Hr)
     dTrbydt = dTrbydt + (r1*delH1)/(pho*Cp)
-    dTrbydt = dTrbydt + Qr/(pho*Ar*Cp*Hr)
+    dTrbydt = dTrbydt - Qr/(pho*Ar*Cp*Hr)
 
     # Write the flash odes.
     dHbbydt = (Fr - Fb - D)/Ab
@@ -169,7 +169,7 @@ def _get_greybox_parameters():
     # Get the steady states.
     parameters['xs'] = np.array([50., 1., 0., 313.,
                                  50., 1., 0., 313.])
-    parameters['us'] = np.array([10., 0., 4., 0.])
+    parameters['us'] = np.array([10., 200., 4., 200.])
     parameters['ps'] = np.array([4., 300])
 
     # The C matrix for the plant.
@@ -214,12 +214,12 @@ def _get_plant_parameters():
     # Get the steady states.
     parameters['xs'] = np.array([50., 1., 0., 0., 313.,
                                  50., 1., 0., 0., 313.])
-    parameters['us'] = np.array([10., 0., 4., 0.])
-    parameters['ps'] = np.array([5., 300])
+    parameters['us'] = np.array([10., 200., 4., 200.])
+    parameters['ps'] = np.array([5., 300.])
 
     # Get the constraints.
-    parameters['ulb'] = np.array([5., -500., 2, -500.])
-    parameters['uub'] = np.array([15., 500., 6, 500.])
+    parameters['ulb'] = np.array([5., 0., 2, 0.])
+    parameters['uub'] = np.array([15., 400., 6, 400.])
 
     # The C matrix for the plant.
     parameters['yindices'] = [0, 1, 4, 5, 6, 9]
@@ -458,7 +458,7 @@ def main():
     greybox_pars = _get_greybox_parameters()
 
     # Generate training data.
-    training_data = _gen_train_val_data(parameters=plant_pars, num_traj=18,
+    training_data = _gen_train_val_data(parameters=plant_pars, num_traj=3,
                                         Nsim_train=4*60, Nsim_trainval=3*60,
                                         Nsim_val=12*60, seed=10)
     
@@ -477,4 +477,4 @@ def main():
     PickleTool.save(data_object=cstr_flash_parameters,
                     filename='cstr_flash_parameters.pickle')
 
-main()
+#main()
