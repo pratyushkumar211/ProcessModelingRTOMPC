@@ -13,8 +13,9 @@ import numpy as np
 from hybridid import (PickleTool, NonlinearEMPCController,
                       SimData, get_cstr_flash_empc_pars,
                       online_simulation)
-from cstr_flash_parameters import (_plant_ode, _greybox_ode, 
-                                    _get_model, _measurement)
+from hybridid import _cstr_flash_plant_ode as _plant_ode
+from hybridid import _cstr_flash_greybox_ode as _greybox_ode
+from hybridid import _cstr_flash_measurement as _measurement
 
 def get_controller(model_ode, model_pars, model_type, empc_pars):
     """ Construct the controller object comprised of 
@@ -88,7 +89,19 @@ def get_controller(model_ode, model_pars, model_type, empc_pars):
 
 def get_plant(*, parameters):
     """ Return a nonlinear plant simulator object. """
-    return _get_model(parameters=parameters, plant=True)
+    measurement = lambda x: _measurement(x, parameters)
+    # Construct and return the plant.
+    plant_ode = lambda x, u, p: _plant_ode(x, u, p, parameters)
+    xs = parameters['xs'][:, np.newaxis]
+    return NonlinearPlantSimulator(fxup = plant_ode,
+                                    hx = measurement,
+                                    Rv = parameters['Rv'], 
+                                    Nx = parameters['Nx'], 
+                                    Nu = parameters['Nu'], 
+                                    Np = parameters['Np'], 
+                                    Ny = parameters['Ny'],
+                                    sample_time = parameters['Delta'], 
+                                    x0 = xs)
 
 def stage_cost(x, u, p, pars, xindices):
     """ Custom stage cost for the CSTR/Flash system. """

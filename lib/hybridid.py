@@ -625,6 +625,129 @@ def get_cstr_flash_train_val_data(*, Np, parameters,
     # Return.
     return (train_data, trainval_data, val_data, xuyscales)
 
+def _cstr_flash_plant_ode(x, u, p, parameters):
+    """ ODEs describing the 10-D system. """
+
+    # Extract the parameters.
+    alphaA = parameters['alphaA']
+    alphaB = parameters['alphaB']
+    alphaC = parameters['alphaC']
+    pho = parameters['pho']
+    Cp = parameters['Cp']
+    Ar = parameters['Ar']
+    Ab = parameters['Ab']
+    kr = parameters['kr']
+    kb = parameters['kb']
+    delH1 = parameters['delH1']
+    delH2 = parameters['delH2']
+    EbyR = parameters['EbyR']
+    k1star = parameters['k1star']
+    k2star = parameters['k2star']
+    Td = parameters['Td']
+
+    # Extract the plant states into meaningful names.
+    (Hr, CAr, CBr, CCr, Tr) = x[0:5]
+    (Hb, CAb, CBb, CCb, Tb) = x[5:10]
+    (F, Qr, D, Qb) = u[0:4]
+    (CAf, Tf) = p[0:2]
+
+    # The flash vapor phase mass fractions.
+    den = alphaA*CAb + alphaB*CBb + alphaC*CCb
+    CAd = alphaA*CAb/den
+    CBd = alphaB*CBb/den
+    CCd = alphaB*CCb/den
+
+    # The outlet mass flow rates.
+    Fr = kr*np.sqrt(Hr)
+    Fb = kb*np.sqrt(Hb)
+
+    # The rate constants.
+    k1 = k1star*np.exp(-EbyR/Tr)
+    k2 = k2star*np.exp(-EbyR/Tr)
+
+    # The rate of reactions.
+    r1 = k1*CAr
+    r2 = k2*(CBr**3)
+
+    # Write the CSTR odes.
+    dHrbydt = (F + D - Fr)/Ar
+    dCArbydt = (F*(CAf - CAr) + D*(CAd - CAr))/(Ar*Hr) - r1
+    dCBrbydt = (-F*CBr + D*(CBd - CBr))/(Ar*Hr) + r1 - 3*r2
+    dCCrbydt = (-F*CCr + D*(CCd - CCr))/(Ar*Hr) + r2
+    dTrbydt = (F*(Tf - Tr) + D*(Td - Tr))/(Ar*Hr)
+    dTrbydt = dTrbydt + (r1*delH1 + r2*delH2)/(pho*Cp)
+    dTrbydt = dTrbydt - Qr/(pho*Ar*Cp*Hr)
+
+    # Write the flash odes.
+    dHbbydt = (Fr - Fb - D)/Ab
+    dCAbbydt = (Fr*(CAr - CAb) + D*(CAb - CAd))/(Ab*Hb)
+    dCBbbydt = (Fr*(CBr - CBb) + D*(CBb - CBd))/(Ab*Hb)
+    dCCbbydt = (Fr*(CCr - CCb) + D*(CCb - CCd))/(Ab*Hb)
+    dTbbydt = (Fr*(Tr - Tb))/(Ab*Hb) + Qb/(pho*Ab*Cp*Hb)
+
+    # Return the derivative.
+    return np.array([dHrbydt, dCArbydt, dCBrbydt, dCCrbydt, dTrbydt,
+                     dHbbydt, dCAbbydt, dCBbbydt, dCCbbydt, dTbbydt])
+
+def _cstr_flash_greybox_ode(x, u, p, parameters):
+    """ Simple ODE describing the grey-box plant. """
+
+    # Extract the parameters.
+    alphaA = parameters['alphaA']
+    alphaB = parameters['alphaB']
+    pho = parameters['pho']
+    Cp = parameters['Cp']
+    Ar = parameters['Ar']
+    Ab = parameters['Ab']
+    kr = parameters['kr']
+    kb = parameters['kb']
+    delH1 = parameters['delH1']
+    EbyR = parameters['EbyR']
+    k1star = parameters['k1star']
+    Td = parameters['Td']
+
+    # Extract the plant states into meaningful names.
+    (Hr, CAr, CBr, Tr) = x[0:4]
+    (Hb, CAb, CBb, Tb) = x[4:8]
+    (F, Qr, D, Qb) = u[0:4]
+    (CAf, Tf) = p[0:2]
+
+    # The flash vapor phase mass fractions.
+    den = alphaA*CAb + alphaB*CBb
+    CAd = alphaA*CAb/den
+    CBd = alphaB*CBb/den
+
+    # The outlet mass flow rates.
+    Fr = kr*np.sqrt(Hr)
+    Fb = kb*np.sqrt(Hb)
+
+    # Rate constant and reaction rate.
+    k1 = k1star*np.exp(-EbyR/Tr)
+    r1 = k1*CAr
+
+    # Write the CSTR odes.
+    dHrbydt = (F + D - Fr)/Ar
+    dCArbydt = (F*(CAf - CAr) + D*(CAd - CAr))/(Ar*Hr) - r1
+    dCBrbydt = (-F*CBr + D*(CBd - CBr))/(Ar*Hr) + r1
+    dTrbydt = (F*(Tf - Tr) + D*(Td - Tr))/(Ar*Hr)
+    dTrbydt = dTrbydt + (r1*delH1)/(pho*Cp)
+    dTrbydt = dTrbydt - Qr/(pho*Ar*Cp*Hr)
+
+    # Write the flash odes.
+    dHbbydt = (Fr - Fb - D)/Ab
+    dCAbbydt = (Fr*(CAr - CAb) + D*(CAb - CAd))/(Ab*Hb)
+    dCBbbydt = (Fr*(CBr - CBb) + D*(CBb - CBd))/(Ab*Hb)
+    dTbbydt = (Fr*(Tr - Tb))/(Ab*Hb) + Qb/(pho*Ab*Cp*Hb)
+
+    # Return the derivative.
+    return np.array([dHrbydt, dCArbydt, dCBrbydt, dTrbydt,
+                     dHbbydt, dCAbbydt, dCBbbydt, dTbbydt])
+
+def _cstr_flash_measurement(x, parameters):
+    yindices = parameters['yindices']
+    # Return the measurement.
+    return x[yindices]
+
 def plot_profit_curve(*, us, costs, colors, legends, 
                          figure_size=PAPER_FIGSIZE,
                          ylabel_xcoordinate=-0.12, 
