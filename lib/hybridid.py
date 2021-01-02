@@ -221,22 +221,21 @@ class NonlinearEMPCRegulator:
         self.regulator.saveguess()
         useq = np.asarray(casadi.horzcat(*self.regulator.var['u'])).T
         self.uprev = useq[0, :]
-        breakpoint()
         self.useq.append(useq)
 
     def solve(self, x0, empc_pars):
-        """Setup and the solve the dense QP, output is 
+        """Setup and the solve the dense QP, output is
         the first element of the sequence.
         If the problem is reparametrized, go back to original
         input variable.
         """
-        self.regulator.par["p"] = empc_pars
+        self.regulator.par["p"] = list(empc_pars)
         self.regulator.par['u_prev'] = self.uprev
-        self.regulator.fixvar("x", 0, xhat)
+        self.regulator.fixvar("x", 0, x0)
         self.regulator.solve()
         self.regulator.saveguess()
-        useq = np.asarray(self.regulator.var["u"])
-        self.uprev = np.asarray(self.regulator.var["u"][0])
+        useq = np.asarray(casadi.horzcat(*self.regulator.var['u'])).T
+        self.uprev = useq[0, :]
         self._append_data(x0, useq)
         return useq
 
@@ -399,8 +398,8 @@ class NonlinearEMPCController:
 
         # Parameters to save.
         self.computation_times = []
-        self.stage_costs = []
-
+        self.stage_costs = []  
+        
     def _aug_ss_model(self):
         """Augmented state-space model for moving horizon estimation."""
         return lambda x, u: np.concatenate((self.fxu(x[0:self.Nx],
@@ -454,7 +453,7 @@ class NonlinearEMPCController:
                                 rk4=True, Delta=self.sample_time, M=1)
         init_guess = dict(x=np.concatenate((self.xs, self.ds), axis=0), 
                           u=self.us)
-        init_empc_pars = self.empc_pars[0, :]
+        init_empc_pars = self.empc_pars[0:self.Nmpc, :]
         self.regulator  = NonlinearEMPCRegulator(fxu=fxud,
                                      lxup = self.lxup,
                                      Nx=self.Nx + self.Nd,
