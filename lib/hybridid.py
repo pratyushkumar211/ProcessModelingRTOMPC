@@ -9,6 +9,7 @@ import casadi
 import collections
 import pickle
 import plottools
+import time
 
 FIGURE_SIZE_A4 = (9, 10)
 PRESENTATION_FIGSIZE = (6, 6)
@@ -202,8 +203,6 @@ class NonlinearEMPCRegulator:
         N = dict(x=self.Nx, u=self.Nu, p=self.Np, t=self.Nmpc)
         funcargs = dict(f=["x", "u"], 
                         l=["x", "u", "p"])
-        fxu = mpc.getCasadiFunc(self.fxu, [self.Nx, self.Nu], 
-                                 funcargs['f'])
         lxup = mpc.getCasadiFunc(self.lxup,
                                  [self.Nx, self.Nu, self.Np],
                                  funcargs["l"])
@@ -211,17 +210,13 @@ class NonlinearEMPCRegulator:
         empc_pars = self.init_empc_pars
         guess = self.init_guess
         x0 = guess['x']
-        uprev = guess['u']
         lb = dict(u=self.ulb)
         ub = dict(u=self.uub)
-        self.regulator = mpc.nmpc(f=fxu, l=lxup, N=N, funcargs=funcargs,
+        self.regulator = mpc.nmpc(f=self.fxu, l=lxup, N=N, funcargs=funcargs,
                                   x0=x0, p=empc_pars, lb=lb, ub=ub,
-                                  uprev=uprev, guess=guess)
+                                  guess=guess)
         self.regulator.solve()
         self.regulator.saveguess()
-        useq = np.asarray(casadi.horzcat(*self.regulator.var['u'])).T
-        self.uprev = useq[0, :]
-        self.useq.append(useq)
 
     def solve(self, x0, empc_pars):
         """Setup and the solve the dense QP, output is
@@ -230,12 +225,10 @@ class NonlinearEMPCRegulator:
         input variable.
         """
         self.regulator.par["p"] = list(empc_pars)
-        self.regulator.par['u_prev'] = self.uprev
         self.regulator.fixvar("x", 0, x0)
         self.regulator.solve()
         self.regulator.saveguess()
         useq = np.asarray(casadi.horzcat(*self.regulator.var['u'])).T
-        self.uprev = useq[0, :]
         self._append_data(x0, useq)
         return useq
 
@@ -381,6 +374,7 @@ class NonlinearEMPCController:
         self.us = us
         self.ds = ds
         self.ys = ys
+        self.uprev = us
 
         # MPC Regulator parameters.
         self.empc_pars = empc_pars
@@ -398,7 +392,7 @@ class NonlinearEMPCController:
 
         # Parameters to save.
         self.computation_times = []
-        self.stage_costs = []  
+        self.stage_costs = []
         
     def _aug_ss_model(self):
         """Augmented state-space model for moving horizon estimation."""
@@ -414,10 +408,10 @@ class NonlinearEMPCController:
         """ Get the models, proir estimates and data, and the penalty matrices to setup an MHE solver."""
 
         # Prior estimates and data.
-        xprior = np.concatenate((self.xs, self.ds), axis=0)
+        xprior = np.concatenate((self.xs, self.ds), axis=0)[:, np.newaxis]
         xprior = np.repeat(xprior.T, self.Nmhe, axis=0)
-        u = np.repeat(self.us, self.Nmhe, axis=0)
-        y = np.repeat(self.ys, Nmhe+1, axis=0)
+        u = np.repeat(self.us[np.newaxis, :], self.Nmhe, axis=0)
+        y = np.repeat(self.ys[np.newaxis, :], self.Nmhe+1, axis=0)
 
         # Penalty matrices.
         Qwxinv = np.linalg.inv(self.Qwx)
@@ -430,15 +424,15 @@ class NonlinearEMPCController:
         fxud = mpc.getCasadiFunc(self._aug_ss_model(),
                                 [self.Nx + self.Nd, self.Nu], ["x", "u"],
                                 rk4=True, Delta=self.sample_time, M=1)
-        hx = mpc.getCasadiFunc(self._mhe_hx_model(), 
+        hx = mpc.getCasadiFunc(self._mhe_hx_model(),
                                 [self.Nx + self.Nd], ["x"])
         # Return the required quantities for MHE.
         return (fxud, hx, P0inv, Qwinv, Rvinv, xprior, u, y)
 
     def _setup_estimator(self):
         """ Setup MHE. """
-        (fxud, hx, P0inv, 
-         Qwinv, Rvinv, 
+        (fxud, hx, P0inv,
+         Qwinv, Rvinv,
          xprior, u, y) = self._get_mhe_models_and_matrices()
         self.estimator = NonlinearMHEEstimator(fxu=fxud, hx=hx, 
                                      Nmhe=self.Nmhe, 
@@ -468,17 +462,15 @@ class NonlinearEMPCController:
         Takes the measurement and the previous control input
         and compute the current control input.
         """
-        xdhat =  self.filter.solve(y, uprev)
-        self.uprev = NonlinearMPCController.get_control_input(self.regulator, xhat, xs, us, ds)
+        tstart = time.time()
+        xdhat =  self.estimator.solve(y, self.uprev)
+        mpc_N = slice(simt, simt+self.Nmpc, 1)
+        empc_pars = self.empc_pars[mpc_N, :]
+        useq = self.regulator.solve(xdhat, empc_pars)
+        self.uprev = useq[:1, :]
+        tend = time.time()
+        self.computation_times.append(tend - tstart)
         return self.uprev
-    
-    #def get_state_estimates(self, y, uprev):
-    #    """Use the filter object to perform state estimation."""
-    #    return np.split(self.filter.solve(y, uprev), [self.Nx])
-
-    #def get_control_input(self, x):
-    #    """ Use the nonlinear regulator to solve the.""" 
-    #    return self.regulator.solve(x, xs, us, ds)[0:1, np.newaxis]
 
 def online_simulation(plant, controller, *, Nsim=None,
                       disturbances=None, stdout_filename=None):
@@ -492,7 +484,12 @@ def online_simulation(plant, controller, *, Nsim=None,
         control_input = controller.control_law(simt, measurement)
         print("Computation time:" + str(controller.computation_times[-1]))
         measurement = plant.step(control_input, disturbance)
-    return plant
+    # Create a sim data.
+    cl_data = SimData(t=np.asarray(plant.t[0:-1]).squeeze(),
+                x=np.asarray(plant.x[0:-1]).squeeze(),
+                u=np.asarray(plant.u).squeeze(),
+                y=np.asarray(plant.y[0:-1]).squeeze())
+    return cl_data
 
 def _get_energy_price(*, num_days, sample_time):
     """ Get a two day heat disturbance profile. """
@@ -502,25 +499,34 @@ def _get_energy_price(*, num_days, sample_time):
     energy_price[10:14, :] = 10*np.ones((4, 1))
     energy_price[14:18, :] = 6*np.ones((4, 1))
     energy_price[18:24, :] = 1*np.ones((6, 1))
-    energy_price = 0.01*np.tile(energy_price, (num_days, 1))
+    energy_price = 0.0001*np.tile(energy_price, (num_days, 1))
     return _resample_fast(x=energy_price,
                           xDelta=60,
                           newDelta=sample_time,
                           resample_type='zoh')
 
-def get_cstr_flash_empc_pars(*, num_days, sample_time):
+def get_cstr_flash_empc_pars(*, num_days, sample_time, plant_pars):
     """ Get the parameters for Empc and RTO simulations. """
+
+    # Get the cost parameters.
     energy_price = _get_energy_price(num_days=num_days, sample_time=sample_time)
-    raw_mat_price = _resample_fast(x=np.array([[1.], [2.]]), 
+    raw_mat_price = _resample_fast(x=np.array([[10.], [20.]]), 
                                   xDelta=24*60,
                                   newDelta=sample_time,
                                   resample_type='zoh')
-    product_price = _resample_fast(x=np.array([[20.], [1.]]), 
+    product_price = _resample_fast(x=np.array([[50.], [10.]]), 
                                    xDelta=24*60,
                                    newDelta=sample_time,
                                    resample_type='zoh')
+    cost_pars = np.concatenate((energy_price,
+                                raw_mat_price, product_price), axis=1)
+
+    # Get the plant disturbances.
+    ps = plant_pars['ps'][np.newaxis, :]
+    disturbances = np.repeat(ps, 24*60, axis=0)
+
     # Return as a concatenated vector.
-    return np.concatenate((energy_price, raw_mat_price, product_price), axis=1)
+    return cost_pars, disturbances
 
 def _resample_fast(*, x, xDelta, newDelta, resample_type):
     """ Resample with either first of zero-order hold. """

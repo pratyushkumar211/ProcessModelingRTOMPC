@@ -27,7 +27,7 @@ def _get_greybox_parameters():
     parameters['alphaB'] = 0.5
     parameters['pho'] = 5. # Kg/m^3
     parameters['Cp'] = 6. # KJ/(Kg-K)
-    parameters['Ar'] = 2. # m^2 
+    parameters['Ar'] = 2. # m^2
     parameters['Ab'] = 2. # m^2
     parameters['kr'] = 3. # m^2
     parameters['kb'] = 2. # m^2
@@ -56,6 +56,10 @@ def _get_greybox_parameters():
     parameters['tsteps_steady'] = 120
     parameters['yindices'] = [0, 1, 3, 4, 5, 7]
 
+    # Get the constraints.
+    parameters['ulb'] = np.array([5., 0., 2, 0.])
+    parameters['uub'] = np.array([15., 400., 6, 400.])
+
     # Return the parameters dict.
     return parameters
 
@@ -74,13 +78,13 @@ def _get_plant_parameters():
     parameters['Ab'] = 2. # m^2
     parameters['kr'] = 3. # m^2
     parameters['kb'] = 2. # m^2
-    parameters['delH1'] = 40. # kJ/mol
-    parameters['delH2'] = 40. # kJ/mol
+    parameters['delH1'] = 100. # kJ/mol
+    parameters['delH2'] = 100. # kJ/mol
     parameters['EbyR'] = 200 # K
     parameters['k1star'] = 0.5 # 1/min
     parameters['k2star'] = 0.3 # 1/min
     parameters['Td'] = 300 # K
-
+    
     # Store the dimensions.
     Nx, Nu, Np, Ny = 10, 4, 2, 6
     parameters['Nx'] = Nx
@@ -104,8 +108,8 @@ def _get_plant_parameters():
     # The C matrix for the plant.
     parameters['yindices'] = [0, 1, 4, 5, 6, 9]
     parameters['tsteps_steady'] = 120
-    parameters['Rv'] = np.diag([0.8, 1e-3, 1., 0.8, 1e-3, 1.])
-
+    parameters['Rv'] = 0*np.diag([0.8, 1e-3, 1., 0.8, 1e-3, 1.])
+    
     # Return the parameters dict.
     return parameters
 

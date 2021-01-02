@@ -12,12 +12,12 @@ import casadi
 import numpy as np
 from hybridid import (PickleTool, NonlinearEMPCController,
                       SimData, get_cstr_flash_empc_pars,
-                      online_simulation)
+                      online_simulation, NonlinearPlantSimulator)
 from hybridid import _cstr_flash_plant_ode as _plant_ode
 from hybridid import _cstr_flash_greybox_ode as _greybox_ode
 from hybridid import _cstr_flash_measurement as _measurement
 
-def get_controller(model_ode, model_pars, model_type, empc_pars):
+def get_controller(model_ode, model_pars, model_type, cost_pars):
     """ Construct the controller object comprised of 
         EMPC regulator and MHE estimator. """
 
@@ -29,13 +29,14 @@ def get_controller(model_ode, model_pars, model_type, empc_pars):
     # Get the stage cost.
     if model_type == 'plant':
         lxup_xindices = [5, 7, 9]
+        Nx = model_pars['Nx']
     else:
         lxup_xindices = [4, 6, 7]
+        Nx = model_pars['Ng']
     lxup = lambda x, u, p: stage_cost(x, u, p, model_pars, lxup_xindices)
     
     # Get the sizes/sample time.
-    (Nx, Nu, Ny) = (model_pars['Nx'], model_pars['Nu'], 
-                    model_pars['Ny'])
+    (Nu, Ny) = (model_pars['Nu'], model_pars['Ny'])
     Nd = Ny
     Np = 3
     Delta = model_pars['Delta']
@@ -83,7 +84,7 @@ def get_controller(model_ode, model_pars, model_type, empc_pars):
                                    sample_time=Delta,
                                    Nx=Nx, Nu=Nu, Ny=Ny, Nd=Nd, Np=Np,
                                    xs=xs, us=us, ds=ds, ys=ys,
-                                   empc_pars=empc_pars,
+                                   empc_pars=cost_pars,
                                    ulb=ulb, uub=uub, Nmpc=Nmpc,
                                    Qwx=Qwx, Qwd=Qwd, Rv=Rv, Nmhe=Nmhe)
 
@@ -109,8 +110,8 @@ def stage_cost(x, u, p, pars, xindices):
     Td = pars['Td']
     pho = pars['pho']
     Cp = pars['Cp']
-    kb = pars['kb']    
-
+    kb = pars['kb']
+    
     # Get inputs, parameters, and states.
     F, Qr, D, Qb = u[0:4]
     ce, ca, cb = p[0:3]
@@ -138,20 +139,26 @@ def main():
                                             type='read')
     plant_pars = cstr_flash_parameters['plant_pars']
     greybox_pars = cstr_flash_parameters['greybox_pars']
-    empc_pars = get_cstr_flash_empc_pars(num_days=2, 
-                                         sample_time=plant_pars['Delta'])
+    cost_pars, disturbances = get_cstr_flash_empc_pars(num_days=2, 
+                                         sample_time=plant_pars['Delta'], 
+                                         plant_pars=plant_pars)
     cl_data_list = []
-    model_odes = [_plant_ode, _greybox_ode]
-    model_pars = [plant_pars, greybox_pars]
-    model_types = ['plant', 'greybox']
-    for (model_ode, 
+    model_odes = [_plant_ode]
+    model_pars = [plant_pars]
+    model_types = ['plant']
+    for (model_ode,
          model_par, model_type) in zip(model_odes, model_pars, model_types):
         plant = get_plant(parameters=plant_pars)
-        controller = get_controller(model_ode, model_par, model_type, empc_pars)
-
+        controller = get_controller(model_ode, model_par, model_type, cost_pars)
+        cl_data = online_simulation(plant, controller, 
+                          Nsim=60, disturbances=disturbances, 
+                          stdout_filename='cstr_flash_empc.txt')
+        cl_data_list += [cl_data]
 
     # Save data.
-    PickleTool.save(data_object=cstr_flash_training_data,
+    PickleTool.save(data_object=dict(cl_data_list=cl_data_list,
+                                     cost_pars=cost_pars,
+                                     disturbances=disturbances),
                     filename='cstr_flash_empc.pickle')
 
 main()

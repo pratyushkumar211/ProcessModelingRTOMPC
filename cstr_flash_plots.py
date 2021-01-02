@@ -129,11 +129,17 @@ def get_datum(*, simdata_list, plot_range):
 
 def main():
     """ Load the pickle file and plot. """
+
+    # Get the data for plotting.
     cstr_flash_parameters = PickleTool.load(filename=
                                             "cstr_flash_parameters.pickle",
                                             type='read')
     cstr_flash_train = PickleTool.load(filename="cstr_flash_train.pickle",
                                        type='read')
+    cstr_flash_empc = PickleTool.load(filename="cstr_flash_empc.pickle",
+                                       type='read')
+
+    # Collect data to plot open-loop predictions.
     val_predictions = cstr_flash_train['val_predictions']
     simdata_list = [cstr_flash_parameters['training_data'][-1], 
                     cstr_flash_parameters['greybox_val_data']]
@@ -147,6 +153,18 @@ def main():
                                   xdatum=xdatum,
                                   legend_names=legend_names,
                                   legend_colors=legend_colors)
+
+    # Plot the closed-loop data.
+    legend_names = ['Plant', 'Grey-Box', 'Hybrid']
+    legend_colors = ['b', 'g', 'm']
+    cl_data_list = cstr_flash_empc['cl_data_list']
+    (t, u, ydatum, xdatum) = get_datum(simdata_list=cl_data_list, 
+                                       plot_range = (0, 60))
+    figures += plot_openloop_data(t=t, u=u, ydatum=ydatum,
+                                  xdatum=xdatum,
+                                  legend_names=legend_names,
+                                  legend_colors=legend_colors)
+
     #figures += plot_val_model_predictions(plantsim_data=
     #                              tworeac_parameters['training_data'][-1],
     #        modelsim_datum=[tworeac_parameters['greybox_validation_data'], 
