@@ -23,8 +23,8 @@ def _get_greybox_parameters():
 
     # Parameters.
     parameters = {}
-    parameters['alphaA'] = 1.
-    parameters['alphaB'] = 0.5
+    parameters['alphaA'] = 3.
+    parameters['alphaB'] = 1.
     parameters['pho'] = 5. # Kg/m^3
     parameters['Cp'] = 6. # KJ/(Kg-K)
     parameters['Ar'] = 2. # m^2
@@ -32,7 +32,7 @@ def _get_greybox_parameters():
     parameters['kr'] = 3. # m^2
     parameters['kb'] = 2. # m^2
     parameters['delH1'] = 70. # kJ/mol
-    parameters['EbyR'] = 200 # K
+    parameters['E1byR'] = 200 # K
     parameters['k1star'] = 0.5 # 1/min
     parameters['Td'] = 300 # K
 
@@ -57,8 +57,8 @@ def _get_greybox_parameters():
     parameters['yindices'] = [0, 1, 3, 4, 5, 7]
 
     # Get the constraints.
-    parameters['ulb'] = np.array([5., 0., 2, 0.])
-    parameters['uub'] = np.array([15., 400., 6, 400.])
+    parameters['ulb'] = np.array([5., 0., 2., 0.])
+    parameters['uub'] = np.array([15., 400., 6., 400.])
 
     # Return the parameters dict.
     return parameters
@@ -70,8 +70,8 @@ def _get_plant_parameters():
     # Parameters.
     parameters = {}
     parameters['alphaA'] = 6.
-    parameters['alphaB'] = 0.6
-    parameters['alphaC'] = 0.5
+    parameters['alphaB'] = 1.
+    parameters['alphaC'] = 1.
     parameters['pho'] = 5. # Kg/m^3
     parameters['Cp'] = 2. # KJ/(Kg-K)
     parameters['Ar'] = 2. # m^2
@@ -80,11 +80,12 @@ def _get_plant_parameters():
     parameters['kb'] = 2. # m^2
     parameters['delH1'] = 100. # kJ/mol
     parameters['delH2'] = 100. # kJ/mol
-    parameters['EbyR'] = 200 # K
+    parameters['E1byR'] = 200 # K
+    parameters['E2byR'] = 50 # K
     parameters['k1star'] = 0.5 # 1/min
-    parameters['k2star'] = 0.3 # 1/min
+    parameters['k2star'] = 0.8 # 1/min
     parameters['Td'] = 300 # K
-    
+
     # Store the dimensions.
     Nx, Nu, Np, Ny = 10, 4, 2, 6
     parameters['Nx'] = Nx
@@ -98,12 +99,12 @@ def _get_plant_parameters():
     # Get the steady states.
     parameters['xs'] = np.array([50., 1., 0., 0., 313.,
                                  50., 1., 0., 0., 313.])
-    parameters['us'] = np.array([10., 200., 4., 200.])
+    parameters['us'] = np.array([10., 200., 6., 200.])
     parameters['ps'] = np.array([5., 300.])
 
     # Get the constraints.
-    parameters['ulb'] = np.array([5., 0., 2, 0.])
-    parameters['uub'] = np.array([15., 400., 6, 400.])
+    parameters['ulb'] = np.array([5., 0., 2., 0.])
+    parameters['uub'] = np.array([15., 400., 8., 400.])
 
     # The C matrix for the plant.
     parameters['yindices'] = [0, 1, 4, 5, 6, 9]

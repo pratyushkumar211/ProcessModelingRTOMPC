@@ -467,7 +467,7 @@ class NonlinearEMPCController:
         mpc_N = slice(simt, simt+self.Nmpc, 1)
         empc_pars = self.empc_pars[mpc_N, :]
         useq = self.regulator.solve(xdhat, empc_pars)
-        self.uprev = useq[:1, :]
+        self.uprev = useq[:1, :].T
         tend = time.time()
         self.computation_times.append(tend - tstart)
         return self.uprev
@@ -499,7 +499,7 @@ def _get_energy_price(*, num_days, sample_time):
     energy_price[10:14, :] = 10*np.ones((4, 1))
     energy_price[14:18, :] = 6*np.ones((4, 1))
     energy_price[18:24, :] = 1*np.ones((6, 1))
-    energy_price = 0.0001*np.tile(energy_price, (num_days, 1))
+    energy_price = np.tile(energy_price, (num_days, 1))
     return _resample_fast(x=energy_price,
                           xDelta=60,
                           newDelta=sample_time,
@@ -510,17 +510,17 @@ def get_cstr_flash_empc_pars(*, num_days, sample_time, plant_pars):
 
     # Get the cost parameters.
     energy_price = _get_energy_price(num_days=num_days, sample_time=sample_time)
-    raw_mat_price = _resample_fast(x=np.array([[10.], [20.]]), 
+    raw_mat_price = _resample_fast(x=np.array([[1000.], [20.]]), 
                                   xDelta=24*60,
                                   newDelta=sample_time,
                                   resample_type='zoh')
-    product_price = _resample_fast(x=np.array([[50.], [10.]]), 
+    product_price = _resample_fast(x=np.array([[8000.], [10.]]), 
                                    xDelta=24*60,
                                    newDelta=sample_time,
                                    resample_type='zoh')
     cost_pars = np.concatenate((energy_price,
                                 raw_mat_price, product_price), axis=1)
-
+    
     # Get the plant disturbances.
     ps = plant_pars['ps'][np.newaxis, :]
     disturbances = np.repeat(ps, 24*60, axis=0)
@@ -645,7 +645,8 @@ def _cstr_flash_plant_ode(x, u, p, parameters):
     kb = parameters['kb']
     delH1 = parameters['delH1']
     delH2 = parameters['delH2']
-    EbyR = parameters['EbyR']
+    E1byR = parameters['E1byR']
+    E2byR = parameters['E2byR']
     k1star = parameters['k1star']
     k2star = parameters['k2star']
     Td = parameters['Td']
@@ -667,8 +668,8 @@ def _cstr_flash_plant_ode(x, u, p, parameters):
     Fb = kb*np.sqrt(Hb)
 
     # The rate constants.
-    k1 = k1star*np.exp(-EbyR/Tr)
-    k2 = k2star*np.exp(-EbyR/Tr)
+    k1 = k1star*np.exp(-E1byR/Tr)
+    k2 = k2star*np.exp(-E2byR/Tr)
 
     # The rate of reactions.
     r1 = k1*CAr
@@ -707,7 +708,7 @@ def _cstr_flash_greybox_ode(x, u, p, parameters):
     kr = parameters['kr']
     kb = parameters['kb']
     delH1 = parameters['delH1']
-    EbyR = parameters['EbyR']
+    E1byR = parameters['E1byR']
     k1star = parameters['k1star']
     Td = parameters['Td']
 
@@ -727,7 +728,7 @@ def _cstr_flash_greybox_ode(x, u, p, parameters):
     Fb = kb*np.sqrt(Hb)
 
     # Rate constant and reaction rate.
-    k1 = k1star*np.exp(-EbyR/Tr)
+    k1 = k1star*np.exp(-E1byR/Tr)
     r1 = k1*CAr
 
     # Write the CSTR odes.
