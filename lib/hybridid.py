@@ -510,11 +510,11 @@ def get_cstr_flash_empc_pars(*, num_days, sample_time, plant_pars):
 
     # Get the cost parameters.
     energy_price = _get_energy_price(num_days=num_days, sample_time=sample_time)
-    raw_mat_price = _resample_fast(x=np.array([[1000.], [20.]]), 
+    raw_mat_price = _resample_fast(x=np.array([[100000.], [20.]]), 
                                   xDelta=24*60,
                                   newDelta=sample_time,
                                   resample_type='zoh')
-    product_price = _resample_fast(x=np.array([[8000.], [10.]]), 
+    product_price = _resample_fast(x=np.array([[1200000.], [10.]]),
                                    xDelta=24*60,
                                    newDelta=sample_time,
                                    resample_type='zoh')

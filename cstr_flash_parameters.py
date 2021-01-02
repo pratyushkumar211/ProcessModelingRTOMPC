@@ -23,13 +23,13 @@ def _get_greybox_parameters():
 
     # Parameters.
     parameters = {}
-    parameters['alphaA'] = 3.
+    parameters['alphaA'] = 6.
     parameters['alphaB'] = 1.
     parameters['pho'] = 5. # Kg/m^3
     parameters['Cp'] = 6. # KJ/(Kg-K)
-    parameters['Ar'] = 2. # m^2
-    parameters['Ab'] = 2. # m^2
-    parameters['kr'] = 3. # m^2
+    parameters['Ar'] = 3. # m^2
+    parameters['Ab'] = 3. # m^2
+    parameters['kr'] = 2. # m^2
     parameters['kb'] = 2. # m^2
     parameters['delH1'] = 70. # kJ/mol
     parameters['E1byR'] = 200 # K
@@ -73,10 +73,10 @@ def _get_plant_parameters():
     parameters['alphaB'] = 1.
     parameters['alphaC'] = 1.
     parameters['pho'] = 5. # Kg/m^3
-    parameters['Cp'] = 2. # KJ/(Kg-K)
-    parameters['Ar'] = 2. # m^2
-    parameters['Ab'] = 2. # m^2
-    parameters['kr'] = 3. # m^2
+    parameters['Cp'] = 3. # KJ/(Kg-K)
+    parameters['Ar'] = 3. # m^2
+    parameters['Ab'] = 3. # m^2
+    parameters['kr'] = 2. # m^2
     parameters['kb'] = 2. # m^2
     parameters['delH1'] = 100. # kJ/mol
     parameters['delH2'] = 100. # kJ/mol
@@ -100,7 +100,7 @@ def _get_plant_parameters():
     parameters['xs'] = np.array([50., 1., 0., 0., 313.,
                                  50., 1., 0., 0., 313.])
     parameters['us'] = np.array([10., 200., 6., 200.])
-    parameters['ps'] = np.array([5., 300.])
+    parameters['ps'] = np.array([6., 310.])
 
     # Get the constraints.
     parameters['ulb'] = np.array([5., 0., 2., 0.])
