@@ -494,12 +494,10 @@ def online_simulation(plant, controller, *, Nsim=None,
 def _get_energy_price(*, num_days, sample_time):
     """ Get a two day heat disturbance profile. """
     energy_price = np.zeros((24, 1))
-    energy_price[0:6, :] = 1*np.ones((6, 1))
-    energy_price[6:10, :] = 6*np.ones((4, 1))
-    energy_price[10:14, :] = 10*np.ones((4, 1))
-    energy_price[14:18, :] = 6*np.ones((4, 1))
-    energy_price[18:24, :] = 1*np.ones((6, 1))
-    energy_price = np.tile(energy_price, (num_days, 1))
+    energy_price[0:8, :] = np.ones((8, 1))
+    energy_price[8:16, :] = 10*np.ones((8, 1))
+    energy_price[16:24, :] = np.ones((8, 1))
+    energy_price = 1e-2*np.tile(energy_price, (num_days, 1))
     return _resample_fast(x=energy_price,
                           xDelta=60,
                           newDelta=sample_time,
@@ -510,12 +508,14 @@ def get_cstr_flash_empc_pars(*, num_days, sample_time, plant_pars):
 
     # Get the cost parameters.
     energy_price = _get_energy_price(num_days=num_days, sample_time=sample_time)
-    raw_mat_price = _resample_fast(x=np.array([[100000.], [20.]]), 
-                                  xDelta=24*60,
+    raw_mat_price = _resample_fast(x = np.array([[1000.], [1000.], 
+                                                 [800.], [800.]]), 
+                                  xDelta=6*60,
                                   newDelta=sample_time,
                                   resample_type='zoh')
-    product_price = _resample_fast(x=np.array([[1200000.], [10.]]),
-                                   xDelta=24*60,
+    product_price = _resample_fast(x = np.array([[12000.], [15000.], 
+                                                 [15000.], [18000.]]),
+                                   xDelta=6*60,
                                    newDelta=sample_time,
                                    resample_type='zoh')
     cost_pars = np.concatenate((energy_price,

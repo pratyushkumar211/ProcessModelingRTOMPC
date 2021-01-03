@@ -25,10 +25,10 @@ def _get_greybox_parameters():
     parameters = {}
     parameters['alphaA'] = 6.
     parameters['alphaB'] = 1.
-    parameters['pho'] = 5. # Kg/m^3
+    parameters['pho'] = 6. # Kg/m^3
     parameters['Cp'] = 6. # KJ/(Kg-K)
-    parameters['Ar'] = 3. # m^2
-    parameters['Ab'] = 3. # m^2
+    parameters['Ar'] = 2. # m^2
+    parameters['Ab'] = 2. # m^2
     parameters['kr'] = 2. # m^2
     parameters['kb'] = 2. # m^2
     parameters['delH1'] = 70. # kJ/mol
@@ -49,8 +49,8 @@ def _get_greybox_parameters():
     # Get the steady states.
     parameters['xs'] = np.array([50., 1., 0., 313.,
                                  50., 1., 0., 313.])
-    parameters['us'] = np.array([10., 200., 4., 200.])
-    parameters['ps'] = np.array([4., 300])
+    parameters['us'] = np.array([10., 400., 5., 0.])
+    parameters['ps'] = np.array([5., 310.])
 
     # The C matrix for the plant.
     parameters['tsteps_steady'] = 120
@@ -58,7 +58,7 @@ def _get_greybox_parameters():
 
     # Get the constraints.
     parameters['ulb'] = np.array([5., 0., 2., 0.])
-    parameters['uub'] = np.array([15., 400., 6., 400.])
+    parameters['uub'] = np.array([15., 400., 8., 400.])
 
     # Return the parameters dict.
     return parameters
@@ -74,8 +74,8 @@ def _get_plant_parameters():
     parameters['alphaC'] = 1.
     parameters['pho'] = 5. # Kg/m^3
     parameters['Cp'] = 3. # KJ/(Kg-K)
-    parameters['Ar'] = 3. # m^2
-    parameters['Ab'] = 3. # m^2
+    parameters['Ar'] = 2. # m^2
+    parameters['Ab'] = 2. # m^2
     parameters['kr'] = 2. # m^2
     parameters['kb'] = 2. # m^2
     parameters['delH1'] = 100. # kJ/mol
@@ -99,7 +99,7 @@ def _get_plant_parameters():
     # Get the steady states.
     parameters['xs'] = np.array([50., 1., 0., 0., 313.,
                                  50., 1., 0., 0., 313.])
-    parameters['us'] = np.array([10., 200., 6., 200.])
+    parameters['us'] = np.array([10., 400., 5., 0.])
     parameters['ps'] = np.array([6., 310.])
 
     # Get the constraints.
