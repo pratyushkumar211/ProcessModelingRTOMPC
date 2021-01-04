@@ -495,7 +495,7 @@ def _get_energy_price(*, num_days, sample_time):
     """ Get a two day heat disturbance profile. """
     energy_price = np.zeros((24, 1))
     energy_price[0:8, :] = np.ones((8, 1))
-    energy_price[8:16, :] = 10*np.ones((8, 1))
+    energy_price[8:16, :] = 20*np.ones((8, 1))
     energy_price[16:24, :] = np.ones((8, 1))
     energy_price = 1e-2*np.tile(energy_price, (num_days, 1))
     return _resample_fast(x=energy_price,

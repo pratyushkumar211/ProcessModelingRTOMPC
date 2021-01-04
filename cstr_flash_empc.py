@@ -70,13 +70,13 @@ def get_controller(model_ode, model_pars, model_type, cost_pars):
     uub = model_pars['uub']
 
     # Fictitious noise covariances for MHE.
-    Qwx = np.eye(Nx)
-    Qwd = 4*np.eye(Nd)
-    Rv = np.eye(Ny)
+    Qwx = 1e-6*np.eye(Nx)
+    Qwd = 1e-6*np.eye(Nd)
+    Rv = model_pars['Rv']
 
     # Horizon lengths.
     Nmpc = 120
-    Nmhe = 30
+    Nmhe = 60
 
     # Return the NN controller.
     return NonlinearEMPCController(fxu=fxu, hx=hx,
@@ -122,7 +122,7 @@ def stage_cost(x, u, p, pars, xindices):
     return ca*F*CAf + ce*Qr + ce*Qb + ce*D*pho*Cp*(Tb-Td) - cb*Fb*CBb
 
 def collect_cl_data(plant):
-    
+
     return
 
 def collect_performance_losses():
@@ -151,7 +151,7 @@ def main():
         plant = get_plant(parameters=plant_pars)
         controller = get_controller(model_ode, model_par, model_type, cost_pars)
         cl_data = online_simulation(plant, controller,
-                          Nsim=2*60, disturbances=disturbances,
+                          Nsim=24*60, disturbances=disturbances,
                           stdout_filename='cstr_flash_empc.txt')
         cl_data_list += [cl_data]
 

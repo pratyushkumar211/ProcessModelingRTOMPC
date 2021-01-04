@@ -109,7 +109,7 @@ def _get_plant_parameters():
     # The C matrix for the plant.
     parameters['yindices'] = [0, 1, 4, 5, 6, 9]
     parameters['tsteps_steady'] = 120
-    parameters['Rv'] = 0*np.diag([0.8, 1e-3, 1., 0.8, 1e-3, 1.])
+    parameters['Rv'] = np.diag([0.8, 1e-3, 1., 0.8, 1e-3, 1.])
     
     # Return the parameters dict.
     return parameters
