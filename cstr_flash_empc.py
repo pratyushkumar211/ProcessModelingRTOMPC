@@ -122,7 +122,7 @@ def stage_cost(x, u, p, pars, xindices):
     return ca*F*CAf + ce*Qr + ce*Qb + ce*D*pho*Cp*(Tb-Td) - cb*Fb*CBb
 
 def collect_cl_data(plant):
-
+    
     return
 
 def collect_performance_losses():
@@ -150,8 +150,8 @@ def main():
          model_par, model_type) in zip(model_odes, model_pars, model_types):
         plant = get_plant(parameters=plant_pars)
         controller = get_controller(model_ode, model_par, model_type, cost_pars)
-        cl_data = online_simulation(plant, controller, 
-                          Nsim=60, disturbances=disturbances, 
+        cl_data = online_simulation(plant, controller,
+                          Nsim=2*60, disturbances=disturbances,
                           stdout_filename='cstr_flash_empc.txt')
         cl_data_list += [cl_data]
 

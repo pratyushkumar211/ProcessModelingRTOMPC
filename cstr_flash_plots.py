@@ -159,7 +159,7 @@ def main():
     legend_colors = ['b', 'g', 'm']
     cl_data_list = cstr_flash_empc['cl_data_list']
     (t, u, ydatum, xdatum) = get_datum(simdata_list=cl_data_list, 
-                                       plot_range = (0, 60))
+                                       plot_range = (0, 24*60))
     figures += plot_openloop_data(t=t, u=u, ydatum=ydatum,
                                   xdatum=xdatum,
                                   legend_names=legend_names,

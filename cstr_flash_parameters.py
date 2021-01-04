@@ -18,7 +18,7 @@ from hybridid import _cstr_flash_greybox_ode as _greybox_ode
 from hybridid import _cstr_flash_measurement as _measurement
 
 def _get_greybox_parameters():
-    """ Get the parameter values for the 
+    """ Get the parameter values for the
         CSTRs with flash example. """
 
     # Parameters.
@@ -30,7 +30,7 @@ def _get_greybox_parameters():
     parameters['Ar'] = 2. # m^2
     parameters['Ab'] = 2. # m^2
     parameters['kr'] = 2. # m^2
-    parameters['kb'] = 2. # m^2
+    parameters['kb'] = 1.5 # m^2
     parameters['delH1'] = 70. # kJ/mol
     parameters['E1byR'] = 200 # K
     parameters['k1star'] = 0.5 # 1/min
@@ -49,15 +49,15 @@ def _get_greybox_parameters():
     # Get the steady states.
     parameters['xs'] = np.array([50., 1., 0., 313.,
                                  50., 1., 0., 313.])
-    parameters['us'] = np.array([10., 400., 5., 0.])
-    parameters['ps'] = np.array([5., 310.])
+    parameters['us'] = np.array([10., 200., 5., 300.])
+    parameters['ps'] = np.array([5., 320.])
 
     # The C matrix for the plant.
     parameters['tsteps_steady'] = 120
     parameters['yindices'] = [0, 1, 3, 4, 5, 7]
 
     # Get the constraints.
-    parameters['ulb'] = np.array([5., 0., 2., 0.])
+    parameters['ulb'] = np.array([5., 0., 2., 200.])
     parameters['uub'] = np.array([15., 400., 8., 400.])
 
     # Return the parameters dict.
@@ -72,14 +72,14 @@ def _get_plant_parameters():
     parameters['alphaA'] = 6.
     parameters['alphaB'] = 1.
     parameters['alphaC'] = 1.
-    parameters['pho'] = 5. # Kg/m^3
+    parameters['pho'] = 6. # Kg/m^3
     parameters['Cp'] = 3. # KJ/(Kg-K)
     parameters['Ar'] = 2. # m^2
     parameters['Ab'] = 2. # m^2
     parameters['kr'] = 2. # m^2
-    parameters['kb'] = 2. # m^2
+    parameters['kb'] = 1.5 # m^2
     parameters['delH1'] = 100. # kJ/mol
-    parameters['delH2'] = 100. # kJ/mol
+    parameters['delH2'] = 120. # kJ/mol
     parameters['E1byR'] = 200 # K
     parameters['E2byR'] = 50 # K
     parameters['k1star'] = 0.5 # 1/min
@@ -99,11 +99,11 @@ def _get_plant_parameters():
     # Get the steady states.
     parameters['xs'] = np.array([50., 1., 0., 0., 313.,
                                  50., 1., 0., 0., 313.])
-    parameters['us'] = np.array([10., 400., 5., 0.])
-    parameters['ps'] = np.array([6., 310.])
+    parameters['us'] = np.array([10., 200., 5., 300.])
+    parameters['ps'] = np.array([6., 320.])
 
     # Get the constraints.
-    parameters['ulb'] = np.array([5., 0., 2., 0.])
+    parameters['ulb'] = np.array([5., 0., 2., 200.])
     parameters['uub'] = np.array([15., 400., 8., 400.])
 
     # The C matrix for the plant.
@@ -224,7 +224,7 @@ def _get_greybox_val_preds(*, parameters, training_data):
     p = parameters['ps'][:, np.newaxis]
     u = training_data[-1].u
     Nsim = u.shape[0]
-   # Run the open-loop simulation.
+    # Run the open-loop simulation.
     for t in range(Nsim):
         model.step(u[t:t+1, :], p)
     # Insert Nones.
