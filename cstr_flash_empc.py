@@ -17,7 +17,8 @@ from hybridid import _cstr_flash_plant_ode as _plant_ode
 from hybridid import _cstr_flash_greybox_ode as _greybox_ode
 from hybridid import _cstr_flash_measurement as _measurement
 
-def get_controller(model_ode, model_pars, model_type, cost_pars):
+def get_controller(model_ode, model_pars, model_type, cost_pars, 
+                   mhe_noise_tuning):
     """ Construct the controller object comprised of 
         EMPC regulator and MHE estimator. """
 
@@ -51,11 +52,11 @@ def get_controller(model_ode, model_pars, model_type, cost_pars):
         Bd[7, 4] = 1.
         Bd[9, 5] = 1.
     else:
-        Bd[1, 0] = 1.
-        Bd[2, 1] = 1.
+        Bd[0, 0] = 1.
+        Bd[1, 1] = 1.
         Bd[3, 2] = 1.
-        Bd[5, 3] = 1.
-        Bd[6, 4] = 1.
+        Bd[4, 3] = 1.
+        Bd[5, 4] = 1.
         Bd[7, 5] = 1.
     Cd = np.zeros((Ny, Nd))
 
@@ -70,13 +71,11 @@ def get_controller(model_ode, model_pars, model_type, cost_pars):
     uub = model_pars['uub']
 
     # Fictitious noise covariances for MHE.
-    Qwx = 1e-6*np.eye(Nx)
-    Qwd = 1e-6*np.eye(Nd)
-    Rv = model_pars['Rv']
+    Qwx, Qwd, Rv = mhe_noise_tuning
 
     # Horizon lengths.
     Nmpc = 120
-    Nmhe = 60
+    Nmhe = 30
 
     # Return the NN controller.
     return NonlinearEMPCController(fxu=fxu, hx=hx,
@@ -121,15 +120,26 @@ def stage_cost(x, u, p, pars, xindices):
     # Compute and return cost.
     return ca*F*CAf + ce*Qr + ce*Qb + ce*D*pho*Cp*(Tb-Td) - cb*Fb*CBb
 
-def collect_cl_data(plant):
+#def collect_cl_data(plant):
+#
+#    return
 
-    return
+#def collect_performance_losses():
+#    """ Collect the performance losses 
+#        of the trained neural network controllers. """
+#    return
 
-def collect_performance_losses():
-    """ Collect the performance losses 
-        of the trained neural network controllers. """
-
-    return
+def get_mhe_noise_tuning(model_type, model_par):
+    # Get MHE tuning.
+    if model_type == 'plant':
+        Qwx = 1e-3*np.eye(model_par['Nx'])
+        Qwd = 4*np.eye(model_par['Ny'])
+        Rv = 1e-3*np.eye(model_par['Ny'])
+    else:
+        Qwx = 1e-3*np.eye(model_par['Ng'])
+        Qwd = 4*np.eye(model_par['Ny'])
+        Rv = 1e-3*np.eye(model_par['Ny'])
+    return (Qwx, Qwd, Rv)
 
 def main():
     """ Main function to be executed. """
@@ -139,17 +149,21 @@ def main():
                                             type='read')
     plant_pars = cstr_flash_parameters['plant_pars']
     greybox_pars = cstr_flash_parameters['greybox_pars']
-    cost_pars, disturbances = get_cstr_flash_empc_pars(num_days=2, 
+    cost_pars, disturbances = get_cstr_flash_empc_pars(num_days=2,
                                          sample_time=plant_pars['Delta'], 
                                          plant_pars=plant_pars)
+
+    # Run simulations for different model. 
     cl_data_list = []
-    model_odes = [_plant_ode]
-    model_pars = [plant_pars]
-    model_types = ['plant']
+    model_odes = [_plant_ode, _greybox_ode]
+    model_pars = [plant_pars, greybox_pars]
+    model_types = ['plant', 'grey-box']
     for (model_ode,
          model_par, model_type) in zip(model_odes, model_pars, model_types):
+        mhe_noise_tuning = get_mhe_noise_tuning(model_type, model_par)
         plant = get_plant(parameters=plant_pars)
-        controller = get_controller(model_ode, model_par, model_type, cost_pars)
+        controller = get_controller(model_ode, model_par, model_type,
+                                    cost_pars, mhe_noise_tuning)
         cl_data = online_simulation(plant, controller,
                           Nsim=24*60, disturbances=disturbances,
                           stdout_filename='cstr_flash_empc.txt')
