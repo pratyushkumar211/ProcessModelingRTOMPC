@@ -31,8 +31,8 @@ def _get_greybox_parameters():
     parameters['Ab'] = 2. # m^2
     parameters['kr'] = 2. # m^2
     parameters['kb'] = 1.5 # m^2
-    parameters['delH1'] = 70. # kJ/mol
-    parameters['E1byR'] = 200 # K
+    parameters['delH1'] = 200. # kJ/mol
+    parameters['E1byR'] = 150 # K
     parameters['k1star'] = 0.5 # 1/min
     parameters['Td'] = 300 # K
 
@@ -100,7 +100,7 @@ def _get_plant_parameters():
     parameters['xs'] = np.array([50., 1., 0., 0., 313.,
                                  50., 1., 0., 0., 313.])
     parameters['us'] = np.array([10., 200., 5., 300.])
-    parameters['ps'] = np.array([6., 320.])
+    parameters['ps'] = np.array([6., 315.])
 
     # Get the constraints.
     parameters['ulb'] = np.array([5., 0., 2., 200.])
@@ -109,7 +109,7 @@ def _get_plant_parameters():
     # The C matrix for the plant.
     parameters['yindices'] = [0, 1, 4, 5, 6, 9]
     parameters['tsteps_steady'] = 120
-    parameters['Rv'] = np.diag([0.8, 1e-3, 1., 0.8, 1e-3, 1.])
+    parameters['Rv'] = 0*np.diag([0.8, 1e-3, 1., 0.8, 1e-3, 1.])
     
     # Return the parameters dict.
     return parameters
@@ -345,7 +345,7 @@ def main():
     # Generate training data.
     training_data = _gen_train_val_data(parameters=plant_pars, num_traj=3,
                                         Nsim_train=4*60, Nsim_trainval=3*60,
-                                        Nsim_val=12*60, seed=10)
+                                        Nsim_val=12*60, seed=2)
     
     greybox_processed_data = _get_gb_mhe_processed_training_data(parameters=
                                                                 greybox_pars,

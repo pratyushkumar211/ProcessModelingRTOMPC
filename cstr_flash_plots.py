@@ -36,18 +36,28 @@ ulabels = [r'$F \ (\textnormal{m}^3/\textnormal{min})$',
            r'$D \ (\textnormal{m}^3/\textnormal{min})$',
            r'$Q_b \ (\textnormal{KJ/min})$']
 
-def plot_inputs(t, u, figure_size, ylabel_xcoordinate):
+def plot_inputs(t, udatum, figure_size, ylabel_xcoordinate, 
+                   data_type, legend_names, legend_colors):
     """ Plot the training input data. """
     nrow = len(ulabels)
+    if data_type == 'open_loop':
+        udatum = [udatum[0]]
     (figure, axes) = plt.subplots(nrows=nrow, ncols=1,
                                   sharex=True, figsize=figure_size,
                                   gridspec_kw=dict(wspace=0.4))
-    for row in range(nrow):
-        handle = axes[row].step(t, u[:, row], 'b')
-        axes[row].set_ylabel(ulabels[row])
-        axes[row].get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
-    axes[row].set_xlabel('Time (hr)')
-    axes[row].set_xlim([np.min(t), np.max(t)])
+    legend_handles = []
+    for (u, color) in zip(udatum, legend_colors):
+        for row in range(nrow):
+            handle = axes[row].step(t, u[:, row], color)
+            axes[row].set_ylabel(ulabels[row])
+            axes[row].get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
+        axes[row].set_xlabel('Time (hr)')
+        axes[row].set_xlim([np.min(t), np.max(t)])
+        legend_handles += handle
+    if data_type == 'closed_loop':
+        figure.legend(handles = legend_handles,
+                      labels = legend_names,
+                      loc = (0.32, 0.9), ncol=len(legend_names))
     return [figure]
 
 def plot_outputs(t, ydatum, figure_size, ylabel_xcoordinate,
@@ -95,12 +105,13 @@ def plot_states(t, xdatum, figure_size, ylabel_xcoordinate,
                   loc = (0.32, 0.9), ncol=len(legend_names))
     return [figure]
 
-def plot_openloop_data(*, t, u, ydatum, xdatum,
-                          legend_names, legend_colors,
-                          figure_size=PAPER_FIGSIZE,
-                          linewidth=0.8, markersize=1.):
+def plot_data(*, t, udatum, ydatum, xdatum,
+                 data_type, legend_names, legend_colors,
+                 figure_size=PAPER_FIGSIZE,
+                 linewidth=0.8, markersize=1.):
     figures = []
-    figures += plot_inputs(t, u, figure_size, -0.1)
+    figures += plot_inputs(t, udatum, figure_size, -0.1,
+                           data_type, legend_names, legend_colors)
     figures += plot_outputs(t, ydatum, figure_size, -0.1, 
                             legend_names, legend_colors)
     figures += plot_states(t, xdatum, figure_size, -0.25, 
@@ -120,12 +131,13 @@ def get_plotting_arrays(data, plot_range):
 
 def get_datum(*, simdata_list, plot_range):
     """ Get all data as lists. """
-    xdatum, ydatum = [], []
+    udatum, xdatum, ydatum = [], [], []
     for simdata in simdata_list:
         t, x, y, u = get_plotting_arrays(simdata, plot_range)
+        udatum += [u]
         xdatum += [x]
         ydatum += [y]
-    return (t, u, ydatum, xdatum)
+    return (t, udatum, ydatum, xdatum)
 
 def main():
     """ Load the pickle file and plot. """
@@ -143,27 +155,27 @@ def main():
     val_predictions = cstr_flash_train['val_predictions']
     simdata_list = [cstr_flash_parameters['training_data'][-1], 
                     cstr_flash_parameters['greybox_val_data']]
-    (t, u, ydatum, xdatum) = get_datum(simdata_list=simdata_list, 
+    (t, udatum, ydatum, xdatum) = get_datum(simdata_list=simdata_list, 
                                        plot_range = (120, 12*60))
     #ydatum.append(val_predictions[0].y[:600, :])
     legend_names = ['Plant', 'Grey-Box', 'Hybrid']
     legend_colors = ['b', 'g', 'm']
     figures = []
-    figures += plot_openloop_data(t=t, u=u, ydatum=ydatum,
-                                  xdatum=xdatum,
-                                  legend_names=legend_names,
-                                  legend_colors=legend_colors)
+    figures += plot_data(t=t, udatum=udatum, ydatum=ydatum,
+                              xdatum=xdatum, data_type='open_loop',
+                              legend_names=legend_names,
+                              legend_colors=legend_colors)
 
     # Plot the closed-loop data.
     legend_names = ['Plant', 'Grey-Box', 'Hybrid']
     legend_colors = ['b', 'g', 'm']
     cl_data_list = cstr_flash_empc['cl_data_list']
-    (t, u, ydatum, xdatum) = get_datum(simdata_list=cl_data_list, 
+    (t, udatum, ydatum, xdatum) = get_datum(simdata_list=cl_data_list,
                                        plot_range = (0, 24*60))
-    figures += plot_openloop_data(t=t, u=u, ydatum=ydatum,
-                                  xdatum=xdatum,
-                                  legend_names=legend_names,
-                                  legend_colors=legend_colors)
+    figures += plot_data(t=t, udatum=udatum, ydatum=ydatum,
+                              xdatum=xdatum, data_type='closed_loop',
+                              legend_names=legend_names,
+                              legend_colors=legend_colors)
 
     #figures += plot_val_model_predictions(plantsim_data=
     #                              tworeac_parameters['training_data'][-1],
