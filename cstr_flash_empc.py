@@ -153,11 +153,12 @@ def main():
                                          sample_time=plant_pars['Delta'], 
                                          plant_pars=plant_pars)
 
-    # Run simulations for different model. 
+    # Run simulations for different model.
     cl_data_list, stage_costs_list = [], []
     model_odes = [_plant_ode, _greybox_ode]
     model_pars = [plant_pars, greybox_pars]
     model_types = ['plant', 'grey-box']
+    plant_lxup = lambda x, u, p: stage_cost(x, u, p, plant_pars, [5, 7, 9])
     for (model_ode,
          model_par, model_type) in zip(model_odes, model_pars, model_types):
         mhe_noise_tuning = get_mhe_noise_tuning(model_type, model_par)
@@ -165,7 +166,8 @@ def main():
         controller = get_controller(model_ode, model_par, model_type,
                                     cost_pars, mhe_noise_tuning)
         cl_data, stage_costs = online_simulation(plant, controller,
-                            Nsim=24*60, disturbances=disturbances,
+                            plant_lxup=plant_lxup,
+                            Nsim=60, disturbances=disturbances,
                             stdout_filename='cstr_flash_empc.txt')
         cl_data_list += [cl_data]
         stage_costs_list += [stage_costs]
@@ -173,7 +175,7 @@ def main():
     # Save data.
     PickleTool.save(data_object=dict(cl_data_list=cl_data_list,
                                      cost_pars=cost_pars,
-                                     disturbances=disturbances, 
+                                     disturbances=disturbances,
                                      stage_costs_list=stage_costs_list),
                     filename='cstr_flash_empc.pickle')
 
