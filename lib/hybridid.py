@@ -474,7 +474,7 @@ class NonlinearEMPCController:
         self.stage_costs.append(curr_ell)
         return self.uprev
 
-def online_simulation(plant, controller, *, Nsim=None,
+def online_simulation(plant, controller, *, plant_lxup, Nsim=None,
                       disturbances=None, stdout_filename=None):
     """ Online simulation with either the RTO-PI controller
         or nonlinear economic MPC controller. """
@@ -486,8 +486,8 @@ def online_simulation(plant, controller, *, Nsim=None,
         print("Simulation Step:" + f"{simt}")
         control_input = controller.control_law(simt, measurement)
         print("Computation time:" + str(controller.computation_times[-1]))
-        stage_cost = controller.lxup(plant.x[-1], control_input,
-                                     controller.empc_pars[simt:simt+1, :].T)[0]
+        stage_cost = plant_lxup(plant.x[-1], control_input,
+                                controller.empc_pars[simt:simt+1, :].T)[0]
         stage_costs += [stage_cost]
         measurement = plant.step(control_input, disturbance)
     # Create a sim data and stage cost array.
@@ -519,9 +519,9 @@ def get_cstr_flash_empc_pars(*, num_days, sample_time, plant_pars):
                                                  [1000.], [900.], 
                                                  [900.], [900.], 
                                                  [900.], [900.]]), 
-                                  xDelta=6*60,
-                                  newDelta=sample_time,
-                                  resample_type='zoh')
+                                   xDelta=6*60,
+                                   newDelta=sample_time,
+                                   resample_type='zoh')
     product_price = _resample_fast(x = np.array([[12000.], [15000.], 
                                                  [10000.], [10000.], 
                                                  [10000.], [10000.], 
@@ -565,7 +565,7 @@ def get_tworeac_train_val_data(*, Np, parameters, data_list):
         yp0seq = data.y[t-Np:t, :].reshape(Np*Ny, )[np.newaxis, :]
         up0seq = data.u[t-Np:t][np.newaxis, :]
         xGz0_traj = np.concatenate((x0, yp0seq, up0seq), axis=-1)
-
+        
         # Get output trajectory.
         y_traj = data.y[t:, :][np.newaxis, ...]
         
