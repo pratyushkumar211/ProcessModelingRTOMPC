@@ -147,5 +147,5 @@ def main():
     # Save data.
     PickleTool.save(data_object=cstr_flash_training_data,
                     filename='cstr_flash_train.pickle')
-
+    
 main()

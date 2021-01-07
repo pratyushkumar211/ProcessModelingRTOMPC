@@ -53,6 +53,8 @@ def plot_inputs(t, udatum, figure_size, ylabel_xcoordinate,
             axes[row].get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
         axes[row].set_xlabel('Time (hr)')
         axes[row].set_xlim([np.min(t), np.max(t)])
+        if data_type == 'closed_loop' and row == 3:
+            axes[row].set_ylim([100., 500.])
         legend_handles += handle
     if data_type == 'closed_loop':
         figure.legend(handles = legend_handles,
@@ -139,6 +141,16 @@ def get_datum(*, simdata_list, plot_range):
         ydatum += [y]
     return (t, udatum, ydatum, xdatum)
 
+def plot_cost_pars():
+
+
+    return 
+
+def plot_cum_profit():
+
+
+    return 
+
 def main():
     """ Load the pickle file and plot. """
 
@@ -176,7 +188,7 @@ def main():
                               xdatum=xdatum, data_type='closed_loop',
                               legend_names=legend_names,
                               legend_colors=legend_colors)
-
+    
     #figures += plot_val_model_predictions(plantsim_data=
     #                              tworeac_parameters['training_data'][-1],
     #        modelsim_datum=[tworeac_parameters['greybox_validation_data'], 

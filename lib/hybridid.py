@@ -464,12 +464,14 @@ class NonlinearEMPCController:
         """
         tstart = time.time()
         xdhat =  self.estimator.solve(y, self.uprev)
-        mpc_N = slice(simt, simt+self.Nmpc, 1)
+        mpc_N = slice(simt, simt + self.Nmpc, 1)
         empc_pars = self.empc_pars[mpc_N, :]
         useq = self.regulator.solve(xdhat, empc_pars)
         self.uprev = useq[:1, :].T
         tend = time.time()
         self.computation_times.append(tend - tstart)
+        curr_ell = self.lxup(xdhat, self.uprev, empc_pars[:1, :].T)[0]
+        self.stage_costs.append(curr_ell)
         return self.uprev
 
 def online_simulation(plant, controller, *, Nsim=None,
@@ -479,17 +481,22 @@ def online_simulation(plant, controller, *, Nsim=None,
     sys.stdout = open(stdout_filename, 'w')
     measurement = plant.y[0] # Get the latest plant measurement.
     disturbances = disturbances[..., np.newaxis]
+    stage_costs = []
     for (simt, disturbance) in zip(range(Nsim), disturbances):
         print("Simulation Step:" + f"{simt}")
         control_input = controller.control_law(simt, measurement)
         print("Computation time:" + str(controller.computation_times[-1]))
+        stage_cost = controller.lxup(plant.x[-1], control_input,
+                                     controller.empc_pars[simt:simt+1, :].T)[0]
+        stage_costs += [stage_cost]
         measurement = plant.step(control_input, disturbance)
-    # Create a sim data.
+    # Create a sim data and stage cost array.
     cl_data = SimData(t=np.asarray(plant.t[0:-1]).squeeze(),
                 x=np.asarray(plant.x[0:-1]).squeeze(),
                 u=np.asarray(plant.u).squeeze(),
                 y=np.asarray(plant.y[0:-1]).squeeze())
-    return cl_data
+    stage_costs = np.array(stage_costs)
+    return cl_data, stage_costs
 
 def _get_energy_price(*, num_days, sample_time):
     """ Get a two day heat disturbance profile. """
@@ -510,8 +517,8 @@ def get_cstr_flash_empc_pars(*, num_days, sample_time, plant_pars):
     energy_price = _get_energy_price(num_days=num_days, sample_time=sample_time)
     raw_mat_price = _resample_fast(x = np.array([[1000.], [1000.], 
                                                  [1000.], [900.], 
-                                                 [800.], [800.], 
-                                                 [800.], [800.]]), 
+                                                 [900.], [900.], 
+                                                 [900.], [900.]]), 
                                   xDelta=6*60,
                                   newDelta=sample_time,
                                   resample_type='zoh')

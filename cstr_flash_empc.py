@@ -133,12 +133,12 @@ def get_mhe_noise_tuning(model_type, model_par):
     # Get MHE tuning.
     if model_type == 'plant':
         Qwx = 1e-3*np.eye(model_par['Nx'])
-        Qwd = 4*np.eye(model_par['Ny'])
+        Qwd = np.eye(model_par['Ny'])
         Rv = 1e-3*np.eye(model_par['Ny'])
     else:
-        Qwx = 1e-3*np.eye(model_par['Ng'])
-        Qwd = 4*np.eye(model_par['Ny'])
-        Rv = 1e-3*np.eye(model_par['Ny'])
+        Qwx = np.eye(model_par['Ng'])
+        Qwd = 25*np.eye(model_par['Ny'])
+        Rv = np.eye(model_par['Ny'])
     return (Qwx, Qwd, Rv)
 
 def main():
@@ -165,7 +165,7 @@ def main():
         controller = get_controller(model_ode, model_par, model_type,
                                     cost_pars, mhe_noise_tuning)
         cl_data, stage_costs = online_simulation(plant, controller,
-                            Nsim=2*60, disturbances=disturbances,
+                            Nsim=24*60, disturbances=disturbances,
                             stdout_filename='cstr_flash_empc.txt')
         cl_data_list += [cl_data]
         stage_costs_list += [stage_costs]
@@ -173,7 +173,8 @@ def main():
     # Save data.
     PickleTool.save(data_object=dict(cl_data_list=cl_data_list,
                                      cost_pars=cost_pars,
-                                     disturbances=disturbances),
+                                     disturbances=disturbances, 
+                                     stage_costs_list=stage_costs_list),
                     filename='cstr_flash_empc.pickle')
-    
+
 main()

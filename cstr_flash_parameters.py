@@ -31,8 +31,8 @@ def _get_greybox_parameters():
     parameters['Ab'] = 2. # m^2
     parameters['kr'] = 2. # m^2
     parameters['kb'] = 1.5 # m^2
-    parameters['delH1'] = 200. # kJ/mol
-    parameters['E1byR'] = 150 # K
+    parameters['delH1'] = 150. # kJ/mol
+    parameters['E1byR'] = 200 # K
     parameters['k1star'] = 0.5 # 1/min
     parameters['Td'] = 300 # K
 
@@ -80,8 +80,8 @@ def _get_plant_parameters():
     parameters['kb'] = 1.5 # m^2
     parameters['delH1'] = 100. # kJ/mol
     parameters['delH2'] = 120. # kJ/mol
-    parameters['E1byR'] = 200 # K
-    parameters['E2byR'] = 50 # K
+    parameters['E1byR'] = 200. # K
+    parameters['E2byR'] = 50. # K
     parameters['k1star'] = 0.5 # 1/min
     parameters['k2star'] = 0.8 # 1/min
     parameters['Td'] = 300 # K
@@ -100,7 +100,7 @@ def _get_plant_parameters():
     parameters['xs'] = np.array([50., 1., 0., 0., 313.,
                                  50., 1., 0., 0., 313.])
     parameters['us'] = np.array([10., 200., 5., 300.])
-    parameters['ps'] = np.array([6., 315.])
+    parameters['ps'] = np.array([6., 320.])
 
     # Get the constraints.
     parameters['ulb'] = np.array([5., 0., 2., 200.])
@@ -256,11 +256,11 @@ def _get_mhe_estimator(*, parameters):
     # Get the disturbance model.
     #Bd = np.eye(Ng)
     Bd = np.zeros((Ng, Nd))
-    Bd[1, 0] = 1.
-    Bd[2, 1] = 1.
+    Bd[0, 0] = 1.
+    Bd[1, 1] = 1.
     Bd[3, 2] = 1.
-    Bd[5, 3] = 1.
-    Bd[6, 4] = 1.
+    Bd[4, 3] = 1.
+    Bd[5, 4] = 1.
     Bd[7, 5] = 1.
 
     # Initial states.
@@ -346,7 +346,7 @@ def main():
     training_data = _gen_train_val_data(parameters=plant_pars, num_traj=3,
                                         Nsim_train=4*60, Nsim_trainval=3*60,
                                         Nsim_val=12*60, seed=2)
-    
+
     greybox_processed_data = _get_gb_mhe_processed_training_data(parameters=
                                                                 greybox_pars,
                                                     training_data=training_data)
