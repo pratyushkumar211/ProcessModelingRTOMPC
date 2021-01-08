@@ -186,6 +186,7 @@ class NonlinearEMPCRegulator:
         # Create lists for saving data. 
         self.x0 = []
         self.useq = []
+        self.xseq = []
 
         # Initial guess and parameters.
         self.init_guess = init_guess
@@ -229,13 +230,15 @@ class NonlinearEMPCRegulator:
         self.regulator.solve()
         self.regulator.saveguess()
         useq = np.asarray(casadi.horzcat(*self.regulator.var['u'])).T
-        self._append_data(x0, useq)
+        xseq = np.asarray(casadi.horzcat(*self.regulator.var['x'])).T
+        self._append_data(x0, useq, xseq)
         return useq
 
-    def _append_data(self, x0, useq):
+    def _append_data(self, x0, useq, xseq):
         " Append data. "
         self.x0.append(x0)
         self.useq.append(useq)
+        self.xseq.append(xseq)
 
 class NonlinearMHEEstimator:
 
@@ -392,7 +395,6 @@ class NonlinearEMPCController:
 
         # Parameters to save.
         self.computation_times = []
-        self.stage_costs = []
         
     def _aug_ss_model(self):
         """Augmented state-space model for moving horizon estimation."""
@@ -470,8 +472,6 @@ class NonlinearEMPCController:
         self.uprev = useq[:1, :].T
         tend = time.time()
         self.computation_times.append(tend - tstart)
-        curr_ell = self.lxup(xdhat, self.uprev, empc_pars[:1, :].T)[0]
-        self.stage_costs.append(curr_ell)
         return self.uprev
 
 def online_simulation(plant, controller, *, plant_lxup, Nsim=None,
@@ -501,10 +501,10 @@ def online_simulation(plant, controller, *, plant_lxup, Nsim=None,
 def _get_energy_price(*, num_days, sample_time):
     """ Get a two day heat disturbance profile. """
     energy_price = np.zeros((24, 1))
-    energy_price[0:8, :] = np.ones((8, 1))
-    energy_price[8:16, :] = 20*np.ones((8, 1))
+    energy_price[0:16, :] = np.ones((16, 1))
+    #energy_price[8:16, :] = 20*np.ones((8, 1))
     energy_price[16:24, :] = np.ones((8, 1))
-    energy_price = 1e-2*np.tile(energy_price, (num_days, 1))
+    energy_price = 1e-3*np.tile(energy_price, (num_days, 1))
     return _resample_fast(x=energy_price,
                           xDelta=60,
                           newDelta=sample_time,
@@ -515,14 +515,14 @@ def get_cstr_flash_empc_pars(*, num_days, sample_time, plant_pars):
 
     # Get the cost parameters.
     energy_price = _get_energy_price(num_days=num_days, sample_time=sample_time)
-    raw_mat_price = _resample_fast(x = np.array([[1000.], [1000.], 
+    raw_mat_price = _resample_fast(x = np.array([[1000.], [500.], 
                                                  [1000.], [900.], 
                                                  [900.], [900.], 
                                                  [900.], [900.]]), 
                                    xDelta=6*60,
                                    newDelta=sample_time,
                                    resample_type='zoh')
-    product_price = _resample_fast(x = np.array([[12000.], [15000.], 
+    product_price = _resample_fast(x = np.array([[12000.], [20000.], 
                                                  [10000.], [10000.], 
                                                  [10000.], [10000.], 
                                                  [10000.], [10000.]]),
@@ -565,7 +565,7 @@ def get_tworeac_train_val_data(*, Np, parameters, data_list):
         yp0seq = data.y[t-Np:t, :].reshape(Np*Ny, )[np.newaxis, :]
         up0seq = data.u[t-Np:t][np.newaxis, :]
         xGz0_traj = np.concatenate((x0, yp0seq, up0seq), axis=-1)
-        
+
         # Get output trajectory.
         y_traj = data.y[t:, :][np.newaxis, ...]
         

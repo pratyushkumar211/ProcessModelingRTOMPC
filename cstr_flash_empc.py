@@ -17,8 +17,8 @@ from hybridid import _cstr_flash_plant_ode as _plant_ode
 from hybridid import _cstr_flash_greybox_ode as _greybox_ode
 from hybridid import _cstr_flash_measurement as _measurement
 
-def get_controller(model_ode, model_pars, model_type, cost_pars, 
-                   mhe_noise_tuning):
+def get_controller(model_ode, model_pars, model_type, 
+                   cost_pars, mhe_noise_tuning):
     """ Construct the controller object comprised of 
         EMPC regulator and MHE estimator. """
 
@@ -74,7 +74,7 @@ def get_controller(model_ode, model_pars, model_type, cost_pars,
     Qwx, Qwd, Rv = mhe_noise_tuning
 
     # Horizon lengths.
-    Nmpc = 120
+    Nmpc = 60
     Nmhe = 30
 
     # Return the NN controller.
@@ -116,7 +116,7 @@ def stage_cost(x, u, p, pars, xindices):
     ce, ca, cb = p[0:3]
     Hb, CBb, Tb = x[xindices]
     Fb = kb*np.sqrt(Hb)
-
+    
     # Compute and return cost.
     return ca*F*CAf + ce*Qr + ce*Qb + ce*D*pho*Cp*(Tb-Td) - cb*Fb*CBb
 
@@ -134,11 +134,11 @@ def get_mhe_noise_tuning(model_type, model_par):
     if model_type == 'plant':
         Qwx = 1e-6*np.eye(model_par['Nx'])
         Qwd = 1e-6*np.eye(model_par['Ny'])
-        Rv = model_par['Rv']#1e-3*np.eye(model_par['Ny'])
+        Rv = 1e-3*np.eye(model_par['Ny'])
     else:
-        Qwx = 1e-6*np.eye(model_par['Ng'])
-        Qwd = 1e-3*np.eye(model_par['Ny'])
-        Rv = np.diag([0.8, 1e-3, 1., 0.8, 1e-3, 1.])#model_par['Rv']#1e-2*np.eye(model_par['Ny'])
+        Qwx = 1e-3*np.eye(model_par['Ng'])
+        Qwd = np.eye(model_par['Ny'])
+        Rv = 1e-3*np.eye(model_par['Ny'])
     return (Qwx, Qwd, Rv)
 
 def main():
@@ -155,9 +155,9 @@ def main():
 
     # Run simulations for different model.
     cl_data_list, stage_costs_list = [], []
-    model_odes = [_plant_ode, _greybox_ode]
-    model_pars = [plant_pars, greybox_pars]
-    model_types = ['plant', 'grey-box']
+    model_odes = [_greybox_ode]
+    model_pars = [greybox_pars]
+    model_types = ['grey-box']
     plant_lxup = lambda x, u, p: stage_cost(x, u, p, plant_pars, [5, 7, 9])
     for (model_ode,
          model_par, model_type) in zip(model_odes, model_pars, model_types):
@@ -167,7 +167,7 @@ def main():
                                     cost_pars, mhe_noise_tuning)
         cl_data, stage_costs = online_simulation(plant, controller,
                             plant_lxup=plant_lxup,
-                            Nsim=24*60, disturbances=disturbances,
+                            Nsim=2*60, disturbances=disturbances,
                             stdout_filename='cstr_flash_empc.txt')
         cl_data_list += [cl_data]
         stage_costs_list += [stage_costs]
