@@ -11,7 +11,7 @@ import numpy as np
 import itertools
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
-from hybridid import (PickleTool, PAPER_FIGSIZE, plot_profit_curve)
+from hybridid import (PickleTool, PAPER_FIGSIZE)
 
 ylabels = [r'$H_r \ (\textnormal{m})$',
            r'$C_{Ar} \ (\textnormal{mol/m}^3)$', 
@@ -141,15 +141,46 @@ def get_datum(*, simdata_list, plot_range):
         ydatum += [y]
     return (t, udatum, ydatum, xdatum)
 
-def plot_cost_pars():
+def plot_cost_pars(cost_pars, colors, legends):
+    """ Plot the economic MPC cost parameters. """
+    (figure, axes) = plt.subplots(nrows=1, ncols=1,
+                                  sharex=True,
+                                  figsize=figure_size,
+                                  gridspec_kw=dict(left=left_label_frac))
+    xlabel = r'$C_{Af} \ (\textnormal{mol/m}^3)$'
+    ylabel = r'Cost ($\$ $)'
+    for (cost, color) in zip(costs, colors):
+        # Plot the corresponding data.
+        axes.plot(us, cost, color)
+    axes.legend(legends)
+    axes.set_xlabel(xlabel)
+    axes.set_ylabel(ylabel, rotation=False)
+    axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
+    axes.set_xlim([np.min(us), np.max(us)])
+    return [figure]
 
-
-    return 
-
-def plot_cum_profit():
-
-
-    return 
+def plot_avg_profits(*, t, avg_stage_costs,
+                    legend_colors, legend_names, 
+                    figure_size=PAPER_FIGSIZE, 
+                    ylabel_xcoordinate=-0.15):
+    """ Plot the profit. """
+    (figure, axes) = plt.subplots(nrows=1, ncols=1,
+                                  sharex=True,
+                                  figsize=figure_size,
+                                  gridspec_kw=dict(left=0.18))
+    xlabel = 'Time (min)'
+    ylabel = '$\Lambda_k$'
+    for (cost, color) in zip(avg_stage_costs, legend_colors):
+        # Plot the corresponding data.
+        profit = -cost
+        axes.plot(t, profit, color)
+    axes.legend(legend_names)
+    axes.set_xlabel(xlabel)
+    axes.set_ylabel(ylabel)
+    axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
+    axes.set_xlim([np.min(t), np.max(t)])
+    # Return.
+    return [figure]
 
 def main():
     """ Load the pickle file and plot. """
@@ -168,7 +199,7 @@ def main():
     simdata_list = [cstr_flash_parameters['training_data'][-1], 
                     cstr_flash_parameters['greybox_val_data']]
     (t, udatum, ydatum, xdatum) = get_datum(simdata_list=simdata_list, 
-                                       plot_range = (120, 12*60))
+                                       plot_range = (120, 24*60))
     #ydatum.append(val_predictions[0].y[:600, :])
     legend_names = ['Plant', 'Grey-Box', 'Hybrid']
     legend_colors = ['b', 'g', 'm']
@@ -178,7 +209,7 @@ def main():
                               legend_names=legend_names,
                               legend_colors=legend_colors)
 
-    # Plot the closed-loop data.
+    # Plot the closed-loop simulation.
     legend_names = ['Plant', 'Grey-Box', 'Hybrid']
     legend_colors = ['b', 'g', 'm']
     cl_data_list = cstr_flash_empc['cl_data_list']
@@ -189,15 +220,11 @@ def main():
                               legend_names=legend_names,
                               legend_colors=legend_colors)
     
-    #figures += plot_val_model_predictions(plantsim_data=
-    #                              tworeac_parameters['training_data'][-1],
-    #        modelsim_datum=[tworeac_parameters['greybox_validation_data'], 
-    #                        tworeac_train['val_predictions']],
-    #                plot_range=(0, 6*60), 
-    #            tsteps_steady=tworeac_parameters['parameters']['tsteps_steady'])
-    
-    #figures += plot_profit_curve(us=ssopt['us'],
-    #                             costs=ssopt['costs'])
+    # Plot the plant profit in time.
+    figures += plot_avg_profits(t=t,
+                            avg_stage_costs=cstr_flash_empc['avg_stage_costs'], 
+                            legend_colors=legend_colors, 
+                            legend_names=legend_names)
     with PdfPages('cstr_flash_plots.pdf', 'w') as pdf_file:
         for fig in figures:
             pdf_file.savefig(fig)

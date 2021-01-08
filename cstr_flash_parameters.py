@@ -17,7 +17,7 @@ from hybridid import _cstr_flash_plant_ode as _plant_ode
 from hybridid import _cstr_flash_greybox_ode as _greybox_ode
 from hybridid import _cstr_flash_measurement as _measurement
 
-def _get_greybox_parameters():
+def _get_greybox_parameters(*, plant_pars):
     """ Get the parameter values for the
         CSTRs with flash example. """
 
@@ -37,29 +37,31 @@ def _get_greybox_parameters():
     parameters['Td'] = 300 # K
 
     # Store the dimensions.
-    Ng, Nu, Np, Ny = 8, 4, 2, 6
-    parameters['Ng'] = Ng
-    parameters['Nu'] = Nu
-    parameters['Ny'] = Ny
-    parameters['Np'] = Np
+    parameters['Ng'] = 8
+    parameters['Nu'] = plant_pars['Nu']
+    parameters['Ny'] = plant_pars['Ny']
+    parameters['Np'] = plant_pars['Np']
 
     # Sample time.
     parameters['Delta'] = 1. # min
 
     # Get the steady states.
-    parameters['xs'] = np.array([50., 1., 0., 313.,
-                                 50., 1., 0., 313.])
-    parameters['us'] = np.array([10., 200., 5., 300.])
+    gb_indices = [0, 1, 2, 4, 5, 6, 7, 9]
+    parameters['xs'] = plant_pars['xs'][gb_indices]
+    parameters['us'] = plant_pars['us']
     parameters['ps'] = np.array([5., 320.])
 
     # The C matrix for the plant.
-    parameters['tsteps_steady'] = 120
+    parameters['tsteps_steady'] = plant_pars['tsteps_steady']
     parameters['yindices'] = [0, 1, 3, 4, 5, 7]
 
     # Get the constraints.
-    parameters['ulb'] = np.array([5., 0., 2., 200.])
-    parameters['uub'] = np.array([15., 400., 8., 400.])
+    parameters['ulb'] = plant_pars['ulb']
+    parameters['uub'] = plant_pars['uub']
 
+    # Noise for MHE.
+    parameters['Rv'] = plant_pars['Rv']
+    
     # Return the parameters dict.
     return parameters
 
@@ -101,7 +103,7 @@ def _get_plant_parameters():
                                  50., 1., 0., 0., 313.])
     parameters['us'] = np.array([10., 200., 5., 300.])
     parameters['ps'] = np.array([6., 320.])
-    
+
     # Get the constraints.
     parameters['ulb'] = np.array([5., 0., 2., 200.])
     parameters['uub'] = np.array([15., 400., 8., 400.])
@@ -109,7 +111,7 @@ def _get_plant_parameters():
     # The C matrix for the plant.
     parameters['yindices'] = [0, 1, 4, 5, 6, 9]
     parameters['tsteps_steady'] = 120
-    parameters['Rv'] = np.diag([0.8, 1e-3, 1., 0.8, 1e-3, 1.])
+    parameters['Rv'] = 0*np.diag([0.8, 1e-3, 1., 0.8, 1e-3, 1.])
     
     # Return the parameters dict.
     return parameters
@@ -155,7 +157,7 @@ def _get_model(*, parameters, plant=True):
         xs = parameters['xs'][:, np.newaxis]
         return NonlinearPlantSimulator(fxup = greybox_ode,
                                         hx = measurement,
-                                        Rv = 0*np.eye(parameters['Ny']), 
+                                        Rv = 0*np.eye(parameters['Ny']),
                                         Nx = parameters['Ng'], 
                                         Nu = parameters['Nu'], 
                                         Np = parameters['Np'], 
@@ -199,7 +201,7 @@ def _gen_train_val_data(*, parameters, num_traj,
         else:
             "Get input for training simulation."
             Nsim = Nsim_train
-            u = sample_prbs_like(num_change=8, num_steps=Nsim_train, 
+            u = sample_prbs_like(num_change=8, num_steps=Nsim_train,
                                  lb=ulb, ub=uub,
                                  mean_change=30, sigma_change=2, seed=seed)
         seed += 1
@@ -340,7 +342,7 @@ def main():
     # Get parameters.
     plant_pars = _get_plant_parameters()
     plant_pars['xs'] = _get_rectified_xs(parameters=plant_pars)
-    greybox_pars = _get_greybox_parameters()
+    greybox_pars = _get_greybox_parameters(plant_pars=plant_pars)
 
     # Generate training data.
     training_data = _gen_train_val_data(parameters=plant_pars, num_traj=3,
