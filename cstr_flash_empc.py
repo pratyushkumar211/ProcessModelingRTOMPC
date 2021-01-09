@@ -18,14 +18,23 @@ from hybridid import _cstr_flash_plant_ode as _plant_ode
 from hybridid import _cstr_flash_greybox_ode as _greybox_ode
 from hybridid import _cstr_flash_measurement as _measurement
 
-def get_controller(model_ode, model_pars, model_type, 
+def get_controller(model_func, model_pars, model_type, 
                    cost_pars, mhe_noise_tuning):
     """ Construct the controller object comprised of 
         EMPC regulator and MHE estimator. """
 
     # Get models.
     ps = model_pars['ps']
-    fxu = lambda x, u: model_ode(x, u, ps, model_pars)
+    Delta = model_pars['Delta']
+
+    # State-space model (discrete time).
+    if model_type == 'hybrid':
+        fxu = model_func
+    else:
+        fxu = lambda x, u: model_ode(x, u, ps, model_pars)
+        fxu = c2dNonlin(fxu, Delta)
+
+    # Measurement function.
     hx = lambda x: _measurement(x, model_pars)
 
     # Get the stage cost.
@@ -43,7 +52,6 @@ def get_controller(model_ode, model_pars, model_type,
     # Get the sizes/sample time.
     (Nu, Ny) = (model_pars['Nu'], model_pars['Ny'])
     Nd = Ny
-    Delta = model_pars['Delta']
 
     # Get the disturbance models.
     Bd = np.zeros((Nx, Nd))
@@ -79,16 +87,34 @@ def get_controller(model_ode, model_pars, model_type,
     # Horizon lengths.
     Nmpc = 60
     Nmhe = 30
-    breakpoint()
+
     # Return the NN controller.
     return NonlinearEMPCController(fxu=fxu, hx=hx,
                                    lxup=lxup, Bd=Bd, Cd=Cd,
-                                   sample_time=Delta,
                                    Nx=Nx, Nu=Nu, Ny=Ny, Nd=Nd,
                                    xs=xs, us=us, ds=ds, ys=ys,
                                    empc_pars=cost_pars,
                                    ulb=ulb, uub=uub, Nmpc=Nmpc,
                                    Qwx=Qwx, Qwd=Qwd, Rv=Rv, Nmhe=Nmhe)
+
+def c2dNonlin(fxu, Delta):
+    """ Write a quick function to 
+        convert a ode to discrete
+        time using the RK4 method.
+        
+        xdot is a function such that 
+        dx/dt = f(x, u)
+        assume zero-order hold on the input.
+    """
+    # Get k1, k2, k3, k4.
+    k1 = fxu
+    k2 = lambda x, u: fxu(x + Delta*(k1(x, u)/2), u)
+    k3 = lambda x, u: fxu(x + Delta*(k2(x, u)/2), u)
+    k4 = lambda x, u: fxu(x + Delta*k3(x, u), u)
+    # Final discrete time function. 
+    xplus = lambda x, u: x + (Delta/6)*(k1(x, u) + 
+                                        2*k2(x, u) + 2*k3(x, u) + k4(x, u))
+    return xplus
 
 def get_hybrid_pars(*, greybox_pars, Npast, fnn_weights, xuyscales):
     """ Get the hybrid model parameters. """
@@ -145,6 +171,12 @@ def _hybrid_ode(xGz, u, p, parameters):
     
     # Return the sum.
     return gb_output + nn_output
+
+def _hybrid_func(xGz, u)
+    """ Hybrid function. """
+
+
+    return
 
 def get_plant(*, parameters):
     """ Return a nonlinear plant simulator object. """
@@ -226,15 +258,15 @@ def main():
     fnn_weights = cstr_flash_train['trained_weights'][0][0]
     xuyscales = cstr_flash_train['xuyscales']
     hybrid_pars = get_hybrid_pars(greybox_pars=greybox_pars,
-                                  Npast=Np,     
+                                  Npast=Np,
                                   fnn_weights=fnn_weights,
                                   xuyscales=xuyscales)
 
     # Run simulations for different model.
     cl_data_list, avg_stage_costs_list, openloop_sol_list = [], [], []
-    model_odes = [_hybrid_ode]
-    model_pars = [hybrid_pars]
-    model_types = ['hybrid']
+    model_odes = [_plant_ode, _hybrid_ode, _greybox_ode]
+    model_pars = [plant_pars, hybrid_pars, greybox_pars]
+    model_types = ['plant', 'hybrid', 'grey-box']
     plant_lxup = lambda x, u, p: stage_cost(x, u, p, plant_pars, [5, 7, 9])
     for (model_ode,
          model_par, model_type) in zip(model_odes, model_pars, model_types):
@@ -242,11 +274,10 @@ def main():
         plant = get_plant(parameters=plant_pars)
         controller = get_controller(model_ode, model_par, model_type,
                                     cost_pars, mhe_noise_tuning)
-        breakpoint()
         cl_data, avg_stage_costs, openloop_sol = online_simulation(plant, 
                                          controller,
                                          plant_lxup=plant_lxup,
-                                         Nsim=10, disturbances=disturbances,
+                                         Nsim=2, disturbances=disturbances,
                                          stdout_filename='cstr_flash_empc.txt')
         cl_data_list += [cl_data]
         avg_stage_costs_list += [avg_stage_costs]
