@@ -122,6 +122,18 @@ def plot_data(*, t, udatum, ydatum, xdatum,
     # Return the figure object.
     return figures
 
+#def plot_openloop_sols(*, t, useq, xseq,
+#                          legend_names, legend_colors,
+#                          figure_size=PAPER_FIGSIZE):
+#    figures = []
+#    figures += plot_inputs(t, [useq], figure_size, -0.1,
+#                           data_type, legend_names, ['legend_colors'])
+#    figures += plot_states(t, [xseq], figure_size, -0.25, 
+#                           legend_names, legend_colors)
+
+    # Return the figure object.
+#    return figures
+
 def get_plotting_arrays(data, plot_range):
     """ Get data and return for plotting. """
     start, end = plot_range
@@ -141,22 +153,26 @@ def get_datum(*, simdata_list, plot_range):
         ydatum += [y]
     return (t, udatum, ydatum, xdatum)
 
-def plot_cost_pars(cost_pars, colors, legends):
+def plot_cost_pars(t, cost_pars,
+                   figure_size=PAPER_FIGSIZE, 
+                   ylabel_xcoordinate=-0.15):
     """ Plot the economic MPC cost parameters. """
-    (figure, axes) = plt.subplots(nrows=1, ncols=1,
+    num_pars = cost_pars.shape[1]
+    (figure, axes_list) = plt.subplots(nrows=num_pars, ncols=1,
                                   sharex=True,
                                   figsize=figure_size,
-                                  gridspec_kw=dict(left=left_label_frac))
-    xlabel = r'$C_{Af} \ (\textnormal{mol/m}^3)$'
-    ylabel = r'Cost ($\$ $)'
-    for (cost, color) in zip(costs, colors):
+                                  gridspec_kw=dict(left=0.18))
+    xlabel = 'Time (min)'
+    ylabels = ['Energy Price ($\$$/kW)',
+                'Raw Material Cost ($\$$/mol-A)',
+                'Product Price ($\$$/mol-B)']
+    for (axes, pari, ylabel) in zip(axes_list, range(num_pars), ylabels):
         # Plot the corresponding data.
-        axes.plot(us, cost, color)
-    axes.legend(legends)
+        axes.plot(t, cost_pars[:len(t), pari])
+        axes.set_ylabel(ylabel)
+        axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
     axes.set_xlabel(xlabel)
-    axes.set_ylabel(ylabel, rotation=False)
-    axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
-    axes.set_xlim([np.min(us), np.max(us)])
+    axes.set_xlim([np.min(t), np.max(t)])
     return [figure]
 
 def plot_avg_profits(*, t, avg_stage_costs,
@@ -167,7 +183,7 @@ def plot_avg_profits(*, t, avg_stage_costs,
     (figure, axes) = plt.subplots(nrows=1, ncols=1,
                                   sharex=True,
                                   figsize=figure_size,
-                                  gridspec_kw=dict(left=0.18))
+                                  gridspec_kw=dict(left=0.15))
     xlabel = 'Time (min)'
     ylabel = '$\Lambda_k$'
     for (cost, color) in zip(avg_stage_costs, legend_colors):
@@ -176,7 +192,7 @@ def plot_avg_profits(*, t, avg_stage_costs,
         axes.plot(t, profit, color)
     axes.legend(legend_names)
     axes.set_xlabel(xlabel)
-    axes.set_ylabel(ylabel)
+    axes.set_ylabel(ylabel, rotation=True)
     axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
     axes.set_xlim([np.min(t), np.max(t)])
     # Return.
@@ -225,6 +241,11 @@ def main():
                             avg_stage_costs=cstr_flash_empc['avg_stage_costs'], 
                             legend_colors=legend_colors, 
                             legend_names=legend_names)
+
+    # Plot the empc costs.
+    figures += plot_cost_pars(t=t, cost_pars=cstr_flash_empc['cost_pars'])
+
+    # Save PDF.
     with PdfPages('cstr_flash_plots.pdf', 'w') as pdf_file:
         for fig in figures:
             pdf_file.savefig(fig)
