@@ -115,7 +115,7 @@ class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
         (self.Ng, self.Ny, self.Nu) = (cstr_flash_parameters['Ng'],
                                        cstr_flash_parameters['Ny'],
                                        cstr_flash_parameters['Nu'])
-
+    
     @property
     def state_size(self):
         return self.Ng + self.Np*(self.Ny + self.Nu)
@@ -139,7 +139,7 @@ class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
         kr = self.parameters['kr']
         kb = self.parameters['kb']
         delH1 = self.parameters['delH1']
-        EbyR = self.parameters['EbyR']
+        E1byR = self.parameters['E1byR']
         k1star = self.parameters['k1star']
         Td = self.parameters['Td']
         ps = self.parameters['ps']
@@ -169,7 +169,7 @@ class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
         Fb = kb*tf.math.sqrt(Hb)
 
         # Rate constant and reaction rate.
-        k1 = k1star*tf.math.exp(-EbyR/Tr)
+        k1 = k1star*tf.math.exp(-E1byR/Tr)
         r1 = k1*CAr
 
         # Write the CSTR odes.

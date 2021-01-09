@@ -218,6 +218,10 @@ class NonlinearEMPCRegulator:
                                   guess=guess)
         self.regulator.solve()
         self.regulator.saveguess()
+        useq = np.asarray(casadi.horzcat(*self.regulator.var['u'])).T
+        xseq = np.asarray(casadi.horzcat(*self.regulator.var['x'])).T
+        breakpoint()
+        self._append_data(x0, useq, xseq)
 
     def solve(self, x0, empc_pars):
         """Setup and the solve the dense QP, output is
@@ -351,10 +355,9 @@ class NonlinearEMPCController:
         Bd is in continuous time.
     """
     def __init__(self, *, fxu, hx, lxup, Bd, Cd, sample_time,
-                     Nx, Nu, Ny, Nd, Np,
+                     Nx, Nu, Ny, Nd,
                      xs, us, ds, ys,
-                     empc_pars,
-                     ulb, uub, Nmpc,
+                     empc_pars, ulb, uub, Nmpc,
                      Qwx, Qwd, Rv, Nmhe):
         
         # Model and stage cost.
@@ -370,7 +373,7 @@ class NonlinearEMPCController:
         self.Nu = Nu
         self.Ny = Ny
         self.Nd = Nd
-        self.Np = Np
+        self.Np = empc_pars.shape[1]
 
         # Steady states of the system.
         self.xs = xs
@@ -481,30 +484,33 @@ def online_simulation(plant, controller, *, plant_lxup, Nsim=None,
     sys.stdout = open(stdout_filename, 'w')
     measurement = plant.y[0] # Get the latest plant measurement.
     disturbances = disturbances[..., np.newaxis]
-    stage_costs = []
+    avg_stage_costs = [0.]
     for (simt, disturbance) in zip(range(Nsim), disturbances):
         print("Simulation Step:" + f"{simt}")
         control_input = controller.control_law(simt, measurement)
         print("Computation time:" + str(controller.computation_times[-1]))
         stage_cost = plant_lxup(plant.x[-1], control_input,
                                 controller.empc_pars[simt:simt+1, :].T)[0]
-        stage_costs += [stage_cost]
+        avg_stage_costs += [(avg_stage_costs[-1]*simt + stage_cost)/(simt+1)]
         measurement = plant.step(control_input, disturbance)
     # Create a sim data and stage cost array.
     cl_data = SimData(t=np.asarray(plant.t[0:-1]).squeeze(),
                 x=np.asarray(plant.x[0:-1]).squeeze(),
                 u=np.asarray(plant.u).squeeze(),
                 y=np.asarray(plant.y[0:-1]).squeeze())
-    stage_costs = np.array(stage_costs)
-    return cl_data, stage_costs
+    avg_stage_costs = np.array(avg_stage_costs[1:])
+    openloop_sol = [np.asarray(controller.regulator.useq[0]), 
+                    np.asarray(controller.regulator.xseq[0])]
+    # Return.
+    return cl_data, avg_stage_costs, openloop_sol
 
 def _get_energy_price(*, num_days, sample_time):
     """ Get a two day heat disturbance profile. """
     energy_price = np.zeros((24, 1))
-    energy_price[0:16, :] = np.ones((16, 1))
-    #energy_price[8:16, :] = 20*np.ones((8, 1))
+    energy_price[0:8, :] = np.ones((8, 1))
+    energy_price[8:16, :] = 20*np.ones((8, 1))
     energy_price[16:24, :] = np.ones((8, 1))
-    energy_price = 1e-3*np.tile(energy_price, (num_days, 1))
+    energy_price = 1e-2*np.tile(energy_price, (num_days, 1))
     return _resample_fast(x=energy_price,
                           xDelta=60,
                           newDelta=sample_time,
@@ -515,14 +521,14 @@ def get_cstr_flash_empc_pars(*, num_days, sample_time, plant_pars):
 
     # Get the cost parameters.
     energy_price = _get_energy_price(num_days=num_days, sample_time=sample_time)
-    raw_mat_price = _resample_fast(x = np.array([[1000.], [500.], 
+    raw_mat_price = _resample_fast(x = np.array([[1000.], [1000.], 
                                                  [1000.], [900.], 
                                                  [900.], [900.], 
                                                  [900.], [900.]]), 
                                    xDelta=6*60,
                                    newDelta=sample_time,
                                    resample_type='zoh')
-    product_price = _resample_fast(x = np.array([[12000.], [20000.], 
+    product_price = _resample_fast(x = np.array([[12000.], [15000.], 
                                                  [10000.], [10000.], 
                                                  [10000.], [10000.], 
                                                  [10000.], [10000.]]),
@@ -755,7 +761,7 @@ def _cstr_flash_greybox_ode(x, u, p, parameters):
     dCAbbydt = (Fr*(CAr - CAb) + D*(CAb - CAd))/(Ab*Hb)
     dCBbbydt = (Fr*(CBr - CBb) + D*(CBb - CBd))/(Ab*Hb)
     dTbbydt = (Fr*(Tr - Tb))/(Ab*Hb) + Qb/(pho*Ab*Cp*Hb)
-
+    
     # Return the derivative.
     return np.array([dHrbydt, dCArbydt, dCBrbydt, dTrbydt,
                      dHbbydt, dCAbbydt, dCBbbydt, dTbbydt])

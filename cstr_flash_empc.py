@@ -79,7 +79,7 @@ def get_controller(model_ode, model_pars, model_type,
     # Horizon lengths.
     Nmpc = 60
     Nmhe = 30
-
+    breakpoint()
     # Return the NN controller.
     return NonlinearEMPCController(fxu=fxu, hx=hx,
                                    lxup=lxup, Bd=Bd, Cd=Cd,
@@ -90,7 +90,7 @@ def get_controller(model_ode, model_pars, model_type,
                                    ulb=ulb, uub=uub, Nmpc=Nmpc,
                                    Qwx=Qwx, Qwd=Qwd, Rv=Rv, Nmhe=Nmhe)
 
-def get_hybrid_pars(*, greybox_pars, Npast, fnn_weights):
+def get_hybrid_pars(*, greybox_pars, Npast, fnn_weights, xuyscales):
     """ Get the hybrid model parameters. """
 
     hybrid_pars = copy.deepcopy(greybox_pars)
@@ -110,6 +110,11 @@ def get_hybrid_pars(*, greybox_pars, Npast, fnn_weights):
     hybrid_pars['Npast'] = Npast
     hybrid_pars['fnn_weights'] = fnn_weights 
 
+    # Scaling.
+    hybrid_pars['xscale'] = xuyscales['xscale']
+    hybrid_pars['uscale'] = xuyscales['uscale']
+    hybrid_pars['yscale'] = xuyscales['yscale']
+
     # Return.
     return hybrid_pars
 
@@ -117,21 +122,28 @@ def _hybrid_ode(xGz, u, p, parameters):
     """ The augmented continuous time model. """
 
     Ng = parameters['Ng']
+    Npast = parameters['Npast']
     fnn_weights = parameters['fnn_weights']
+    xscale = parameters['xscale']
+    uscale = parameters['uscale']
+    yscale = parameters['yscale']
+    xGzscale = np.concatenate((xscale,
+                               np.tile(yscale, (Npast, )), 
+                               np.tile(uscale, (Npast, ))))
 
     # Compute the NN output.
-    nn_output = np.concatenate((xGz, u))
+    nn_output = np.concatenate((xGz/xGzscale, u/uscale))[:, np.newaxis]
     for i in range(0, len(fnn_weights)-2, 2):
         (W, b) = fnn_weights[i:i+2]
         nn_output = np.tanh(W.T @ nn_output + b[:, np.newaxis])
     (Wf, bf) = fnn_weights[-2:]
-    nn_output = Wf.T @ nn_output + bf[:, np.newaxis]
+    nn_output = (Wf.T @ nn_output + bf[:, np.newaxis])[:, 0]*xscale
 
     # Compute the Grey-box output.
     xG = xGz[:Ng]
     gb_output = _greybox_ode(xG, u, p, parameters)
-
-    # Return the sum. 
+    
+    # Return the sum.
     return gb_output + nn_output
 
 def get_plant(*, parameters):
@@ -182,8 +194,12 @@ def get_mhe_noise_tuning(model_type, model_par):
         Qwx = 1e-6*np.eye(model_par['Nx'])
         Qwd = 1e-6*np.eye(model_par['Ny'])
         Rv = 1e-3*np.eye(model_par['Ny'])
-    else:
+    elif model_type == 'grey-box':
         Qwx = 1e-3*np.eye(model_par['Ng'])
+        Qwd = np.eye(model_par['Ny'])
+        Rv = 1e-3*np.eye(model_par['Ny'])
+    else:
+        Qwx = 1e-3*np.eye(model_par['Nx'])
         Qwd = np.eye(model_par['Ny'])
         Rv = 1e-3*np.eye(model_par['Ny'])
     return (Qwx, Qwd, Rv)
@@ -208,15 +224,17 @@ def main():
     # Get NN weights and the hybrid ODE.
     Np = cstr_flash_train['Nps'][0]
     fnn_weights = cstr_flash_train['trained_weights'][0][0]
-    hybrid_pars = get_hybrid_pars(greybox_pars=greybox_pars, 
-                                  Npast=Np,                      
-                                  fnn_weights=fnn_weights)
+    xuyscales = cstr_flash_train['xuyscales']
+    hybrid_pars = get_hybrid_pars(greybox_pars=greybox_pars,
+                                  Npast=Np,     
+                                  fnn_weights=fnn_weights,
+                                  xuyscales=xuyscales)
 
     # Run simulations for different model.
     cl_data_list, avg_stage_costs_list, openloop_sol_list = [], [], []
-    model_odes = [_plant_ode, _greybox_ode]
-    model_pars = [plant_pars, greybox_pars]
-    model_types = ['plant', 'grey-box']
+    model_odes = [_hybrid_ode]
+    model_pars = [hybrid_pars]
+    model_types = ['hybrid']
     plant_lxup = lambda x, u, p: stage_cost(x, u, p, plant_pars, [5, 7, 9])
     for (model_ode,
          model_par, model_type) in zip(model_odes, model_pars, model_types):
@@ -224,6 +242,7 @@ def main():
         plant = get_plant(parameters=plant_pars)
         controller = get_controller(model_ode, model_par, model_type,
                                     cost_pars, mhe_noise_tuning)
+        breakpoint()
         cl_data, avg_stage_costs, openloop_sol = online_simulation(plant, 
                                          controller,
                                          plant_lxup=plant_lxup,

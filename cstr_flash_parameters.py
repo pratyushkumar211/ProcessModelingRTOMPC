@@ -345,7 +345,7 @@ def main():
     greybox_pars = _get_greybox_parameters(plant_pars=plant_pars)
 
     # Generate training data.
-    training_data = _gen_train_val_data(parameters=plant_pars, num_traj=3,
+    training_data = _gen_train_val_data(parameters=plant_pars, num_traj=10,
                                         Nsim_train=4*60, Nsim_trainval=3*60,
                                         Nsim_val=12*60, seed=2)
 
