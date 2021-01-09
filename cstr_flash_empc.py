@@ -9,6 +9,7 @@ import sys
 sys.path.append('lib/')
 import time
 import casadi
+import copy
 import numpy as np
 from hybridid import (PickleTool, NonlinearEMPCController,
                       SimData, get_cstr_flash_empc_pars,
@@ -31,15 +32,17 @@ def get_controller(model_ode, model_pars, model_type,
     if model_type == 'plant':
         lxup_xindices = [5, 7, 9]
         Nx = model_pars['Nx']
-    else:
+    elif model_type == 'grey-box':
         lxup_xindices = [4, 6, 7]
         Nx = model_pars['Ng']
+    else:
+        lxup_xindices = [4, 6, 7]
+        Nx = model_pars['Nx']
     lxup = lambda x, u, p: stage_cost(x, u, p, model_pars, lxup_xindices)
     
     # Get the sizes/sample time.
     (Nu, Ny) = (model_pars['Nu'], model_pars['Ny'])
     Nd = Ny
-    Np = 3
     Delta = model_pars['Delta']
 
     # Get the disturbance models.
@@ -81,11 +84,55 @@ def get_controller(model_ode, model_pars, model_type,
     return NonlinearEMPCController(fxu=fxu, hx=hx,
                                    lxup=lxup, Bd=Bd, Cd=Cd,
                                    sample_time=Delta,
-                                   Nx=Nx, Nu=Nu, Ny=Ny, Nd=Nd, Np=Np,
+                                   Nx=Nx, Nu=Nu, Ny=Ny, Nd=Nd,
                                    xs=xs, us=us, ds=ds, ys=ys,
                                    empc_pars=cost_pars,
                                    ulb=ulb, uub=uub, Nmpc=Nmpc,
                                    Qwx=Qwx, Qwd=Qwd, Rv=Rv, Nmhe=Nmhe)
+
+def get_hybrid_pars(*, greybox_pars, Npast, fnn_weights):
+    """ Get the hybrid model parameters. """
+
+    hybrid_pars = copy.deepcopy(greybox_pars)
+    # Update sizes.
+    Nu, Ny = greybox_pars['Nu'], greybox_pars['Ny']
+    hybrid_pars['Nx'] = greybox_pars['Ng'] + Npast*(Nu + Ny)
+
+    # Update steady state.
+    ys = _measurement(greybox_pars['xs'], greybox_pars)
+    yspseq = np.tile(ys, (Npast, ))
+    us = greybox_pars['us']
+    uspseq = np.tile(us, (Npast, ))
+    xs = greybox_pars['xs']
+    hybrid_pars['xs'] = np.concatenate((xs, yspseq, uspseq))
+    
+    # NN pars.
+    hybrid_pars['Npast'] = Npast
+    hybrid_pars['fnn_weights'] = fnn_weights 
+
+    # Return.
+    return hybrid_pars
+
+def _hybrid_ode(xGz, u, p, parameters):
+    """ The augmented continuous time model. """
+
+    Ng = parameters['Ng']
+    fnn_weights = parameters['fnn_weights']
+
+    # Compute the NN output.
+    nn_output = np.concatenate((xGz, u))
+    for i in range(0, len(fnn_weights)-2, 2):
+        (W, b) = fnn_weights[i:i+2]
+        nn_output = np.tanh(W.T @ nn_output + b[:, np.newaxis])
+    (Wf, bf) = fnn_weights[-2:]
+    nn_output = Wf.T @ nn_output + bf[:, np.newaxis]
+
+    # Compute the Grey-box output.
+    xG = xGz[:Ng]
+    gb_output = _greybox_ode(xG, u, p, parameters)
+
+    # Return the sum. 
+    return gb_output + nn_output
 
 def get_plant(*, parameters):
     """ Return a nonlinear plant simulator object. """
@@ -147,11 +194,23 @@ def main():
     cstr_flash_parameters = PickleTool.load(filename=
                                             'cstr_flash_parameters.pickle',
                                             type='read')
+    cstr_flash_train = PickleTool.load(filename=
+                                            'cstr_flash_train.pickle',
+                                            type='read')
+
+    # Get parameters.
     plant_pars = cstr_flash_parameters['plant_pars']
     greybox_pars = cstr_flash_parameters['greybox_pars']
     cost_pars, disturbances = get_cstr_flash_empc_pars(num_days=2,
                                          sample_time=plant_pars['Delta'], 
                                          plant_pars=plant_pars)
+
+    # Get NN weights and the hybrid ODE.
+    Np = cstr_flash_train['Nps'][0]
+    fnn_weights = cstr_flash_train['trained_weights'][0][0]
+    hybrid_pars = get_hybrid_pars(greybox_pars=greybox_pars, 
+                                  Npast=Np,                      
+                                  fnn_weights=fnn_weights)
 
     # Run simulations for different model.
     cl_data_list, avg_stage_costs_list, openloop_sol_list = [], [], []
@@ -168,7 +227,7 @@ def main():
         cl_data, avg_stage_costs, openloop_sol = online_simulation(plant, 
                                          controller,
                                          plant_lxup=plant_lxup,
-                                         Nsim=24*60, disturbances=disturbances,
+                                         Nsim=10, disturbances=disturbances,
                                          stdout_filename='cstr_flash_empc.txt')
         cl_data_list += [cl_data]
         avg_stage_costs_list += [avg_stage_costs]
