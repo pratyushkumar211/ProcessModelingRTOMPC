@@ -29,9 +29,9 @@ def get_controller(model_func, model_pars, model_type,
 
     # State-space model (discrete time).
     if model_type == 'hybrid':
-        fxu = model_func
+        fxu = lambda x, u: model_func(x, u, model_pars)
     else:
-        fxu = lambda x, u: model_ode(x, u, ps, model_pars)
+        fxu = lambda x, u: model_func(x, u, ps, model_pars)
         fxu = c2dNonlin(fxu, Delta)
 
     # Measurement function.
@@ -111,7 +111,7 @@ def c2dNonlin(fxu, Delta):
     k2 = lambda x, u: fxu(x + Delta*(k1(x, u)/2), u)
     k3 = lambda x, u: fxu(x + Delta*(k2(x, u)/2), u)
     k4 = lambda x, u: fxu(x + Delta*k3(x, u), u)
-    # Final discrete time function. 
+    # Final discrete time function.
     xplus = lambda x, u: x + (Delta/6)*(k1(x, u) + 
                                         2*k2(x, u) + 2*k3(x, u) + k4(x, u))
     return xplus
@@ -137,46 +137,89 @@ def get_hybrid_pars(*, greybox_pars, Npast, fnn_weights, xuyscales):
     hybrid_pars['fnn_weights'] = fnn_weights 
 
     # Scaling.
-    hybrid_pars['xscale'] = xuyscales['xscale']
-    hybrid_pars['uscale'] = xuyscales['uscale']
-    hybrid_pars['yscale'] = xuyscales['yscale']
+    hybrid_pars['xuyscales'] = xuyscales
 
     # Return.
     return hybrid_pars
 
-def _hybrid_ode(xGz, u, p, parameters):
-    """ The augmented continuous time model. """
-
-    Ng = parameters['Ng']
-    Npast = parameters['Npast']
-    fnn_weights = parameters['fnn_weights']
-    xscale = parameters['xscale']
-    uscale = parameters['uscale']
-    yscale = parameters['yscale']
-    xGzscale = np.concatenate((xscale,
-                               np.tile(yscale, (Npast, )), 
-                               np.tile(uscale, (Npast, ))))
-
-    # Compute the NN output.
-    nn_output = np.concatenate((xGz/xGzscale, u/uscale))[:, np.newaxis]
+def _fnn(xG, z, u, Npast, xuyscales, fnn_weights):
+    """ Compute the NN output. """
+    xmean, xstd = xuyscales['xscale']
+    umean, ustd = xuyscales['uscale']
+    ymean, ystd = xuyscales['yscale']
+    xGzumean = np.concatenate((xmean,
+                               np.tile(ymean, (Npast, )), 
+                               np.tile(umean, (Npast+1, ))))
+    xGzustd = np.concatenate((xstd,
+                              np.tile(ystd, (Npast, )), 
+                              np.tile(ustd, (Npast+1, ))))
+    nn_output = (np.concatenate((xG, z, u))- xGzumean)/xGzustd
+    nn_output = nn_output[:, np.newaxis]
     for i in range(0, len(fnn_weights)-2, 2):
         (W, b) = fnn_weights[i:i+2]
         nn_output = np.tanh(W.T @ nn_output + b[:, np.newaxis])
     (Wf, bf) = fnn_weights[-2:]
-    nn_output = (Wf.T @ nn_output + bf[:, np.newaxis])[:, 0]*xscale
+    nn_output = (Wf.T @ nn_output + bf[:, np.newaxis])[:, 0]
+    nn_output = nn_output*xstd
+    # Return.
+    return nn_output
 
-    # Compute the Grey-box output.
-    xG = xGz[:Ng]
-    gb_output = _greybox_ode(xG, u, p, parameters)
+def interpolate(yseq, Npast, Ny):
+    """ y is of dimension: (None, (Np+1)*p)
+        Return y of dimension: (None, Np*p). """
+    yseq_interp = []
+    for t in range(Npast):
+        yseq_interp.append(0.5*(yseq[t*Ny:(t+1)*Ny] + yseq[(t+1)*Ny:(t+2)*Ny]))
+    # Return.
+    return np.concatenate(yseq_interp)
+
+def _hybrid_func(xGz, u, parameters):
+    """ The augmented continuous time model. """
+
+    # Extract a few parameters.
+    Ng = parameters['Ng']
+    Ny = parameters['Ny']
+    Nu = parameters['Nu']
+    ps = parameters['ps']
+    Npast = parameters['Npast']
+    Delta = parameters['Delta']
+    fnn_weights = parameters['fnn_weights']
+    xuyscales = parameters['xuyscales']
+
+    # Get some vectors.
+    xG, ypseq, upseq = xGz[:Ng], xGz[Ng:Ng+Npast*Ny], xGz[-Npast*Nu:]
+    z = xGz[Ng:]
+    hxG = _measurement(xG, parameters)
+
+    # Get k1.
+    k1 = _greybox_ode(xG, u, ps, parameters) 
+    k1 +=  _fnn(xG, z, u, Npast, xuyscales, fnn_weights)
+    
+    # Interpolate for k2 and k3.
+    ypseq_interp = interpolate(np.concatenate((ypseq, hxG)), Npast, Ny)
+    z = np.concatenate((ypseq_interp, upseq))
+    
+    # Get k2.
+    k2 = _greybox_ode(xG + Delta*(k1/2), u, ps, parameters)
+    k2 += _fnn(xG + Delta*(k1/2), z, u, Npast, xuyscales, fnn_weights)
+
+    # Get k3.
+    k3 = _greybox_ode(xG + Delta*(k2/2), u, ps, parameters)
+    k3 += _fnn(xG + Delta*(k2/2), z, u, Npast, xuyscales, fnn_weights)
+
+    # Get k4.
+    ypseq_shifted = np.concatenate((ypseq[Ny:], hxG))
+    z = np.concatenate((ypseq_shifted, upseq))
+    k4 = _greybox_ode(xG + Delta*k3, u, ps, parameters) 
+    k4 += _fnn(xG + Delta*k3, z, u, Npast, xuyscales, fnn_weights)
+    
+    # Get the current output/state and the next time step.
+    xGplus = xG + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
+    zplus = np.concatenate((ypseq_shifted, upseq[Nu:], u))
+    xGzplus = np.concatenate((xGplus, zplus))
     
     # Return the sum.
-    return gb_output + nn_output
-
-def _hybrid_func(xGz, u)
-    """ Hybrid function. """
-
-
-    return
+    return xGzplus
 
 def get_plant(*, parameters):
     """ Return a nonlinear plant simulator object. """
@@ -220,6 +263,38 @@ def stage_cost(x, u, p, pars, xindices):
 #        of the trained neural network controllers. """
 #    return
 
+def sim_hybrid(hybrid_func, uval, hybrid_pars, greybox_processed_data):
+    """ Hybrid validation simulation to make 
+        sure the above programmed function is 
+        the same is what tensorflow is training. """
+    
+    # Get initial state.
+    t = hybrid_pars['tsteps_steady']
+    Np = hybrid_pars['Npast']
+    Ny = hybrid_pars['Ny']
+    Nu = hybrid_pars['Nu']
+    y = greybox_processed_data.y
+    u = greybox_processed_data.u
+    x = greybox_processed_data.x
+    yp0seq = y[t-Np:t, :].reshape(Np*Ny, )[:, np.newaxis]
+    up0seq = u[t-Np:t:, ].reshape(Np*Nu, )[:, np.newaxis]
+    z0 = np.concatenate((yp0seq, up0seq))
+    xG0 = x[t, :][:, np.newaxis]
+    xGz0 = np.concatenate((xG0, z0))
+
+    # Start the validation simulation.
+    uval = uval[t:, :]
+    Nval = uval.shape[0]
+    hx = lambda x: _measurement(x, hybrid_pars)
+    fxu = lambda x, u: hybrid_func(x, u, hybrid_pars)
+    x = xGz0[:, 0]
+    yval = []
+    for t in range(Nval):
+        yval.append(hx(x))
+        x = fxu(x, u[t, :].T)
+    yval = np.asarray(yval)
+    return yval
+
 def get_mhe_noise_tuning(model_type, model_par):
     # Get MHE tuning.
     if model_type == 'plant':
@@ -262,11 +337,18 @@ def main():
                                   fnn_weights=fnn_weights,
                                   xuyscales=xuyscales)
 
+    # Check the hybrid function. 
+    uval = cstr_flash_parameters['training_data'][-1].u
+    ytfval = cstr_flash_train['val_predictions'][0].y
+    greybox_processed_data = cstr_flash_parameters['greybox_processed_data'][-1]
+    yval = sim_hybrid(_hybrid_func, uval, hybrid_pars, greybox_processed_data)
+    breakpoint()
+
     # Run simulations for different model.
     cl_data_list, avg_stage_costs_list, openloop_sol_list = [], [], []
-    model_odes = [_plant_ode, _hybrid_ode, _greybox_ode]
-    model_pars = [plant_pars, hybrid_pars, greybox_pars]
-    model_types = ['plant', 'hybrid', 'grey-box']
+    model_odes = [_plant_ode, _hybrid_func]
+    model_pars = [plant_pars, hybrid_pars]
+    model_types = ['plant', 'hybrid']
     plant_lxup = lambda x, u, p: stage_cost(x, u, p, plant_pars, [5, 7, 9])
     for (model_ode,
          model_par, model_type) in zip(model_odes, model_pars, model_types):
@@ -277,7 +359,7 @@ def main():
         cl_data, avg_stage_costs, openloop_sol = online_simulation(plant, 
                                          controller,
                                          plant_lxup=plant_lxup,
-                                         Nsim=2, disturbances=disturbances,
+                                         Nsim=5, disturbances=disturbances,
                                          stdout_filename='cstr_flash_empc.txt')
         cl_data_list += [cl_data]
         avg_stage_costs_list += [avg_stage_costs]

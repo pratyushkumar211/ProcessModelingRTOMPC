@@ -44,7 +44,7 @@ def train_model(model, x0key, xuyscales, train_data, trainval_data, val_data,
     # Call the fit method to train.
     model.fit(x=[train_data['inputs'], train_data[x0key]],
               y=train_data['outputs'], 
-              epochs=1000, batch_size=2,
+              epochs=300, batch_size=4,
         validation_data = ([trainval_data['inputs'], trainval_data[x0key]], 
                             trainval_data['outputs']),
         callbacks = [checkpoint_callback])
@@ -52,8 +52,10 @@ def train_model(model, x0key, xuyscales, train_data, trainval_data, val_data,
     # Get predictions on validation data.
     model.load_weights(ckpt_path)
     model_predictions = model.predict(x=[val_data['inputs'], val_data[x0key]])
+    ypredictions = model_predictions.squeeze()*xuyscales['yscale'][1]
+    ypredictions = ypredictions + xuyscales['yscale'][0]
     val_predictions = SimData(t=None, x=None, u=None,
-                              y=model_predictions.squeeze()*xuyscales['yscale'])
+                              y=ypredictions)
     # Get prediction error on the validation data.
     val_metric = model.evaluate(x = [val_data['inputs'], val_data[x0key]],
                                 y = val_data['outputs'])
@@ -81,7 +83,7 @@ def main():
     trained_weights = []
     val_metrics = []
     val_predictions = []
-
+    
     # Filenames.
     ckpt_path = 'cstr_flash_train.ckpt'
     stdout_filename = 'cstr_flash_train.txt'
@@ -113,9 +115,10 @@ def main():
                 x0key = 'yz0'
             else:
                 x0key = 'xGz0'
-            train_samples=dict(inputs=train_data['inputs'][:8,:num_sample, :],
-                            outputs=train_data['outputs'][:8,:num_sample, :])
-            train_samples[x0key] = train_data[x0key][:8, :]
+            train_samples=dict(inputs=train_data['inputs'][:12,:num_sample, :],
+                            outputs=train_data['outputs'][:12,:num_sample, :])
+            train_samples[x0key] = train_data[x0key][:12, :]
+            breakpoint()
             (cstr_flash_model,
              val_prediction,
              val_metric) = train_model(cstr_flash_model, x0key, xuyscales,
@@ -142,7 +145,8 @@ def main():
                                     trained_weights=trained_weights,
                                     val_predictions=val_predictions,
                                     val_metrics=val_metrics,
-                                    num_samples=num_samples)
+                                    num_samples=num_samples,
+                                    xuyscales=xuyscales)
     
     # Save data.
     PickleTool.save(data_object=cstr_flash_training_data,
