@@ -190,9 +190,9 @@ def _hybrid_func(xGz, u, parameters):
     xG, ypseq, upseq = xGz[:Ng], xGz[Ng:Ng+Npast*Ny], xGz[-Npast*Nu:]
     z = xGz[Ng:]
     hxG = _measurement(xG, parameters)
-
+    
     # Get k1.
-    k1 = _greybox_ode(xG, u, ps, parameters) 
+    k1 = _greybox_ode(xG, u, ps, parameters)
     k1 +=  _fnn(xG, z, u, Npast, xuyscales, fnn_weights)
     
     # Interpolate for k2 and k3.
@@ -210,7 +210,7 @@ def _hybrid_func(xGz, u, parameters):
     # Get k4.
     ypseq_shifted = np.concatenate((ypseq[Ny:], hxG))
     z = np.concatenate((ypseq_shifted, upseq))
-    k4 = _greybox_ode(xG + Delta*k3, u, ps, parameters) 
+    k4 = _greybox_ode(xG + Delta*k3, u, ps, parameters)
     k4 += _fnn(xG + Delta*k3, z, u, Npast, xuyscales, fnn_weights)
     
     # Get the current output/state and the next time step.

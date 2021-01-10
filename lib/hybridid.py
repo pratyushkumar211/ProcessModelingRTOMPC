@@ -220,7 +220,6 @@ class NonlinearEMPCRegulator:
         self.regulator.saveguess()
         useq = np.asarray(casadi.horzcat(*self.regulator.var['u'])).T
         xseq = np.asarray(casadi.horzcat(*self.regulator.var['x'])).T
-        breakpoint()
         self._append_data(x0, useq, xseq)
 
     def solve(self, x0, empc_pars):
@@ -354,7 +353,7 @@ class NonlinearEMPCController:
         hx is same in both the continous and discrete time.
         Bd is in continuous time.
     """
-    def __init__(self, *, fxu, hx, lxup, Bd, Cd, sample_time,
+    def __init__(self, *, fxu, hx, lxup, Bd, Cd,
                      Nx, Nu, Ny, Nd,
                      xs, us, ds, ys,
                      empc_pars, ulb, uub, Nmpc,
@@ -366,7 +365,6 @@ class NonlinearEMPCController:
         self.lxup = lxup
         self.Bd = Bd
         self.Cd = Cd
-        self.sample_time = sample_time
 
         # Sizes.
         self.Nx = Nx
@@ -403,7 +401,7 @@ class NonlinearEMPCController:
         """Augmented state-space model for moving horizon estimation."""
         return lambda x, u: np.concatenate((self.fxu(x[0:self.Nx],
                                                 u) + self.Bd @ x[-self.Nd:],
-                                             np.zeros((self.Nd,))), axis=0)
+                                             x[-self.Nd:]))
     
     def _mhe_hx_model(self):
         """ Augmented measurement model for moving horizon estimation. """
@@ -427,8 +425,7 @@ class NonlinearEMPCController:
 
         # Get the augmented models.
         fxud = mpc.getCasadiFunc(self._aug_ss_model(),
-                                [self.Nx + self.Nd, self.Nu], ["x", "u"],
-                                rk4=True, Delta=self.sample_time, M=1)
+                                [self.Nx + self.Nd, self.Nu], ["x", "u"])
         hx = mpc.getCasadiFunc(self._mhe_hx_model(),
                                 [self.Nx + self.Nd], ["x"])
         # Return the required quantities for MHE.
@@ -448,8 +445,7 @@ class NonlinearEMPCController:
         """ Augment the system for rate of change penalty and 
         build the regulator. """
         fxud = mpc.getCasadiFunc(self._aug_ss_model(),
-                                [self.Nx + self.Nd, self.Nu], ["x", "u"],
-                                rk4=True, Delta=self.sample_time, M=1)
+                                [self.Nx + self.Nd, self.Nu], ["x", "u"])
         init_guess = dict(x=np.concatenate((self.xs, self.ds), axis=0), 
                           u=self.us)
         init_empc_pars = self.empc_pars[0:self.Nmpc, :]
@@ -475,6 +471,7 @@ class NonlinearEMPCController:
         self.uprev = useq[:1, :].T
         tend = time.time()
         self.computation_times.append(tend - tstart)
+        breakpoint()
         return self.uprev
 
 def online_simulation(plant, controller, *, plant_lxup, Nsim=None,
@@ -593,11 +590,19 @@ def get_tworeac_train_val_data(*, Np, parameters, data_list):
 
 def get_scaling(*, data):
     """ Scale the input/output. """
-    xscale = 0.5*(np.max(data.x, axis=0) - np.min(data.x, axis=0))
-    uscale = 0.5*(np.max(data.u, axis=0) - np.min(data.u, axis=0))
-    yscale = 0.5*(np.max(data.y, axis=0) - np.min(data.y, axis=0))
+    # Xmean.
+    xmean = np.mean(data.x, axis=0)
+    xstd = np.std(data.x, axis=0)
+    # Umean.
+    umean = np.mean(data.u, axis=0)
+    ustd = np.std(data.u, axis=0)
+    # Ymean.
+    ymean = np.mean(data.y, axis=0)
+    ystd = np.std(data.y, axis=0)
     # Return.
-    return dict(xscale=xscale, uscale=uscale, yscale=yscale)
+    return dict(xscale = (xmean, xstd), 
+                uscale = (umean, ustd), 
+                yscale = (ymean, ystd))
 
 def get_cstr_flash_train_val_data(*, Np, parameters,
                                      greybox_processed_data):
@@ -609,9 +614,9 @@ def get_cstr_flash_train_val_data(*, Np, parameters,
     for data in greybox_processed_data:
         
         # Scale data.
-        u = data.u/xuyscales['uscale']
-        y = data.y/xuyscales['yscale']
-        x = data.x/xuyscales['xscale']
+        u = (data.u-xuyscales['uscale'][0])/xuyscales['uscale'][1]
+        y = (data.y-xuyscales['yscale'][0])/xuyscales['yscale'][1]
+        x = (data.x-xuyscales['xscale'][0])/xuyscales['xscale'][1]
 
         t = tsteps_steady
         # Get input trajectory.

@@ -10,7 +10,7 @@ sys.path.append('lib/')
 import tensorflow as tf
 import time
 import numpy as np
-from hybridid import (PickleTool, get_cstr_flash_train_val_data, 
+from hybridid import (PickleTool, get_cstr_flash_train_val_data,
                       SimData)
 from HybridModelLayers import CstrFlashModel
 
@@ -25,7 +25,7 @@ def create_model(*, Np, fnn_dims, xuyscales, cstr_flash_parameters, model_type):
                                    cstr_flash_parameters=cstr_flash_parameters,
                                    model_type=model_type)
     # Compile the nn controller.
-    cstr_flash_model.compile(optimizer='adam', 
+    cstr_flash_model.compile(optimizer='adam',
                              loss='mean_squared_error')
     # Return the compiled model.
     return cstr_flash_model

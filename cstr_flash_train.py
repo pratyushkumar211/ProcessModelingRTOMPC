@@ -32,7 +32,7 @@ def create_model(*, Np, fnn_dims, xuyscales, cstr_flash_parameters, model_type):
 
 def train_model(model, x0key, xuyscales, train_data, trainval_data, val_data,
                 stdout_filename, ckpt_path):
-    """ Function to train the NN controller."""
+    """ Function to train the NN controller. """
     # Std out.
     sys.stdout = open(stdout_filename, 'w')
     # Create the checkpoint callback.
@@ -44,7 +44,7 @@ def train_model(model, x0key, xuyscales, train_data, trainval_data, val_data,
     # Call the fit method to train.
     model.fit(x=[train_data['inputs'], train_data[x0key]],
               y=train_data['outputs'], 
-              epochs=300, batch_size=4,
+              epochs=3, batch_size=2,
         validation_data = ([trainval_data['inputs'], trainval_data[x0key]], 
                             trainval_data['outputs']),
         callbacks = [checkpoint_callback])
@@ -52,8 +52,8 @@ def train_model(model, x0key, xuyscales, train_data, trainval_data, val_data,
     # Get predictions on validation data.
     model.load_weights(ckpt_path)
     model_predictions = model.predict(x=[val_data['inputs'], val_data[x0key]])
-    ypredictions = model_predictions.squeeze()*xuyscales['yscale'][1]
-    ypredictions = ypredictions + xuyscales['yscale'][0]
+    ymean, ystd = xuyscales['yscale']
+    ypredictions = model_predictions.squeeze()*ystd + ymean
     val_predictions = SimData(t=None, x=None, u=None,
                               y=ypredictions)
     # Get prediction error on the validation data.
@@ -118,7 +118,6 @@ def main():
             train_samples=dict(inputs=train_data['inputs'][:12,:num_sample, :],
                             outputs=train_data['outputs'][:12,:num_sample, :])
             train_samples[x0key] = train_data[x0key][:12, :]
-            breakpoint()
             (cstr_flash_model,
              val_prediction,
              val_metric) = train_model(cstr_flash_model, x0key, xuyscales,

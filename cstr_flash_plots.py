@@ -162,13 +162,13 @@ def plot_cost_pars(t, cost_pars,
                                   sharex=True,
                                   figsize=figure_size,
                                   gridspec_kw=dict(left=0.18))
-    xlabel = 'Time (min)'
+    xlabel = 'Time (hr)'
     ylabels = ['Energy Price ($\$$/kW)',
                 'Raw Material Cost ($\$$/mol-A)',
                 'Product Price ($\$$/mol-B)']
     for (axes, pari, ylabel) in zip(axes_list, range(num_pars), ylabels):
         # Plot the corresponding data.
-        axes.plot(t, cost_pars[:len(t), pari])
+        axes.plot(t, cost_pars[:5, pari])
         axes.set_ylabel(ylabel)
         axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
     axes.set_xlabel(xlabel)
@@ -184,7 +184,7 @@ def plot_avg_profits(*, t, avg_stage_costs,
                                   sharex=True,
                                   figsize=figure_size,
                                   gridspec_kw=dict(left=0.15))
-    xlabel = 'Time (min)'
+    xlabel = 'Time (hr)'
     ylabel = '$\Lambda_k$'
     for (cost, color) in zip(avg_stage_costs, legend_colors):
         # Plot the corresponding data.
@@ -215,8 +215,8 @@ def main():
     simdata_list = [cstr_flash_parameters['training_data'][-1], 
                     cstr_flash_parameters['greybox_val_data']]
     (t, udatum, ydatum, xdatum) = get_datum(simdata_list=simdata_list, 
-                                       plot_range = (120, 24*60))
-    #ydatum.append(val_predictions[0].y[:600, :])
+                                       plot_range = (120, 14*60))
+    ydatum.append(val_predictions[0].y[:720, :])
     legend_names = ['Plant', 'Grey-Box', 'Hybrid']
     legend_colors = ['b', 'g', 'm']
     figures = []
@@ -226,8 +226,8 @@ def main():
                               legend_colors=legend_colors)
 
     # Plot the closed-loop simulation.
-    legend_names = ['Plant', 'Grey-Box', 'Hybrid']
-    legend_colors = ['b', 'g', 'm']
+    legend_names = ['Plant', 'Hybrid']
+    legend_colors = ['b', 'm']
     cl_data_list = cstr_flash_empc['cl_data_list']
     (t, udatum, ydatum, xdatum) = get_datum(simdata_list=cl_data_list,
                                        plot_range = (0, 24*60))
@@ -243,7 +243,8 @@ def main():
                             legend_names=legend_names)
 
     # Plot the empc costs.
-    figures += plot_cost_pars(t=t, cost_pars=cstr_flash_empc['cost_pars'])
+    figures += plot_cost_pars(t=t, 
+                              cost_pars=cstr_flash_empc['cost_pars'][:24*60, :])
 
     # Save PDF.
     with PdfPages('cstr_flash_plots.pdf', 'w') as pdf_file:

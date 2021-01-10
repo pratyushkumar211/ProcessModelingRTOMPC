@@ -128,7 +128,7 @@ class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
         """ Function to compute the 
             derivative (RHS of the ODE)
             for the two reaction model. """
-
+        
         # Extract the parameters.
         alphaA = self.parameters['alphaA']
         alphaB = self.parameters['alphaB']
@@ -143,12 +143,12 @@ class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
         k1star = self.parameters['k1star']
         Td = self.parameters['Td']
         ps = self.parameters['ps']
-        (xscale, uscale) = (self.xuyscales['xscale'], 
-                            self.xuyscales['uscale'])
 
-        # Scale x and u back to physical values.
-        x = x*xscale
-        u = u*uscale
+        # Scale back to physical states.
+        xmean, xstd = self.xuyscales['xscale']
+        umean, ustd = self.xuyscales['uscale']
+        x = x*xstd + xmean
+        u = u*ustd + umean
 
         # Extract the plant states into meaningful names.
         (Hr, CAr) = x[..., 0:1], x[..., 1:2]
@@ -171,7 +171,7 @@ class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
         # Rate constant and reaction rate.
         k1 = k1star*tf.math.exp(-E1byR/Tr)
         r1 = k1*CAr
-
+        
         # Write the CSTR odes.
         dHrbydt = (F + D - Fr)/Ar
         dCArbydt = (F*(CAf - CAr) + D*(CAd - CAr))/(Ar*Hr) - r1
@@ -186,9 +186,9 @@ class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
         dCBbbydt = (Fr*(CBr - CBb) + D*(CBb - CBd))/(Ab*Hb)
         dTbbydt = (Fr*(Tr - Tb))/(Ab*Hb) + Qb/(pho*Ab*Cp*Hb)
 
-        # Get the scaled derivative. 
+        # Get the scaled derivative.
         xdot = tf.concat([dHrbydt, dCArbydt, dCBrbydt, dTrbydt,
-                          dHbbydt, dCAbbydt, dCBbbydt, dTbbydt], axis=-1)/xscale
+                          dHbbydt, dCAbbydt, dCBbbydt, dTbbydt], axis=-1)/xstd
 
         # Return the derivative.
         return xdot
@@ -201,9 +201,22 @@ class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
 
     def _fnn(self, xg, z, u):
         """ Compute the output of the feedforward network. """
+        #(xscale, yscale, uscale) = (self.xuyscales['xscale'],
+        #                            self.xuyscales['yscale'], 
+        #                            self.xuyscales['uscale'])
+        #xmean, xstd = xscale
+        #ymean, ystd = yscale
+        #umean, ustd = uscale
+        #xGzumean = np.concatenate((xmean,
+        #                           np.tile(ymean, (self.Np, )),
+        #                           np.tile(umean, (self.Np + 1, ))))
+        #xGzustd = np.concatenate((xstd,
+        #                          np.tile(ystd, (self.Np, )), 
+        #                          np.tile(ustd, (self.Np + 1, ))))
         fnn_output = tf.concat((xg, z, u), axis=-1)
         for layer in self.fnn_layers:
             fnn_output = layer(fnn_output)
+        # Return.
         return fnn_output
 
     def call(self, inputs, states):
@@ -218,9 +231,12 @@ class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
         (ypseq, upseq) = tf.split(z, [self.Np*self.Ny, self.Np*self.Nu],
                                   axis=-1)
         u = inputs
+
+        # Extract parameters.
         Delta = self.parameters['Delta']
-        (xscale, yscale) = (self.xuyscales['xscale'], 
-                            self.xuyscales['yscale'])
+        xscale, yscale = self.xuyscales['xscale'], self.xuyscales['yscale']
+        xmean, xstd = xscale
+        ymean, ystd = yscale
 
         # Get k1.
         k1 = self._fg(xG, u) + self._fnn(xG, z, u)
@@ -242,11 +258,11 @@ class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
         k4 = self._fg(xG + Delta*k3, u) + self._fnn(xG + Delta*k3, z, u)
         
         # Get the current output/state and the next time step.
-        y = self._hxg(xG*xscale)/yscale
+        y = (self._hxg(xG*xstd + xmean) - ymean)/ystd
         xGplus = xG + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
         zplus = tf.concat((ypseq_shifted, upseq[..., self.Nu:], u), axis=-1)
         xplus = tf.concat((xGplus, zplus), axis=-1)
-        
+
         # Return output and states at the next time-step.
         return (y, xplus)
 
@@ -424,7 +440,7 @@ class TwoReacModel(tf.keras.Model):
 
 class CstrFlashModel(tf.keras.Model):
     """ Custom model for the CSTR FLASH model. """
-    def __init__(self, Np, fnn_dims, xuyscales, 
+    def __init__(self, Np, fnn_dims, xuyscales,
                        cstr_flash_parameters, model_type):
 
         # Get the size and input layer, and initial state layer.
@@ -444,8 +460,8 @@ class CstrFlashModel(tf.keras.Model):
         for dim in fnn_dims[1:-1]:
             fnn_layers.append(tf.keras.layers.Dense(dim,
                                             activation='tanh'))
-        fnn_layers.append(tf.keras.layers.Dense(fnn_dims[-1],
-                                            kernel_initializer='zeros'))
+        fnn_layers.append(tf.keras.layers.Dense(fnn_dims[-1], 
+                                                kernel_initializer='zeros'))
 
         # Build model depending on option.
         if model_type == 'black-box':
