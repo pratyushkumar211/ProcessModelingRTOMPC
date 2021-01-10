@@ -178,7 +178,7 @@ class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
         dCBrbydt = (-F*CBr + D*(CBd - CBr))/(Ar*Hr) + r1
         dTrbydt = (F*(Tf - Tr) + D*(Td - Tr))/(Ar*Hr)
         dTrbydt = dTrbydt + (r1*delH1)/(pho*Cp)
-        dTrbydt = dTrbydt + Qr/(pho*Ar*Cp*Hr)
+        dTrbydt = dTrbydt - Qr/(pho*Ar*Cp*Hr)
 
         # Write the flash odes.
         dHbbydt = (Fr - Fb - D)/Ab
@@ -371,8 +371,8 @@ class InterpolationLayer(tf.keras.layers.Layer):
 
     def call(self, yseq):
         """ The main call function of the interpolation layer. 
-        y is of dimension: (None, Np*p)
-        Return y of dimension: (None, (Np-1)*p)
+        y is of dimension: (None, (Np+1)*p)
+        Return y of dimension: (None, Np*p)
         """
         yseq_interp = []
         for t in range(self.Np):
