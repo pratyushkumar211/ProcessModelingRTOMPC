@@ -25,9 +25,9 @@ def create_model(*, Np, fnn_dims, xuyscales, cstr_flash_parameters, model_type):
                                    cstr_flash_parameters=cstr_flash_parameters,
                                    model_type=model_type)
     # Compile the nn controller.
-    cstr_flash_model.compile(optimizer='adam', 
+    cstr_flash_model.compile(optimizer='adam',
                              loss='mean_squared_error', 
-                             loss_weights=[0., 1.])
+                             loss_weights=[1., 0.])
     # Return the compiled model.
     return cstr_flash_model
 
@@ -45,7 +45,7 @@ def train_model(model, x0key, xuyscales, train_data, trainval_data, val_data,
     # Call the fit method to train.
     model.fit(x = [train_data['inputs'], train_data[x0key]],
               y = [train_data['outputs'], train_data['xG']], 
-              epochs=500, batch_size=2,
+              epochs=200, batch_size=12,
         validation_data = ([trainval_data['inputs'], trainval_data[x0key]], 
                            [trainval_data['outputs'], trainval_data['xG']]),
         callbacks = [checkpoint_callback])
@@ -67,6 +67,7 @@ def train_model(model, x0key, xuyscales, train_data, trainval_data, val_data,
     # Evaluate metric.
     val_metric = model.evaluate(x = [val_data['inputs'], val_data[x0key]],
                                 y = [val_data['outputs'], val_data['xG']])
+
     # Return model/predictions/metric.
     return (model, val_predictions, val_metric)
 
@@ -81,12 +82,15 @@ def main():
                                 cstr_flash_parameters['greybox_processed_data'])
 
     # Number of samples.
-    num_samples = [hour*60 for hour in [4]]
+    num_train_traj = len(greybox_processed_data) - 2
+    num_batches = [num_train_traj]
+    Nsim_train = greybox_processed_data[0].x.shape[0] 
+    Nsim_train -= greybox_pars['tsteps_steady']
+    num_samples = [batch*Nsim_train for batch in num_batches]
 
     # Create lists.
-    Nps = [2]
-    #fnn_dims = [[100, 128, 6], [102, 128, 8], [102, 128, 8]]
-    fnn_dims = [[102, 8, 8]]
+    Nps = [9]
+    fnn_dims = [[102, 32, 32, 32, 8]]
     model_types = ['hybrid']
     trained_weights = []
     val_metrics = []
@@ -110,7 +114,7 @@ def main():
                                 greybox_processed_data=greybox_processed_data)
 
         # Loop over the number of samples.
-        for num_sample in num_samples:
+        for num_batch in num_batches:
             
             # Create model.
             cstr_flash_model = create_model(Np=Np, fnn_dims=fnn_dim,
@@ -123,10 +127,10 @@ def main():
                 x0key = 'yz0'
             else:
                 x0key = 'xGz0'
-            train_samples=dict(inputs=train_data['inputs'][:12,:num_sample, :],
-                            outputs=train_data['outputs'][:12,:num_sample, :], 
-                            xG=train_data['xG'][:12,:num_sample, :])
-            train_samples[x0key] = train_data[x0key][:12, :]
+            train_samples=dict(inputs=train_data['inputs'][:num_batch, ...],
+                               outputs=train_data['outputs'][:num_batch, ...], 
+                               xG=train_data['xG'][:num_batch, ...])
+            train_samples[x0key] = train_data[x0key][:num_batch, :]
             (cstr_flash_model,
              val_prediction,
              val_metric) = train_model(cstr_flash_model, x0key, xuyscales,

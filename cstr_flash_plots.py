@@ -216,8 +216,8 @@ def main():
                     cstr_flash_parameters['greybox_val_data']]
     (t, udatum, ydatum, xdatum) = get_datum(simdata_list=simdata_list, 
                                        plot_range = (120, 14*60))
-    ydatum.append(val_predictions[0].y[:720, :])
-    xdatum.append(val_predictions[0].x[:720, :])
+    #ydatum.append(val_predictions[0].y[:720, :])
+    #xdatum.append(val_predictions[0].x[:720, :])
     legend_names = ['Plant', 'Grey-Box', 'Hybrid']
     legend_colors = ['b', 'g', 'm']
     figures = []
