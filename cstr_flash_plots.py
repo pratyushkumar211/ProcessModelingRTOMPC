@@ -168,7 +168,7 @@ def plot_cost_pars(t, cost_pars,
                 'Product Price ($\$$/mol-B)']
     for (axes, pari, ylabel) in zip(axes_list, range(num_pars), ylabels):
         # Plot the corresponding data.
-        axes.plot(t, cost_pars[:5, pari])
+        axes.plot(t, cost_pars[:len(t), pari])
         axes.set_ylabel(ylabel)
         axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
     axes.set_xlabel(xlabel)
@@ -217,6 +217,7 @@ def main():
     (t, udatum, ydatum, xdatum) = get_datum(simdata_list=simdata_list, 
                                        plot_range = (120, 14*60))
     ydatum.append(val_predictions[0].y[:720, :])
+    xdatum.append(val_predictions[0].x[:720, :])
     legend_names = ['Plant', 'Grey-Box', 'Hybrid']
     legend_colors = ['b', 'g', 'm']
     figures = []
@@ -239,7 +240,7 @@ def main():
     # Plot the plant profit in time.
     figures += plot_avg_profits(t=t,
                             avg_stage_costs=cstr_flash_empc['avg_stage_costs'], 
-                            legend_colors=legend_colors, 
+                            legend_colors=legend_colors,
                             legend_names=legend_names)
 
     # Plot the empc costs.

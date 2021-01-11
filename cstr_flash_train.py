@@ -26,7 +26,8 @@ def create_model(*, Np, fnn_dims, xuyscales, cstr_flash_parameters, model_type):
                                    model_type=model_type)
     # Compile the nn controller.
     cstr_flash_model.compile(optimizer='adam', 
-                             loss='mean_squared_error')
+                             loss='mean_squared_error', 
+                             loss_weights=[0., 1.])
     # Return the compiled model.
     return cstr_flash_model
 
@@ -42,24 +43,31 @@ def train_model(model, x0key, xuyscales, train_data, trainval_data, val_data,
                                                     save_weights_only=True,
                                                     verbose=1)
     # Call the fit method to train.
-    model.fit(x=[train_data['inputs'], train_data[x0key]],
-              y=train_data['outputs'], 
-              epochs=3, batch_size=2,
+    model.fit(x = [train_data['inputs'], train_data[x0key]],
+              y = [train_data['outputs'], train_data['xG']], 
+              epochs=500, batch_size=2,
         validation_data = ([trainval_data['inputs'], trainval_data[x0key]], 
-                            trainval_data['outputs']),
+                           [trainval_data['outputs'], trainval_data['xG']]),
         callbacks = [checkpoint_callback])
 
-    # Get predictions on validation data.
+    # Load best weights.
     model.load_weights(ckpt_path)
+
+    # Get predictions on validation data and scale back to physical variables.
     model_predictions = model.predict(x=[val_data['inputs'], val_data[x0key]])
     ymean, ystd = xuyscales['yscale']
-    ypredictions = model_predictions.squeeze()*ystd + ymean
-    val_predictions = SimData(t=None, x=None, u=None,
+    xmean, xstd = xuyscales['xscale']
+    ypredictions = model_predictions[0].squeeze()*ystd + ymean
+    xpredictions = model_predictions[1].squeeze()*xstd + xmean
+    xpredictions = np.insert(xpredictions, [3, 7], 
+                             np.nan*np.ones((xpredictions.shape[0], 2)), axis=1)
+    val_predictions = SimData(t=None, x=xpredictions, u=None,
                               y=ypredictions)
-    # Get prediction error on the validation data.
+
+    # Evaluate metric.
     val_metric = model.evaluate(x = [val_data['inputs'], val_data[x0key]],
-                                y = val_data['outputs'])
-    # Return the NN controller.
+                                y = [val_data['outputs'], val_data['xG']])
+    # Return model/predictions/metric.
     return (model, val_predictions, val_metric)
 
 def main():
@@ -76,9 +84,9 @@ def main():
     num_samples = [hour*60 for hour in [4]]
 
     # Create lists.
-    Nps = [5]
+    Nps = [2]
     #fnn_dims = [[100, 128, 6], [102, 128, 8], [102, 128, 8]]
-    fnn_dims = [[102, 32, 32, 8]]
+    fnn_dims = [[102, 8, 8]]
     model_types = ['hybrid']
     trained_weights = []
     val_metrics = []
@@ -116,7 +124,8 @@ def main():
             else:
                 x0key = 'xGz0'
             train_samples=dict(inputs=train_data['inputs'][:12,:num_sample, :],
-                            outputs=train_data['outputs'][:12,:num_sample, :])
+                            outputs=train_data['outputs'][:12,:num_sample, :], 
+                            xG=train_data['xG'][:12,:num_sample, :])
             train_samples[x0key] = train_data[x0key][:12, :]
             (cstr_flash_model,
              val_prediction,

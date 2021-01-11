@@ -471,7 +471,6 @@ class NonlinearEMPCController:
         self.uprev = useq[:1, :].T
         tend = time.time()
         self.computation_times.append(tend - tstart)
-        breakpoint()
         return self.uprev
 
 def online_simulation(plant, controller, *, plant_lxup, Nsim=None,
@@ -610,7 +609,7 @@ def get_cstr_flash_train_val_data(*, Np, parameters,
     tsteps_steady = parameters['tsteps_steady']
     (Ng, Ny, Nu) = (parameters['Ng'], parameters['Ny'], parameters['Nu'])
     xuyscales = get_scaling(data=greybox_processed_data[0])
-    (inputs, xGz0, yz0, outputs) = ([], [], [], [])
+    inputs, xGz0, yz0, outputs, xG = [], [], [], [], []
     for data in greybox_processed_data:
         
         # Scale data.
@@ -631,6 +630,9 @@ def get_cstr_flash_train_val_data(*, Np, parameters,
         xGz0_traj = np.concatenate((xG0, z0), axis=-1)
         yz0_traj = np.concatenate((y0, z0), axis=1)
 
+        # Get grey-box state trajectory.
+        xG_traj = x[t:, :][np.newaxis, :]
+
         # Get output trajectory.
         y_traj = y[t:, :][np.newaxis, ...]
 
@@ -639,16 +641,18 @@ def get_cstr_flash_train_val_data(*, Np, parameters,
         xGz0.append(xGz0_traj)
         yz0.append(yz0_traj)
         outputs.append(y_traj)
+        xG.append(xG_traj)
 
     # Get the training and validation data for training in compact dicts.
     train_data = dict(inputs=np.concatenate(inputs[:-2], axis=0),
                       xGz0=np.concatenate(xGz0[:-2], axis=0),
                       yz0=np.concatenate(yz0[:-2], axis=0),
-                      outputs=np.concatenate(outputs[:-2], axis=0))
+                      outputs=np.concatenate(outputs[:-2], axis=0), 
+                      xG=np.concatenate(xG[:-2], axis=0))
     trainval_data = dict(inputs=inputs[-2], xGz0=xGz0[-2],
-                         yz0=yz0[-2], outputs=outputs[-2])
+                         yz0=yz0[-2], outputs=outputs[-2], xG=xG[-2])
     val_data = dict(inputs=inputs[-1], xGz0=xGz0[-1],
-                    yz0=yz0[-1], outputs=outputs[-1])
+                    yz0=yz0[-1], outputs=outputs[-1], xG=xG[-1])
     # Return.
     return (train_data, trainval_data, val_data, xuyscales)
 

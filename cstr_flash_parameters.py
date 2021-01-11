@@ -53,7 +53,7 @@ def _get_greybox_parameters(*, plant_pars):
 
     # The C matrix for the plant.
     parameters['tsteps_steady'] = plant_pars['tsteps_steady']
-    parameters['yindices'] = [0, 1, 3, 4, 5, 7]
+    parameters['yindices'] = [0, 2, 3, 4, 6, 7]
 
     # Get the constraints.
     parameters['ulb'] = plant_pars['ulb']
@@ -109,7 +109,7 @@ def _get_plant_parameters():
     parameters['uub'] = np.array([15., 400., 8., 400.])
 
     # The C matrix for the plant.
-    parameters['yindices'] = [0, 1, 4, 5, 6, 9]
+    parameters['yindices'] = [0, 2, 4, 5, 7, 9]
     parameters['tsteps_steady'] = 120
     parameters['Rv'] = 0*np.diag([0.8, 1e-3, 1., 0.8, 1e-3, 1.])
     
@@ -195,15 +195,15 @@ def _gen_train_val_data(*, parameters, num_traj,
         elif traj == num_traj-2:
             "Get input for validation simulation."
             Nsim = Nsim_trainval
-            u = sample_prbs_like(num_change=6, num_steps=Nsim_trainval,
+            u = sample_prbs_like(num_change=12, num_steps=Nsim_trainval,
                                  lb=ulb, ub=uub,
                                  mean_change=30, sigma_change=2, seed=seed)
         else:
             "Get input for training simulation."
             Nsim = Nsim_train
-            u = sample_prbs_like(num_change=8, num_steps=Nsim_train,
+            u = sample_prbs_like(num_change=4, num_steps=Nsim_train,
                                  lb=ulb, ub=uub,
-                                 mean_change=30, sigma_change=2, seed=seed)
+                                 mean_change=60, sigma_change=2, seed=seed)
         seed += 1
         # Complete input profile and run open-loop simulation.
         u = np.concatenate((us_init, u), axis=0)
@@ -346,7 +346,7 @@ def main():
 
     # Generate training data.
     training_data = _gen_train_val_data(parameters=plant_pars, num_traj=14,
-                                        Nsim_train=4*60, Nsim_trainval=3*60,
+                                        Nsim_train=4*60, Nsim_trainval=6*60,
                                         Nsim_val=12*60, seed=2)
 
     greybox_processed_data = _get_gb_mhe_processed_training_data(parameters=

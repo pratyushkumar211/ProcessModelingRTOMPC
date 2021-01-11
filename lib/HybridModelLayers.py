@@ -201,18 +201,6 @@ class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
 
     def _fnn(self, xg, z, u):
         """ Compute the output of the feedforward network. """
-        #(xscale, yscale, uscale) = (self.xuyscales['xscale'],
-        #                            self.xuyscales['yscale'], 
-        #                            self.xuyscales['uscale'])
-        #xmean, xstd = xscale
-        #ymean, ystd = yscale
-        #umean, ustd = uscale
-        #xGzumean = np.concatenate((xmean,
-        #                           np.tile(ymean, (self.Np, )),
-        #                           np.tile(umean, (self.Np + 1, ))))
-        #xGzustd = np.concatenate((xstd,
-        #                          np.tile(ystd, (self.Np, )), 
-        #                          np.tile(ustd, (self.Np + 1, ))))
         fnn_output = tf.concat((xg, z, u), axis=-1)
         for layer in self.fnn_layers:
             fnn_output = layer(fnn_output)
@@ -240,7 +228,7 @@ class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
 
         # Get k1.
         k1 = self._fg(xG, u) + self._fnn(xG, z, u)
-        
+
         # Interpolate for k2 and k3.
         hxG = self._hxg(xG)
         ypseq_interp = self.interp_layer(tf.concat((ypseq, hxG), axis=-1))
@@ -263,8 +251,11 @@ class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
         zplus = tf.concat((ypseq_shifted, upseq[..., self.Nu:], u), axis=-1)
         xplus = tf.concat((xGplus, zplus), axis=-1)
 
+        # Measurement/Grey-box state.
+        output = tf.concat((y, xG), axis=-1)
+        
         # Return output and states at the next time-step.
-        return (y, xplus)
+        return (output, xplus)
 
 class CstrFlashGreyBlackCell(tf.keras.layers.AbstractRNNCell):
     """
@@ -314,7 +305,7 @@ class CstrFlashGreyBlackCell(tf.keras.layers.AbstractRNNCell):
         (ypseq, upseq) = tf.split(z, [self.Np*self.Ny, self.Np*self.Nu],
                                   axis=-1)
         u = inputs
-                
+        
         # Get shifted y.
         hxG = self._hxg(xG)
         ypseq_shifted = tf.concat((ypseq[..., self.Ny:], hxG), axis=-1)
@@ -460,8 +451,8 @@ class CstrFlashModel(tf.keras.Model):
         for dim in fnn_dims[1:-1]:
             fnn_layers.append(tf.keras.layers.Dense(dim,
                                             activation='tanh'))
-        fnn_layers.append(tf.keras.layers.Dense(fnn_dims[-1], 
-                                                kernel_initializer='zeros'))
+        fnn_layers.append(tf.keras.layers.Dense(fnn_dims[-1],
+                                            kernel_initializer='zeros'))
 
         # Build model depending on option.
         if model_type == 'black-box':
@@ -479,6 +470,7 @@ class CstrFlashModel(tf.keras.Model):
                                                return_sequences=True)
         layer_output = cstr_flash_layer(inputs=layer_input,
                                         initial_state=[initial_state])
+        y, xG = tf.split(layer_output, [Ny, Ng], axis=-1)
         # Construct model.
         super().__init__(inputs=[layer_input, initial_state],
-                         outputs=layer_output)
+                         outputs=[y, xG])
