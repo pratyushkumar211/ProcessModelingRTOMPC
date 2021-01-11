@@ -220,6 +220,7 @@ class NonlinearEMPCRegulator:
         self.regulator.saveguess()
         useq = np.asarray(casadi.horzcat(*self.regulator.var['u'])).T
         xseq = np.asarray(casadi.horzcat(*self.regulator.var['x'])).T
+        breakpoint()
         self._append_data(x0, useq, xseq)
 
     def solve(self, x0, empc_pars):
@@ -504,7 +505,7 @@ def _get_energy_price(*, num_days, sample_time):
     """ Get a two day heat disturbance profile. """
     energy_price = np.zeros((24, 1))
     energy_price[0:8, :] = np.ones((8, 1))
-    energy_price[8:16, :] = 20*np.ones((8, 1))
+    energy_price[8:16, :] = 70*np.ones((8, 1))
     energy_price[16:24, :] = np.ones((8, 1))
     energy_price = 1e-2*np.tile(energy_price, (num_days, 1))
     return _resample_fast(x=energy_price,
@@ -518,16 +519,16 @@ def get_cstr_flash_empc_pars(*, num_days, sample_time, plant_pars):
     # Get the cost parameters.
     energy_price = _get_energy_price(num_days=num_days, sample_time=sample_time)
     raw_mat_price = _resample_fast(x = np.array([[1000.], [1000.], 
-                                                 [1000.], [900.], 
-                                                 [900.], [900.], 
-                                                 [900.], [900.]]), 
+                                                 [1000.], [950.], 
+                                                 [950.], [950.], 
+                                                 [950.], [950.]]), 
                                    xDelta=6*60,
                                    newDelta=sample_time,
                                    resample_type='zoh')
-    product_price = _resample_fast(x = np.array([[12000.], [15000.], 
-                                                 [10000.], [10000.], 
-                                                 [10000.], [10000.], 
-                                                 [10000.], [10000.]]),
+    product_price = _resample_fast(x = np.array([[5000.], [8000.], 
+                                                 [7000.], [6000.], 
+                                                 [6000.], [6000.], 
+                                                 [6000.], [6000.]]),
                                    xDelta=6*60,
                                    newDelta=sample_time,
                                    resample_type='zoh')

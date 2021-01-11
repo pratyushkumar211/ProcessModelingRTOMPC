@@ -89,8 +89,8 @@ def main():
     num_samples = [batch*Nsim_train for batch in num_batches]
 
     # Create lists.
-    Nps = [9]
-    fnn_dims = [[102, 32, 32, 32, 8]]
+    Nps = [1]
+    fnn_dims = [[102, 8, 8]]
     model_types = ['hybrid']
     trained_weights = []
     val_metrics = []

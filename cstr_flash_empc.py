@@ -30,7 +30,6 @@ def get_controller(model_func, model_pars, model_type,
     # State-space model (discrete time).
     if model_type == 'hybrid':
         fxu = lambda x, u: model_func(x, u, model_pars)
-        breakpoint()
     else:
         fxu = lambda x, u: model_func(x, u, ps, model_pars)
         fxu = c2dNonlin(fxu, Delta)
@@ -59,17 +58,21 @@ def get_controller(model_func, model_pars, model_type,
     if model_type == 'plant':
         Bd[1, 0] = 1.
         Bd[2, 1] = 1.
-        Bd[4, 2] = 1.
-        Bd[6, 3] = 1.
-        Bd[7, 4] = 1.
-        Bd[9, 5] = 1.
-    else:
-        Bd[0, 0] = 1.
-        Bd[1, 1] = 1.
         Bd[3, 2] = 1.
         Bd[4, 3] = 1.
-        Bd[5, 4] = 1.
+        Bd[6, 4] = 1.
         Bd[7, 5] = 1.
+        Bd[8, 6] = 1.
+        Bd[9, 7] = 1.
+    else:
+        Bd[1, 0] = 1.
+        Bd[2, 1] = 1.
+        Bd[3, 2] = 1.
+        Bd[4, 3] = 1.
+        Bd[6, 4] = 1.
+        Bd[7, 5] = 1.
+        Bd[8, 6] = 1.
+        Bd[9, 7] = 1.
     Cd = np.zeros((Ny, Nd))
 
     # Get steady states.
@@ -86,7 +89,7 @@ def get_controller(model_func, model_pars, model_type,
     Qwx, Qwd, Rv = mhe_noise_tuning
 
     # Horizon lengths.
-    Nmpc = 60
+    Nmpc = 2
     Nmhe = 30
 
     # Return the NN controller.
@@ -363,7 +366,7 @@ def main():
     greybox_processed_data = cstr_flash_parameters['greybox_processed_data'][-1]
     yval, xGval = sim_hybrid(_hybrid_func, uval, 
                              hybrid_pars, greybox_processed_data)
-
+    
     # Run simulations for different model.
     cl_data_list, avg_stage_costs_list, openloop_sol_list = [], [], []
     model_odes = [_plant_ode, _hybrid_func]
@@ -379,7 +382,7 @@ def main():
         cl_data, avg_stage_costs, openloop_sol = online_simulation(plant, 
                                          controller,
                                          plant_lxup=plant_lxup,
-                                         Nsim=0, disturbances=disturbances,
+                                         Nsim=10, disturbances=disturbances,
                                          stdout_filename='cstr_flash_empc.txt')
         cl_data_list += [cl_data]
         avg_stage_costs_list += [avg_stage_costs]

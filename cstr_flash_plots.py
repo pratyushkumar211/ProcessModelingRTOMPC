@@ -216,8 +216,8 @@ def main():
                     cstr_flash_parameters['greybox_val_data']]
     (t, udatum, ydatum, xdatum) = get_datum(simdata_list=simdata_list, 
                                        plot_range = (120, 14*60))
-    #ydatum.append(val_predictions[0].y[:720, :])
-    #xdatum.append(val_predictions[0].x[:720, :])
+    ydatum.append(val_predictions[0].y[:720, :])
+    xdatum.append(val_predictions[0].x[:720, :])
     legend_names = ['Plant', 'Grey-Box', 'Hybrid']
     legend_colors = ['b', 'g', 'm']
     figures = []
@@ -227,8 +227,8 @@ def main():
                               legend_colors=legend_colors)
 
     # Plot the closed-loop simulation.
-    legend_names = ['Plant', 'Hybrid']
-    legend_colors = ['b', 'm']
+    legend_names = ['Plant', 'Grey-box']
+    legend_colors = ['b', 'g']
     cl_data_list = cstr_flash_empc['cl_data_list']
     (t, udatum, ydatum, xdatum) = get_datum(simdata_list=cl_data_list,
                                        plot_range = (0, 24*60))

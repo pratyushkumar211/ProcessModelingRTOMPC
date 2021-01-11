@@ -33,7 +33,7 @@ def _get_greybox_parameters(*, plant_pars):
     parameters['kb'] = 1.5 # m^2
     parameters['delH1'] = 150. # kJ/mol
     parameters['E1byR'] = 200 # K
-    parameters['k1star'] = 0.5 # 1/min
+    parameters['k1star'] = 0.3 # 1/min
     parameters['Td'] = 300 # K
 
     # Store the dimensions.
@@ -80,12 +80,12 @@ def _get_plant_parameters():
     parameters['Ab'] = 2. # m^2
     parameters['kr'] = 2. # m^2
     parameters['kb'] = 1.5 # m^2
-    parameters['delH1'] = 100. # kJ/mol
-    parameters['delH2'] = 120. # kJ/mol
+    parameters['delH1'] = 140. # kJ/mol
+    parameters['delH2'] = 130. # kJ/mol
     parameters['E1byR'] = 200. # K
-    parameters['E2byR'] = 100. # K
-    parameters['k1star'] = 0.4 # 1/min
-    parameters['k2star'] = 0.01 # 1/min
+    parameters['E2byR'] = 300. # K
+    parameters['k1star'] = 0.7 # 1/min
+    parameters['k2star'] = 0.1 # 1/min
     parameters['Td'] = 300 # K
 
     # Store the dimensions.
@@ -355,7 +355,7 @@ def main():
                                                                 greybox_pars,
                                                     training_data=training_data)
 
-    # Get grey-box model predictions on the validation data.    
+    # Get grey-box model predictions on the validation data.
     greybox_val_data = _get_greybox_val_preds(parameters=greybox_pars,
                                               training_data=training_data)
 
