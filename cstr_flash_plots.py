@@ -114,25 +114,41 @@ def plot_data(*, t, udatum, ydatum, xdatum,
     figures = []
     figures += plot_inputs(t, udatum, figure_size, -0.1,
                            data_type, legend_names, legend_colors)
-    figures += plot_outputs(t, ydatum, figure_size, -0.1, 
-                            legend_names, legend_colors)
+    #figures += plot_outputs(t, ydatum, figure_size, -0.1, 
+    #                        legend_names, legend_colors)
     figures += plot_states(t, xdatum, figure_size, -0.25, 
                            legend_names, legend_colors)
 
     # Return the figure object.
     return figures
 
-#def plot_openloop_sols(*, t, useq, xseq,
-#                          legend_names, legend_colors,
-#                          figure_size=PAPER_FIGSIZE):
-#    figures = []
-#    figures += plot_inputs(t, [useq], figure_size, -0.1,
-#                           data_type, legend_names, ['legend_colors'])
-#    figures += plot_states(t, [xseq], figure_size, -0.25, 
-#                           legend_names, legend_colors)
+def get_openloop_xtrajs(xdatum):
+    """ Clean up open-loop data for plotting. """
+    x_trajs = []
+    for (i, x_traj) in enumerate(xdatum):
+        if i==0:
+            x_trajs.append(x_traj[:-1, :])
+        else:
+            x_traj = x_traj[:-1, :8]
+            x_traj = np.insert(x_traj, [3, 7], 
+                               np.nan*np.ones((x_traj.shape[0], 2)), axis=1)
+            x_trajs.append(x_traj)
+    # Return.
+    return x_trajs
 
+def plot_openloop_sols(*, t, udatum, xdatum,
+                          legend_names, legend_colors,
+                          figure_size=PAPER_FIGSIZE):
+    """ Plot the open-loop EMPC solutions. """
+    xdatum = get_openloop_xtrajs(xdatum)
+    figures = []
+    t = t[:udatum[0].shape[0]]
+    figures += plot_inputs(t, udatum, figure_size, -0.1,
+                           'closed_loop', legend_names, legend_colors)
+    figures += plot_states(t, xdatum, figure_size, -0.25, 
+                           legend_names, legend_colors)
     # Return the figure object.
-#    return figures
+    return figures
 
 def get_plotting_arrays(data, plot_range):
     """ Get data and return for plotting. """
@@ -168,7 +184,9 @@ def plot_cost_pars(t, cost_pars,
                 'Product Price ($\$$/mol-B)']
     for (axes, pari, ylabel) in zip(axes_list, range(num_pars), ylabels):
         # Plot the corresponding data.
-        axes.plot(t, cost_pars[:len(t), pari])
+        t = np.arange(1, 61, 1)
+        cost_pars[:, 0] = 60*cost_pars[:, 0]
+        axes.plot(t, cost_pars[:60, pari])
         axes.set_ylabel(ylabel)
         axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
     axes.set_xlabel(xlabel)
@@ -227,26 +245,36 @@ def main():
                               legend_colors=legend_colors)
 
     # Plot the closed-loop simulation.
-    legend_names = ['Plant', 'Grey-box']
-    legend_colors = ['b', 'g']
-    cl_data_list = cstr_flash_empc['cl_data_list']
-    (t, udatum, ydatum, xdatum) = get_datum(simdata_list=cl_data_list,
-                                       plot_range = (0, 24*60))
-    figures += plot_data(t=t, udatum=udatum, ydatum=ydatum,
-                              xdatum=xdatum, data_type='closed_loop',
-                              legend_names=legend_names,
-                              legend_colors=legend_colors)
+    #legend_names = ['Plant', 'Grey-box']
+    #legend_colors = ['b', 'g']
+    #cl_data_list = cstr_flash_empc['cl_data_list']
+    #(t, udatum, ydatum, xdatum) = get_datum(simdata_list=cl_data_list,
+    #                                   plot_range = (0, 24*60))
+    #figures += plot_data(t=t, udatum=udatum, ydatum=ydatum,
+    #                          xdatum=xdatum, data_type='closed_loop',
+    #                          legend_names=legend_names,
+    #                          legend_colors=legend_colors)
     
     # Plot the plant profit in time.
-    figures += plot_avg_profits(t=t,
-                            avg_stage_costs=cstr_flash_empc['avg_stage_costs'], 
-                            legend_colors=legend_colors,
-                            legend_names=legend_names)
+    #figures += plot_avg_profits(t=t,
+    #                        avg_stage_costs=cstr_flash_empc['avg_stage_costs']#, 
+    #                        legend_colors=legend_colors,
+    #                        legend_names=legend_names)
 
     # Plot the empc costs.
     figures += plot_cost_pars(t=t, 
                               cost_pars=cstr_flash_empc['cost_pars'][:24*60, :])
 
+    # Plot the open-loop solutions.
+    legend_names = ['Plant', 'Grey-box', 'Hybrid']
+    legend_colors = ['b', 'g', 'm']
+    openloop_sols = cstr_flash_empc['openloop_sols']
+    udatum = [openloop_sols[0][0], openloop_sols[1][0], openloop_sols[2][0]]
+    xdatum = [openloop_sols[0][1], openloop_sols[1][1], openloop_sols[2][1]]
+    figures += plot_openloop_sols(t=t, udatum=udatum, xdatum=xdatum,
+                              legend_names=legend_names,
+                              legend_colors=legend_colors)
+    
     # Save PDF.
     with PdfPages('cstr_flash_plots.pdf', 'w') as pdf_file:
         for fig in figures:

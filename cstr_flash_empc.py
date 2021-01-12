@@ -65,14 +65,8 @@ def get_controller(model_func, model_pars, model_type,
         Bd[8, 6] = 1.
         Bd[9, 7] = 1.
     else:
-        Bd[1, 0] = 1.
-        Bd[2, 1] = 1.
-        Bd[3, 2] = 1.
-        Bd[4, 3] = 1.
-        Bd[6, 4] = 1.
-        Bd[7, 5] = 1.
-        Bd[8, 6] = 1.
-        Bd[9, 7] = 1.
+        Ng = model_pars['Ng']
+        Bd[:Ng, :Nd] = np.eye(Nd)
     Cd = np.zeros((Ny, Nd))
 
     # Get steady states.
@@ -89,7 +83,7 @@ def get_controller(model_func, model_pars, model_type,
     Qwx, Qwd, Rv = mhe_noise_tuning
 
     # Horizon lengths.
-    Nmpc = 2
+    Nmpc = 60
     Nmhe = 30
 
     # Return the NN controller.
@@ -369,9 +363,9 @@ def main():
     
     # Run simulations for different model.
     cl_data_list, avg_stage_costs_list, openloop_sol_list = [], [], []
-    model_odes = [_plant_ode, _hybrid_func]
-    model_pars = [plant_pars, hybrid_pars]
-    model_types = ['plant', 'hybrid']
+    model_odes = [_plant_ode, _greybox_ode, _hybrid_func]
+    model_pars = [plant_pars, greybox_pars, hybrid_pars]
+    model_types = ['plant', 'grey-box', 'hybrid']
     plant_lxup = lambda x, u, p: stage_cost(x, u, p, plant_pars, [5, 7, 9])
     for (model_ode,
          model_par, model_type) in zip(model_odes, model_pars, model_types):
@@ -379,15 +373,15 @@ def main():
         plant = get_plant(parameters=plant_pars)
         controller = get_controller(model_ode, model_par, model_type,
                                     cost_pars, mhe_noise_tuning)
-        cl_data, avg_stage_costs, openloop_sol = online_simulation(plant, 
+        cl_data, avg_stage_costs, openloop_sol = online_simulation(plant,
                                          controller,
                                          plant_lxup=plant_lxup,
-                                         Nsim=10, disturbances=disturbances,
+                                         Nsim=0, disturbances=disturbances,
                                          stdout_filename='cstr_flash_empc.txt')
         cl_data_list += [cl_data]
         avg_stage_costs_list += [avg_stage_costs]
         openloop_sol_list += [openloop_sol]
-
+    
     # Save data.
     PickleTool.save(data_object=dict(cl_data_list=cl_data_list,
                                      cost_pars=cost_pars,
