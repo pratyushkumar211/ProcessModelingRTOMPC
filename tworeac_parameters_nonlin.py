@@ -72,7 +72,7 @@ def _get_tworeac_parameters():
     parameters['Np'] = 1
 
     # Sample time.
-    parameters['sample_time'] = 1. # min.
+    parameters['Delta'] = 1. # min.
 
     # Get the steady states.
     parameters['xs'] = np.array([1., 0.5, 0.5]) # to be updated.
@@ -82,8 +82,8 @@ def _get_tworeac_parameters():
     # Get the constraints. 
     ulb = np.array([0.5])
     uub = np.array([2.5])
-    parameters['lb'] = dict(u=ulb)
-    parameters['ub'] = dict(u=uub)
+    parameters['ulb'] = ulb
+    parameters['uub'] = uub
 
     # Number of time-steps to keep the plant at steady.
     parameters['tsteps_steady'] = 60
@@ -104,7 +104,7 @@ def _get_tworeac_rectified_xs(*, parameters):
                                                       p, parameters)
     # Construct the casadi class.
     model = mpc.DiscreteSimulator(tworeac_plant_ode, 
-                                  parameters['sample_time'],
+                                  parameters['Delta'],
                                   [parameters['Nx'], parameters['Nu'], 
                                    parameters['Np']], 
                                   ["x", "u", "p"])
@@ -128,7 +128,7 @@ def _get_tworeac_model(*, parameters, plant=True):
                                         Nu = parameters['Nu'], 
                                         Np = parameters['Np'], 
                                         Ny = parameters['Ny'],
-                                    sample_time = parameters['sample_time'], 
+                                    sample_time = parameters['Delta'], 
                                         x0 = xs)
     else:
         # Construct and return the grey-box model.
@@ -142,7 +142,7 @@ def _get_tworeac_model(*, parameters, plant=True):
                                         Nu = parameters['Nu'], 
                                         Np = parameters['Np'], 
                                         Ny = parameters['Ny'],
-                                    sample_time = parameters['sample_time'], 
+                                    sample_time = parameters['Delta'], 
                                         x0 = xs)
 
 def _gen_train_val_data(*, parameters, num_traj, 
@@ -152,8 +152,8 @@ def _gen_train_val_data(*, parameters, num_traj,
         and generate training and validation data."""
     # Get the data list.
     data_list = []
-    ulb = parameters['lb']['u']
-    uub = parameters['ub']['u']
+    ulb = parameters['ulb']
+    uub = parameters['uub']
     tsteps_steady = parameters['tsteps_steady']
     p = parameters['ps'][:, np.newaxis]
 
@@ -190,7 +190,7 @@ def _gen_train_val_data(*, parameters, num_traj,
             plant.step(u[t:t+1, :], p)
         data_list.append(SimData(t=np.asarray(plant.t[0:-1]).squeeze(),
                 x=np.asarray(plant.x[0:-1]).squeeze(),
-                u=np.asarray(plant.u),
+                u=np.asarray(plant.u).squeeze(axis=-1),
                 y=np.asarray(plant.y[0:-1]).squeeze()))
     # Return the data list.
     return data_list
@@ -209,8 +209,7 @@ def _get_greybox_val_preds(*, parameters, training_data):
         model.step(u[t:t+1, :], p)
     x = np.asarray(model.x[0:-1]).squeeze()
     x = np.insert(x, [2], np.nan*np.ones((Nsim, 1)), axis=1)
-    data = SimData(t=np.asarray(model.t[0:-1]), x=x,
-                   u=u.squeeze(axis=-1),
+    data = SimData(t=np.asarray(model.t[0:-1]), x=x, u=u,
                    y=np.asarray(model.y[:-1]).squeeze())
     # Return daa.
     return data

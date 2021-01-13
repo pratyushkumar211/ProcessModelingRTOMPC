@@ -1,5 +1,6 @@
-# [depends] %LIB%/hybridid.py %LIB%/HybridModelLayers.py
-# [depends] cstr_flash_parameters.pickle
+# [depends] %LIB%/hybridid.py %LIB%/linNonlinMPC.py
+# [depends] tworeac_parameters_nonlin.py
+# [depends] tworeac_parameters_nonlin.pickle
 # [makes] pickle
 """ Script to perform closed-loop simulations
     with the trained models.
@@ -11,14 +12,14 @@ import time
 import casadi
 import copy
 import numpy as np
-from hybridid import (PickleTool, NonlinearEMPCController,
-                      SimData, get_cstr_flash_empc_pars,
-                      online_simulation, NonlinearPlantSimulator)
-from hybridid import _cstr_flash_plant_ode as _plant_ode
-from hybridid import _cstr_flash_greybox_ode as _greybox_ode
-from hybridid import _cstr_flash_measurement as _measurement
+from hybridid import PickleTool, SimData, _resample_fast, c2dNonlin
+from linNonlinMPC import (NonlinearPlantSimulator, NonlinearEMPCController, 
+                         online_simulation)
+from tworeac_parameters_nonlin import _tworeac_plant_ode as _plant_ode
+from tworeac_parameters_nonlin import _tworeac_greybox_ode as _greybox_ode
+from tworeac_parameters_nonlin import _tworeac_measurement as _measurement
 
-def get_controller(model_func, model_pars, model_type, 
+def get_controller(model_func, model_pars, model_type,
                    cost_pars, mhe_noise_tuning):
     """ Construct the controller object comprised of 
         EMPC regulator and MHE estimator. """
@@ -35,42 +36,36 @@ def get_controller(model_func, model_pars, model_type,
         fxu = c2dNonlin(fxu, Delta)
 
     # Measurement function.
-    hx = lambda x: _measurement(x, model_pars)
+    hx = lambda x: _measurement(x)
 
-    # Get the stage cost.
-    if model_type == 'plant':
-        lxup_xindices = [5, 7, 9]
-        Nx = model_pars['Nx']
-    elif model_type == 'grey-box':
-        lxup_xindices = [4, 6, 7]
+    # Get the state dimension.
+    if model_type == 'grey-box':
         Nx = model_pars['Ng']
     else:
-        lxup_xindices = [4, 6, 7]
         Nx = model_pars['Nx']
-    lxup = lambda x, u, p: stage_cost(x, u, p, model_pars, lxup_xindices)
+
+    # Get the stage cost.
+    lxup = lambda x, u, p: stage_cost(x, u, p)
     
     # Get the sizes/sample time.
-    (Nu, Ny) = (model_pars['Nu'], model_pars['Ny'])
+    Nu, Ny = model_pars['Nu'], model_pars['Ny']
     Nd = Ny
 
     # Get the disturbance models.
     Bd = np.zeros((Nx, Nd))
     if model_type == 'plant':
-        Bd[1, 0] = 1.
-        Bd[2, 1] = 1.
-        Bd[3, 2] = 1.
-        Bd[4, 3] = 1.
-        Bd[6, 4] = 1.
-        Bd[7, 5] = 1.
-        Bd[8, 6] = 1.
-        Bd[9, 7] = 1.
+        Bd[0, 0] = 1.
+        Bd[1, 1] = 1.
     else:
         Ng = model_pars['Ng']
         Bd[:Ng, :Nd] = np.eye(Nd)
     Cd = np.zeros((Ny, Nd))
 
     # Get steady states.
-    xs = model_pars['xs']
+    if model_type == 'grey-box' or model_type == 'hybrid':
+        xs = model_pars['xs'][:2]
+    else:
+        xs = model_pars['xs']
     us = model_pars['us']
     ds = np.zeros((Nd,))
     ys = hx(xs)
@@ -94,25 +89,6 @@ def get_controller(model_func, model_pars, model_type,
                                    empc_pars=cost_pars,
                                    ulb=ulb, uub=uub, Nmpc=Nmpc,
                                    Qwx=Qwx, Qwd=Qwd, Rv=Rv, Nmhe=Nmhe)
-
-def c2dNonlin(fxu, Delta):
-    """ Write a quick function to 
-        convert a ode to discrete
-        time using the RK4 method.
-        
-        xdot is a function such that 
-        dx/dt = f(x, u)
-        assume zero-order hold on the input.
-    """
-    # Get k1, k2, k3, k4.
-    k1 = fxu
-    k2 = lambda x, u: fxu(x + Delta*(k1(x, u)/2), u)
-    k3 = lambda x, u: fxu(x + Delta*(k2(x, u)/2), u)
-    k4 = lambda x, u: fxu(x + Delta*k3(x, u), u)
-    # Final discrete time function.
-    xplus = lambda x, u: x + (Delta/6)*(k1(x, u) + 
-                                        2*k2(x, u) + 2*k3(x, u) + k4(x, u))
-    return xplus
 
 def get_hybrid_pars(*, greybox_pars, Npast, fnn_weights, xuyscales):
     """ Get the hybrid model parameters. """
@@ -140,18 +116,9 @@ def get_hybrid_pars(*, greybox_pars, Npast, fnn_weights, xuyscales):
     # Return.
     return hybrid_pars
 
-def _fnn(xG, z, u, Npast, xuyscales, fnn_weights):
+def _fnn(xG, z, Npast, fnn_weights):
     """ Compute the NN output. """
-    #xmean, xstd = xuyscales['xscale']
-    #umean, ustd = xuyscales['uscale']
-    #ymean, ystd = xuyscales['yscale']
-    #xGzumean = np.concatenate((xmean,
-    #                           np.tile(ymean, (Npast, )), 
-    #                           np.tile(umean, (Npast+1, ))))
-    #xGzustd = np.concatenate((xstd,
-    #                          np.tile(ystd, (Npast, )), 
-    #                          np.tile(ustd, (Npast+1, ))))
-    nn_output = np.concatenate((xG, z, u))#- xGzumean)/xGzustd
+    nn_output = np.concatenate((xG, z))
     nn_output = nn_output[:, np.newaxis]
     for i in range(0, len(fnn_weights)-2, 2):
         (W, b) = fnn_weights[i:i+2]
@@ -235,7 +202,7 @@ def _hybrid_func(xGz, u, parameters):
 
 def get_plant(*, parameters):
     """ Return a nonlinear plant simulator object. """
-    measurement = lambda x: _measurement(x, parameters)
+    measurement = lambda x: _measurement(x)
     # Construct and return the plant.
     plant_ode = lambda x, u, p: _plant_ode(x, u, p, parameters)
     xs = parameters['xs'][:, np.newaxis]
@@ -249,31 +216,14 @@ def get_plant(*, parameters):
                                     sample_time = parameters['Delta'], 
                                     x0 = xs)
 
-def stage_cost(x, u, p, pars, xindices):
-    """ Custom stage cost for the CSTR/Flash system. """
-    CAf = pars['ps'][0]
-    Td = pars['Td']
-    pho = pars['pho']
-    Cp = pars['Cp']
-    kb = pars['kb']
-    
+def stage_cost(x, u, p):
+    """ Custom stage cost for the tworeac system. """    
     # Get inputs, parameters, and states.
-    F, Qr, D, Qb = u[0:4]
-    ce, ca, cb = p[0:3]
-    Hb, CBb, Tb = x[xindices]
-    Fb = kb*np.sqrt(Hb)
-    
+    CAf = u[0:1]
+    ca, cb = p[0:2]
+    CA, CB = x[0:2]
     # Compute and return cost.
-    return ca*F*CAf + ce*Qr + ce*Qb + ce*D*pho*Cp*(Tb-Td) - cb*Fb*CBb
-
-#def collect_cl_data(plant):
-#
-#    return
-
-#def collect_performance_losses():
-#    """ Collect the performance losses 
-#        of the trained neural network controllers. """
-#    return
+    return ca*CAf - cb*CB
 
 def sim_hybrid(hybrid_func, uval, hybrid_pars, greybox_processed_data):
     """ Hybrid validation simulation to make 
@@ -327,57 +277,73 @@ def get_mhe_noise_tuning(model_type, model_par):
         Rv = 1e-3*np.eye(model_par['Ny'])
     return (Qwx, Qwd, Rv)
 
+def get_tworeac_empc_pars(*, Delta):
+    """ Get economic MPC parameters for the tworeac example. """
+    raw_mat_price = _resample_fast(x = np.array([[105.], [105.], 
+                                                 [105.], [105.], 
+                                                 [105.]]), 
+                                   xDelta=6*60,
+                                   newDelta=Delta,
+                                   resample_type='zoh')
+    product_price = _resample_fast(x = np.array([[160.], [200.], 
+                                                 [120.], [180.], 
+                                                 [180.]]),
+                                   xDelta=6*60,
+                                   newDelta=Delta,
+                                   resample_type='zoh')
+    cost_pars = np.concatenate((raw_mat_price, product_price), axis=1)
+    # Return the cost pars.
+    return cost_pars
+
 def main():
     """ Main function to be executed. """
     # Load data.
-    cstr_flash_parameters = PickleTool.load(filename=
-                                            'cstr_flash_parameters.pickle',
+    tworeac_parameters_nonlin = PickleTool.load(filename=
+                                            'tworeac_parameters_nonlin.pickle',
                                             type='read')
-    cstr_flash_train = PickleTool.load(filename=
-                                            'cstr_flash_train.pickle',
+    tworeac_train_nonlin = PickleTool.load(filename=
+                                            'tworeac_train_nonlin.pickle',
                                             type='read')
 
     # Get parameters.
-    plant_pars = cstr_flash_parameters['plant_pars']
-    greybox_pars = cstr_flash_parameters['greybox_pars']
-    cost_pars, disturbances = get_cstr_flash_empc_pars(num_days=2,
-                                         sample_time=plant_pars['Delta'], 
-                                         plant_pars=plant_pars)
+    parameters = tworeac_parameters_nonlin['parameters']
+    cost_pars = get_tworeac_empc_pars(Delta=parameters['Delta'])
+    Nsim = cost_pars.shape[0]
+    disturbances = np.repeat(parameters['ps'][np.newaxis, :], Nsim)
 
     # Get NN weights and the hybrid ODE.
-    Np = cstr_flash_train['Nps'][0]
-    fnn_weights = cstr_flash_train['trained_weights'][0][0]
-    xuyscales = cstr_flash_train['xuyscales']
-    hybrid_pars = get_hybrid_pars(greybox_pars=greybox_pars,
-                                  Npast=Np,
-                                  fnn_weights=fnn_weights,
-                                  xuyscales=xuyscales)
+    #Np = cstr_flash_train['Nps'][0]
+    #fnn_weights = cstr_flash_train['trained_weights'][0][0]
+    #xuyscales = cstr_flash_train['xuyscales']
+    #hybrid_pars = get_hybrid_pars(greybox_pars=greybox_pars,
+    #                              Npast=Np,
+    #                              fnn_weights=fnn_weights,
+    #                              xuyscales=xuyscales)
 
     # Check the hybrid function.
-    uval = cstr_flash_parameters['training_data'][-1].u
-    ytfval = cstr_flash_train['val_predictions'][0].y
-    xGtfval = cstr_flash_train['val_predictions'][0].x
-    greybox_processed_data = cstr_flash_parameters['greybox_processed_data'][-1]
-    yval, xGval = sim_hybrid(_hybrid_func, uval, 
-                             hybrid_pars, greybox_processed_data)
+    #uval = cstr_flash_parameters['training_data'][-1].u
+    #ytfval = cstr_flash_train['val_predictions'][0].y
+    #xGtfval = cstr_flash_train['val_predictions'][0].x
+    #greybox_processed_data = cstr_flash_parameters['greybox_processed_data'][-1]
+    #yval, xGval = sim_hybrid(_hybrid_func, uval, 
+    #                         hybrid_pars, greybox_processed_data)
     
     # Run simulations for different model.
     cl_data_list, avg_stage_costs_list, openloop_sol_list = [], [], []
-    model_odes = [_plant_ode, _greybox_ode, _hybrid_func]
-    model_pars = [plant_pars, greybox_pars, hybrid_pars]
-    model_types = ['plant', 'grey-box', 'hybrid']
-    plant_lxup = lambda x, u, p: stage_cost(x, u, p, plant_pars, [5, 7, 9])
+    model_odes = [_plant_ode, _greybox_ode]
+    model_pars = [parameters, parameters]
+    model_types = ['plant', 'grey-box']
     for (model_ode,
          model_par, model_type) in zip(model_odes, model_pars, model_types):
         mhe_noise_tuning = get_mhe_noise_tuning(model_type, model_par)
-        plant = get_plant(parameters=plant_pars)
+        plant = get_plant(parameters=parameters)
         controller = get_controller(model_ode, model_par, model_type,
                                     cost_pars, mhe_noise_tuning)
         cl_data, avg_stage_costs, openloop_sol = online_simulation(plant,
                                          controller,
-                                         plant_lxup=plant_lxup,
-                                         Nsim=0, disturbances=disturbances,
-                                         stdout_filename='cstr_flash_empc.txt')
+                                         plant_lxup=controller.lxup,
+                                         Nsim=10, disturbances=disturbances,
+                                         stdout_filename='tworeac_empc.txt')
         cl_data_list += [cl_data]
         avg_stage_costs_list += [avg_stage_costs]
         openloop_sol_list += [openloop_sol]
@@ -388,6 +354,6 @@ def main():
                                      disturbances=disturbances,
                                      avg_stage_costs=avg_stage_costs_list,
                                      openloop_sols=openloop_sol_list),
-                    filename='cstr_flash_empc.pickle')
+                    filename='tworeac_empc_nonlin.pickle')
 
 main()
