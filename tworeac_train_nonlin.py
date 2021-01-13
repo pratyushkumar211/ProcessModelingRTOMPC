@@ -10,8 +10,7 @@ sys.path.append('lib/')
 import tensorflow as tf
 import time
 import numpy as np
-from hybridid import (PickleTool, get_tworeac_train_val_data, 
-                      SimData)
+from hybridid import PickleTool, SimData, get_tworeac_train_val_data
 from HybridModelLayers import TwoReacModel
 
 # Set the tensorflow global and graph-level seed.
@@ -43,7 +42,7 @@ def train_model(model, train_data, trainval_data, val_data,
     # Call the fit method to train.
     model.fit(x=[train_data['inputs'], train_data['xGz0']], 
               y=train_data['outputs'], 
-              epochs=2000, batch_size=1,
+              epochs=20, batch_size=1,
         validation_data = ([trainval_data['inputs'], trainval_data['xGz0']], 
                             trainval_data['outputs']),
             callbacks = [checkpoint_callback])
@@ -65,11 +64,11 @@ def main():
     tworeac_parameters = PickleTool.load(filename=
                                          'tworeac_parameters_nonlin.pickle',
                                          type='read')
-    (parameters, training_data) = (tworeac_parameters['parameters'],
-                                   tworeac_parameters['training_data'])
-
+    parameters = tworeac_parameters['parameters']
+    training_data = tworeac_parameters['training_data']
+    
     # Number of samples.
-    num_samples = [hour*60 for hour in [1, 2, 3, 6]]
+    num_samples = [hour*60 for hour in [6]]
 
     # Create lists.
     Nps = [2, 2]

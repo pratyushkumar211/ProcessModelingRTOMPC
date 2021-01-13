@@ -1,4 +1,4 @@
-# [depends] %LIB%/hybridid.py
+# [depends] %LIB%/hybridid.py %LIB%/linNonlinMPC.py
 # [makes] pickle
 """ Script to generate the necessary 
     parameters and training data for the 
@@ -10,9 +10,8 @@ sys.path.append('lib/')
 import mpctools as mpc
 import numpy as np
 import scipy.linalg
-from hybridid import (PickleTool, NonlinearPlantSimulator, 
-                      c2d, sample_prbs_like, SimData,
-                      NonlinearMHEEstimator)
+from hybridid import PickleTool, c2d, sample_prbs_like, SimData
+from linNonlinMPC import NonlinearPlantSimulator
 
 def _tworeac_plant_ode(x, u, p, parameters):
     """ Simple ODE describing a 2D system. """
@@ -90,7 +89,7 @@ def _get_tworeac_parameters():
     parameters['tsteps_steady'] = 60
 
     # Measurement noise.
-    parameters['Rv'] = np.diag([1e-3, 1e-3])
+    parameters['Rv'] = 0*np.diag([1e-3, 1e-3])
 
     # Return the parameters dict.
     return parameters
@@ -181,7 +180,7 @@ def _gen_train_val_data(*, parameters, num_traj,
         else:
             "Get input for training simulation."
             Nsim = Nsim_train
-            u = sample_prbs_like(num_change=48, num_steps=Nsim_train, 
+            u = sample_prbs_like(num_change=12, num_steps=Nsim_train, 
                                  lb=ulb, ub=uub,
                                  mean_change=30, sigma_change=2, seed=seed+3)
 
@@ -191,7 +190,7 @@ def _gen_train_val_data(*, parameters, num_traj,
             plant.step(u[t:t+1, :], p)
         data_list.append(SimData(t=np.asarray(plant.t[0:-1]).squeeze(),
                 x=np.asarray(plant.x[0:-1]).squeeze(),
-                u=np.asarray(plant.u).squeeze(),
+                u=np.asarray(plant.u),
                 y=np.asarray(plant.y[0:-1]).squeeze()))
     # Return the data list.
     return data_list
@@ -203,93 +202,18 @@ def _get_greybox_val_preds(*, parameters, training_data):
     model = _get_tworeac_model(parameters=parameters, plant=False)
     tsteps_steady = parameters['tsteps_steady']
     p = parameters['ps'][:, np.newaxis]
-    u = training_data[-1].u[:, np.newaxis]
+    u = training_data[-1].u
     Nsim = u.shape[0]
     # Run the open-loop simulation.
     for t in range(Nsim):
         model.step(u[t:t+1, :], p)
-    data = SimData(t=None,
-                   x=None,
-                   u=None,
-                   y=np.asarray(model.y[tsteps_steady:-1]).squeeze())
+    x = np.asarray(model.x[0:-1]).squeeze()
+    x = np.insert(x, [2], np.nan*np.ones((Nsim, 1)), axis=1)
+    data = SimData(t=np.asarray(model.t[0:-1]), x=x,
+                   u=u.squeeze(axis=-1),
+                   y=np.asarray(model.y[:-1]).squeeze())
+    # Return daa.
     return data
-
-def _get_mhe_estimator(*, parameters):
-    """ Filter the training data using a combination 
-        of grey-box model and an input disturbance model. """
-
-    #ef get_state_estimates(filter, y, uprev, Nx):
-    #    """Use the filter object to perform state estimation."""
-    #    return np.split(filter.solve(y, uprev), [Nx])
-
-    def state_space_model(Ng, Bd, Nd, ps, parameters):
-        """ Augmented state-space model for moving horizon estimation. """
-        return lambda x, u : np.concatenate((_tworeac_plant_ode(x[:Ng], 
-                                             u, ps, parameters) + Bd @ x[Ng:],
-                                             np.zeros((Nd,))), axis=0)
-    
-    def measurement_model(Ng):
-        """ Augmented measurement model for moving horizon estimation. """
-        return lambda x : _tworeac_measurement(x[:Ng])
-
-    # Get sizes.
-    (Ng, Nu, Ny) = (parameters['Nx'], parameters['Nu'], parameters['Ny'])
-    Nd = Ny
-
-    # Get the disturbance model.
-    Bd = np.zeros((Ng, Nd))
-    Bd[0, 0] = 1.
-    Bd[1, 1] = 1.
-    #Bd[6, 2] = 1.
-    #Bd[7, 3] = 1.
-    Cd = np.ones((Ny, Nd))
-
-    # Initial states.
-    xs = parameters['xs'][:, np.newaxis]
-    ps = parameters['ps'][:, np.newaxis]
-    us = parameters['us'][:, np.newaxis]
-    ys = _tworeac_measurement(xs)
-    ds = np.zeros((Nd, 1))
-
-    # Noise covariances.
-    Qwx = np.eye(Ng)
-    Qwd = np.eye(Nd)
-    Rv = np.eye(Ny)
-
-    # MHE horizon length.
-    Nmhe = 50
-
-    # Continuous time functions, fxu and hx.
-    fxud = state_space_model(Ng, Bd, Nd, ps, parameters)
-    hxd = measurement_model(Ng)
-    
-    # Initial data.
-    xprior = np.concatenate((xs, ds), axis=0)
-    xprior = np.repeat(xprior.T, Nmhe, axis=0)
-    u = np.repeat(us.T, Nmhe, axis=0)
-    y = np.repeat(ys.T, Nmhe+1, axis=0)
-    
-    # Penalty matrices.
-    Qwxinv = np.linalg.inv(Qwx)
-    Qwdinv = np.linalg.inv(Qwd)
-    Qwinv = scipy.linalg.block_diag(Qwxinv, Qwdinv)
-    P0inv = Qwinv
-    Rvinv = np.linalg.inv(Rv)
-
-    # Get the augmented models.
-    fxu = mpc.getCasadiFunc(fxud, [Ng+Nd, Nu], ["x", "u"],
-                            rk4=True, Delta=parameters['sample_time'], 
-                            M=20)
-    hx = mpc.getCasadiFunc(hxd, [Ng+Nd], ["x"])
-    
-    # Create a filter object and return.
-    return NonlinearMHEEstimator(fxu=fxu, hx=hx, 
-                                 Nmhe=Nmhe, Nx=Ng+Nd, 
-                                 Nu=Nu, Ny=Ny,
-                                 xprior=xprior, 
-                                 u=u, y=y, 
-                                 P0inv=P0inv, 
-                                 Qwinv=Qwinv, Rvinv=Rvinv)
 
 def main():
     """ Get the parameters/training/validation data."""
@@ -300,13 +224,13 @@ def main():
     
     # Generate training data.
     training_data = _gen_train_val_data(parameters=parameters, 
-                                        num_traj=3, Nsim_train=1440,
+                                        num_traj=3, Nsim_train=360,
                                         Nsim_trainval=120, Nsim_val=720, 
                                         seed=100)
     greybox_val_data = _get_greybox_val_preds(parameters=
                                             parameters, 
                                             training_data=training_data)
-    _get_mhe_estimator(parameters=parameters)
+
     # Create a dict and save.
     tworeac_parameters = dict(parameters=parameters, 
                               training_data=training_data,
