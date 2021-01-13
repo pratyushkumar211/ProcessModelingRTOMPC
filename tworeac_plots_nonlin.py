@@ -121,6 +121,8 @@ def plot_xudata(*, t, xlist, ulist,
 
 def main():
     """ Load the pickle file and plot. """
+
+    # Load parameters.
     tworeac_parameters = PickleTool.load(filename=
                                          "tworeac_parameters_nonlin.pickle",
                                          type='read')
@@ -128,10 +130,19 @@ def main():
      greybox_validation_data) = (tworeac_parameters['parameters'], 
                                  tworeac_parameters['training_data'], 
                                  tworeac_parameters['greybox_validation_data'])
+    
+    # Load data after training.
     tworeac_train = PickleTool.load(filename=
                                     "tworeac_train_nonlin.pickle", 
                                     type='read')
     val_predictions = tworeac_train['val_predictions']
+
+    # Load data after economic MPC simulation.
+    tworeac_empc = PickleTool.load(filename=
+                                    "tworeac_empc_nonlin.pickle", 
+                                    type='read')
+    cl_data_list = tworeac_empc['cl_data_list']
+    cost_pars = tworeac_empc['cost_pars']
 
     #num_samples = tworeac_train['num_samples']
     #val_metrics = tworeac_train['val_metrics']
@@ -161,6 +172,14 @@ def main():
     figures += plot_xudata(t=t, xlist=xlist, ulist=ulist,
                            legend_names=legend_names,
                            legend_colors=legend_colors)
+
+    # Plot closed-loop simulation data.
+    t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
+                                                     cl_data_list,
+                                                     plot_range=(0, 24*60))
+    figures += plot_xudata(t=t, xlist=xlist, ulist=ulist,
+                           legend_names=legend_names[:2],
+                           legend_colors=legend_colors[:2])
 
     # Plot predictions on validation data.
     #val_predictions.pop(0)
