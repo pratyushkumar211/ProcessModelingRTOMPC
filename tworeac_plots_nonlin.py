@@ -44,7 +44,7 @@ def plot_xudata(*, t, xlist, ulist,
         legend_handles += handle
     figure.legend(handles = legend_handles,
                   labels = legend_names,
-                  loc = (0.25, 0.9), ncol=len(legend_names))
+                  loc = (0.15, 0.9), ncol=len(legend_names))
     # Return figure.
     return [figure]
 
@@ -128,9 +128,11 @@ def main():
      greybox_validation_data) = (tworeac_parameters['parameters'], 
                                  tworeac_parameters['training_data'], 
                                  tworeac_parameters['greybox_validation_data'])
-    #tworeac_train = PickleTool.load(filename=
-    #                                "tworeac_train_nonlin.pickle", 
-    #                                type='read')
+    tworeac_train = PickleTool.load(filename=
+                                    "tworeac_train_nonlin.pickle", 
+                                    type='read')
+    val_predictions = tworeac_train['val_predictions']
+
     #num_samples = tworeac_train['num_samples']
     #val_metrics = tworeac_train['val_metrics']
     #val_predictions = tworeac_train['val_predictions']
@@ -142,11 +144,20 @@ def main():
     figures = []
 
     # Plot validation data.
-    legend_names = ['Plant', 'Grey-box']
-    legend_colors = ['b', 'g']
-    valdata_list = [training_data[-1], greybox_validation_data]
-    t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=valdata_list,
+    legend_names = ['Plant', 'Grey-box', 'Black-box', 'Hybrid']
+    legend_colors = ['b', 'g', 'dimgrey', 'm']
+    valdata_list = [training_data[-1], greybox_validation_data] 
+    valdata_list += val_predictions
+    t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
+                                                     valdata_list[:2],
+                                                     plot_range=(60, 7*60))
+    (t, ulist_train, 
+    ylist_train, xlist_train) = get_plotting_array_list(simdata_list=
+                                                     valdata_list[2:],
                                                      plot_range=(0, 6*60))
+    ulist += ulist_train
+    ylist += ylist_train
+    xlist += xlist_train
     figures += plot_xudata(t=t, xlist=xlist, ulist=ulist,
                            legend_names=legend_names,
                            legend_colors=legend_colors)
