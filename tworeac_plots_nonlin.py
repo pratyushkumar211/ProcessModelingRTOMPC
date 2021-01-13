@@ -11,7 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from hybridid import PickleTool, PAPER_FIGSIZE, plot_profit_curve
-from hybridid import get_plotting_array_list
+from hybridid import get_plotting_array_list, plot_avg_profits
 
 labels = [r'$C_A \ (\textnormal{mol/m}^3)$', 
           r'$C_B \ (\textnormal{mol/m}^3)$',
@@ -119,6 +119,27 @@ def plot_xudata(*, t, xlist, ulist,
     #axes.set_ylim(ylim)
 #    return [figure]
 
+def plot_cost_pars(t, cost_pars,
+                   figure_size=PAPER_FIGSIZE, 
+                   ylabel_xcoordinate=-0.15):
+    """ Plot the economic MPC cost parameters. """
+    num_pars = cost_pars.shape[1]
+    (figure, axes_list) = plt.subplots(nrows=num_pars, ncols=1,
+                                  sharex=True,
+                                  figsize=figure_size,
+                                  gridspec_kw=dict(left=0.18))
+    xlabel = 'Time (hr)'
+    ylabels = [r'$c_1$',
+                r'$c_2$']
+    for (axes, pari, ylabel) in zip(axes_list, range(num_pars), ylabels):
+        # Plot the corresponding data.
+        axes.plot(t, cost_pars[:len(t), pari])
+        axes.set_ylabel(ylabel, rotation=False)
+        axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
+    axes.set_xlabel(xlabel)
+    axes.set_xlim([np.min(t), np.max(t)])
+    return [figure]
+
 def main():
     """ Load the pickle file and plot. """
 
@@ -180,6 +201,15 @@ def main():
     figures += plot_xudata(t=t, xlist=xlist, ulist=ulist,
                            legend_names=legend_names[:2],
                            legend_colors=legend_colors[:2])
+
+    # Plot empc pars.
+    figures += plot_cost_pars(t=t, cost_pars=tworeac_empc['cost_pars'])
+
+    # Plot profit curve.
+    figures += plot_avg_profits(t=t,
+                            avg_stage_costs=tworeac_empc['avg_stage_costs'], 
+                            legend_colors=legend_colors[:2],
+                            legend_names=legend_names[:2])
 
     # Plot predictions on validation data.
     #val_predictions.pop(0)

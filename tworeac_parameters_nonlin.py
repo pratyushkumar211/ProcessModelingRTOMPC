@@ -76,7 +76,7 @@ def _get_tworeac_parameters():
 
     # Get the steady states.
     parameters['xs'] = np.array([1., 0.5, 0.5]) # to be updated.
-    parameters['us'] = np.array([1.]) # Ca0s
+    parameters['us'] = np.array([1.5]) # Ca0s
     parameters['ps'] = np.array([5.]) # tau (min)
 
     # Get the constraints. 

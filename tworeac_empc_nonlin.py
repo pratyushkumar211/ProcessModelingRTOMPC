@@ -282,16 +282,16 @@ def get_tworeac_empc_pars(*, Delta):
     raw_mat_price = _resample_fast(x = np.array([[105.], [105.], 
                                                  [105.], [105.], 
                                                  [105.]]), 
-                                   xDelta=6*60,
+                                   xDelta=2*60,
                                    newDelta=Delta,
                                    resample_type='zoh')
-    product_price = _resample_fast(x = np.array([[160.], [200.], 
-                                                 [120.], [180.], 
-                                                 [180.]]),
-                                   xDelta=6*60,
+    product_price = _resample_fast(x = np.array([[170.], [200.], 
+                                                 [120.], [160.], 
+                                                 [160.]]),
+                                   xDelta=2*60,
                                    newDelta=Delta,
                                    resample_type='zoh')
-    cost_pars = np.concatenate((raw_mat_price, product_price), axis=1)
+    cost_pars = 100*np.concatenate((raw_mat_price, product_price), axis=1)
     # Return the cost pars.
     return cost_pars
 
@@ -342,7 +342,7 @@ def main():
         cl_data, avg_stage_costs, openloop_sol = online_simulation(plant,
                                          controller,
                                          plant_lxup=controller.lxup,
-                                         Nsim=10, disturbances=disturbances,
+                                         Nsim=8*60, disturbances=disturbances,
                                          stdout_filename='tworeac_empc.txt')
         cl_data_list += [cl_data]
         avg_stage_costs_list += [avg_stage_costs]
