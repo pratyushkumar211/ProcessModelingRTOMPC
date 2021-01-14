@@ -45,7 +45,7 @@ def train_model(model, x0key, xuyscales, train_data, trainval_data, val_data,
     # Call the fit method to train.
     model.fit(x = [train_data['inputs'], train_data[x0key]],
               y = [train_data['outputs'], train_data['xG']], 
-              epochs=300, batch_size=2,
+              epochs=600, batch_size=2,
         validation_data = ([trainval_data['inputs'], trainval_data[x0key]], 
                            [trainval_data['outputs'], trainval_data['xG']]),
         callbacks = [checkpoint_callback])
@@ -89,7 +89,7 @@ def main():
     num_samples = [batch*Nsim_train for batch in num_batches]
 
     # Create lists.
-    Nps = [1]
+    Nps = [3]
     fnn_dims = [[102, 8, 8]]
     model_types = ['hybrid']
     trained_weights = []
@@ -105,7 +105,7 @@ def main():
         
         model_trained_weights = []
         model_val_metrics = []
-
+        
         # Get the training data.
         (train_data,
          trainval_data,

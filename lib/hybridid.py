@@ -81,6 +81,46 @@ def sample_prbs_like(*, num_change, num_steps,
                              mean_change, sigma_change)
     return np.repeat(values, repeat, axis=0)
 
+def c2dNonlin(fxu, Delta):
+    """ Quick function to 
+        convert a ode to discrete
+        time using the RK4 method.
+        
+        fxu is a function such that 
+        dx/dt = f(x, u)
+        assume zero-order hold on the input.
+    """
+    # Get k1, k2, k3, k4.
+    k1 = fxu
+    k2 = lambda x, u: fxu(x + Delta*(k1(x, u)/2), u)
+    k3 = lambda x, u: fxu(x + Delta*(k2(x, u)/2), u)
+    k4 = lambda x, u: fxu(x + Delta*k3(x, u), u)
+    # Final discrete time function.
+    xplus = lambda x, u: x + (Delta/6)*(k1(x, u) + 
+                                        2*k2(x, u) + 2*k3(x, u) + k4(x, u))
+    return xplus
+
+def get_plotting_arrays(simdata, plot_range):
+    """ Get data and return for plotting. """
+    start, end = plot_range
+    u = simdata.u[start:end, :]
+    x = simdata.x[start:end, :]
+    y = simdata.y[start:end, :]
+    t = simdata.t[start:end]/60 # Convert to hours.
+    # Return t, x, y, u.
+    return (t, x, y, u)
+
+def get_plotting_array_list(*, simdata_list, plot_range):
+    """ Get all data as lists. """
+    ulist, xlist, ylist = [], [], []
+    for simdata in simdata_list:
+        t, x, y, u = get_plotting_arrays(simdata, plot_range)
+        ulist += [u]
+        xlist += [x]
+        ylist += [y]
+    # Return lists.
+    return (t, ulist, ylist, xlist)
+
 def _get_energy_price(*, num_days, sample_time):
     """ Get a two day heat disturbance profile. """
     energy_price = np.zeros((24, 1))
@@ -132,41 +172,14 @@ def _resample_fast(*, x, xDelta, newDelta, resample_type):
         return np.concatenate([np.linspace(x[t, :], x[t+1, :], Delta_ratio)
                                for t in range(x.shape[0]-1)], axis=0)
 
-def get_tworeac_train_val_data(*, Np, parameters, data_list):
-    """ Get the data for training in appropriate format. """
-    tsteps_steady = parameters['tsteps_steady']
-    (Ny, Nu) = (parameters['Ny'], parameters['Nu'])
-    (inputs, xGz0, outputs) = ([], [], [])
-    for data in data_list:
-        t = tsteps_steady
-        
-        # Get input trajectory.
-        u_traj = data.u[t:][np.newaxis, :, np.newaxis]
-        
-        # Get initial state.
-        x0 = data.y[t, :][np.newaxis, :]
-        yp0seq = data.y[t-Np:t, :].reshape(Np*Ny, )[np.newaxis, :]
-        up0seq = data.u[t-Np:t][np.newaxis, :]
-        xGz0_traj = np.concatenate((x0, yp0seq, up0seq), axis=-1)
-
-        # Get output trajectory.
-        y_traj = data.y[t:, :][np.newaxis, ...]
-        
-        # Collect the trajectories in list.
-        inputs.append(u_traj)
-        xGz0.append(xGz0_traj)
-        outputs.append(y_traj)
-    
-    # Get the training and validation data for training in compact dicts.
-    train_data = dict(inputs=np.concatenate(inputs[:-2], axis=0),
-                      xGz0=np.concatenate(xGz0[:-2], axis=0),
-                      outputs=np.concatenate(outputs[:-2], axis=0))
-    trainval_data = dict(inputs=inputs[-2], xGz0=xGz0[-2],
-                         outputs=outputs[-2])
-    val_data = dict(inputs=inputs[-1], xGz0=xGz0[-1],
-                    outputs=outputs[-1])
+def interpolate_yseq(yseq, Npast, Ny):
+    """ y is of dimension: (None, (Npast+1)*p)
+        Return y of dimension: (None, Npast*p). """
+    yseq_interp = []
+    for t in range(Npast):
+        yseq_interp.append(0.5*(yseq[t*Ny:(t+1)*Ny] + yseq[(t+1)*Ny:(t+2)*Ny]))
     # Return.
-    return (train_data, trainval_data, val_data)
+    return np.concatenate(yseq_interp)
 
 def get_scaling(*, data):
     """ Scale the input/output. """
@@ -183,6 +196,51 @@ def get_scaling(*, data):
     return dict(xscale = (xmean, xstd), 
                 uscale = (umean, ustd), 
                 yscale = (ymean, ystd))
+
+def get_tworeac_train_val_data(*, Np, parameters, data_list):
+    """ Get the data for training in appropriate format. """
+    tsteps_steady = parameters['tsteps_steady']
+    Ny, Nu = parameters['Ny'], parameters['Nu']
+    xuyscales = get_scaling(data=data_list[0])
+    xuscales = dict(xscale=xuyscales['yscale'], uscale=xuyscales['uscale'])
+    inputs, xGz0, outputs = [], [], []
+    # Loop through the data list.
+    for data in data_list:
+
+        # Scale data.
+        u = (data.u-xuscales['uscale'][0])/xuscales['uscale'][1]
+        y = (data.y-xuscales['xscale'][0])/xuscales['xscale'][1]
+
+        # Starting time point.
+        t = tsteps_steady
+        
+        # Get input trajectory.
+        u_traj = u[t:][np.newaxis, :]
+        
+        # Get initial state.
+        xG0 = y[t, :][np.newaxis, :]
+        yp0seq = y[t-Np:t, :].reshape(Np*Ny, )[np.newaxis, :]
+        up0seq = u[t-Np:t, :].reshape(Np*Nu, )[np.newaxis, :]
+        xGz0_traj = np.concatenate((xG0, yp0seq, up0seq), axis=-1)
+        
+        # Get output trajectory.
+        y_traj = y[t:, :][np.newaxis, ...]
+
+        # Collect the trajectories in list.
+        inputs.append(u_traj)
+        xGz0.append(xGz0_traj)
+        outputs.append(y_traj)
+    
+    # Get the training and validation data for training in compact dicts.
+    train_data = dict(inputs=np.concatenate(inputs[:-2], axis=0),
+                      xGz0=np.concatenate(xGz0[:-2], axis=0),
+                      outputs=np.concatenate(outputs[:-2], axis=0))
+    trainval_data = dict(inputs=inputs[-2], xGz0=xGz0[-2],
+                         outputs=outputs[-2])
+    val_data = dict(inputs=inputs[-1], xGz0=xGz0[-1],
+                    outputs=outputs[-1])
+    # Return.
+    return (train_data, trainval_data, val_data, xuscales)
 
 def get_cstr_flash_train_val_data(*, Np, parameters,
                                      greybox_processed_data):
@@ -384,4 +442,27 @@ def plot_profit_curve(*, us, costs, colors, legends,
     #figure.suptitle(figlabel,
     #                x=0.55, y=0.94)
     # Return the figure object.
+    return [figure]
+
+def plot_avg_profits(*, t, avg_stage_costs,
+                    legend_colors, legend_names, 
+                    figure_size=PAPER_FIGSIZE, 
+                    ylabel_xcoordinate=-0.15):
+    """ Plot the profit. """
+    (figure, axes) = plt.subplots(nrows=1, ncols=1,
+                                  sharex=True,
+                                  figsize=figure_size,
+                                  gridspec_kw=dict(left=0.15))
+    xlabel = 'Time (hr)'
+    ylabel = '$\Lambda_k$'
+    for (cost, color) in zip(avg_stage_costs, legend_colors):
+        # Plot the corresponding data.
+        profit = -cost
+        axes.plot(t, profit, color)
+    axes.legend(legend_names)
+    axes.set_xlabel(xlabel)
+    axes.set_ylabel(ylabel, rotation=True)
+    axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
+    axes.set_xlim([np.min(t), np.max(t)])
+    # Return.
     return [figure]

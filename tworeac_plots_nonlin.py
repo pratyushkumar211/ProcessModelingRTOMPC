@@ -195,12 +195,14 @@ def main():
                            legend_colors=legend_colors)
 
     # Plot closed-loop simulation data.
+    legend_names = ['Plant', 'Hybrid']
+    legend_colors = ['b', 'm']
     t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
                                                      cl_data_list,
                                                      plot_range=(0, 24*60))
     figures += plot_xudata(t=t, xlist=xlist, ulist=ulist,
-                           legend_names=legend_names[:2],
-                           legend_colors=legend_colors[:2])
+                           legend_names=legend_names,
+                           legend_colors=legend_colors)
 
     # Plot empc pars.
     figures += plot_cost_pars(t=t, cost_pars=tworeac_empc['cost_pars'])
@@ -208,8 +210,8 @@ def main():
     # Plot profit curve.
     figures += plot_avg_profits(t=t,
                             avg_stage_costs=tworeac_empc['avg_stage_costs'], 
-                            legend_colors=legend_colors[:2],
-                            legend_names=legend_names[:2])
+                            legend_colors=legend_colors,
+                            legend_names=legend_names)
 
     # Plot predictions on validation data.
     #val_predictions.pop(0)

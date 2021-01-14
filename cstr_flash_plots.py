@@ -59,7 +59,7 @@ def plot_inputs(t, udatum, figure_size, ylabel_xcoordinate,
     if data_type == 'closed_loop':
         figure.legend(handles = legend_handles,
                       labels = legend_names,
-                      loc = (0.32, 0.9), ncol=len(legend_names))
+                      loc = (0.25, 0.9), ncol=len(legend_names))
     return [figure]
 
 def plot_outputs(t, ydatum, figure_size, ylabel_xcoordinate,
@@ -80,7 +80,7 @@ def plot_outputs(t, ydatum, figure_size, ylabel_xcoordinate,
         legend_handles += handle
     figure.legend(handles = legend_handles,
                   labels = legend_names,
-                  loc = (0.32, 0.9), ncol=len(legend_names))
+                  loc = (0.25, 0.9), ncol=len(legend_names))
     return [figure]
 
 def plot_states(t, xdatum, figure_size, ylabel_xcoordinate,
@@ -104,7 +104,7 @@ def plot_states(t, xdatum, figure_size, ylabel_xcoordinate,
         legend_handles += handle
     figure.legend(handles = legend_handles,
                   labels = legend_names,
-                  loc = (0.32, 0.9), ncol=len(legend_names))
+                  loc = (0.25, 0.9), ncol=len(legend_names))
     return [figure]
 
 def plot_data(*, t, udatum, ydatum, xdatum,
@@ -143,31 +143,13 @@ def plot_openloop_sols(*, t, udatum, xdatum,
     xdatum = get_openloop_xtrajs(xdatum)
     figures = []
     t = t[:udatum[0].shape[0]]
+    t = t - 2
     figures += plot_inputs(t, udatum, figure_size, -0.1,
                            'closed_loop', legend_names, legend_colors)
     figures += plot_states(t, xdatum, figure_size, -0.25, 
                            legend_names, legend_colors)
     # Return the figure object.
     return figures
-
-def get_plotting_arrays(data, plot_range):
-    """ Get data and return for plotting. """
-    start, end = plot_range
-    u = data.u[start:end, :]
-    x = data.x[start:end, :]
-    y = data.y[start:end, :]
-    t = data.t[start:end]/60 # Convert to hours.
-    return (t, x, y, u)
-
-def get_datum(*, simdata_list, plot_range):
-    """ Get all data as lists. """
-    udatum, xdatum, ydatum = [], [], []
-    for simdata in simdata_list:
-        t, x, y, u = get_plotting_arrays(simdata, plot_range)
-        udatum += [u]
-        xdatum += [x]
-        ydatum += [y]
-    return (t, udatum, ydatum, xdatum)
 
 def plot_cost_pars(t, cost_pars,
                    figure_size=PAPER_FIGSIZE, 
@@ -184,36 +166,13 @@ def plot_cost_pars(t, cost_pars,
                 'Product Price ($\$$/mol-B)']
     for (axes, pari, ylabel) in zip(axes_list, range(num_pars), ylabels):
         # Plot the corresponding data.
-        t = np.arange(1, 61, 1)
+        t = np.arange(1, 61, 1)/60
         cost_pars[:, 0] = 60*cost_pars[:, 0]
         axes.plot(t, cost_pars[:60, pari])
         axes.set_ylabel(ylabel)
         axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
     axes.set_xlabel(xlabel)
     axes.set_xlim([np.min(t), np.max(t)])
-    return [figure]
-
-def plot_avg_profits(*, t, avg_stage_costs,
-                    legend_colors, legend_names, 
-                    figure_size=PAPER_FIGSIZE, 
-                    ylabel_xcoordinate=-0.15):
-    """ Plot the profit. """
-    (figure, axes) = plt.subplots(nrows=1, ncols=1,
-                                  sharex=True,
-                                  figsize=figure_size,
-                                  gridspec_kw=dict(left=0.15))
-    xlabel = 'Time (hr)'
-    ylabel = '$\Lambda_k$'
-    for (cost, color) in zip(avg_stage_costs, legend_colors):
-        # Plot the corresponding data.
-        profit = -cost
-        axes.plot(t, profit, color)
-    axes.legend(legend_names)
-    axes.set_xlabel(xlabel)
-    axes.set_ylabel(ylabel, rotation=True)
-    axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
-    axes.set_xlim([np.min(t), np.max(t)])
-    # Return.
     return [figure]
 
 def main():

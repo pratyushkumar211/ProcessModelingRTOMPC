@@ -346,7 +346,7 @@ def main():
     greybox_pars = _get_greybox_parameters(plant_pars=plant_pars)
 
     # Generate training data.
-    training_data = _gen_train_val_data(parameters=plant_pars, num_traj=10,
+    training_data = _gen_train_val_data(parameters=plant_pars, num_traj=14,
                                         Nsim_train=4*60, Nsim_trainval=6*60,
                                         Nsim_val=12*60, seed=2)
 
@@ -358,8 +358,8 @@ def main():
     # Get grey-box model predictions on the validation data.
     greybox_val_data = _get_greybox_val_preds(parameters=greybox_pars,
                                               training_data=training_data)
-
-    # Collect in a dict.    
+    
+    # Collect in a dict.
     cstr_flash_parameters = dict(plant_pars=plant_pars,
                                  greybox_pars=greybox_pars,
                                  training_data=training_data,

@@ -4,12 +4,12 @@ import sys
 import numpy as np
 import mpctools as mpc
 import scipy.linalg
-import matplotlib.pyplot as plt
 import casadi
 import collections
 import pickle
 import plottools
 import time
+from hybridid import SimData
     
 class NonlinearPlantSimulator:
     """Custom class for simulating non-linear plants."""
@@ -422,7 +422,7 @@ def online_simulation(plant, controller, *, plant_lxup, Nsim=None,
     # Create a sim data and stage cost array.
     cl_data = SimData(t=np.asarray(plant.t[0:-1]).squeeze(),
                 x=np.asarray(plant.x[0:-1]).squeeze(),
-                u=np.asarray(plant.u).squeeze(),
+                u=np.asarray(plant.u),
                 y=np.asarray(plant.y[0:-1]).squeeze())
     avg_stage_costs = np.array(avg_stage_costs[1:])
     openloop_sol = [np.asarray(controller.regulator.useq[0]), 

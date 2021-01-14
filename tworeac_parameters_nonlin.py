@@ -40,8 +40,8 @@ def _tworeac_greybox_ode(x, u, p, parameters):
 
     # Extract the plant states into meaningful names.
     (Ca, Cb) = x[0:2]
-    Ca0 = u[0:1]
-    tau = p[0:1]
+    Ca0 = u[0]
+    tau = p[0]
 
     # Write the ODEs.
     dCabydt = (Ca0-Ca)/tau - k1*Ca
@@ -77,7 +77,7 @@ def _get_tworeac_parameters():
     # Get the steady states.
     parameters['xs'] = np.array([1., 0.5, 0.5]) # to be updated.
     parameters['us'] = np.array([1.5]) # Ca0s
-    parameters['ps'] = np.array([5.]) # tau (min)
+    parameters['ps'] = np.array([10.]) # tau (min)
 
     # Get the constraints. 
     ulb = np.array([0.5])

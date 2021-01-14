@@ -13,12 +13,13 @@ class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
     RNN Cell
     dxG/dt  = fG(xG, u) + f_N(xG, y_{k-N_p:k-1}, u_{k-N_p:k-1}), y = xG
     """
-    def __init__(self, Np, interp_layer,
-                       fnn_layers, tworeac_parameters, **kwargs):
+    def __init__(self, Np, interp_layer, fnn_layers,
+                       xuscales, tworeac_parameters, **kwargs):
         super(TwoReacHybridCell, self).__init__(**kwargs)
         self.Np = Np
         self.interp_layer = interp_layer
         self.fnn_layers = fnn_layers
+        self.xuscales = xuscales
         self.tworeac_parameters = tworeac_parameters
         (self.Ng, self.Nu) = (tworeac_parameters['Ng'],
                               tworeac_parameters['Nu'])
@@ -40,6 +41,12 @@ class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
         k1 = self.tworeac_parameters['k1']
         tau = self.tworeac_parameters['ps'].squeeze()
         
+        # Scale back to physical states.
+        xmean, xstd = self.xuscales['xscale']
+        umean, ustd = self.xuscales['uscale']
+        x = x*xstd + xmean
+        u = u*ustd + umean
+
         # Get the state and control.
         (Ca, Cb) = (x[..., 0:1], x[..., 1:2])
         Caf = u[..., 0:1]
@@ -48,8 +55,11 @@ class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
         dCabydt = (Caf - Ca)/tau - k1*Ca
         dCbbydt = k1*Ca - Cb/tau
 
+        # Scaled derivate.
+        xdot = tf.concat([dCabydt, dCbbydt], axis=-1)/xstd
+
         # Return the derivative.
-        return tf.concat([dCabydt, dCbbydt], axis=-1)
+        return xdot
 
     def _fnn(self, xg, z):
         """ Compute the output of the feedforward network. """
@@ -70,7 +80,7 @@ class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
         (ypseq, upseq) = tf.split(z, [self.Np*self.Ng, self.Np*self.Nu],
                                   axis=-1)
         u = inputs
-        Delta = self.tworeac_parameters['sample_time']
+        Delta = self.tworeac_parameters['Delta']
         
         # Get k1.
         k1 = self._fg(xG, u) + self._fnn(xG, z)
@@ -392,12 +402,12 @@ class InterpolationLayer(tf.keras.layers.Layer):
 
 class TwoReacModel(tf.keras.Model):
     """ Custom model for the Two reaction model. """
-    def __init__(self, Np, fnn_dims, tworeac_parameters, model_type):
+    def __init__(self, Np, fnn_dims, xuscales, tworeac_parameters, model_type):
         """ Create the dense layers for the NN, and 
             construct the overall model. """
 
         # Get the size and input layer, and initial state layer.
-        (Ng, Nu) = (tworeac_parameters['Ng'], tworeac_parameters['Nu'])
+        Ng, Nu = tworeac_parameters['Ng'], tworeac_parameters['Nu']
         layer_input = tf.keras.Input(name='u', shape=(None, Nu))
         initial_state = tf.keras.Input(name='xGz0',
                                        shape=(Ng + Np*(Ng+Nu), ))
@@ -416,10 +426,7 @@ class TwoReacModel(tf.keras.Model):
         if model_type == 'hybrid':
             interp_layer = InterpolationLayer(p=Ng, Np=Np)
             tworeac_cell = TwoReacHybridCell(Np, interp_layer, fnn_layers,
-                                             tworeac_parameters)
-        #elif model_type == 'residual':
-        #    tworeac_cell = TwoReacResidualCell(Np, fnn_layers,
-        #                                       tworeac_parameters)
+                                             xuscales, tworeac_parameters)
 
         # Construct the RNN layer and the computation graph.
         tworeac_layer = tf.keras.layers.RNN(tworeac_cell, return_sequences=True)

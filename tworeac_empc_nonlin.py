@@ -12,7 +12,8 @@ import time
 import casadi
 import copy
 import numpy as np
-from hybridid import PickleTool, SimData, _resample_fast, c2dNonlin
+from hybridid import (PickleTool, SimData, _resample_fast, c2dNonlin,
+                     interpolate_yseq)
 from linNonlinMPC import (NonlinearPlantSimulator, NonlinearEMPCController, 
                          online_simulation)
 from tworeac_parameters_nonlin import _tworeac_plant_ode as _plant_ode
@@ -62,7 +63,7 @@ def get_controller(model_func, model_pars, model_type,
     Cd = np.zeros((Ny, Nd))
 
     # Get steady states.
-    if model_type == 'grey-box' or model_type == 'hybrid':
+    if model_type == 'grey-box':
         xs = model_pars['xs'][:2]
     else:
         xs = model_pars['xs']
@@ -90,20 +91,20 @@ def get_controller(model_func, model_pars, model_type,
                                    ulb=ulb, uub=uub, Nmpc=Nmpc,
                                    Qwx=Qwx, Qwd=Qwd, Rv=Rv, Nmhe=Nmhe)
 
-def get_hybrid_pars(*, greybox_pars, Npast, fnn_weights, xuyscales):
+def get_hybrid_pars(*, parameters, Npast, fnn_weights, xuscales):
     """ Get the hybrid model parameters. """
 
-    hybrid_pars = copy.deepcopy(greybox_pars)
+    hybrid_pars = copy.deepcopy(parameters)
     # Update sizes.
-    Nu, Ny = greybox_pars['Nu'], greybox_pars['Ny']
-    hybrid_pars['Nx'] = greybox_pars['Ng'] + Npast*(Nu + Ny)
+    Ng, Nu, Ny = parameters['Ng'], parameters['Nu'], parameters['Ny']
+    hybrid_pars['Nx'] = parameters['Ng'] + Npast*(Nu + Ny)
 
     # Update steady state.
-    ys = _measurement(greybox_pars['xs'], greybox_pars)
+    ys = _measurement(parameters['xs'])
     yspseq = np.tile(ys, (Npast, ))
-    us = greybox_pars['us']
+    us = parameters['us']
     uspseq = np.tile(us, (Npast, ))
-    xs = greybox_pars['xs']
+    xs = parameters['xs'][:Ng]
     hybrid_pars['xs'] = np.concatenate((xs, yspseq, uspseq))
     
     # NN pars.
@@ -111,7 +112,7 @@ def get_hybrid_pars(*, greybox_pars, Npast, fnn_weights, xuyscales):
     hybrid_pars['fnn_weights'] = fnn_weights 
 
     # Scaling.
-    hybrid_pars['xuyscales'] = xuyscales
+    hybrid_pars['xuscales'] = xuscales
 
     # Return.
     return hybrid_pars
@@ -123,19 +124,10 @@ def _fnn(xG, z, Npast, fnn_weights):
     for i in range(0, len(fnn_weights)-2, 2):
         (W, b) = fnn_weights[i:i+2]
         nn_output = np.tanh(W.T @ nn_output + b[:, np.newaxis])
-    (Wf, bf) = fnn_weights[-2:]
-    nn_output = (Wf.T @ nn_output + bf[:, np.newaxis])[:, 0]
+    Wf = fnn_weights[-1]
+    nn_output = (Wf.T @ nn_output)[:, 0]
     # Return.
     return nn_output
-
-def interpolate(yseq, Npast, Ny):
-    """ y is of dimension: (None, (Np+1)*p)
-        Return y of dimension: (None, Np*p). """
-    yseq_interp = []
-    for t in range(Npast):
-        yseq_interp.append(0.5*(yseq[t*Ny:(t+1)*Ny] + yseq[(t+1)*Ny:(t+2)*Ny]))
-    # Return.
-    return np.concatenate(yseq_interp)
 
 def _hybrid_func(xGz, u, parameters):
     """ The augmented continuous time model. """
@@ -148,15 +140,14 @@ def _hybrid_func(xGz, u, parameters):
     Npast = parameters['Npast']
     Delta = parameters['Delta']
     fnn_weights = parameters['fnn_weights']
-    xuyscales = parameters['xuyscales']
-    xmean, xstd = xuyscales['xscale']
-    umean, ustd = xuyscales['uscale']
-    ymean, ystd = xuyscales['yscale']
+    xuscales = parameters['xuscales']
+    xmean, xstd = xuscales['xscale']
+    umean, ustd = xuscales['uscale']
     xGzmean = np.concatenate((xmean,
-                               np.tile(ymean, (Npast, )), 
+                               np.tile(xmean, (Npast, )), 
                                np.tile(umean, (Npast, ))))
     xGzstd = np.concatenate((xstd,
-                             np.tile(ystd, (Npast, )), 
+                             np.tile(xstd, (Npast, )), 
                              np.tile(ustd, (Npast, ))))
 
     # Get some vectors.
@@ -164,32 +155,32 @@ def _hybrid_func(xGz, u, parameters):
     u = (u-umean)/ustd
     xG, ypseq, upseq = xGz[:Ng], xGz[Ng:Ng+Npast*Ny], xGz[-Npast*Nu:]
     z = xGz[Ng:]
-    hxG = _measurement(xG, parameters)
+    hxG = _measurement(xG)
     
     # Get k1.
     k1 = _greybox_ode(xG*xstd + xmean, u*ustd + umean, ps, parameters)/xstd
-    k1 +=  _fnn(xG, z, u, Npast, xuyscales, fnn_weights)
+    k1 += _fnn(xG, z, Npast, fnn_weights)
 
     # Interpolate for k2 and k3.
-    ypseq_interp = interpolate(np.concatenate((ypseq, hxG)), Npast, Ny)
+    ypseq_interp = interpolate_yseq(np.concatenate((ypseq, hxG)), Npast, Ny)
     z = np.concatenate((ypseq_interp, upseq))
     
     # Get k2.
     k2 = _greybox_ode((xG + Delta*(k1/2))*xstd + xmean, u*ustd + umean, 
                        ps, parameters)/xstd
-    k2 += _fnn(xG + Delta*(k1/2), z, u, Npast, xuyscales, fnn_weights)
+    k2 += _fnn(xG + Delta*(k1/2), z, Npast, fnn_weights)
 
     # Get k3.
     k3 = _greybox_ode((xG + Delta*(k2/2))*xstd + xmean, u*ustd + umean, 
                        ps, parameters)/xstd
-    k3 += _fnn(xG + Delta*(k2/2), z, u, Npast, xuyscales, fnn_weights)
+    k3 += _fnn(xG + Delta*(k2/2), z, Npast, fnn_weights)
 
     # Get k4.
     ypseq_shifted = np.concatenate((ypseq[Ny:], hxG))
     z = np.concatenate((ypseq_shifted, upseq))
     k4 = _greybox_ode((xG + Delta*k3)*xstd + xmean, u*ustd + umean, 
                        ps, parameters)/xstd
-    k4 += _fnn(xG + Delta*k3, z, u, Npast, xuyscales, fnn_weights)
+    k4 += _fnn(xG + Delta*k3, z, Npast, fnn_weights)
     
     # Get the current output/state and the next time step.
     xGplus = xG + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
@@ -225,7 +216,7 @@ def stage_cost(x, u, p):
     # Compute and return cost.
     return ca*CAf - cb*CB
 
-def sim_hybrid(hybrid_func, uval, hybrid_pars, greybox_processed_data):
+def sim_hybrid(hybrid_func, hybrid_pars, uval, training_data):
     """ Hybrid validation simulation to make 
         sure the above programmed function is 
         the same is what tensorflow is training. """
@@ -233,21 +224,21 @@ def sim_hybrid(hybrid_func, uval, hybrid_pars, greybox_processed_data):
     # Get initial state.
     t = hybrid_pars['tsteps_steady']
     Np = hybrid_pars['Npast']
+    Ng = hybrid_pars['Ng']
     Ny = hybrid_pars['Ny']
     Nu = hybrid_pars['Nu']
-    y = greybox_processed_data.y
-    u = greybox_processed_data.u
-    x = greybox_processed_data.x
+    y = training_data[-1].y
+    u = training_data[-1].u
     yp0seq = y[t-Np:t, :].reshape(Np*Ny, )[:, np.newaxis]
     up0seq = u[t-Np:t:, ].reshape(Np*Nu, )[:, np.newaxis]
     z0 = np.concatenate((yp0seq, up0seq))
-    xG0 = x[t, :][:, np.newaxis]
+    xG0 = y[t, :][:, np.newaxis]
     xGz0 = np.concatenate((xG0, z0))
 
     # Start the validation simulation.
     uval = uval[t:, :]
     Nval = uval.shape[0]
-    hx = lambda x: _measurement(x, hybrid_pars)
+    hx = lambda x: _measurement(x)
     fxu = lambda x, u: hybrid_func(x, u, hybrid_pars)
     x = xGz0[:, 0]
     yval, xGval = [], []
@@ -257,7 +248,7 @@ def sim_hybrid(hybrid_func, uval, hybrid_pars, greybox_processed_data):
         x = fxu(x, uval[t, :].T)
         xGval.append(x)
     yval = np.asarray(yval)
-    xGval = np.asarray(xGval)[:-1, :8]
+    xGval = np.asarray(xGval)[:-1, :Ng]
     # Return.
     return yval, xGval
 
@@ -312,27 +303,27 @@ def main():
     disturbances = np.repeat(parameters['ps'][np.newaxis, :], Nsim)
 
     # Get NN weights and the hybrid ODE.
-    #Np = cstr_flash_train['Nps'][0]
-    #fnn_weights = cstr_flash_train['trained_weights'][0][0]
-    #xuyscales = cstr_flash_train['xuyscales']
-    #hybrid_pars = get_hybrid_pars(greybox_pars=greybox_pars,
-    #                              Npast=Np,
-    #                              fnn_weights=fnn_weights,
-    #                              xuyscales=xuyscales)
+    Np = tworeac_train_nonlin['Nps'][1]
+    fnn_weights = tworeac_train_nonlin['trained_weights'][1][0]
+    xuscales = tworeac_train_nonlin['xuscales']
+    hybrid_pars = get_hybrid_pars(parameters=parameters,
+                                  Npast=Np,
+                                  fnn_weights=fnn_weights,
+                                  xuscales=xuscales)
 
     # Check the hybrid function.
-    #uval = cstr_flash_parameters['training_data'][-1].u
-    #ytfval = cstr_flash_train['val_predictions'][0].y
-    #xGtfval = cstr_flash_train['val_predictions'][0].x
-    #greybox_processed_data = cstr_flash_parameters['greybox_processed_data'][-1]
-    #yval, xGval = sim_hybrid(_hybrid_func, uval, 
-    #                         hybrid_pars, greybox_processed_data)
-    
+    uval = tworeac_parameters_nonlin['training_data'][-1].u
+    ytfval = tworeac_train_nonlin['val_predictions'][1].y
+    xGtfval = tworeac_train_nonlin['val_predictions'][1].x
+    training_data = tworeac_parameters_nonlin['training_data']
+    yval, xGval = sim_hybrid(_hybrid_func, hybrid_pars, 
+                             uval, training_data)
+
     # Run simulations for different model.
     cl_data_list, avg_stage_costs_list, openloop_sol_list = [], [], []
-    model_odes = [_plant_ode, _greybox_ode]
-    model_pars = [parameters, parameters]
-    model_types = ['plant', 'grey-box']
+    model_odes = [_plant_ode, _hybrid_func]
+    model_pars = [parameters, hybrid_pars]
+    model_types = ['plant', 'hybrid']
     for (model_ode,
          model_par, model_type) in zip(model_odes, model_pars, model_types):
         mhe_noise_tuning = get_mhe_noise_tuning(model_type, model_par)
