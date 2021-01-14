@@ -117,10 +117,9 @@ def get_hybrid_pars(*, parameters, Npast, fnn_weights, xuscales):
     # Return.
     return hybrid_pars
 
-def _fnn(xG, z, Npast, fnn_weights):
+def _fnn(xGz, Npast, fnn_weights):
     """ Compute the NN output. """
-    nn_output = np.concatenate((xG, z))
-    nn_output = nn_output[:, np.newaxis]
+    nn_output = xGz[:, np.newaxis]
     for i in range(0, len(fnn_weights)-2, 2):
         (W, b) = fnn_weights[i:i+2]
         nn_output = np.tanh(W.T @ nn_output + b[:, np.newaxis])
@@ -149,44 +148,28 @@ def _hybrid_func(xGz, u, parameters):
     xGzstd = np.concatenate((xstd,
                              np.tile(xstd, (Npast, )), 
                              np.tile(ustd, (Npast, ))))
-
-    # Get some vectors.
-    xGz = (xGz - xGzmean)/xGzstd
-    u = (u-umean)/ustd
+    
+    # Extract vectors.
+    #xGz = (xGz - xGzmean)/xGzstd 
+    #u = (u - umean)/ustd
     xG, ypseq, upseq = xGz[:Ng], xGz[Ng:Ng+Npast*Ny], xGz[-Npast*Nu:]
-    z = xGz[Ng:]
-    hxG = _measurement(xG)
     
-    # Get k1.
-    k1 = _greybox_ode(xG*xstd + xmean, u*ustd + umean, ps, parameters)/xstd
-    k1 += _fnn(xG, z, Npast, fnn_weights)
-
-    # Interpolate for k2 and k3.
-    ypseq_interp = interpolate_yseq(np.concatenate((ypseq, hxG)), Npast, Ny)
-    z = np.concatenate((ypseq_interp, upseq))
-    
-    # Get k2.
-    k2 = _greybox_ode((xG + Delta*(k1/2))*xstd + xmean, u*ustd + umean, 
-                       ps, parameters)/xstd
-    k2 += _fnn(xG + Delta*(k1/2), z, Npast, fnn_weights)
-
-    # Get k3.
-    k3 = _greybox_ode((xG + Delta*(k2/2))*xstd + xmean, u*ustd + umean, 
-                       ps, parameters)/xstd
-    k3 += _fnn(xG + Delta*(k2/2), z, Npast, fnn_weights)
-
-    # Get k4.
-    ypseq_shifted = np.concatenate((ypseq[Ny:], hxG))
-    z = np.concatenate((ypseq_shifted, upseq))
-    k4 = _greybox_ode((xG + Delta*k3)*xstd + xmean, u*ustd + umean, 
-                       ps, parameters)/xstd
-    k4 += _fnn(xG + Delta*k3, z, Npast, fnn_weights)
-    
-    # Get the current output/state and the next time step.
+    # Get k1, k2, k3, and k4.
+    k1 = _greybox_ode(xG, u, ps, parameters)
+    k2 = _greybox_ode(xG + Delta*(k1/2), u, ps, parameters)
+    k3 = _greybox_ode(xG + Delta*(k2/2), u, ps, parameters)
+    k4 = _greybox_ode(xG + Delta*k3, u, ps, parameters)
     xGplus = xG + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
-    zplus = np.concatenate((ypseq_shifted, upseq[Nu:], u))
+    xGplus = (xGplus-xmean)/xstd
+
+    # Scale for NN input.
+    xGz = (xGz - xGzmean)/xGzstd 
+    xGplus += _fnn(xGz, Npast, fnn_weights)
+    
+    # Get the state and the next time step.
+    zplus = np.concatenate((ypseq[Ny:], xG, upseq[Nu:], u))
+    xGplus = xGplus*xstd + xmean
     xGzplus = np.concatenate((xGplus, zplus))
-    xGzplus = xGzplus*xGzstd + xGzmean
 
     # Return the sum.
     return xGzplus
@@ -304,7 +287,7 @@ def main():
 
     # Get NN weights and the hybrid ODE.
     Np = tworeac_train_nonlin['Nps'][1]
-    fnn_weights = tworeac_train_nonlin['trained_weights'][1][0]
+    fnn_weights = tworeac_train_nonlin['trained_weights'][0][0]
     xuscales = tworeac_train_nonlin['xuscales']
     hybrid_pars = get_hybrid_pars(parameters=parameters,
                                   Npast=Np,
@@ -313,8 +296,8 @@ def main():
 
     # Check the hybrid function.
     uval = tworeac_parameters_nonlin['training_data'][-1].u
-    ytfval = tworeac_train_nonlin['val_predictions'][1].y
-    xGtfval = tworeac_train_nonlin['val_predictions'][1].x
+    ytfval = tworeac_train_nonlin['val_predictions'][0].y
+    xGtfval = tworeac_train_nonlin['val_predictions'][0].x
     training_data = tworeac_parameters_nonlin['training_data']
     yval, xGval = sim_hybrid(_hybrid_func, hybrid_pars, 
                              uval, training_data)

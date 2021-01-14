@@ -44,7 +44,7 @@ def train_model(model, train_data, trainval_data, val_data,
     # Call the fit method to train.
     model.fit(x=[train_data['inputs'], train_data['xGz0']], 
               y=train_data['outputs'], 
-              epochs=1500, batch_size=1,
+              epochs=10, batch_size=1,
         validation_data = ([trainval_data['inputs'], trainval_data['xGz0']], 
                             trainval_data['outputs']),
             callbacks = [checkpoint_callback])
@@ -83,8 +83,8 @@ def main():
 
     # Create lists.
     Nps = [2, 2]
-    fnn_dims = [[9, 16, 2], [8, 8, 2]]
-    model_types = ['black-box', 'hybrid']
+    fnn_dims = [[8, 8, 2]]
+    model_types = ['hybrid']
     trained_weights = []
     val_metrics = []
     val_predictions = []
