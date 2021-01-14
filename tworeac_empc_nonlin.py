@@ -246,8 +246,8 @@ def get_mhe_noise_tuning(model_type, model_par):
         Qwd = np.eye(model_par['Ny'])
         Rv = 1e-3*np.eye(model_par['Ny'])
     else:
-        Qwx = 1e-3*np.eye(model_par['Nx'])
-        Qwd = np.eye(model_par['Ny'])
+        Qwx = 1e-6*np.eye(model_par['Nx'])
+        Qwd = 1e-6*np.eye(model_par['Ny'])
         Rv = 1e-3*np.eye(model_par['Ny'])
     return (Qwx, Qwd, Rv)
 
@@ -316,7 +316,7 @@ def main():
         cl_data, avg_stage_costs, openloop_sol = online_simulation(plant,
                                          controller,
                                          plant_lxup=controller.lxup,
-                                         Nsim=8*60, disturbances=disturbances,
+                                         Nsim=60, disturbances=disturbances,
                                          stdout_filename='tworeac_empc.txt')
         cl_data_list += [cl_data]
         avg_stage_costs_list += [avg_stage_costs]

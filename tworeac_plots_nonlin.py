@@ -176,17 +176,17 @@ def main():
     figures = []
 
     # Plot validation data.
-    legend_names = ['Plant', 'Grey-box', 'Black-box', 'Hybrid']
-    legend_colors = ['b', 'g', 'dimgrey', 'm']
+    legend_names = ['Plant', 'Grey-box', 'Hybrid']
+    legend_colors = ['b', 'g', 'm']
     valdata_list = [training_data[-1], greybox_validation_data] 
     valdata_list += val_predictions
     t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
                                                      valdata_list[:2],
-                                                     plot_range=(60, 7*60))
+                                                     plot_range=(2, 12*60+2))
     (t, ulist_train, 
     ylist_train, xlist_train) = get_plotting_array_list(simdata_list=
                                                      valdata_list[2:],
-                                                     plot_range=(0, 6*60))
+                                                     plot_range=(0, 12*60))
     ulist += ulist_train
     ylist += ylist_train
     xlist += xlist_train
