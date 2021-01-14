@@ -86,7 +86,7 @@ def _get_tworeac_parameters():
     parameters['uub'] = uub
 
     # Number of time-steps to keep the plant at steady.
-    parameters['tsteps_steady'] = 2
+    parameters['tsteps_steady'] = 10
 
     # Measurement noise.
     parameters['Rv'] = 0*np.diag([1e-3, 1e-3])
@@ -174,7 +174,7 @@ def _gen_train_val_data(*, parameters, num_traj,
         elif traj == num_traj-2:
             "Get input for validation simulation."
             Nsim = Nsim_trainval
-            u = sample_prbs_like(num_change=6, num_steps=Nsim_trainval, 
+            u = sample_prbs_like(num_change=3, num_steps=Nsim_trainval, 
                                  lb=ulb, ub=uub,
                                  mean_change=20, sigma_change=2, seed=seed+2)
         else:
@@ -224,7 +224,7 @@ def main():
     # Generate training data.
     training_data = _gen_train_val_data(parameters=parameters, 
                                         num_traj=8, Nsim_train=60,
-                                        Nsim_trainval=120, Nsim_val=720, 
+                                        Nsim_trainval=60, Nsim_val=720, 
                                         seed=100)
     greybox_val_data = _get_greybox_val_preds(parameters=
                                             parameters, 

@@ -246,9 +246,9 @@ def get_mhe_noise_tuning(model_type, model_par):
         Qwd = np.eye(model_par['Ny'])
         Rv = 1e-3*np.eye(model_par['Ny'])
     else:
-        Qwx = 1e-6*np.eye(model_par['Nx'])
-        Qwd = 1e-6*np.eye(model_par['Ny'])
-        Rv = 1e-3*np.eye(model_par['Ny'])
+        Qwx = np.eye(model_par['Nx'])
+        Qwd = np.eye(model_par['Ny'])
+        Rv = np.eye(model_par['Ny'])
     return (Qwx, Qwd, Rv)
 
 def get_tworeac_empc_pars(*, Delta):
@@ -286,7 +286,7 @@ def main():
     disturbances = np.repeat(parameters['ps'][np.newaxis, :], Nsim)
 
     # Get NN weights and the hybrid ODE.
-    Np = tworeac_train_nonlin['Nps'][1]
+    Np = tworeac_train_nonlin['Nps'][0]
     fnn_weights = tworeac_train_nonlin['trained_weights'][0][0]
     xuscales = tworeac_train_nonlin['xuscales']
     hybrid_pars = get_hybrid_pars(parameters=parameters,
@@ -316,7 +316,7 @@ def main():
         cl_data, avg_stage_costs, openloop_sol = online_simulation(plant,
                                          controller,
                                          plant_lxup=controller.lxup,
-                                         Nsim=60, disturbances=disturbances,
+                                         Nsim=0, disturbances=disturbances,
                                          stdout_filename='tworeac_empc.txt')
         cl_data_list += [cl_data]
         avg_stage_costs_list += [avg_stage_costs]

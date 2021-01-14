@@ -44,7 +44,7 @@ def train_model(model, train_data, trainval_data, val_data,
     # Call the fit method to train.
     model.fit(x=[train_data['inputs'], train_data['xGz0']], 
               y=train_data['outputs'], 
-              epochs=10, batch_size=1,
+              epochs=3000, batch_size=1,
         validation_data = ([trainval_data['inputs'], trainval_data['xGz0']], 
                             trainval_data['outputs']),
             callbacks = [checkpoint_callback])
@@ -82,8 +82,8 @@ def main():
     num_samples = [hour*60 for hour in [6]]
 
     # Create lists.
-    Nps = [2, 2]
-    fnn_dims = [[8, 8, 2]]
+    Nps = [1, 3]
+    fnn_dims = [[8, 4, 2]]
     model_types = ['hybrid']
     trained_weights = []
     val_metrics = []
@@ -115,8 +115,8 @@ def main():
                                                  tworeac_parameters=parameters, 
                                                  model_type=model_type)
             train_samples = dict(xGz0=train_data['xGz0'],
-                            inputs=train_data['inputs'][:, :num_sample, :],
-                            outputs=train_data['outputs'][:, :num_sample, :])
+                            inputs=train_data['inputs'],
+                            outputs=train_data['outputs'])
             (tworeac_model, 
              val_prediction, 
              val_metric) = train_model(tworeac_model, 

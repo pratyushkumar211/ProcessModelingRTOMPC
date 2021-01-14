@@ -182,7 +182,7 @@ def main():
     valdata_list += val_predictions
     t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
                                                      valdata_list[:2],
-                                                     plot_range=(2, 12*60+2))
+                                                     plot_range=(10, 12*60+10))
     (t, ulist_train, 
     ylist_train, xlist_train) = get_plotting_array_list(simdata_list=
                                                      valdata_list[2:],
