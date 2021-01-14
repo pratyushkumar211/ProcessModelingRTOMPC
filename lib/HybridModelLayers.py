@@ -11,7 +11,7 @@ import tensorflow as tf
 class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
     """
     RNN Cell
-    dxG/dt  = fG(xG, u) + f_N(xG, y_{k-N_p:k-1}, u_{k-N_p:k-1}), y = xG
+    xG^+  = fG_d(xG, u) + f_N(xG, y_{k-N_p:k-1}, u_{k-N_p:k-1}), y = xG
     """
     def __init__(self, Np, interp_layer, fnn_layers,
                        xuscales, tworeac_parameters, **kwargs):
@@ -77,33 +77,34 @@ class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
         [xGz] = states
         [xG, z] = tf.split(xGz, [self.Ng, self.Np*(self.Ng+self.Nu)],
                            axis=-1)
-        (ypseq, upseq) = tf.split(z, [self.Np*self.Ng, self.Np*self.Nu],
-                                  axis=-1)
+        #(ypseq, upseq) = tf.split(z, [self.Np*self.Ng, self.Np*self.Nu],
+        #                          axis=-1)
         u = inputs
-        Delta = self.tworeac_parameters['Delta']
         
         # Get k1.
-        k1 = self._fg(xG, u) + self._fnn(xG, z)
+        xGplus = self._fgd(xG, u) + self._fnn(xG, z)
         
         # Interpolate for k2 and k3.
-        ypseq_interp = self.interp_layer(tf.concat((ypseq, xG), axis=-1))
-        z = tf.concat((ypseq_interp, upseq), axis=-1)
+        #ypseq_interp = self.interp_layer(tf.concat((ypseq, xG), axis=-1))
+        #z = tf.concat((ypseq_interp, upseq), axis=-1)
         
         # Get k2.
-        k2 = self._fg(xG + Delta*(k1/2), u) + self._fnn(xG + Delta*(k1/2), z)
+        #k2 = self._fg(xG + Delta*(k1/2), u) + self._fnn(xG + Delta*(k1/2), z)
 
         # Get k3.
-        k3 = self._fg(xG + Delta*(k2/2), u) + self._fnn(xG + Delta*(k2/2), z)
+        #k3 = self._fg(xG + Delta*(k2/2), u) + self._fnn(xG + Delta*(k2/2), z)
 
         # Get k4.
-        ypseq_shifted = tf.concat((ypseq[..., self.Ng:], xG), axis=-1)
-        z = tf.concat((ypseq_shifted, upseq), axis=-1)
-        k4 = self._fg(xG + Delta*k3, u) + self._fnn(xG + Delta*k3, z)
+        #ypseq_shifted = tf.concat((ypseq[..., self.Ng:], xG), axis=-1)
+        #z = tf.concat((ypseq_shifted, upseq), axis=-1)
+        #k4 = self._fg(xG + Delta*k3, u) + self._fnn(xG + Delta*k3, z)
         
         # Get the current output/state and the next time step.
         y = xG
-        xGplus = xG + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
-        zplus = tf.concat((ypseq_shifted, upseq[..., self.Nu:], u), axis=-1)
+        xGplus = self._fgd(xG, u) + self._fnn(xG, z)
+        #xGplus = xG + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
+        zplus = tf.concat((ypseq[..., self.Ng:], xG,
+                           upseq[..., self.Nu:], u), axis=-1)
         xplus = tf.concat((xGplus, zplus), axis=-1)
 
         # Return output and states at the next time-step.
