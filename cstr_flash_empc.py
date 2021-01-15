@@ -11,9 +11,10 @@ import time
 import casadi
 import copy
 import numpy as np
-from hybridid import (PickleTool, NonlinearEMPCController,
-                      SimData, get_cstr_flash_empc_pars,
-                      online_simulation, NonlinearPlantSimulator)
+from hybridid import (PickleTool, SimData, get_cstr_flash_empc_pars,
+                      interpolate_yseq, c2dNonlin)
+from linNonlinMPC import (NonlinearPlantSimulator, NonlinearEMPCController, 
+                         online_simulation)
 from hybridid import _cstr_flash_plant_ode as _plant_ode
 from hybridid import _cstr_flash_greybox_ode as _greybox_ode
 from hybridid import _cstr_flash_measurement as _measurement
@@ -58,15 +59,17 @@ def get_controller(model_func, model_pars, model_type,
     if model_type == 'plant':
         Bd[1, 0] = 1.
         Bd[2, 1] = 1.
+        Bd[4, 2] = 1.
+        Bd[6, 3] = 1.
+        Bd[7, 4] = 1.
+        Bd[9, 5] = 1.
+    else:
+        Bd[0, 0] = 1.
+        Bd[1, 1] = 1.
         Bd[3, 2] = 1.
         Bd[4, 3] = 1.
-        Bd[6, 4] = 1.
+        Bd[5, 4] = 1.
         Bd[7, 5] = 1.
-        Bd[8, 6] = 1.
-        Bd[9, 7] = 1.
-    else:
-        Ng = model_pars['Ng']
-        Bd[:Ng, :Nd] = np.eye(Nd)
     Cd = np.zeros((Ny, Nd))
 
     # Get steady states.
@@ -94,25 +97,6 @@ def get_controller(model_func, model_pars, model_type,
                                    empc_pars=cost_pars,
                                    ulb=ulb, uub=uub, Nmpc=Nmpc,
                                    Qwx=Qwx, Qwd=Qwd, Rv=Rv, Nmhe=Nmhe)
-
-def c2dNonlin(fxu, Delta):
-    """ Write a quick function to 
-        convert a ode to discrete
-        time using the RK4 method.
-        
-        xdot is a function such that 
-        dx/dt = f(x, u)
-        assume zero-order hold on the input.
-    """
-    # Get k1, k2, k3, k4.
-    k1 = fxu
-    k2 = lambda x, u: fxu(x + Delta*(k1(x, u)/2), u)
-    k3 = lambda x, u: fxu(x + Delta*(k2(x, u)/2), u)
-    k4 = lambda x, u: fxu(x + Delta*k3(x, u), u)
-    # Final discrete time function.
-    xplus = lambda x, u: x + (Delta/6)*(k1(x, u) + 
-                                        2*k2(x, u) + 2*k3(x, u) + k4(x, u))
-    return xplus
 
 def get_hybrid_pars(*, greybox_pars, Npast, fnn_weights, xuyscales):
     """ Get the hybrid model parameters. """
@@ -142,16 +126,7 @@ def get_hybrid_pars(*, greybox_pars, Npast, fnn_weights, xuyscales):
 
 def _fnn(xG, z, u, Npast, xuyscales, fnn_weights):
     """ Compute the NN output. """
-    #xmean, xstd = xuyscales['xscale']
-    #umean, ustd = xuyscales['uscale']
-    #ymean, ystd = xuyscales['yscale']
-    #xGzumean = np.concatenate((xmean,
-    #                           np.tile(ymean, (Npast, )), 
-    #                           np.tile(umean, (Npast+1, ))))
-    #xGzustd = np.concatenate((xstd,
-    #                          np.tile(ystd, (Npast, )), 
-    #                          np.tile(ustd, (Npast+1, ))))
-    nn_output = np.concatenate((xG, z, u))#- xGzumean)/xGzustd
+    nn_output = np.concatenate((xG, z, u))
     nn_output = nn_output[:, np.newaxis]
     for i in range(0, len(fnn_weights)-2, 2):
         (W, b) = fnn_weights[i:i+2]
@@ -160,15 +135,6 @@ def _fnn(xG, z, u, Npast, xuyscales, fnn_weights):
     nn_output = (Wf.T @ nn_output + bf[:, np.newaxis])[:, 0]
     # Return.
     return nn_output
-
-def interpolate(yseq, Npast, Ny):
-    """ y is of dimension: (None, (Np+1)*p)
-        Return y of dimension: (None, Np*p). """
-    yseq_interp = []
-    for t in range(Npast):
-        yseq_interp.append(0.5*(yseq[t*Ny:(t+1)*Ny] + yseq[(t+1)*Ny:(t+2)*Ny]))
-    # Return.
-    return np.concatenate(yseq_interp)
 
 def _hybrid_func(xGz, u, parameters):
     """ The augmented continuous time model. """
@@ -204,7 +170,7 @@ def _hybrid_func(xGz, u, parameters):
     k1 +=  _fnn(xG, z, u, Npast, xuyscales, fnn_weights)
 
     # Interpolate for k2 and k3.
-    ypseq_interp = interpolate(np.concatenate((ypseq, hxG)), Npast, Ny)
+    ypseq_interp = interpolate_yseq(np.concatenate((ypseq, hxG)), Npast, Ny)
     z = np.concatenate((ypseq_interp, upseq))
     
     # Get k2.
@@ -265,15 +231,6 @@ def stage_cost(x, u, p, pars, xindices):
     
     # Compute and return cost.
     return ca*F*CAf + ce*Qr + ce*Qb + ce*D*pho*Cp*(Tb-Td) - cb*Fb*CBb
-
-#def collect_cl_data(plant):
-#
-#    return
-
-#def collect_performance_losses():
-#    """ Collect the performance losses 
-#        of the trained neural network controllers. """
-#    return
 
 def sim_hybrid(hybrid_func, uval, hybrid_pars, greybox_processed_data):
     """ Hybrid validation simulation to make 
@@ -346,7 +303,7 @@ def main():
 
     # Get NN weights and the hybrid ODE.
     Np = cstr_flash_train['Nps'][0]
-    fnn_weights = cstr_flash_train['trained_weights'][0][0]
+    fnn_weights = cstr_flash_train['trained_weights'][0][-1] # To change.
     xuyscales = cstr_flash_train['xuyscales']
     hybrid_pars = get_hybrid_pars(greybox_pars=greybox_pars,
                                   Npast=Np,
@@ -360,15 +317,16 @@ def main():
     greybox_processed_data = cstr_flash_parameters['greybox_processed_data'][-1]
     yval, xGval = sim_hybrid(_hybrid_func, uval, 
                              hybrid_pars, greybox_processed_data)
-    
+
     # Run simulations for different model.
     cl_data_list, avg_stage_costs_list, openloop_sol_list = [], [], []
     model_odes = [_plant_ode, _greybox_ode, _hybrid_func]
     model_pars = [plant_pars, greybox_pars, hybrid_pars]
     model_types = ['plant', 'grey-box', 'hybrid']
+    Nsims = [120, 120, 0]
     plant_lxup = lambda x, u, p: stage_cost(x, u, p, plant_pars, [5, 7, 9])
-    for (model_ode,
-         model_par, model_type) in zip(model_odes, model_pars, model_types):
+    for (model_ode, model_par,
+         model_type, Nsim) in zip(model_odes, model_pars, model_types, Nsims):
         mhe_noise_tuning = get_mhe_noise_tuning(model_type, model_par)
         plant = get_plant(parameters=plant_pars)
         controller = get_controller(model_ode, model_par, model_type,
@@ -376,7 +334,7 @@ def main():
         cl_data, avg_stage_costs, openloop_sol = online_simulation(plant,
                                          controller,
                                          plant_lxup=plant_lxup,
-                                         Nsim=0, disturbances=disturbances,
+                                         Nsim=Nsim, disturbances=disturbances,
                                          stdout_filename='cstr_flash_empc.txt')
         cl_data_list += [cl_data]
         avg_stage_costs_list += [avg_stage_costs]

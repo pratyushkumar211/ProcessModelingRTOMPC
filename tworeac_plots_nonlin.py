@@ -1,5 +1,5 @@
 # [depends] tworeac_parameters_nonlin.pickle tworeac_train_nonlin.pickle
-# [depends] tworeac_ssopt_nonlin.pickle
+# [depends] tworeac_empc_nonlin.pickle
 # [depends] %LIB%/hybridid.py
 """ Script to plot the training data
     and grey-box + NN model predictions on validation data.
@@ -71,53 +71,30 @@ def plot_xudata(*, t, xlist, ulist,
 #    # Return the figure object.
 #    return [figure]
 
-#def plot_val_metrics(*, num_samples, val_metrics, colors, legends, 
-#                     figure_size=PAPER_FIGSIZE,
-#                     ylabel_xcoordinate=-0.11, 
-#                     left_label_frac=0.15):
-#    """ Plot validation metric on open loop data. """
-#    (figure, axes) = plt.subplots(nrows=1, ncols=1, 
-#                                        sharex=True, 
-#                                        figsize=figure_size, 
-#                                    gridspec_kw=dict(left=left_label_frac))
-#    xlabel = 'Hours of training samples'
-#    ylabel = 'MSE'
-#    num_samples = num_samples/60
-#    for (val_metric, color) in zip(val_metrics, colors):
-#        # Plot the corresponding data.
-#        axes.semilogy(num_samples, val_metric, color)
-#    axes.legend(legends)
-#    axes.set_xlabel(xlabel)
-#    axes.set_ylabel(ylabel)
-#    axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5) 
-#    axes.set_xlim([np.min(num_samples), np.max(num_samples)])
-#    figure.suptitle('Mean squared error (MSE) - Validation data', 
-#                    x=0.52, y=0.92)
-    # Return the figure object.
-#    return [figure]
-
-#def plot_cost_mse_curve(*, us, cost_mses,
-#                         colors, legends, ylim,
-#                         figure_size=PAPER_FIGSIZE,
-#                         ylabel_xcoordinate=-0.2,
-#                         left_label_frac=0.21):
-#    """ Plot the profit curves. """
-#    (figure, axes) = plt.subplots(nrows=1, ncols=1,
-#                                  sharex=True,
-#                                  figsize=figure_size,
-#                                  gridspec_kw=dict(left=left_label_frac))
-#    xlabel = r'$C_{Af} \ (\textnormal{mol/m}^3)$'
-#    ylabel = r'$e(C_{Af})$'
-#    for (cost_mse, color) in zip(cost_mses, colors):
+def plot_val_metrics(*, num_samples, val_metrics, colors, legends, 
+                     figure_size=PAPER_FIGSIZE,
+                     ylabel_xcoordinate=-0.11, 
+                     left_label_frac=0.15):
+    """ Plot validation metric on open loop data. """
+    (figure, axes) = plt.subplots(nrows=1, ncols=1, 
+                                  sharex=True, 
+                                  figsize=figure_size, 
+                                  gridspec_kw=dict(left=left_label_frac))
+    xlabel = 'Hours of training samples'
+    ylabel = 'MSE'
+    num_samples = num_samples/60
+    for (val_metric, color) in zip(val_metrics, colors):
         # Plot the corresponding data.
-#        axes.plot(us, cost_mse, color)
-#    axes.legend(legends)
-#    axes.set_xlabel(xlabel)
-#    axes.set_ylabel(ylabel, rotation=True)
-#    axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
-#    axes.set_xlim([np.min(us), np.max(us)])
-    #axes.set_ylim(ylim)
-#    return [figure]
+        axes.semilogy(num_samples, val_metric, color)
+    axes.legend(legends)
+    axes.set_xlabel(xlabel)
+    axes.set_ylabel(ylabel)
+    axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5) 
+    axes.set_xlim([np.min(num_samples), np.max(num_samples)])
+    figure.suptitle('Mean squared error (MSE) - Validation data', 
+                    x=0.52, y=0.92)
+   # Return the figure object.
+    return [figure]
 
 def plot_cost_pars(t, cost_pars,
                    figure_size=PAPER_FIGSIZE, 
@@ -129,8 +106,7 @@ def plot_cost_pars(t, cost_pars,
                                   figsize=figure_size,
                                   gridspec_kw=dict(left=0.18))
     xlabel = 'Time (hr)'
-    ylabels = [r'$c_1$',
-                r'$c_2$']
+    ylabels = [r'$c_1$', r'$c_2$']
     for (axes, pari, ylabel) in zip(axes_list, range(num_pars), ylabels):
         # Plot the corresponding data.
         axes.plot(t, cost_pars[:len(t), pari])
@@ -140,15 +116,64 @@ def plot_cost_pars(t, cost_pars,
     axes.set_xlim([np.min(t), np.max(t)])
     return [figure]
 
+def get_openloop_xtrajs(xdatum):
+    """ Clean up the x trajectories for plotting. """
+    x_trajs = []
+    for (i, x_traj) in enumerate(xdatum):
+        if i==0:
+            x_trajs.append(x_traj[:-1, :])
+        else:
+            x_traj = x_traj[:-1, :2]
+            x_traj = np.insert(x_traj, [2], 
+                               np.nan*np.ones((x_traj.shape[0], 1)), axis=1)
+            x_trajs.append(x_traj)
+    # Return.
+    return x_trajs
+
+def plot_openloop_sols(*, t, udatum, xdatum,
+                          legend_names, legend_colors,
+                          ylabel_xcoordinate=-0.1, 
+                          figure_size=PAPER_FIGSIZE):
+    """ Plot the open-loop EMPC solutions. """
+    xdatum = get_openloop_xtrajs(xdatum)
+    t = t[:udatum[0].shape[0]]
+    t -= -(10/60)
+    nrow = len(labels)
+    (figure, axes) = plt.subplots(nrows=nrow, ncols=1,
+                                  sharex=True, figsize=figure_size,
+                                  gridspec_kw=dict(wspace=0.4))
+    legend_handles = []
+    for (x, u, color) in zip(xdatum, udatum, legend_colors):
+        # First plot the states.
+        for row in range(nrow-1):
+            handle = axes[row].step(t, x[:, row], color)
+            axes[row].set_ylabel(labels[row])
+            axes[row].get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
+        # Plot the input in the last row.
+        row += 1
+        axes[row].step(t, u[:, 0], color)
+        axes[row].set_ylabel(labels[row])
+        axes[row].get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
+        axes[row].set_xlabel('Time (hr)')
+        axes[row].set_xlim([np.min(t), np.max(t)])
+        legend_handles += handle
+    figure.legend(handles = legend_handles,
+                  labels = legend_names,
+                  loc = (0.15, 0.9), ncol=len(legend_names))
+    # Return the figure object.
+    return [figure]
+
 def main():
-    """ Load the pickle file and plot. """
+    """ Load the pickle files and plot. """
 
     # Load parameters.
     tworeac_parameters = PickleTool.load(filename=
                                          "tworeac_parameters_nonlin.pickle",
                                          type='read')
-    (parameters, training_data) = (tworeac_parameters['parameters'], 
-                                 tworeac_parameters['training_data'])
+    (parameters, training_data,
+     greybox_val_data) = (tworeac_parameters['parameters'], 
+                          tworeac_parameters['training_data'],
+                          tworeac_parameters['greybox_val_data'])
     
     # Load data after training.
     tworeac_train = PickleTool.load(filename=
@@ -163,27 +188,20 @@ def main():
     cl_data_list = tworeac_empc['cl_data_list']
     cost_pars = tworeac_empc['cost_pars']
 
-    #num_samples = tworeac_train['num_samples']
-    #val_metrics = tworeac_train['val_metrics']
-    #val_predictions = tworeac_train['val_predictions']
-    #ssopt = PickleTool.load(filename="tworeac_ssopt_nonlin.pickle", 
-    #                        type='read')
-    #sub_gaps = ssopt['sub_gaps']
-
     # Create a figures list.
     figures = []
 
     # Plot validation data.
-    legend_names = ['Plant', 'Hybrid']
-    legend_colors = ['b', 'm']
-    valdata_list = [training_data[-1]]#, greybox_validation_data] 
+    legend_names = ['Plant', 'Grey-box', 'Black-box', 'Hybrid']
+    legend_colors = ['b', 'g', 'dimgrey', 'm']
+    valdata_list = [training_data[-1], greybox_val_data] 
     valdata_list += val_predictions
     t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
-                                                     valdata_list[:1],
+                                                     valdata_list[:2],
                                                      plot_range=(10, 12*60+10))
     (t, ulist_train, 
     ylist_train, xlist_train) = get_plotting_array_list(simdata_list=
-                                                     valdata_list[1:],
+                                                     valdata_list[2:],
                                                      plot_range=(0, 12*60))
     ulist += ulist_train
     ylist += ylist_train
@@ -192,18 +210,36 @@ def main():
                            legend_names=legend_names,
                            legend_colors=legend_colors)
 
+    # Plot validation metrics to show data requirements.
+    num_samples = tworeac_train['num_samples']
+    val_metrics = tworeac_train['val_metrics']
+    figures += plot_val_metrics(num_samples=num_samples, 
+                                val_metrics=val_metrics, 
+                                colors=['dimgray', 'm'], 
+                                legends=['Black-box', 'Hybrid'])
+
+    # Plot first open-loop simulation.
+    legend_names = ['Plant', 'Grey-box', 'Hybrid']
+    legend_colors = ['b', 'g', 'm']
+    openloop_sols = tworeac_empc['openloop_sols']
+    udatum = [openloop_sols[0][0], openloop_sols[1][0], openloop_sols[2][0]]
+    xdatum = [openloop_sols[0][1], openloop_sols[1][1], openloop_sols[2][1]]
+    figures += plot_openloop_sols(t=t, udatum=udatum, xdatum=xdatum,
+                                  legend_names=legend_names,
+                                  legend_colors=legend_colors)
+
     # Plot closed-loop simulation data.
-    legend_names = ['Plant', 'Black-box-State-Feed']
-    legend_colors = ['b', 'm']
+    legend_names = ['Plant', 'Grey-box']
+    legend_colors = ['b', 'g']
     t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
                                                      cl_data_list,
-                                                     plot_range=(0, 24*60))
+                                                     plot_range=(0, 8*60))
     figures += plot_xudata(t=t, xlist=xlist, ulist=ulist,
                            legend_names=legend_names,
                            legend_colors=legend_colors)
 
     # Plot empc pars.
-    #figures += plot_cost_pars(t=t, cost_pars=tworeac_empc['cost_pars'])
+    figures += plot_cost_pars(t=t, cost_pars=tworeac_empc['cost_pars'])
 
     # Plot profit curve.
     figures += plot_avg_profits(t=t,
@@ -242,11 +278,6 @@ def main():
     #                                   ylim = [0., 15.],
     #                                   legends=cost_mse_curve_legends)
 
-    # PLot validation metrics.
-    #figures += plot_val_metrics(num_samples=num_samples, 
-    #                            val_metrics=val_metrics, 
-    #                            colors=['dimgray', 'tomato'], 
-    #                            legends=['Black-box', 'Hybrid'])
     # Plot suboptimality gaps.
     #figures += plot_sub_gaps(num_samples=num_samples, 
     #                         sub_gaps=sub_gaps, 

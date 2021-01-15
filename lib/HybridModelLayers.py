@@ -11,7 +11,7 @@ import tensorflow as tf
 class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
     """
     RNN Cell
-    xG^+  = fG_d(xG, u) + f_N(xG, y_{k-N_p:k-1}, u_{k-N_p:k-1}), y = xG
+    dxG/dt  = fG(xG, u) + f_N(xG, y_{k-N_p:k-1}, u_{k-N_p:k-1}), y = xG
     """
     def __init__(self, Np, interp_layer, fnn_layers,
                        xuscales, tworeac_parameters, **kwargs):
@@ -32,7 +32,7 @@ class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
     def output_size(self):
         return self.Ng        
 
-    def _fgc(self, x, u):
+    def _fg(self, x, u):
         """ Function to compute the 
             derivative (RHS of the ODE)
             for the two reaction model. """
@@ -40,6 +40,12 @@ class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
         # Extract the parameters.
         k1 = self.tworeac_parameters['k1']
         tau = self.tworeac_parameters['ps'].squeeze()
+        
+        # Scale back to physical states.
+        xmean, xstd = self.xuscales['xscale']
+        umean, ustd = self.xuscales['uscale']
+        x = x*xstd + xmean
+        u = u*ustd + umean
 
         # Get the state and control.
         (Ca, Cb) = (x[..., 0:1], x[..., 1:2])
@@ -50,33 +56,10 @@ class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
         dCbbydt = k1*Ca - Cb/tau
 
         # Scaled derivate.
-        xdot = tf.concat([dCabydt, dCbbydt], axis=-1)
+        xdot = tf.concat([dCabydt, dCbbydt], axis=-1)/xstd
 
         # Return the derivative.
         return xdot
-
-    def _fgd(self, x, u):
-        """ Discretet-time one-step ahead."""
-        
-        # Scale back to physical states.
-        Delta = self.tworeac_parameters['Delta']
-        xmean, xstd = self.xuscales['xscale']
-        umean, ustd = self.xuscales['uscale']
-        x = x*xstd + xmean
-        u = u*ustd + umean
-
-        # Get k1, k2, k3, k4, and xplus.
-        k1 = self._fgc(x, u)
-        k2 = self._fgc(x + Delta*(k1/2), u)
-        k3 = self._fgc(x + Delta*(k2/2), u)
-        k4 = self._fgc(x + Delta*k3, u)
-        
-        # Get xplus.
-        xplus = x + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
-        xplus = (xplus-xmean)/xstd
-
-        # Return xplus.
-        return xplus
 
     def _fnn(self, xg, z):
         """ Compute the output of the feedforward network. """
@@ -97,12 +80,30 @@ class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
         (ypseq, upseq) = tf.split(z, [self.Np*self.Ng, self.Np*self.Nu],
                                   axis=-1)
         u = inputs
-                
+        Delta = self.tworeac_parameters['Delta']
+        
+        # Get k1.
+        k1 = self._fg(xG, u) + self._fnn(xG, z)
+        
+        # Interpolate for k2 and k3.
+        ypseq_interp = self.interp_layer(tf.concat((ypseq, xG), axis=-1))
+        z = tf.concat((ypseq_interp, upseq), axis=-1)
+        
+        # Get k2.
+        k2 = self._fg(xG + Delta*(k1/2), u) + self._fnn(xG + Delta*(k1/2), z)
+
+        # Get k3.
+        k3 = self._fg(xG + Delta*(k2/2), u) + self._fnn(xG + Delta*(k2/2), z)
+
+        # Get k4.
+        ypseq_shifted = tf.concat((ypseq[..., self.Ng:], xG), axis=-1)
+        z = tf.concat((ypseq_shifted, upseq), axis=-1)
+        k4 = self._fg(xG + Delta*k3, u) + self._fnn(xG + Delta*k3, z)
+        
         # Get the current output/state and the next time step.
         y = xG
-        xGplus = self._fgd(xG, u) + self._fnn(xG, z)
-        zplus = tf.concat((ypseq[..., self.Ng:], xG,
-                           upseq[..., self.Nu:], u), axis=-1)
+        xGplus = xG + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
+        zplus = tf.concat((ypseq_shifted, upseq[..., self.Nu:], u), axis=-1)
         xplus = tf.concat((xGplus, zplus), axis=-1)
 
         # Return output and states at the next time-step.
@@ -416,6 +417,7 @@ class TwoReacModel(tf.keras.Model):
         for dim in fnn_dims[1:-1]:
             fnn_layers.append(tf.keras.layers.Dense(dim, activation='tanh'))
         fnn_layers.append(tf.keras.layers.Dense(fnn_dims[-1],
+                                                kernel_initializer='zeros',
                                                 use_bias=False))
 
         # Build model depending on option.

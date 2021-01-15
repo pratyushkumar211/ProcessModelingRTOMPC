@@ -44,7 +44,7 @@ def train_model(model, train_data, trainval_data, val_data,
     # Call the fit method to train.
     model.fit(x=[train_data['inputs'], train_data['xGz0']], 
               y=train_data['outputs'], 
-              epochs=3000, batch_size=4,
+              epochs=10, batch_size=1,
         validation_data = ([trainval_data['inputs'], trainval_data['xGz0']], 
                             trainval_data['outputs']),
             callbacks = [checkpoint_callback])
@@ -55,16 +55,16 @@ def train_model(model, train_data, trainval_data, val_data,
     xmean, xstd = xuscales['xscale']
     umean, ustd = xuscales['uscale']
     ypredictions = model_predictions.squeeze()*xstd + xmean
-    #xpredictions = np.insert(ypredictions, [2], 
-    #                         np.nan*np.ones((ypredictions.shape[0], 1)), axis=1)
+    xpredictions = np.insert(ypredictions, [2], 
+                             np.nan*np.ones((ypredictions.shape[0], 1)), axis=1)
     uval = val_data['inputs'].squeeze(axis=0)*ustd + umean
     val_predictions = SimData(t=np.arange(0, uval.shape[0], 1), 
-                              x=ypredictions, u=uval,
+                              x=xpredictions, u=uval,
                               y=ypredictions)
 
     # Get prediction error on the validation data.
     val_metric = model.evaluate(x=[val_data['inputs'], val_data['xGz0']], 
-                               y=val_data['outputs'])
+                                y=val_data['outputs'])
 
     # Return the trained model/predictions/metrics.
     return (model, val_predictions, val_metric)
@@ -79,12 +79,12 @@ def main():
     training_data = tworeac_parameters['training_data']
     
     # Number of samples.
-    num_samples = [hour*60 for hour in [6]]
+    num_samples = [hour*60 for hour in [1, 3, 6]]
 
     # Create lists.
-    Nps = [0]
-    fnn_dims = [[3, 16, 3]]
-    model_types = ['black-box-state-feed']
+    Nps = [2, 2]
+    fnn_dims = [[10, 16, 2], [8, 16, 2]]
+    model_types = ['black-box', 'hybrid']
     trained_weights = []
     val_metrics = []
     val_predictions = []

@@ -134,7 +134,8 @@ def _get_tworeac_model(*, parameters, plant=True):
         # Construct and return the grey-box model.
         tworeac_greybox_ode = lambda x, u, p: _tworeac_greybox_ode(x, u, 
                                                                p, parameters)
-        xs = parameters['xs'][:-1, np.newaxis]
+        Ng = parameters['Ng']
+        xs = parameters['xs'][:Ng, np.newaxis]
         return NonlinearPlantSimulator(fxup = tworeac_greybox_ode,
                                         hx = _tworeac_measurement,
                                         Rv = 0*np.eye(parameters['Ny']), 
@@ -232,7 +233,8 @@ def main():
 
     # Create a dict and save.
     tworeac_parameters = dict(parameters=parameters, 
-                              training_data=training_data)
+                              training_data=training_data,
+                              greybox_val_data=greybox_val_data)
     # Save data.
     PickleTool.save(data_object=tworeac_parameters, 
                     filename='tworeac_parameters_nonlin.pickle')

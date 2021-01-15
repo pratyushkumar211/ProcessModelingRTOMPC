@@ -57,7 +57,6 @@ def get_controller(model_func, model_pars, model_type,
     if model_type == 'plant' or model_type == 'black-box-state-feed':
         Bd[0, 0] = 1.
         Bd[1, 1] = 1.
-        Bd[2, 2] = 1.
     else:
         Ng = model_pars['Ng']
         Bd[:Ng, :Nd] = np.eye(Nd)
@@ -118,9 +117,9 @@ def get_hybrid_pars(*, parameters, Npast, fnn_weights, xuscales):
     # Return.
     return hybrid_pars
 
-def _fnn(xGz, Npast, fnn_weights):
+def _fnn(xG, z, Npast, fnn_weights):
     """ Compute the NN output. """
-    nn_output = xGz[:, np.newaxis]
+    nn_output = np.concatenate((xG, z))[:, np.newaxis]
     for i in range(0, len(fnn_weights)-2, 2):
         (W, b) = fnn_weights[i:i+2]
         nn_output = np.tanh(W.T @ nn_output + b[:, np.newaxis])
@@ -128,81 +127,6 @@ def _fnn(xGz, Npast, fnn_weights):
     nn_output = (Wf.T @ nn_output)[:, 0]
     # Return.
     return nn_output
-
-def get_black_box_state_feed_pars(*, parameters, fnn_weights, xuscales):
-    """ Get the hybrid model parameters. """
-
-    black_box_pars = copy.deepcopy(parameters)
-    
-    # NN weights and scaling.
-    black_box_pars['fnn_weights'] = fnn_weights 
-    black_box_pars['xuscales'] = xuscales
-
-    # Return.
-    return black_box_pars
-
-def _fnn_black_box_state_feed(x, u, fnn_weights):
-    """ Compute the NN output. """
-    nn_output = np.concatenate((x, u))[:, np.newaxis]
-    for i in range(0, len(fnn_weights)-2, 2):
-        (W, b) = fnn_weights[i:i+2]
-        nn_output = np.tanh(W.T @ nn_output + b[:, np.newaxis])
-    Wf = fnn_weights[-1]
-    nn_output = (Wf.T @ nn_output)[:, 0]
-    # Return.
-    return nn_output
-
-def black_box_state_feed_func(x, u, parameters):
-    """ The augmented continuous time model. """
-
-    # Extract a few parameters.
-    Nx = parameters['Nx']
-    Ny = parameters['Ny']
-    Nu = parameters['Nu']
-    fnn_weights = parameters['fnn_weights']
-    xuscales = parameters['xuscales']
-    xmean, xstd = xuscales['xscale']
-    umean, ustd = xuscales['uscale']
-    
-    # Scale, feed to NN, scale back.
-    x = (x - xmean)/xstd
-    u = (u - umean)/ustd
-    xplus = _fnn_black_box_state_feed(x, u, fnn_weights)
-    xplus = xplus*xstd + xmean
-
-    # Return the sum.
-    return xplus
-
-def get_pars_check_black_box_func(parameters, training_data, 
-                                  tworeac_train_nonlin):
-    """ Check the black-box parameters. """
-
-    fnn_weights = tworeac_train_nonlin['trained_weights'][0][0]
-    xuscales = tworeac_train_nonlin['xuscales']
-    black_box_pars = get_black_box_state_feed_pars(parameters=parameters, 
-                                                   fnn_weights=fnn_weights, 
-                                                   xuscales=xuscales)
-
-    # Get some pars.
-    t = black_box_pars['tsteps_steady']
-    y = training_data[-1].y
-    u = training_data[-1].u
-    uval = training_data[-1].u
-    xtfval = tworeac_train_nonlin['val_predictions'][0].x
-
-    # Start the validation simulation.
-    uval = uval[t:, :]
-    Nval = uval.shape[0]
-    fxu = lambda x, u: black_box_state_feed_func(x, u, black_box_pars)
-    x = y[t, :]
-    xval = []
-    xval.append(x)
-    for t in range(Nval):
-        x = fxu(x, uval[t, :].T)
-        xval.append(x)
-    xval = np.asarray(xval)[:-1, :]
-    # Return.
-    return black_box_pars
 
 def _hybrid_func(xGz, u, parameters):
     """ The augmented continuous time model. """
@@ -225,27 +149,43 @@ def _hybrid_func(xGz, u, parameters):
                              np.tile(xstd, (Npast, )), 
                              np.tile(ustd, (Npast, ))))
     
-    # Extract vectors.
-    #xGz = (xGz - xGzmean)/xGzstd 
-    #u = (u - umean)/ustd
+    # Get some vectors.
+    xGz = (xGz - xGzmean)/xGzstd
+    u = (u-umean)/ustd
     xG, ypseq, upseq = xGz[:Ng], xGz[Ng:Ng+Npast*Ny], xGz[-Npast*Nu:]
+    z = xGz[Ng:]
+    hxG = _measurement(xG)
     
-    # Get k1, k2, k3, and k4.
-    k1 = _greybox_ode(xG, u, ps, parameters)
-    k2 = _greybox_ode(xG + Delta*(k1/2), u, ps, parameters)
-    k3 = _greybox_ode(xG + Delta*(k2/2), u, ps, parameters)
-    k4 = _greybox_ode(xG + Delta*k3, u, ps, parameters)
-    xGplus = xG + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
-    xGplus = (xGplus-xmean)/xstd
+    # Get k1.
+    k1 = _greybox_ode(xG*xstd + xmean, u*ustd + umean, ps, parameters)/xstd
+    k1 += _fnn(xG, z, Npast, fnn_weights)
 
-    # Scale for NN input.
-    xGz = (xGz - xGzmean)/xGzstd 
-    xGplus += _fnn(xGz, Npast, fnn_weights)
+    # Interpolate for k2 and k3.
+    ypseq_interp = interpolate_yseq(np.concatenate((ypseq, hxG)), Npast, Ny)
+    z = np.concatenate((ypseq_interp, upseq))
     
-    # Get the state and the next time step.
-    zplus = np.concatenate((ypseq[Ny:], xG, upseq[Nu:], u))
-    xGplus = xGplus*xstd + xmean
+    # Get k2.
+    k2 = _greybox_ode((xG + Delta*(k1/2))*xstd + xmean, u*ustd + umean, 
+                       ps, parameters)/xstd
+    k2 += _fnn(xG + Delta*(k1/2), z, Npast, fnn_weights)
+
+    # Get k3.
+    k3 = _greybox_ode((xG + Delta*(k2/2))*xstd + xmean, u*ustd + umean, 
+                       ps, parameters)/xstd
+    k3 += _fnn(xG + Delta*(k2/2), z, Npast, fnn_weights)
+
+    # Get k4.
+    ypseq_shifted = np.concatenate((ypseq[Ny:], hxG))
+    z = np.concatenate((ypseq_shifted, upseq))
+    k4 = _greybox_ode((xG + Delta*k3)*xstd + xmean, u*ustd + umean, 
+                       ps, parameters)/xstd
+    k4 += _fnn(xG + Delta*k3, z, Npast, fnn_weights)
+    
+    # Get the current output/state and the next time step.
+    xGplus = xG + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
+    zplus = np.concatenate((ypseq_shifted, upseq[Nu:], u))
     xGzplus = np.concatenate((xGplus, zplus))
+    xGzplus = xGzplus*xGzstd + xGzmean
 
     # Return the sum.
     return xGzplus
@@ -270,11 +210,10 @@ def stage_cost(x, u, p):
     """ Custom stage cost for the tworeac system. """    
     # Get inputs, parameters, and states.
     CAf = u[0:1]
-    #ca, cb = p[0:2]
-    CB_sp = p[0:1]
+    ca, cb = p[0:2]
     CA, CB = x[0:2]
     # Compute and return cost.
-    return (CB-CB_sp)**2 #ca*CAf - cb*CB
+    return ca*CAf - cb*CB
 
 def sim_hybrid(hybrid_func, hybrid_pars, uval, training_data):
     """ Hybrid validation simulation to make 
@@ -314,42 +253,31 @@ def sim_hybrid(hybrid_func, hybrid_pars, uval, training_data):
 
 def get_mhe_noise_tuning(model_type, model_par):
     # Get MHE tuning.
-    if model_type == 'plant':
+    if model_type == 'plant' or model_type == 'hybrid':
         Qwx = 1e-6*np.eye(model_par['Nx'])
         Qwd = 1e-6*np.eye(model_par['Ny'])
         Rv = 1e-3*np.eye(model_par['Ny'])
-    elif model_type == 'grey-box':
+    if model_type == 'grey-box':
         Qwx = 1e-3*np.eye(model_par['Ng'])
         Qwd = np.eye(model_par['Ny'])
         Rv = 1e-3*np.eye(model_par['Ny'])
-    else:
-        Qwx = 1e-2*np.eye(model_par['Nx'])
-        Qwd = 1e-2*np.eye(model_par['Ny'])
-        Rv = np.eye(model_par['Ny'])
     return (Qwx, Qwd, Rv)
 
 def get_tworeac_empc_pars(*, Delta):
     """ Get economic MPC parameters for the tworeac example. """
-    #raw_mat_price = _resample_fast(x = np.array([[105.], [105.], 
-    #                                             [105.], [105.], 
-    #                                             [105.]]), 
-    #                               xDelta=2*60,
-    #                               newDelta=Delta,
-    #                               resample_type='zoh')
-    #product_price = _resample_fast(x = np.array([[170.], [200.], 
-    #                                             [120.], [160.], 
-    #                                             [160.]]),
-    #                               xDelta=2*60,
-    #                               newDelta=Delta,
-    #                               resample_type='zoh')
-    #cost_pars = 100*np.concatenate((raw_mat_price, product_price), axis=1)
-    cost_pars = _resample_fast(x = np.array([[1.], [0.75], 
-                                             [1.25], [0.5], 
-                                             [0.5]]), 
+    raw_mat_price = _resample_fast(x = np.array([[105.], [105.], 
+                                                 [105.], [105.], 
+                                                 [105.]]), 
                                    xDelta=2*60,
                                    newDelta=Delta,
                                    resample_type='zoh')
-
+    product_price = _resample_fast(x = np.array([[170.], [200.], 
+                                                 [120.], [160.], 
+                                                 [160.]]),
+                                   xDelta=2*60,
+                                   newDelta=Delta,
+                                   resample_type='zoh')
+    cost_pars = 100*np.concatenate((raw_mat_price, product_price), axis=1)
     # Return the cost pars.
     return cost_pars
 
@@ -369,32 +297,28 @@ def main():
     Nsim = cost_pars.shape[0]
     disturbances = np.repeat(parameters['ps'][np.newaxis, :], Nsim)
 
-    # Get NN weights and the hybrid ODE.
-    #Np = tworeac_train_nonlin['Nps'][0]
-    #fnn_weights = tworeac_train_nonlin['trained_weights'][0][0]
-    #xuscales = tworeac_train_nonlin['xuscales']
-    #hybrid_pars = get_hybrid_pars(parameters=parameters,
-    #                              Npast=Np,
-    #                              fnn_weights=fnn_weights,
-    #                              xuscales=xuscales)
+    # Get NN weights and parameters for the hybrid function.
+    Np = tworeac_train_nonlin['Nps'][1]
+    fnn_weights = tworeac_train_nonlin['trained_weights'][1][-1]
+    xuscales = tworeac_train_nonlin['xuscales']
+    hybrid_pars = get_hybrid_pars(parameters=parameters,
+                                  Npast=Np,
+                                  fnn_weights=fnn_weights,
+                                  xuscales=xuscales)
 
     # Check the hybrid function.
-    #uval = tworeac_parameters_nonlin['training_data'][-1].u
-    #ytfval = tworeac_train_nonlin['val_predictions'][0].y
-    #xGtfval = tworeac_train_nonlin['val_predictions'][0].x
-    #training_data = tworeac_parameters_nonlin['training_data']
-    #yval, xGval = sim_hybrid(_hybrid_func, hybrid_pars, 
-    #                         uval, training_data)
-    
+    uval = tworeac_parameters_nonlin['training_data'][-1].u
+    ytfval = tworeac_train_nonlin['val_predictions'][1].y
+    xGtfval = tworeac_train_nonlin['val_predictions'][1].x
     training_data = tworeac_parameters_nonlin['training_data']
-    black_box_pars = get_pars_check_black_box_func(parameters, training_data,
-                                                   tworeac_train_nonlin)
+    yval, xGval = sim_hybrid(_hybrid_func, hybrid_pars, 
+                             uval, training_data)
 
     # Run simulations for different model.
     cl_data_list, avg_stage_costs_list, openloop_sol_list = [], [], []
-    model_odes = [_plant_ode, black_box_state_feed_func]
-    model_pars = [parameters, black_box_pars]
-    model_types = ['plant', 'black-box-state-feed']
+    model_odes = [_plant_ode, _greybox_ode, _hybrid_func]
+    model_pars = [parameters, parameters, hybrid_pars]
+    model_types = ['plant', 'grey-box', 'hybrid']
     for (model_ode,
          model_par, model_type) in zip(model_odes, model_pars, model_types):
         mhe_noise_tuning = get_mhe_noise_tuning(model_type, model_par)

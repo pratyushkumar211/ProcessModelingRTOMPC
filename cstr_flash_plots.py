@@ -11,7 +11,8 @@ import numpy as np
 import itertools
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
-from hybridid import (PickleTool, PAPER_FIGSIZE)
+from hybridid import (PickleTool, PAPER_FIGSIZE, get_plotting_array_list,
+                      plot_avg_profits)
 
 ylabels = [r'$H_r \ (\textnormal{m})$',
            r'$C_{Ar} \ (\textnormal{mol/m}^3)$', 
@@ -114,8 +115,8 @@ def plot_data(*, t, udatum, ydatum, xdatum,
     figures = []
     figures += plot_inputs(t, udatum, figure_size, -0.1,
                            data_type, legend_names, legend_colors)
-    #figures += plot_outputs(t, ydatum, figure_size, -0.1, 
-    #                        legend_names, legend_colors)
+    figures += plot_outputs(t, ydatum, figure_size, -0.1, 
+                            legend_names, legend_colors)
     figures += plot_states(t, xdatum, figure_size, -0.25, 
                            legend_names, legend_colors)
 
@@ -191,8 +192,9 @@ def main():
     val_predictions = cstr_flash_train['val_predictions']
     simdata_list = [cstr_flash_parameters['training_data'][-1], 
                     cstr_flash_parameters['greybox_val_data']]
-    (t, udatum, ydatum, xdatum) = get_datum(simdata_list=simdata_list, 
-                                       plot_range = (120, 14*60))
+    (t, udatum, ydatum, xdatum) = get_plotting_array_list(simdata_list=
+                                                    simdata_list, 
+                                                    plot_range = (120, 14*60))
     ydatum.append(val_predictions[0].y[:720, :])
     xdatum.append(val_predictions[0].x[:720, :])
     legend_names = ['Plant', 'Grey-Box', 'Hybrid']
@@ -202,23 +204,6 @@ def main():
                               xdatum=xdatum, data_type='open_loop',
                               legend_names=legend_names,
                               legend_colors=legend_colors)
-
-    # Plot the closed-loop simulation.
-    #legend_names = ['Plant', 'Grey-box']
-    #legend_colors = ['b', 'g']
-    #cl_data_list = cstr_flash_empc['cl_data_list']
-    #(t, udatum, ydatum, xdatum) = get_datum(simdata_list=cl_data_list,
-    #                                   plot_range = (0, 24*60))
-    #figures += plot_data(t=t, udatum=udatum, ydatum=ydatum,
-    #                          xdatum=xdatum, data_type='closed_loop',
-    #                          legend_names=legend_names,
-    #                          legend_colors=legend_colors)
-    
-    # Plot the plant profit in time.
-    #figures += plot_avg_profits(t=t,
-    #                        avg_stage_costs=cstr_flash_empc['avg_stage_costs']#, 
-    #                        legend_colors=legend_colors,
-    #                        legend_names=legend_names)
 
     # Plot the empc costs.
     figures += plot_cost_pars(t=t, 
@@ -234,6 +219,25 @@ def main():
                               legend_names=legend_names,
                               legend_colors=legend_colors)
     
+
+    # Plot the closed-loop simulation.
+    legend_names = ['Plant', 'Grey-box']
+    legend_colors = ['b', 'g']
+    cl_data_list = cstr_flash_empc['cl_data_list']
+    (t, udatum, ydatum, xdatum) = get_plotting_array_list(simdata_list=
+                                       cl_data_list[:2],
+                                       plot_range = (0, 24*60))
+    figures += plot_data(t=t, udatum=udatum, ydatum=ydatum,
+                              xdatum=xdatum, data_type='closed_loop',
+                              legend_names=legend_names,
+                              legend_colors=legend_colors)
+    
+    # Plot the plant profit in time.
+    figures += plot_avg_profits(t=t,
+                            avg_stage_costs=cstr_flash_empc['avg_stage_costs'], 
+                            legend_colors=legend_colors,
+                            legend_names=legend_names)
+
     # Save PDF.
     with PdfPages('cstr_flash_plots.pdf', 'w') as pdf_file:
         for fig in figures:
