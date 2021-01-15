@@ -147,10 +147,8 @@ def main():
     tworeac_parameters = PickleTool.load(filename=
                                          "tworeac_parameters_nonlin.pickle",
                                          type='read')
-    (parameters, training_data, 
-     greybox_validation_data) = (tworeac_parameters['parameters'], 
-                                 tworeac_parameters['training_data'], 
-                                 tworeac_parameters['greybox_validation_data'])
+    (parameters, training_data) = (tworeac_parameters['parameters'], 
+                                 tworeac_parameters['training_data'])
     
     # Load data after training.
     tworeac_train = PickleTool.load(filename=
@@ -176,16 +174,16 @@ def main():
     figures = []
 
     # Plot validation data.
-    legend_names = ['Plant', 'Grey-box', 'Hybrid']
-    legend_colors = ['b', 'g', 'm']
-    valdata_list = [training_data[-1], greybox_validation_data] 
+    legend_names = ['Plant', 'Hybrid']
+    legend_colors = ['b', 'm']
+    valdata_list = [training_data[-1]]#, greybox_validation_data] 
     valdata_list += val_predictions
     t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
-                                                     valdata_list[:2],
+                                                     valdata_list[:1],
                                                      plot_range=(10, 12*60+10))
     (t, ulist_train, 
     ylist_train, xlist_train) = get_plotting_array_list(simdata_list=
-                                                     valdata_list[2:],
+                                                     valdata_list[1:],
                                                      plot_range=(0, 12*60))
     ulist += ulist_train
     ylist += ylist_train
@@ -195,7 +193,7 @@ def main():
                            legend_colors=legend_colors)
 
     # Plot closed-loop simulation data.
-    legend_names = ['Plant', 'Hybrid']
+    legend_names = ['Plant', 'Black-box-State-Feed']
     legend_colors = ['b', 'm']
     t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
                                                      cl_data_list,
@@ -205,7 +203,7 @@ def main():
                            legend_colors=legend_colors)
 
     # Plot empc pars.
-    figures += plot_cost_pars(t=t, cost_pars=tworeac_empc['cost_pars'])
+    #figures += plot_cost_pars(t=t, cost_pars=tworeac_empc['cost_pars'])
 
     # Plot profit curve.
     figures += plot_avg_profits(t=t,

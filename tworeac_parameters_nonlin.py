@@ -52,7 +52,7 @@ def _tworeac_greybox_ode(x, u, p, parameters):
 
 def _tworeac_measurement(x):
     # Return the measurement.
-    return x[0:2]
+    return x
 
 def _get_tworeac_parameters():
     """ Get the parameter values for the 
@@ -68,7 +68,7 @@ def _get_tworeac_parameters():
     parameters['Nx'] = 3
     parameters['Ng'] = 2
     parameters['Nu'] = 1
-    parameters['Ny'] = 2
+    parameters['Ny'] = 3
     parameters['Np'] = 1
 
     # Sample time.
@@ -89,7 +89,7 @@ def _get_tworeac_parameters():
     parameters['tsteps_steady'] = 10
 
     # Measurement noise.
-    parameters['Rv'] = 0*np.diag([1e-3, 1e-3])
+    parameters['Rv'] = 0*np.diag([1e-3, 1e-3, 1e-3])
 
     # Return the parameters dict.
     return parameters
@@ -134,7 +134,7 @@ def _get_tworeac_model(*, parameters, plant=True):
         # Construct and return the grey-box model.
         tworeac_greybox_ode = lambda x, u, p: _tworeac_greybox_ode(x, u, 
                                                                p, parameters)
-        xs = parameters['xs'][:-1, np.newaxis]
+        xs = parameters['xs'][:, np.newaxis]
         return NonlinearPlantSimulator(fxup = tworeac_greybox_ode,
                                         hx = _tworeac_measurement,
                                         Rv = 0*np.eye(parameters['Ny']), 
@@ -168,19 +168,19 @@ def _gen_train_val_data(*, parameters, num_traj,
         if traj == num_traj-1:
             "Get input for train val simulation."
             Nsim = Nsim_val
-            u = sample_prbs_like(num_change=24, num_steps=Nsim_val, 
+            u = sample_prbs_like(num_change=12, num_steps=Nsim_val, 
                                  lb=ulb, ub=uub,
                                  mean_change=30, sigma_change=2, seed=seed+1)
         elif traj == num_traj-2:
             "Get input for validation simulation."
             Nsim = Nsim_trainval
-            u = sample_prbs_like(num_change=3, num_steps=Nsim_trainval, 
+            u = sample_prbs_like(num_change=6, num_steps=Nsim_trainval, 
                                  lb=ulb, ub=uub,
                                  mean_change=20, sigma_change=2, seed=seed+2)
         else:
             "Get input for training simulation."
             Nsim = Nsim_train
-            u = sample_prbs_like(num_change=2, num_steps=Nsim_train, 
+            u = sample_prbs_like(num_change=12, num_steps=Nsim_train, 
                                  lb=ulb, ub=uub,
                                  mean_change=30, sigma_change=2, seed=seed+3)
 
@@ -208,10 +208,10 @@ def _get_greybox_val_preds(*, parameters, training_data):
     for t in range(Nsim):
         model.step(u[t:t+1, :], p)
     x = np.asarray(model.x[0:-1]).squeeze()
-    x = np.insert(x, [2], np.nan*np.ones((Nsim, 1)), axis=1)
+    #x = np.insert(x, [2], np.nan*np.ones((Nsim, 1)), axis=1)
     data = SimData(t=np.asarray(model.t[0:-1]), x=x, u=u,
                    y=np.asarray(model.y[:-1]).squeeze())
-    # Return daa.
+    # Return data.
     return data
 
 def main():
@@ -222,18 +222,17 @@ def main():
     parameters['xs'] = _get_tworeac_rectified_xs(parameters=parameters)
     
     # Generate training data.
-    training_data = _gen_train_val_data(parameters=parameters, 
-                                        num_traj=8, Nsim_train=60,
-                                        Nsim_trainval=60, Nsim_val=720, 
+    training_data = _gen_train_val_data(parameters=parameters,
+                                        num_traj=3, Nsim_train=360,
+                                        Nsim_trainval=120, Nsim_val=360,
                                         seed=100)
-    greybox_val_data = _get_greybox_val_preds(parameters=
-                                            parameters, 
-                                            training_data=training_data)
+    #greybox_val_data = _get_greybox_val_preds(parameters=
+    #                                        parameters, 
+    #                                        training_data=training_data)
 
     # Create a dict and save.
     tworeac_parameters = dict(parameters=parameters, 
-                              training_data=training_data,
-                              greybox_validation_data=greybox_val_data)
+                              training_data=training_data)
     # Save data.
     PickleTool.save(data_object=tworeac_parameters, 
                     filename='tworeac_parameters_nonlin.pickle')

@@ -44,7 +44,7 @@ def train_model(model, train_data, trainval_data, val_data,
     # Call the fit method to train.
     model.fit(x=[train_data['inputs'], train_data['xGz0']], 
               y=train_data['outputs'], 
-              epochs=3000, batch_size=1,
+              epochs=3000, batch_size=4,
         validation_data = ([trainval_data['inputs'], trainval_data['xGz0']], 
                             trainval_data['outputs']),
             callbacks = [checkpoint_callback])
@@ -55,11 +55,11 @@ def train_model(model, train_data, trainval_data, val_data,
     xmean, xstd = xuscales['xscale']
     umean, ustd = xuscales['uscale']
     ypredictions = model_predictions.squeeze()*xstd + xmean
-    xpredictions = np.insert(ypredictions, [2], 
-                             np.nan*np.ones((ypredictions.shape[0], 1)), axis=1)
+    #xpredictions = np.insert(ypredictions, [2], 
+    #                         np.nan*np.ones((ypredictions.shape[0], 1)), axis=1)
     uval = val_data['inputs'].squeeze(axis=0)*ustd + umean
     val_predictions = SimData(t=np.arange(0, uval.shape[0], 1), 
-                              x=xpredictions, u=uval,
+                              x=ypredictions, u=uval,
                               y=ypredictions)
 
     # Get prediction error on the validation data.
@@ -82,9 +82,9 @@ def main():
     num_samples = [hour*60 for hour in [6]]
 
     # Create lists.
-    Nps = [1, 3]
-    fnn_dims = [[8, 4, 2]]
-    model_types = ['hybrid']
+    Nps = [0]
+    fnn_dims = [[3, 16, 3]]
+    model_types = ['black-box-state-feed']
     trained_weights = []
     val_metrics = []
     val_predictions = []
@@ -105,7 +105,6 @@ def main():
          val_data, xuscales) = get_tworeac_train_val_data(Np=Np,
                                                 parameters=parameters, 
                                                 data_list=training_data)
-
         # Loop over the number of samples.
         for num_sample in num_samples:
             
