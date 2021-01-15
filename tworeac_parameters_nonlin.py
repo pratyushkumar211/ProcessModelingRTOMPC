@@ -52,7 +52,7 @@ def _tworeac_greybox_ode(x, u, p, parameters):
 
 def _tworeac_measurement(x):
     # Return the measurement.
-    return x
+    return x[0:2]
 
 def _get_tworeac_parameters():
     """ Get the parameter values for the 
@@ -68,7 +68,7 @@ def _get_tworeac_parameters():
     parameters['Nx'] = 3
     parameters['Ng'] = 2
     parameters['Nu'] = 1
-    parameters['Ny'] = 3
+    parameters['Ny'] = 2
     parameters['Np'] = 1
 
     # Sample time.
@@ -89,7 +89,7 @@ def _get_tworeac_parameters():
     parameters['tsteps_steady'] = 10
 
     # Measurement noise.
-    parameters['Rv'] = 0*np.diag([1e-3, 1e-3, 1e-3])
+    parameters['Rv'] = 0*np.diag([1e-3, 1e-3])
 
     # Return the parameters dict.
     return parameters
@@ -134,7 +134,7 @@ def _get_tworeac_model(*, parameters, plant=True):
         # Construct and return the grey-box model.
         tworeac_greybox_ode = lambda x, u, p: _tworeac_greybox_ode(x, u, 
                                                                p, parameters)
-        xs = parameters['xs'][:, np.newaxis]
+        xs = parameters['xs'][:-1, np.newaxis]
         return NonlinearPlantSimulator(fxup = tworeac_greybox_ode,
                                         hx = _tworeac_measurement,
                                         Rv = 0*np.eye(parameters['Ny']), 
@@ -208,7 +208,7 @@ def _get_greybox_val_preds(*, parameters, training_data):
     for t in range(Nsim):
         model.step(u[t:t+1, :], p)
     x = np.asarray(model.x[0:-1]).squeeze()
-    #x = np.insert(x, [2], np.nan*np.ones((Nsim, 1)), axis=1)
+    x = np.insert(x, [2], np.nan*np.ones((Nsim, 1)), axis=1)
     data = SimData(t=np.asarray(model.t[0:-1]), x=x, u=u,
                    y=np.asarray(model.y[:-1]).squeeze())
     # Return data.
@@ -226,9 +226,9 @@ def main():
                                         num_traj=3, Nsim_train=360,
                                         Nsim_trainval=120, Nsim_val=360,
                                         seed=100)
-    #greybox_val_data = _get_greybox_val_preds(parameters=
-    #                                        parameters, 
-    #                                        training_data=training_data)
+    greybox_val_data = _get_greybox_val_preds(parameters=
+                                            parameters, 
+                                            training_data=training_data)
 
     # Create a dict and save.
     tworeac_parameters = dict(parameters=parameters, 
