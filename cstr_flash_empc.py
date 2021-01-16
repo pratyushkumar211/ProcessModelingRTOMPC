@@ -302,8 +302,8 @@ def main():
                                          plant_pars=plant_pars)
 
     # Get NN weights and the hybrid ODE.
-    Np = cstr_flash_train['Nps'][0]
-    fnn_weights = cstr_flash_train['trained_weights'][0][-1] # To change.
+    Np = cstr_flash_train['Nps'][1] # To change.
+    fnn_weights = cstr_flash_train['trained_weights'][1][-1] # To change.
     xuyscales = cstr_flash_train['xuyscales']
     hybrid_pars = get_hybrid_pars(greybox_pars=greybox_pars,
                                   Npast=Np,

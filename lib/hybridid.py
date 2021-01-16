@@ -466,3 +466,28 @@ def plot_avg_profits(*, t, avg_stage_costs,
     axes.set_xlim([np.min(t), np.max(t)])
     # Return.
     return [figure]
+
+def plot_val_metrics(*, num_samples, val_metrics, colors, legends, 
+                     figure_size=PAPER_FIGSIZE,
+                     ylabel_xcoordinate=-0.11, 
+                     left_label_frac=0.15):
+    """ Plot validation metric on open loop data. """
+    (figure, axes) = plt.subplots(nrows=1, ncols=1, 
+                                  sharex=True, 
+                                  figsize=figure_size, 
+                                  gridspec_kw=dict(left=left_label_frac))
+    xlabel = 'Hours of training samples'
+    ylabel = 'MSE'
+    num_samples = num_samples/60
+    for (val_metric, color) in zip(val_metrics, colors):
+        # Plot the corresponding data.
+        axes.semilogy(num_samples, val_metric, color)
+    axes.legend(legends)
+    axes.set_xlabel(xlabel)
+    axes.set_ylabel(ylabel)
+    axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5) 
+    axes.set_xlim([np.min(num_samples), np.max(num_samples)])
+    figure.suptitle('Mean squared error (MSE) - Validation data', 
+                    x=0.52, y=0.92)
+   # Return the figure object.
+    return [figure]

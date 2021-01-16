@@ -24,16 +24,57 @@ def create_model(*, Np, fnn_dims, xuyscales, cstr_flash_parameters, model_type):
                                    xuyscales=xuyscales,
                                    cstr_flash_parameters=cstr_flash_parameters,
                                    model_type=model_type)
+    if model_type == 'black-box':
+        loss_weights = [1.]
+    else:
+        loss_weights = [1., 0.]
     # Compile the nn controller.
     cstr_flash_model.compile(optimizer='adam',
                              loss='mean_squared_error', 
-                             loss_weights=[1., 0.])
+                             loss_weights=loss_weights)
     # Return the compiled model.
     return cstr_flash_model
 
 def train_model(model, x0key, xuyscales, train_data, trainval_data, val_data,
-                stdout_filename, ckpt_path):
+                model_type, stdout_filename, ckpt_path):
     """ Function to train the NN controller. """
+    def get_model_targets(model_type, train_data, trainval_data, val_data):
+        """ Get model targets. """
+        if model_type == 'black-box':
+            train_outputs = train_data['outputs']
+            trainval_outputs = trainval_data['outputs']
+            val_outputs = val_data['outputs']
+        else:
+            train_outputs = [train_data['outputs'], train_data['xG']]
+            trainval_outputs = [trainval_data['outputs'], trainval_data['xG']]
+            val_outputs = [val_data['outputs'], val_data['xG']]
+        # Return.
+        return train_outputs, trainval_outputs, val_outputs
+
+    def get_model_val_predictions(model, model_type, val_data, xuyscales):
+        """ Load model weights and get validation predictions. """
+        model_predictions = model.predict(x=[val_data['inputs'], 
+                                             val_data[x0key]])
+        ymean, ystd = xuyscales['yscale']
+        xmean, xstd = xuyscales['xscale']
+        umean, ustd = xuyscales['uscale']
+        u = val_data['inputs'][0, ...]*ustd + umean
+        t = np.arange(0, val_data['inputs'].shape[1], 1)
+        ypredictions = model_predictions[0].squeeze()*ystd + ymean
+        if model_type == 'hybrid':
+            xpredictions = model_predictions[1].squeeze()*xstd + xmean
+            xpredictions = np.insert(xpredictions, [3, 7], 
+                             np.nan*np.ones((xpredictions.shape[0], 2)), axis=1)
+        else:
+            xpredictions = np.nan*np.ones((ypredictions.shape[0], 10))
+        # Return.
+        return SimData(t=t, x=xpredictions, u=u, y=ypredictions)
+    
+    # Get model targets.
+    (train_outputs, 
+     trainval_outputs, val_outputs) = get_model_targets(model_type, train_data,
+                                                        trainval_data, val_data)
+
     # Std out.
     sys.stdout = open(stdout_filename, 'w')
     # Create the checkpoint callback.
@@ -44,30 +85,24 @@ def train_model(model, x0key, xuyscales, train_data, trainval_data, val_data,
                                                     verbose=1)
     # Call the fit method to train.
     model.fit(x = [train_data['inputs'], train_data[x0key]],
-              y = [train_data['outputs'], train_data['xG']], 
+              y = train_outputs, 
               epochs=10, batch_size=2,
         validation_data = ([trainval_data['inputs'], trainval_data[x0key]], 
-                           [trainval_data['outputs'], trainval_data['xG']]),
+                           trainval_outputs),
         callbacks = [checkpoint_callback])
 
     # Load best weights.
     model.load_weights(ckpt_path)
 
-    # Get predictions on validation data and scale back to physical variables.
-    model_predictions = model.predict(x=[val_data['inputs'], val_data[x0key]])
-    ymean, ystd = xuyscales['yscale']
-    xmean, xstd = xuyscales['xscale']
-    ypredictions = model_predictions[0].squeeze()*ystd + ymean
-    xpredictions = model_predictions[1].squeeze()*xstd + xmean
-    xpredictions = np.insert(xpredictions, [3, 7], 
-                             np.nan*np.ones((xpredictions.shape[0], 2)), axis=1)
-    val_predictions = SimData(t=None, x=xpredictions, u=None,
-                              y=ypredictions)
+    # Load model weights and get model predictions.
+    val_predictions = get_model_val_predictions(model, model_type, 
+                                                val_data, xuyscales)
 
-    # Evaluate metric.
+    # Get the validation metric.
     val_metric = model.evaluate(x = [val_data['inputs'], val_data[x0key]],
-                                y = [val_data['outputs'], val_data['xG']])
-
+                                y = val_outputs)
+    if model_type == 'hybrid':
+        val_metric = val_metric[0]
     # Return model/predictions/metric.
     return (model, val_predictions, val_metric)
 
@@ -83,15 +118,15 @@ def main():
 
     # Number of samples.
     num_train_traj = len(greybox_processed_data) - 2
-    num_batches = [num_train_traj]
-    Nsim_train = greybox_processed_data[0].x.shape[0] 
+    num_batches = [4, num_train_traj]
+    Nsim_train = greybox_processed_data[0].x.shape[0]
     Nsim_train -= greybox_pars['tsteps_steady']
     num_samples = [batch*Nsim_train for batch in num_batches]
 
     # Create lists.
-    Nps = [3]
-    fnn_dims = [[102, 8, 8]]
-    model_types = ['hybrid']
+    Nps = [5, 5]
+    fnn_dims = [[102, 32, 6], [102, 32, 8]]
+    model_types = ['black-box', 'hybrid']
     trained_weights = []
     val_metrics = []
     val_predictions = []
@@ -135,7 +170,7 @@ def main():
              val_prediction,
              val_metric) = train_model(cstr_flash_model, x0key, xuyscales,
                                        train_samples, trainval_data, val_data,
-                                       stdout_filename, ckpt_path)
+                                       model_type, stdout_filename, ckpt_path)
             fnn_weights = cstr_flash_model.get_weights()
 
             # Save info.

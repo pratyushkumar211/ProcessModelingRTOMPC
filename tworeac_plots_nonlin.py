@@ -11,7 +11,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from hybridid import PickleTool, PAPER_FIGSIZE, plot_profit_curve
-from hybridid import get_plotting_array_list, plot_avg_profits
+from hybridid import (get_plotting_array_list, plot_avg_profits, 
+                      plot_val_metrics)
 
 labels = [r'$C_A \ (\textnormal{mol/m}^3)$', 
           r'$C_B \ (\textnormal{mol/m}^3)$',
@@ -70,31 +71,6 @@ def plot_xudata(*, t, xlist, ulist,
 #    axes.set_xlim([np.min(num_samples), np.max(num_samples)])
 #    # Return the figure object.
 #    return [figure]
-
-def plot_val_metrics(*, num_samples, val_metrics, colors, legends, 
-                     figure_size=PAPER_FIGSIZE,
-                     ylabel_xcoordinate=-0.11, 
-                     left_label_frac=0.15):
-    """ Plot validation metric on open loop data. """
-    (figure, axes) = plt.subplots(nrows=1, ncols=1, 
-                                  sharex=True, 
-                                  figsize=figure_size, 
-                                  gridspec_kw=dict(left=left_label_frac))
-    xlabel = 'Hours of training samples'
-    ylabel = 'MSE'
-    num_samples = num_samples/60
-    for (val_metric, color) in zip(val_metrics, colors):
-        # Plot the corresponding data.
-        axes.semilogy(num_samples, val_metric, color)
-    axes.legend(legends)
-    axes.set_xlabel(xlabel)
-    axes.set_ylabel(ylabel)
-    axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5) 
-    axes.set_xlim([np.min(num_samples), np.max(num_samples)])
-    figure.suptitle('Mean squared error (MSE) - Validation data', 
-                    x=0.52, y=0.92)
-   # Return the figure object.
-    return [figure]
 
 def plot_cost_pars(t, cost_pars,
                    figure_size=PAPER_FIGSIZE, 
@@ -213,7 +189,7 @@ def main():
     # Plot validation metrics to show data requirements.
     num_samples = tworeac_train['num_samples']
     val_metrics = tworeac_train['val_metrics']
-    figures += plot_val_metrics(num_samples=num_samples, 
+    figures += plot_val_metrics(num_samples=num_samples,
                                 val_metrics=val_metrics, 
                                 colors=['dimgray', 'm'], 
                                 legends=['Black-box', 'Hybrid'])

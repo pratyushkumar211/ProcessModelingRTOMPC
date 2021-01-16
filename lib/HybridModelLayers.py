@@ -468,16 +468,20 @@ class CstrFlashModel(tf.keras.Model):
             interp_layer = InterpolationLayer(p=Ny, Np=Np)
             cstr_flash_cell = CstrFlashHybridCell(Np, interp_layer, fnn_layers,
                                             xuyscales, cstr_flash_parameters)
-        if model_type == 'grey-black':
-            cstr_flash_cell = CstrFlashGreyBlackCell(Np, fnn_layers,
-                                                     cstr_flash_parameters)
+        #if model_type == 'grey-black':
+        #    cstr_flash_cell = CstrFlashGreyBlackCell(Np, fnn_layers,
+        #                                             cstr_flash_parameters)
 
         # Construct the RNN layer and the computation graph.
         cstr_flash_layer = tf.keras.layers.RNN(cstr_flash_cell,
                                                return_sequences=True)
         layer_output = cstr_flash_layer(inputs=layer_input,
                                         initial_state=[initial_state])
-        y, xG = tf.split(layer_output, [Ny, Ng], axis=-1)
+        if model_type == 'black-box':
+            outputs = [layer_output]
+        else:
+            y, xG = tf.split(layer_output, [Ny, Ng], axis=-1)
+            outputs = [y, xG]
         # Construct model.
         super().__init__(inputs=[layer_input, initial_state],
-                         outputs=[y, xG])
+                         outputs=outputs)

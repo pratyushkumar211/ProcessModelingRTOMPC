@@ -12,7 +12,7 @@ import itertools
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from hybridid import (PickleTool, PAPER_FIGSIZE, get_plotting_array_list,
-                      plot_avg_profits)
+                      plot_avg_profits, plot_val_metrics)
 
 ylabels = [r'$H_r \ (\textnormal{m})$',
            r'$C_{Ar} \ (\textnormal{mol/m}^3)$', 
@@ -81,7 +81,7 @@ def plot_outputs(t, ydatum, figure_size, ylabel_xcoordinate,
         legend_handles += handle
     figure.legend(handles = legend_handles,
                   labels = legend_names,
-                  loc = (0.25, 0.9), ncol=len(legend_names))
+                  loc = (0.15, 0.9), ncol=len(legend_names))
     return [figure]
 
 def plot_states(t, xdatum, figure_size, ylabel_xcoordinate,
@@ -105,7 +105,7 @@ def plot_states(t, xdatum, figure_size, ylabel_xcoordinate,
         legend_handles += handle
     figure.legend(handles = legend_handles,
                   labels = legend_names,
-                  loc = (0.25, 0.9), ncol=len(legend_names))
+                  loc = (0.15, 0.9), ncol=len(legend_names))
     return [figure]
 
 def plot_data(*, t, udatum, ydatum, xdatum,
@@ -167,9 +167,8 @@ def plot_cost_pars(t, cost_pars,
                 'Product Price ($\$$/mol-B)']
     for (axes, pari, ylabel) in zip(axes_list, range(num_pars), ylabels):
         # Plot the corresponding data.
-        t = np.arange(1, 61, 1)/60
         cost_pars[:, 0] = 60*cost_pars[:, 0]
-        axes.plot(t, cost_pars[:60, pari])
+        axes.plot(t, cost_pars[:len(t), pari])
         axes.set_ylabel(ylabel)
         axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
     axes.set_xlabel(xlabel)
@@ -190,24 +189,34 @@ def main():
 
     # Collect data to plot open-loop predictions.
     val_predictions = cstr_flash_train['val_predictions']
-    simdata_list = [cstr_flash_parameters['training_data'][-1], 
+    valdata_list = [cstr_flash_parameters['training_data'][-1], 
                     cstr_flash_parameters['greybox_val_data']]
-    (t, udatum, ydatum, xdatum) = get_plotting_array_list(simdata_list=
-                                                    simdata_list, 
-                                                    plot_range = (120, 14*60))
-    ydatum.append(val_predictions[0].y[:720, :])
-    xdatum.append(val_predictions[0].x[:720, :])
-    legend_names = ['Plant', 'Grey-Box', 'Hybrid']
-    legend_colors = ['b', 'g', 'm']
+    valdata_list += val_predictions
+    (t, ulist, ylist, xlist) = get_plotting_array_list(simdata_list=
+                                                    valdata_list[:2], 
+                                                plot_range = (120, 14*60+120))
+    (t, ulist_train, 
+    ylist_train, xlist_train) = get_plotting_array_list(simdata_list=
+                                                     valdata_list[2:],
+                                                     plot_range=(0, 12*60))
+    ulist += ulist_train
+    ylist += ylist_train
+    xlist += xlist_train
+    legend_names = ['Plant', 'Grey-Box', 'Black-box', 'Hybrid']
+    legend_colors = ['b', 'g', 'dimgrey', 'm']
     figures = []
-    figures += plot_data(t=t, udatum=udatum, ydatum=ydatum,
-                              xdatum=xdatum, data_type='open_loop',
+    figures += plot_data(t=t, udatum=ulist, ydatum=ylist,
+                              xdatum=xlist, data_type='open_loop',
                               legend_names=legend_names,
                               legend_colors=legend_colors)
 
-    # Plot the empc costs.
-    figures += plot_cost_pars(t=t, 
-                              cost_pars=cstr_flash_empc['cost_pars'][:24*60, :])
+    # Plot validation metrics to show data requirements.
+    num_samples = cstr_flash_train['num_samples']
+    val_metrics = cstr_flash_train['val_metrics']
+    figures += plot_val_metrics(num_samples=num_samples, 
+                                val_metrics=val_metrics, 
+                                colors=['dimgray', 'm'], 
+                                legends=['Black-box', 'Hybrid'])
 
     # Plot the open-loop solutions.
     legend_names = ['Plant', 'Grey-box', 'Hybrid']
@@ -219,7 +228,6 @@ def main():
                               legend_names=legend_names,
                               legend_colors=legend_colors)
     
-
     # Plot the closed-loop simulation.
     legend_names = ['Plant', 'Grey-box']
     legend_colors = ['b', 'g']
@@ -232,6 +240,10 @@ def main():
                               legend_names=legend_names,
                               legend_colors=legend_colors)
     
+    # Plot the empc costs.
+    figures += plot_cost_pars(t=t, 
+                              cost_pars=cstr_flash_empc['cost_pars'][:24*60, :])
+
     # Plot the plant profit in time.
     figures += plot_avg_profits(t=t,
                             avg_stage_costs=cstr_flash_empc['avg_stage_costs'], 
