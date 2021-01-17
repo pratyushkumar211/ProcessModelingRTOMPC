@@ -187,12 +187,12 @@ def main():
                            legend_colors=legend_colors)
 
     # Plot validation metrics to show data requirements.
-    num_samples = tworeac_train['num_samples']
-    val_metrics = tworeac_train['val_metrics']
-    figures += plot_val_metrics(num_samples=num_samples,
-                                val_metrics=val_metrics, 
-                                colors=['dimgray', 'm'], 
-                                legends=['Black-box', 'Hybrid'])
+    #num_samples = tworeac_train['num_samples']
+    #val_metrics = tworeac_train['val_metrics']
+    #figures += plot_val_metrics(num_samples=num_samples,
+    #                            val_metrics=val_metrics, 
+    #                            colors=['dimgray', 'm'], 
+    #                            legends=['Black-box', 'Hybrid'])
 
     # Plot first open-loop simulation.
     legend_names = ['Plant', 'Grey-box', 'Hybrid']

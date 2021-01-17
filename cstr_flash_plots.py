@@ -144,7 +144,6 @@ def plot_openloop_sols(*, t, udatum, xdatum,
     xdatum = get_openloop_xtrajs(xdatum)
     figures = []
     t = t[:udatum[0].shape[0]]
-    t = t - 2
     figures += plot_inputs(t, udatum, figure_size, -0.1,
                            'closed_loop', legend_names, legend_colors)
     figures += plot_states(t, xdatum, figure_size, -0.25, 
@@ -211,12 +210,12 @@ def main():
                               legend_colors=legend_colors)
 
     # Plot validation metrics to show data requirements.
-    num_samples = cstr_flash_train['num_samples']
-    val_metrics = cstr_flash_train['val_metrics']
-    figures += plot_val_metrics(num_samples=num_samples, 
-                                val_metrics=val_metrics, 
-                                colors=['dimgray', 'm'], 
-                                legends=['Black-box', 'Hybrid'])
+    #num_samples = cstr_flash_train['num_samples']
+    #val_metrics = cstr_flash_train['val_metrics']
+    #figures += plot_val_metrics(num_samples=num_samples, 
+    #                            val_metrics=val_metrics, 
+    #                            colors=['dimgray', 'm'], 
+    #                            legends=['Black-box', 'Hybrid'])
 
     # Plot the open-loop solutions.
     legend_names = ['Plant', 'Grey-box', 'Hybrid']

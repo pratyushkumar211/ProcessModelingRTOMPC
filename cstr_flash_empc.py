@@ -323,7 +323,7 @@ def main():
     model_odes = [_plant_ode, _greybox_ode, _hybrid_func]
     model_pars = [plant_pars, greybox_pars, hybrid_pars]
     model_types = ['plant', 'grey-box', 'hybrid']
-    Nsims = [120, 120, 0]
+    Nsims = [24*60, 24*60, 0]
     plant_lxup = lambda x, u, p: stage_cost(x, u, p, plant_pars, [5, 7, 9])
     for (model_ode, model_par,
          model_type, Nsim) in zip(model_odes, model_pars, model_types, Nsims):

@@ -86,7 +86,7 @@ def train_model(model, x0key, xuyscales, train_data, trainval_data, val_data,
     # Call the fit method to train.
     model.fit(x = [train_data['inputs'], train_data[x0key]],
               y = train_outputs, 
-              epochs=10, batch_size=2,
+              epochs=600, batch_size=2,
         validation_data = ([trainval_data['inputs'], trainval_data[x0key]], 
                            trainval_outputs),
         callbacks = [checkpoint_callback])
@@ -118,7 +118,7 @@ def main():
 
     # Number of samples.
     num_train_traj = len(greybox_processed_data) - 2
-    num_batches = [4, num_train_traj]
+    num_batches = [num_train_traj]
     Nsim_train = greybox_processed_data[0].x.shape[0]
     Nsim_train -= greybox_pars['tsteps_steady']
     num_samples = [batch*Nsim_train for batch in num_batches]
