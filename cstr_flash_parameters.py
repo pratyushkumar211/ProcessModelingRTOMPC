@@ -1,4 +1,4 @@
-# [depends] %LIB%/hybridid.py
+# [depends] %LIB%/hybridid.py %LIB%/linNonlinMPC.py
 # [makes] pickle
 """ Script to generate the necessary
     parameters and training data for the 

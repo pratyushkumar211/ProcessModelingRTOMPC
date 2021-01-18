@@ -1,6 +1,7 @@
 # [depends] %LIB%/hybridid.py %LIB%/linNonlinMPC.py
-# [depends] tworeac_parameters_nonlin.py
+# [depends] %LIB%/../tworeac_parameters_nonlin.py
 # [depends] tworeac_parameters_nonlin.pickle
+# [depends] tworeac_train_nonlin.pickle
 # [makes] pickle
 """ Script to perform closed-loop simulations
     with the trained models.

@@ -13,7 +13,7 @@ import time
 
 FIGURE_SIZE_A4 = (9, 10)
 PRESENTATION_FIGSIZE = (6, 6)
-PAPER_FIGSIZE = (5, 6)
+PAPER_FIGSIZE = (6, 6)
 
 SimData = collections.namedtuple('SimData',
                                 ['t', 'x', 'u', 'y'])

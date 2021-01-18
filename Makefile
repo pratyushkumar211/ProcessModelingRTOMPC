@@ -41,7 +41,7 @@ TEXSUFFIXES := .pdf .aux .log .bbl .blg .nav .out .snm .toc .synctex.gz \
 # confusing here: in the subfolders, we split paper/presentation/poster, whereas
 # these variables are article/talk/poster, so keep that in mind.
 ARTICLE_SRC := systemID_NNs.tex
-TALK_SRC := 
+TALK_SRC := group_talk_jan19_2021.tex
 POSTER_SRC := 
 
 PAPER_BIB := 
@@ -101,9 +101,9 @@ DIA_SRC := cstr_flash.dia
 PY_MAT_SRC := 
 OCT_MAT_SRC := 
 MATLAB_MAT_SRC := 
-PY_PICKLE_SRC := tworeac_parameters_lin.py tworeac_train_lin.py \
-				 tworeac_parameters_nonlin.py tworeac_train_nonlin.py \
-				 tworeac_ssopt_lin.py tworeac_ssopt_nonlin.py
+PY_PICKLE_SRC := tworeac_parameters_nonlin.py tworeac_train_nonlin.py \
+		 		 tworeac_empc_nonlin.py cstr_flash_parameters.py \
+		 		 cstr_flash_train.py cstr_flash_empc.py
 
 ## JL_MAT_SRC. These are .jl files on which you run Julia to produce a .mat file.
 ## Note that Julia's .mat files are in an HDF5 format, so you will need to use
@@ -118,8 +118,7 @@ OCT_DAT_SRC :=
 
 ## PY_PLOT files are .py files that create .pdf plots.
 
-PY_PLOT := tworeac_plots_lin.py tworeac_plots_nonlin.py \
-		   tworeac_distmodels_nonlin.py
+PY_PLOT := tworeac_plots_nonlin.py cstr_flash_plots.py \
 
 ## PY_MOVIE files are .py files that create movies as a .pdf document.
 

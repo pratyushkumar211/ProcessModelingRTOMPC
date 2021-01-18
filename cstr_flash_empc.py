@@ -1,5 +1,6 @@
-# [depends] %LIB%/hybridid.py %LIB%/HybridModelLayers.py
+# [depends] %LIB%/hybridid.py %LIB%/linNonlinMPC.py
 # [depends] cstr_flash_parameters.pickle
+# [depends] cstr_flash_train.pickle
 # [makes] pickle
 """ Script to perform closed-loop simulations
     with the trained models.
