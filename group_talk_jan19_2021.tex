@@ -1,0 +1,463 @@
+\documentclass[xcolor=dvipsnames, 8pt]{beamer} %
+%\setbeamertemplate{navigation symbols}{}
+
+\usetheme{SantaBarbara}
+
+\definecolor{black}{HTML}{0A0A0A}
+\definecolor{green}{HTML}{0420eb} 
+\definecolor{darkgreen}{HTML}{008000}
+\definecolor{gold}{HTML}{FFD000}
+\setbeamercolor{normal text}{fg=black,bg=white}
+\setbeamercolor{alerted text}{fg=red}
+\setbeamercolor{example text}{fg=black}
+\setbeamercolor{palette primary}{fg=black, bg=gray!20}
+\setbeamercolor{palette secondary}{fg=black, bg=gray!20}
+\setbeamercolor{palette tertiary}{fg=white, bg=green!80}
+\setbeamercolor{block title}{fg=black,bg=gold!40}
+\setbeamercolor{frametitle}{fg=white, bg=green!80}
+\setbeamercolor{title}{fg=white, bg=green!80}
+
+\newcommand{\vecc}{\operatorname{vec}}
+%\newcommand{\svec}{\operatorname{svec}}
+\newcommand{\norm}[1]{\left| #1 \right|}
+\newcommand{\xhat}{\hat{x}}
+\newcommand{\uhat}{\hat{u}}
+\newcommand{\yhat}{\hat{y}}
+\newcommand{\wt}{\widehat{\theta}}
+
+\usepackage[utf8]{inputenc}
+
+\usepackage{tikz, tikzsettings}
+\usepackage{verbatim}
+\usepackage{amssymb}
+\usepackage{amsmath}
+%\usepackage{amsfonts}
+\usepackage{algorithmic}
+\graphicspath{{./}{./figures/}{./figures/presentation/}}
+%\usepackage[version=4]{mhchem}
+\usepackage{subcaption}
+\usepackage[authoryear,round]{natbib}
+%\usepackage{fancyvrb}
+\usepackage{color}
+\usepackage{colortbl}
+\usepackage{xcolor}
+\usepackage{physics}
+\usepackage{pgfplots}
+\usepackage{ragged2e}
+%\pgfplotsset{compat=newest} 
+%\pgfplotsset{plot coordinates/math parser=false}
+%\usepackage{environ}
+%\usetikzlibrary{decorations.markings}
+%\usetikzlibrary{decorations.pathreplacing}
+\usetikzlibrary{shapes,calc,spy, calc, backgrounds,arrows, fit, decorations.pathmorphing, decorations.pathreplacing, matrix}
+%\usepackage[absolute,overlay]{textpos}
+\usepackage{caption}
+\usepackage{graphicx}
+%\usepackage[controls=true,poster=first]{animate}
+
+\newcommand{\useq}{\mathbf{u}}
+\newcommand{\xseq}{\mathbf{x}}
+\newcommand{\bbR}{\mathbb{R}}
+\newcommand{\bbW}{\mathbb{W}}
+\newcommand{\bbU}{\mathbb{U}}
+\newcommand{\bbI}{\mathbb{I}}
+\newcommand{\bbX}{\mathbb{X}}
+\newcommand{\bbP}{\mathbb{P}}
+
+
+\AtBeginSection[]
+{\frame<beamer>{\frametitle{Outline}   
+	\tableofcontents[currentsection, currentsection]}
+	\addtocounter{framenumber}{-1}}
+	%
+%{
+%	\frame<beamer>{ 
+%		\frametitle{Outline}   
+%		\tableofcontents[currentsection,currentsubsection]}
+		
+%}
+
+\makeatother
+\setbeamertemplate{footline}
+{
+	\leavevmode%
+	\hbox{%
+		\begin{beamercolorbox}[wd=.3\paperwidth,ht=2.25ex,dp=1ex,center]{author in head/foot}%
+			\usebeamerfont{author in head/foot}\insertshortauthor
+		\end{beamercolorbox}%
+		\begin{beamercolorbox}[wd=.6\paperwidth,ht=2.25ex,dp=1ex,center]{title in head/foot}%
+			\usebeamerfont{title in head/foot}\insertshorttitle
+		\end{beamercolorbox}%
+		\begin{beamercolorbox}[wd=.1\paperwidth,ht=2.25ex,dp=1ex,center]{date in head/foot}%
+			\insertframenumber{} / \inserttotalframenumber\hspace*{1ex}
+	\end{beamercolorbox}}%
+	\vskip0pt%
+}
+
+
+\title{Hybrid system identification using neural networks}
+\date{Jan 19, 2021}
+\author[Pratyush Kumar]{\large Pratyush Kumar}
+\institute[UCSB]{
+	\begin{minipage}{4in}
+		\vspace{-10pt}
+		\centering
+		\raisebox{-0.1\height}{\includegraphics[width=0.25\textwidth]{UCSB_seal}}
+		%\hspace*{.2in}
+		%\raisebox{-0.5\height}{\includegraphics[width=0.25\textwidth]{jci_logo}}
+	\end{minipage}
+	\vspace{10pt}
+	\newline
+	{\large Department of chemical engineering}
+	\vspace{10pt}
+	\newline
+	{\large Group talk}}
+
+\begin{document}
+
+\frame{\titlepage}
+	
+\begin{frame}{Outline}
+\tableofcontents
+\end{frame}
+
+\section{Introduction}
+
+\begin{frame}{Plant and grey-box model}
+
+	\begin{block}{Plant}
+		\begin{align*}
+			\dot x_p &= f_p(x_p, u, w) \\
+			y &= h_p(x_p) + v
+		  \end{align*}
+	$x_p \in \bbR^{n_p}$, $y \in \bbR^{n_y}$, and $u \in \bbU$.
+	\end{block}
+		
+	\begin{block}{Grey-box model}
+		\begin{align*}
+			\dot x_g &= f_g(x_g, u) \\
+			y &= h_g(x_g)
+		  \end{align*}
+	$x_g \in \bbR^{n_g}$, usually $n_g \leq n_p$.
+	\end{block}
+	A crude grey-box model is often adequate for setpoint tracking MPC applications, but performance can be improved in dynamic 
+	economic optimization problems using better and accurate models. 
+	\end{frame}
+	
+\begin{frame}{Modeling choices}
+	Define - 
+	\begin{align*}
+	\mathbf{y}_{k-N_p:k-1} &= [y(k-\Delta)', y(k-2\Delta)', ..., y(k-N_p\Delta)']' \\
+	\mathbf{u}_{k-N_p:k-1} &= [u(k-\Delta)', u(k-2\Delta)', 
+										 ..., u(k-N_p\Delta)']' \\
+	z(k) &= [\mathbf{y}'_{k-N_p:k-1}, \mathbf{u}'_{k-N_p:k-1}]'
+	\end{align*}	
+	in which, $N_p$ is the number of past inputs and outputs used. 
+	\begin{block}{Black-box}
+	$y^+ = f_N(y, z, u)$
+	\end{block}
+	
+	\begin{block}{Hybrid: Grey-box and neural network}
+		\begin{align*}
+			\dot x_g &= f_g(x_g, u) + f_N(x_g, z, u)\\
+			y &= h_g(x_g)
+		\end{align*}
+	$f_N(\cdot)$ is a neural network.
+	\end{block}
+			
+\end{frame}
+
+\section{Reactor example}
+
+\begin{frame}{Nonlinear reactor model}
+
+\textbf{Plant}
+\begin{align*}
+	\dfrac{dC_A}{dt} &= \dfrac{C_{Af} - C_A}{\tau} - k_1C_A\\
+	\dfrac{dC_B}{dt} &= k_1C_A - 3k_2C^3_B + 3k_3C_C- \dfrac{C_B}{\tau}\\
+	\dfrac{dC_C}{dt} &= k_2C^3_B - k_3C_C - \dfrac{C_C}{\tau}
+\end{align*}
+$u = C_{Af}$, $x = [C_A, C_B, C_C]'$, $y = [C_A, C_B]'$
+
+\vspace{0.2in}
+\textbf{Grey-box model}
+\begin{align*}
+  \dfrac{dC_A}{dt} &= \dfrac{C_{Af} - C_A}{\tau} - k_1C_A\\
+  \dfrac{dC_B}{dt} &= k_1C_A - \dfrac{C_B}{\tau}
+\end{align*}
+
+\vspace{0.2in}
+Train black-box and hybrid models with NN 
+architectures of $[9, \ 16, \ 2]$ and $[8, \ 16, \ 2]$
+on 480 samples (8 hours).
+\end{frame}
+
+\begin{frame}{Model validation -- open loop data}
+\vspace{-0.1in}
+\begin{figure}
+\centering
+\includegraphics[page=1, height=0.9\textheight, 
+				 width=0.7\textwidth]{tworeac_plots_nonlin.pdf}
+\end{figure}
+\vspace{-0.2in}
+Pretty good multi-step ahead predictions on validation data 
+by both the models. 
+\end{frame}
+
+\begin{frame}{Economic MPC problem}
+Stage cost.
+\begin{align*}
+		\ell(y, u) = c_aC_{Af} - c_bC_B
+\end{align*}
+Economic MPC problem.
+\begin{align*}
+	\min_{\useq} & 
+  \sum_{k=0}^{N-1} \ell(y, u, p) \\
+	\textnormal{s.t.} \quad   x^+ &= f(x, u)\\
+	y &= h(x) \\ 
+	u &\in \bbU
+  \end{align*}
+  in which $p$ are the time-varying parameters $c_a$ and $c_b$. \\
+  Choose a horizon length of $N=60$ (1 hour). 
+\end{frame}
+	
+\begin{frame}{Economic MPC parameters}
+	\begin{figure}
+	\centering
+	\includegraphics[page=4, height=0.9\textheight, 
+					 width=0.7\textwidth]{tworeac_plots_nonlin.pdf}
+	\end{figure}
+\end{frame}
+
+\begin{frame}{Open-loop economic MPC solution}
+	\vspace{-0.1in}
+	\begin{figure}
+	\centering
+	\includegraphics[page=2, height=0.9\textheight, 
+					 width=0.7\textwidth]{tworeac_plots_nonlin.pdf}
+	\end{figure}
+	\vspace{-0.2in}
+	IPOPT gives unreliable solution for the hybrid model.
+\end{frame}
+
+\begin{frame}{Closed-loop simulation}
+	\begin{figure}
+	\centering
+	\includegraphics[page=3, height=0.9\textheight, 
+					 width=0.7\textwidth]{tworeac_plots_nonlin.pdf}
+	\end{figure}
+\end{frame}
+
+\begin{frame}{Closed-loop simulation - Average Stage Costs}
+	\centering
+	$\Lambda_k = \dfrac{1}{k}\sum_{i=0}^{k-1} \ell(y(k), u(k), p(k))$
+	\vspace{-0.05in}
+	\begin{figure}
+	\includegraphics[page=5, height=0.85\textheight, 
+					 width=0.65\textwidth]{tworeac_plots_nonlin.pdf}
+	\end{figure}
+\end{frame}
+
+\section{CSTR and Flash example}
+
+\begin{frame}{CSTR and Flash example}
+\begin{figure}
+	\includegraphics[height=0.5\textheight, 
+					 width=0.6\textwidth]{cstr_flash.pdf}
+\end{figure}
+\begin{itemize}
+	\item Two exothermic reactions $A \rightarrow B$ and $3B \rightarrow C$
+	in the CSTR.
+	\item 10 states, 4 manipulated inputs, and 6 measurements.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Plant and grey-box model}
+	\textbf{CSTR balances}
+	\vspace{0.2in}
+	\begin{columns}
+		\begin{column}{0.45\textwidth}
+			\textbf{Plant} \\
+			\begin{align*}				
+			\dfrac{dH_r}{dt} &= \dfrac{F + D -F_r}{A_r}\\
+			\dfrac{dC_{Ar}}{dt} &= \dfrac{F(C_{Af} -C_{Ar}) +
+								   D(C_{Ad} -C_{Ar})}{A_rH_r} - r_1 \\
+			\dfrac{dC_{Br}}{dt} &= \dfrac{-FC_{Br} + 
+									D(C_{Bd} -C_{Br})}{A_rH_r} + r_1 -3r_2\\
+			\dfrac{dC_{Cr}}{dt} &= \dfrac{-FC_{Cr} + 
+			D(C_{Cd} -C_{Cr})}{A_rH_r} + r_2\\
+			\dfrac{dT_r}{dt} &= \dfrac{F(T_f - T_r) + D(T_d -T_r)}{A_rH_r} \\
+						& + \dfrac{r_1\Delta H_1 + r_2\Delta H_2}{\rho C_p} + 
+							\dfrac{Q_r}{\rho A_r C_p H_r}\\
+			\end{align*}
+		\end{column}
+		\begin{column}{0.45\textwidth}
+			\textbf{Grey-box Model}
+			\begin{align*}
+			\dfrac{dH_r}{dt} &= \dfrac{F + D -F_r}{A_r}\\
+			\dfrac{dC_{Ar}}{dt} &= \dfrac{F(C_{Af} -C_{Ar}) + 
+								   D(C_{Ad} -C_{Ar})}{A_rH_r} - r_1 \\
+			\dfrac{dC_{Br}}{dt} &= \dfrac{-FC_{Br} + 
+									D(C_{Bd} -C_{Br})}{A_rH_r} + r_1\\
+			\dfrac{dT_r}{dt} &= \dfrac{F(T_f - T_r) + D(T_d -T_r)}{A_rH_r} \\ 
+							& + \dfrac{r_1\Delta H_1}{\rho C_p} + 
+								\dfrac{Q_r}{\rho A_r C_p H_r}\\
+			\end{align*}
+		\end{column}
+	\end{columns}
+The second reaction $3B \rightarrow C$ is ignored in the grey-box model.
+\end{frame}
+
+\begin{frame}{Plant and grey-box model}
+	\textbf{Flash balances}
+	\vspace{0.2in}
+	\begin{columns}
+		\begin{column}{0.45\textwidth}
+			\textbf{Plant} \\
+			\begin{align*}
+				\dfrac{dH_b}{dt} &= \dfrac{F_r - F_b - D}{A_b} \\
+				\dfrac{dC_{Ab}}{dt} &= \dfrac{F_r(C_{Ar} -C_{Ab}) + 
+										D(C_{Ab} -C_{Ad})}{A_bH_b} \\
+				\dfrac{dC_{Bb}}{dt} &= \dfrac{F_r(C_{Br} -C_{Bb}) + 
+										D(C_{Bb} -C_{Bd})}{A_bH_b} \\
+				\dfrac{dC_{Cb}}{dt} &= \dfrac{F_r(C_{Cr} -C_{Cb}) + 
+										D(C_{Cb} -C_{Cd})}{A_bH_b} \\
+				\dfrac{dT_b}{dt} &= \dfrac{F_r(T_r - T_b)}{A_bH_b} + \dfrac{Q_b}{\rho A_b C_p H_b}\\
+			  \end{align*}		
+		\end{column}
+		\begin{column}{0.45\textwidth}
+			\textbf{Grey-box Model}
+			\begin{align*}
+				\dfrac{dH_b}{dt} &= \dfrac{F_r - F_b - D}{A_b} \\
+				\dfrac{dC_{Ab}}{dt} &= \dfrac{F_r(C_{Ar} -C_{Ab}) + 
+										D(C_{Ab} -C_{Ad})}{A_bH_b} \\
+				\dfrac{dC_{Bb}}{dt} &= \dfrac{F_r(C_{Br} -C_{Bb}) + 
+										D(C_{Bb} -C_{Bd})}{A_bH_b} \\
+				\dfrac{dT_b}{dt} &= \dfrac{F_r(T_r - T_b)}{A_bH_b} +
+									\dfrac{Q_b}{\rho A_b C_p H_b}\\
+			\end{align*}
+		\end{column}
+	\end{columns}
+	Six measurements: $H_r, C_{Ar}, T_r, H_b, C_{Ab}, T_b$. \\
+	Train black-box and hybrid models with NN 
+	architectures of $[60, \ 32, \ 6]$ and $[62, \ 32, \ 8]$
+	on 3240 samples (54 hours).	
+\end{frame}
+
+\begin{frame}{Model validation -- Input Sequence}
+	\begin{figure}
+	\centering
+	\includegraphics[page=1, height=0.9\textheight, 
+					 width=0.7\textwidth]{cstr_flash_plots.pdf}
+	\end{figure}
+\end{frame}
+	
+\begin{frame}{Model validation -- Outputs}
+	\vspace{-0.1in}
+	\begin{figure}
+	\centering
+	\includegraphics[page=2, height=0.85\textheight, 
+					 width=0.65\textwidth]{cstr_flash_plots.pdf}
+	\end{figure}
+	\vspace{-0.2in}
+Pretty good multi-step ahead predictions on validation data 
+by the hybrid model, black-box model is also okay. 
+\end{frame}
+
+\begin{frame}{Economic MPC problem}
+	Stage cost.
+\begin{align*}
+\ell(y, u) = c_aFC_{Af} + c_eQ_r + 
+		c_eQ_b + c_eD\rho C_p(T_d-T_b) - 
+		c_bF_bC_{Bb} \\
+\end{align*}
+Economic MPC problem.
+\begin{align*}
+	\min_{\useq} & 
+  \sum_{k=0}^{N-1} \ell(y, u, p) \\
+	\textnormal{s.t.} \quad   x^+ &= f(x, u)\\
+	y &= h(x) \\ 
+	u &\in \bbU
+  \end{align*}
+  in which $p$ are the time-varying parameters $c_e$, $c_a$, and $c_b$. \\
+  Choose a horizon length of $N=60$ (1 hour). 
+\end{frame}
+		
+\begin{frame}{Economic MPC parameters}
+		\begin{figure}
+		\centering
+		\includegraphics[page=9, height=0.9\textheight, 
+						 width=0.7\textwidth]{cstr_flash_plots.pdf}
+		\end{figure}
+\end{frame}
+	
+\begin{frame}{Open-loop economic MPC solution -- Inputs}
+	\vspace{-0.1in}
+		\begin{figure}
+		\centering
+		\includegraphics[page=4, height=0.9\textheight, 
+						 width=0.7\textwidth]{cstr_flash_plots.pdf}
+		\end{figure}
+		\vspace{-0.2in}
+	IPOPT gives unreliable solution for the hybrid model.
+\end{frame}
+	
+\begin{frame}{Open-loop economic MPC solution -- States}
+	\vspace{-0.1in}
+	\begin{figure}
+	\centering
+	\includegraphics[page=5, height=0.9\textheight, 
+					 width=0.7\textwidth]{cstr_flash_plots.pdf}
+	\end{figure}
+	\vspace{-0.2in}
+	IPOPT gives unreliable solution for the hybrid model.
+\end{frame}
+
+\begin{frame}{Closed-loop simulation -- Inputs}
+		\begin{figure}
+		\centering
+		\includegraphics[page=6, height=0.9\textheight, 
+						 width=0.7\textwidth]{cstr_flash_plots.pdf}
+		\end{figure}
+\end{frame}
+
+\begin{frame}{Closed-loop simulation -- Outputs}
+	\begin{figure}
+	\centering
+	\includegraphics[page=7, height=0.9\textheight, 
+					 width=0.7\textwidth]{cstr_flash_plots.pdf}
+	\end{figure}
+\end{frame}
+
+\begin{frame}{Closed-loop simulation -- States}
+	\begin{figure}
+	\centering
+	\includegraphics[page=8, height=0.9\textheight, 
+					 width=0.7\textwidth]{cstr_flash_plots.pdf}
+	\end{figure}
+\end{frame}
+
+\begin{frame}{Closed-loop simulation - Average Stage Costs}
+	\centering
+	$\Lambda_k = \dfrac{1}{k}\sum_{i=0}^{k-1} \ell(y(k), u(k), p(k))$
+	\vspace{-0.05in}
+		\begin{figure}
+		\centering
+		\includegraphics[page=10, height=0.85\textheight, 
+						 width=0.65\textwidth]{cstr_flash_plots.pdf}
+		\end{figure}
+\end{frame}
+
+\section{Conclusion}
+\begin{frame}{Next steps.}
+\begin{itemize}
+	\item  Koopman Operators.
+\end{itemize}  
+\end{frame}
+
+%\begin{frame}{References}
+%\bibliographystyle{abbrvnat}
+%\bibliography{articles,proceedings,books,unpub}
+%\end{frame}
+
+\end{document}

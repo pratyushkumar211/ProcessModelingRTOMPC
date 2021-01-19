@@ -82,7 +82,7 @@ def plot_cost_pars(t, cost_pars,
                                   figsize=figure_size,
                                   gridspec_kw=dict(left=0.18))
     xlabel = 'Time (hr)'
-    ylabels = [r'$c_1$', r'$c_2$']
+    ylabels = [r'$c_a$', r'$c_b$']
     for (axes, pari, ylabel) in zip(axes_list, range(num_pars), ylabels):
         # Plot the corresponding data.
         axes.plot(t, cost_pars[:len(t), pari])

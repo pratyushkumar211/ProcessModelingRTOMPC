@@ -162,8 +162,8 @@ def plot_cost_pars(t, cost_pars,
                                   gridspec_kw=dict(left=0.18))
     xlabel = 'Time (hr)'
     ylabels = ['Energy Price ($\$$/kW)',
-                'Raw Material Cost ($\$$/mol-A)',
-                'Product Price ($\$$/mol-B)']
+                'Raw Mat ($\$$/mol-A)',
+                'Prod Price ($\$$/mol-B)']
     for (axes, pari, ylabel) in zip(axes_list, range(num_pars), ylabels):
         # Plot the corresponding data.
         cost_pars[:, 0] = 60*cost_pars[:, 0]
