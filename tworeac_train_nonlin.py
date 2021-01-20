@@ -82,9 +82,9 @@ def main():
     num_samples = [hours*60 for hours in [6]]
 
     # Create lists.
-    Nps = [2, 2]
-    fnn_dims = [[10, 16, 2], [8, 16, 2]]
-    model_types = ['black-box', 'hybrid']
+    Nps = [2]
+    fnn_dims = [[8, 32, 2]]
+    model_types = ['hybrid']
     trained_weights = []
     val_metrics = []
     val_predictions = []

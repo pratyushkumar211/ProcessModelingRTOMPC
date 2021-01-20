@@ -217,8 +217,15 @@ Economic MPC problem.
 	y &= h(x) \\ 
 	u &\in \bbU
   \end{align*}
-  in which $p$ are the time-varying parameters $c_a$ and $c_b$. \\
-  Choose a horizon length of $N=60$ (1 hour). 
+  in which $p$ are the time-varying parameters $c_a$ and $c_b$, choose a horizon length of $N_{MPC}=60$. \\
+  Moving horizon estimation problem.
+  \begin{align*}
+\min_{\xseq} \quad
+|\bar{x}-\hat{x}(0)|_{P^{-1}_0} + \sum_{k=0}^{N-1} & |\hat{x}(k+1)-\hat{x}^{-}(k+1)|_{Q^{-1}_w} + \sum_{k=1}^{N} |y(k) - h(\hat{x}(k))|_{R^{-1}_v}\\
+	  \textnormal{s.t.} \quad   \hat{x}^{-}(k+1) &= f(\hat{x}(k), u(k))\\
+\end{align*}\\
+Choose a horizon length of $N_{MHE}=30$, For the grey-box model,
+solve MHE after augmenting with an integrating disturbance model.
 \end{frame}
 	
 \begin{frame}{Economic MPC parameters}
@@ -379,8 +386,8 @@ Economic MPC problem.
 	y &= h(x) \\ 
 	u &\in \bbU
   \end{align*}
-  in which $p$ are the time-varying parameters $c_e$, $c_a$, and $c_b$. \\
-  Choose a horizon length of $N=60$ (1 hour). 
+  in which $p$ are the time-varying parameters $c_e$, $c_a$, and $c_b$, choose a horizon length of $N=60$. \\ 
+  Same moving horizon estimation problem as before.
 \end{frame}
 		
 \begin{frame}{Economic MPC parameters}
@@ -451,7 +458,9 @@ Economic MPC problem.
 \section{Conclusion}
 \begin{frame}{Next steps.}
 \begin{itemize}
-	\item  Koopman Operators.
+	\item Follow-up with system identification using Koopman Operators. 
+	\item Use neural networks to just predict the disturbances/other time-varying parameters for economic MPC. 
+	\item Try to store nonlinear MHE/Economic MPC in neural networks. 
 \end{itemize}  
 \end{frame}
 

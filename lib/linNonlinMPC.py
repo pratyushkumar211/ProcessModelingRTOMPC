@@ -140,7 +140,10 @@ class NonlinearEMPCRegulator:
         # Some parameters for the regulator.
         empc_pars = self.init_empc_pars
         guess = self.init_guess
-        x0 = guess['x']
+        if len(guess['x'].shape) == 2:
+            x0 = guess['x'][0, :]
+        else:
+            x0 = guess['x']
         lb = dict(u=self.ulb)
         ub = dict(u=self.uub)
         self.regulator = mpc.nmpc(f=self.fxu, l=lxup, N=N, funcargs=funcargs,
@@ -287,7 +290,8 @@ class NonlinearEMPCController:
                      Nx, Nu, Ny, Nd,
                      xs, us, ds, ys,
                      empc_pars, ulb, uub, Nmpc,
-                     Qwx, Qwd, Rv, Nmhe):
+                     Qwx, Qwd, Rv, Nmhe,
+                     regulator_guess):
         
         # Model and stage cost.
         self.fxu = fxu
@@ -315,6 +319,7 @@ class NonlinearEMPCController:
         self.ulb = ulb
         self.uub = uub
         self.Nmpc = Nmpc
+        self.regulator_guess = regulator_guess
         self._setup_regulator()
 
         # MHE Parameters.
@@ -376,8 +381,17 @@ class NonlinearEMPCController:
         build the regulator. """
         fxud = mpc.getCasadiFunc(self._aug_ss_model(),
                                 [self.Nx + self.Nd, self.Nu], ["x", "u"])
-        init_guess = dict(x=np.concatenate((self.xs, self.ds), axis=0), 
-                          u=self.us)
+        if self.regulator_guess is None:
+            init_guess = dict(x=np.concatenate((self.xs, self.ds), axis=0), 
+                              u=self.us)
+        else:
+            xseq = [np.concatenate((self.xs, self.ds))]
+            useq = self.regulator_guess[1]
+            for t in range(self.Nmpc):
+                x = np.asarray(fxud(xseq[-1], useq[t, :]))[:, 0]
+                xseq.append(x)
+            xseq = np.asarray(xseq)
+            init_guess = dict(x=xseq, u=useq)
         init_empc_pars = self.empc_pars[0:self.Nmpc, :]
         self.regulator  = NonlinearEMPCRegulator(fxu=fxud,
                                      lxup = self.lxup,

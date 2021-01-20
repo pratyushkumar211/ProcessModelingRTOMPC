@@ -168,8 +168,8 @@ def main():
     figures = []
 
     # Plot validation data.
-    legend_names = ['Plant', 'Grey-box', 'Black-box', 'Hybrid']
-    legend_colors = ['b', 'g', 'dimgrey', 'm']
+    legend_names = ['Plant', 'Grey-box', 'Hybrid']
+    legend_colors = ['b', 'g', 'm']
     valdata_list = [training_data[-1], greybox_val_data] 
     valdata_list += val_predictions
     t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
@@ -195,11 +195,11 @@ def main():
     #                            legends=['Black-box', 'Hybrid'])
 
     # Plot first open-loop simulation.
-    legend_names = ['Plant', 'Grey-box', 'Hybrid']
-    legend_colors = ['b', 'g', 'm']
+    legend_names = ['Plant', 'Hybrid']
+    legend_colors = ['b', 'm']
     openloop_sols = tworeac_empc['openloop_sols']
-    udatum = [openloop_sols[0][0], openloop_sols[1][0], openloop_sols[2][0]]
-    xdatum = [openloop_sols[0][1], openloop_sols[1][1], openloop_sols[2][1]]
+    udatum = [openloop_sols[0][0], openloop_sols[1][0]]#, openloop_sols[2][0]]
+    xdatum = [openloop_sols[0][1], openloop_sols[1][1]]#, openloop_sols[2][1]]
     figures += plot_openloop_sols(t=t, udatum=udatum, xdatum=xdatum,
                                   legend_names=legend_names,
                                   legend_colors=legend_colors)
@@ -207,21 +207,21 @@ def main():
     # Plot closed-loop simulation data.
     legend_names = ['Plant', 'Grey-box']
     legend_colors = ['b', 'g']
-    t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
-                                                     cl_data_list,
-                                                     plot_range=(0, 8*60))
-    figures += plot_xudata(t=t, xlist=xlist, ulist=ulist,
-                           legend_names=legend_names,
-                           legend_colors=legend_colors)
+    #t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
+    #                                                 cl_data_list,
+    #                                                 plot_range=(0, 8*60))
+    #figures += plot_xudata(t=t, xlist=xlist, ulist=ulist,
+    #                       legend_names=legend_names,
+    #                       legend_colors=legend_colors)
 
     # Plot empc pars.
     figures += plot_cost_pars(t=t, cost_pars=tworeac_empc['cost_pars'])
 
     # Plot profit curve.
-    figures += plot_avg_profits(t=t,
-                            avg_stage_costs=tworeac_empc['avg_stage_costs'], 
-                            legend_colors=legend_colors,
-                            legend_names=legend_names)
+    #figures += plot_avg_profits(t=t,
+    #                        avg_stage_costs=tworeac_empc['avg_stage_costs'], 
+    #                        legend_colors=legend_colors,
+    #                        legend_names=legend_names)
 
     # Plot predictions on validation data.
     #val_predictions.pop(0)

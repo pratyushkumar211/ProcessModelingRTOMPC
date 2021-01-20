@@ -22,7 +22,8 @@ from tworeac_parameters_nonlin import _tworeac_greybox_ode as _greybox_ode
 from tworeac_parameters_nonlin import _tworeac_measurement as _measurement
 
 def get_controller(model_func, model_pars, model_type,
-                   cost_pars, mhe_noise_tuning):
+                   cost_pars, mhe_noise_tuning, 
+                   regulator_guess):
     """ Construct the controller object comprised of 
         EMPC regulator and MHE estimator. """
 
@@ -90,7 +91,8 @@ def get_controller(model_func, model_pars, model_type,
                                    xs=xs, us=us, ds=ds, ys=ys,
                                    empc_pars=cost_pars,
                                    ulb=ulb, uub=uub, Nmpc=Nmpc,
-                                   Qwx=Qwx, Qwd=Qwd, Rv=Rv, Nmhe=Nmhe)
+                                   Qwx=Qwx, Qwd=Qwd, Rv=Rv, Nmhe=Nmhe, 
+                                   regulator_guess=regulator_guess)
 
 def get_hybrid_pars(*, parameters, Npast, fnn_weights, xuscales):
     """ Get the hybrid model parameters. """
@@ -123,7 +125,8 @@ def _fnn(xG, z, Npast, fnn_weights):
     nn_output = np.concatenate((xG, z))[:, np.newaxis]
     for i in range(0, len(fnn_weights)-2, 2):
         (W, b) = fnn_weights[i:i+2]
-        nn_output = np.tanh(W.T @ nn_output + b[:, np.newaxis])
+        nn_output = W.T @ nn_output + b[:, np.newaxis]
+        nn_output = 1./(1. + np.exp(-nn_output))
     Wf = fnn_weights[-1]
     nn_output = (Wf.T @ nn_output)[:, 0]
     # Return.
@@ -278,7 +281,7 @@ def get_tworeac_empc_pars(*, Delta):
                                    xDelta=2*60,
                                    newDelta=Delta,
                                    resample_type='zoh')
-    cost_pars = 100*np.concatenate((raw_mat_price, product_price), axis=1)
+    cost_pars = 1e-6*np.concatenate((raw_mat_price, product_price), axis=1)
     # Return the cost pars.
     return cost_pars
 
@@ -299,8 +302,8 @@ def main():
     disturbances = np.repeat(parameters['ps'][np.newaxis, :], Nsim)
 
     # Get NN weights and parameters for the hybrid function.
-    Np = tworeac_train_nonlin['Nps'][1]
-    fnn_weights = tworeac_train_nonlin['trained_weights'][1][-1]
+    Np = tworeac_train_nonlin['Nps'][0]
+    fnn_weights = tworeac_train_nonlin['trained_weights'][0][-1]
     xuscales = tworeac_train_nonlin['xuscales']
     hybrid_pars = get_hybrid_pars(parameters=parameters,
                                   Npast=Np,
@@ -309,28 +312,32 @@ def main():
 
     # Check the hybrid function.
     uval = tworeac_parameters_nonlin['training_data'][-1].u
-    ytfval = tworeac_train_nonlin['val_predictions'][1].y
-    xGtfval = tworeac_train_nonlin['val_predictions'][1].x
+    ytfval = tworeac_train_nonlin['val_predictions'][0].y
+    xGtfval = tworeac_train_nonlin['val_predictions'][0].x
     training_data = tworeac_parameters_nonlin['training_data']
     yval, xGval = sim_hybrid(_hybrid_func, hybrid_pars, 
                              uval, training_data)
-
+    
     # Run simulations for different model.
     cl_data_list, avg_stage_costs_list, openloop_sol_list = [], [], []
-    model_odes = [_plant_ode, _greybox_ode, _hybrid_func]
-    model_pars = [parameters, parameters, hybrid_pars]
-    model_types = ['plant', 'grey-box', 'hybrid']
+    model_odes = [_plant_ode, _hybrid_func]
+    model_pars = [parameters, hybrid_pars]
+    model_types = ['plant', 'hybrid']
+    regulator_guess = None
     for (model_ode,
          model_par, model_type) in zip(model_odes, model_pars, model_types):
         mhe_noise_tuning = get_mhe_noise_tuning(model_type, model_par)
         plant = get_plant(parameters=parameters)
         controller = get_controller(model_ode, model_par, model_type,
-                                    cost_pars, mhe_noise_tuning)
+                                    cost_pars, mhe_noise_tuning, 
+                                    regulator_guess)
         cl_data, avg_stage_costs, openloop_sol = online_simulation(plant,
                                          controller,
                                          plant_lxup=controller.lxup,
-                                         Nsim=8*60, disturbances=disturbances,
+                                         Nsim=0, disturbances=disturbances,
                                          stdout_filename='tworeac_empc.txt')
+        regulator_guess = [controller.regulator.xseq[0],
+                           controller.regulator.useq[0]]
         cl_data_list += [cl_data]
         avg_stage_costs_list += [avg_stage_costs]
         openloop_sol_list += [openloop_sol]
