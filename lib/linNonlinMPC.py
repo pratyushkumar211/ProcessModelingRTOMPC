@@ -80,10 +80,61 @@ class PIController:
             self.i.append(self.i[-1])
             return np.clip(u, self.ulb, self.uub)
 
-class RTOPIController:
+class RTOController:
 
-    def __init__(self):
-        None
+    def __init__(self, *, fxu, hx, lyup, Nx, Nu, Np, 
+                 ulb, uub, init_guess, init_opt_pars,
+                 Ntsep_solve):
+        """ Class to construct and solve steady state optimization
+            problems. 
+                
+        Optimization problem:
+        min_{xs, us} l(ys, us, p)
+        subject to:
+        xs = f(xs, us), ys = h(xs), ulb <= us <= uub
+        """
+
+        # Model.
+        self.fxu = fxu
+        self.hx = hx
+        self.lyup = lyup
+
+        # Sizes.
+        self.Nx = Nx
+        self.Nu = Nu
+        self.Np = Np
+
+        # Input constraints.
+        self.ulb = ulb
+        self.uub = uub
+
+        # Inital guess/parameters.
+        self.init_guess = init_guess
+        self.init_opt_pars = init_opt_pars
+        self.Ntsep_solve = Ntsep_solve
+
+        # Setup the optimization problem.
+        self._setup_ss_optimization()
+         
+    def _setup_ss_optimization(self):
+        """ Setup the steady state optimization. """
+        # Construct NLP and solve.
+        xs = casadi.SX.sym('xs', self.Nx)
+        us = casadi.SX.sym('us', self.Nu)
+        ys = self.hx(xs)
+        plant_nlp = dict(x = casadi.vertcat(xs, us), 
+                         f = self.lyup(ys, us), 
+                         g = casadi.vertcat(plant(xs, us), us))
+        plant_nlp = casadi.nlpsol('plant_nlp', 'ipopt', plant_nlp)
+        xuguess = np.concatenate((init_guess['x'], 
+                                  init_guess['u']))[:, np.newaxis]
+        lbg = np.concatenate((np.zeros((self.Nx,)), 
+                              self.ulb))[:, np.newaxis]
+        ubg = np.concatenate((np.zeros((self.Nx,)), 
+                              self.uub))[:, np.newaxis]
+        plant_nlp_soln = plant_nlp(x0=xuguess, lbg=lbg, ubg=ubg)
+
+        return
 
     def control_law(self):
 
@@ -154,7 +205,7 @@ class NonlinearEMPCRegulator:
         useq = np.asarray(casadi.horzcat(*self.regulator.var['u'])).T
         xseq = np.asarray(casadi.horzcat(*self.regulator.var['x'])).T
         self._append_data(x0, useq, xseq)
-
+    
     def solve(self, x0, empc_pars):
         """Setup and the solve the dense QP, output is
         the first element of the sequence.
