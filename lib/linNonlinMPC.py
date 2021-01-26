@@ -121,9 +121,10 @@ class RTOController:
         # Construct NLP and solve.
         xs = casadi.SX.sym('xs', self.Nx)
         us = casadi.SX.sym('us', self.Nu)
+        p = casadi.SX.sym('us', self.Np)
         ys = self.hx(xs)
         plant_nlp = dict(x = casadi.vertcat(xs, us), 
-                         f = self.lyup(ys, us), 
+                         f = self.lyup(ys, us, p), 
                          g = casadi.vertcat(plant(xs, us), us))
         plant_nlp = casadi.nlpsol('plant_nlp', 'ipopt', plant_nlp)
         xuguess = np.concatenate((init_guess['x'], 
@@ -136,7 +137,9 @@ class RTOController:
 
         return
 
-    def control_law(self):
+    def control_law(self, simt):
+        """ RTO Controller, no feedback. """
+
 
         return
 
@@ -337,17 +340,16 @@ class NonlinearEMPCController:
         hx is same in both the continous and discrete time.
         Bd is in continuous time.
     """
-    def __init__(self, *, fxu, hx, lxup, Bd, Cd,
+    def __init__(self, *, fxu, hx, lyup, Bd, Cd,
                      Nx, Nu, Ny, Nd,
                      xs, us, ds, ys,
                      empc_pars, ulb, uub, Nmpc,
-                     Qwx, Qwd, Rv, Nmhe,
-                     regulator_guess):
+                     Qwx, Qwd, Rv, Nmhe):
         
         # Model and stage cost.
         self.fxu = fxu
         self.hx = hx
-        self.lxup = lxup
+        self.lyup = lyup
         self.Bd = Bd
         self.Cd = Cd
 
@@ -370,7 +372,6 @@ class NonlinearEMPCController:
         self.ulb = ulb
         self.uub = uub
         self.Nmpc = Nmpc
-        self.regulator_guess = regulator_guess
         self._setup_regulator()
 
         # MHE Parameters.
@@ -432,26 +433,16 @@ class NonlinearEMPCController:
         build the regulator. """
         fxud = mpc.getCasadiFunc(self._aug_ss_model(),
                                 [self.Nx + self.Nd, self.Nu], ["x", "u"])
-        if self.regulator_guess is None:
-            init_guess = dict(x=np.concatenate((self.xs, self.ds), axis=0), 
-                              u=self.us)
-        else:
-            xseq = [np.concatenate((self.xs, self.ds))]
-            useq = self.regulator_guess[1]
-            for t in range(self.Nmpc):
-                x = np.asarray(fxud(xseq[-1], useq[t, :]))[:, 0]
-                xseq.append(x)
-            xseq = np.asarray(xseq)
-            init_guess = dict(x=xseq, u=useq)
+        init_guess = dict(x=np.concatenate((self.xs, self.ds)), u=self.us)
         init_empc_pars = self.empc_pars[0:self.Nmpc, :]
-        self.regulator  = NonlinearEMPCRegulator(fxu=fxud,
-                                     lxup = self.lxup,
-                                     Nx=self.Nx + self.Nd,
-                                     Nu=self.Nu, Np=self.Np,
-                                     Nmpc=self.Nmpc,
-                                     ulb=self.ulb, uub=self.uub,
-                                     init_guess=init_guess,
-                                     init_empc_pars=init_empc_pars)
+        lxup = lambda x, u, p: self.lyup(self.hx(x), u, p)
+        self.regulator  = NonlinearEMPCRegulator(fxu=fxud, lxup=lxup,
+                                                 Nx=self.Nx + self.Nd,
+                                                 Nu=self.Nu, Np=self.Np,
+                                                 Nmpc=self.Nmpc,
+                                                 ulb=self.ulb, uub=self.uub,
+                                                 init_guess=init_guess,
+                                                 init_empc_pars=init_empc_pars)
 
     def control_law(self, simt, y):
         """
@@ -468,32 +459,39 @@ class NonlinearEMPCController:
         self.computation_times.append(tend - tstart)
         return self.uprev
 
-def online_simulation(plant, controller, *, plant_lxup, Nsim=None,
+def online_simulation(plant, controller, *, plant_lyup, Nsim=None,
                       disturbances=None, stdout_filename=None):
-    """ Online simulation with either the RTO-PI controller
-        or nonlinear economic MPC controller. """
+    """ Online simulation with either the RTO controller
+        or the nonlinear economic MPC controller. """
+
     sys.stdout = open(stdout_filename, 'w')
     measurement = plant.y[0] # Get the latest plant measurement.
     disturbances = disturbances[..., np.newaxis]
     avg_stage_costs = [0.]
+
+    # Start simulation loop.
     for (simt, disturbance) in zip(range(Nsim), disturbances):
+
+        # Compute the control and the current stage cost.
         print("Simulation Step:" + f"{simt}")
         control_input = controller.control_law(simt, measurement)
         print("Computation time:" + str(controller.computation_times[-1]))
-        stage_cost = plant_lxup(plant.x[-1], control_input,
+        stage_cost = plant_lyup(plant.y[-1], control_input,
                                 controller.empc_pars[simt:simt+1, :].T)[0]
         avg_stage_costs += [(avg_stage_costs[-1]*simt + stage_cost)/(simt+1)]
+
+        # Inject control/disturbance to the plant.
         measurement = plant.step(control_input, disturbance)
-    # Create a sim data and stage cost array.
+
+    # Create a sim data/stage cost array.
     cl_data = SimData(t=np.asarray(plant.t[0:-1]).squeeze(),
                 x=np.asarray(plant.x[0:-1]).squeeze(),
                 u=np.asarray(plant.u),
                 y=np.asarray(plant.y[0:-1]).squeeze())
     avg_stage_costs = np.array(avg_stage_costs[1:])
-    openloop_sol = [np.asarray(controller.regulator.useq[0]), 
-                    np.asarray(controller.regulator.xseq[0])]
+
     # Return.
-    return cl_data, avg_stage_costs, openloop_sol
+    return cl_data, avg_stage_costs
 
 def _eigval_eigvec_test(X,Y):
     """Return True if an eigenvector of X corresponding to 

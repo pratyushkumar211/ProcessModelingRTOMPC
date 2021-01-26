@@ -10,7 +10,8 @@ sys.path.append('lib/')
 import tensorflow as tf
 import time
 import numpy as np
-from hybridid import PickleTool, SimData, get_tworeac_train_val_data
+from hybridid import PickleTool, SimData
+from tworeac_nonlin_funcs import get_tworeac_train_val_data
 from HybridModelLayers import TwoReacModel
 
 # Set the tensorflow global and graph-level seed.
@@ -44,7 +45,7 @@ def train_model(model, train_data, trainval_data, val_data,
     # Call the fit method to train.
     model.fit(x=[train_data['inputs'], train_data['xGz0']], 
               y=train_data['outputs'], 
-              epochs=4000, batch_size=1,
+              epochs=5000, batch_size=1,
         validation_data = ([trainval_data['inputs'], trainval_data['xGz0']], 
                             trainval_data['outputs']),
             callbacks = [checkpoint_callback])
@@ -83,7 +84,7 @@ def main():
 
     # Create lists.
     Nps = [2]
-    fnn_dims = [[8, 32, 2]]
+    fnn_dims = [[8, 16, 2]]
     model_types = ['hybrid']
     trained_weights = []
     val_metrics = []

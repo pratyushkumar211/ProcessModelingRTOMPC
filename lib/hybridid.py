@@ -197,51 +197,6 @@ def get_scaling(*, data):
                 uscale = (umean, ustd), 
                 yscale = (ymean, ystd))
 
-def get_tworeac_train_val_data(*, Np, parameters, data_list):
-    """ Get the data for training in appropriate format. """
-    tsteps_steady = parameters['tsteps_steady']
-    Ny, Nu = parameters['Ny'], parameters['Nu']
-    xuyscales = get_scaling(data=data_list[0])
-    xuscales = dict(xscale=xuyscales['yscale'], uscale=xuyscales['uscale'])
-    inputs, xGz0, outputs = [], [], []
-    # Loop through the data list.
-    for data in data_list:
-
-        # Scale data.
-        u = (data.u-xuscales['uscale'][0])/xuscales['uscale'][1]
-        y = (data.y-xuscales['xscale'][0])/xuscales['xscale'][1]
-
-        # Starting time point.
-        t = tsteps_steady
-        
-        # Get input trajectory.
-        u_traj = u[t:][np.newaxis, :]
-        
-        # Get initial state.
-        xG0 = y[t, :][np.newaxis, :]
-        yp0seq = y[t-Np:t, :].reshape(Np*Ny, )[np.newaxis, :]
-        up0seq = u[t-Np:t, :].reshape(Np*Nu, )[np.newaxis, :]
-        xGz0_traj = np.concatenate((xG0, yp0seq, up0seq), axis=-1)
-        
-        # Get output trajectory.
-        y_traj = y[t:, :][np.newaxis, ...]
-
-        # Collect the trajectories in list.
-        inputs.append(u_traj)
-        xGz0.append(xGz0_traj)
-        outputs.append(y_traj)
-    
-    # Get the training and validation data for training in compact dicts.
-    train_data = dict(inputs=np.concatenate(inputs[:-2], axis=0),
-                      xGz0=np.concatenate(xGz0[:-2], axis=0),
-                      outputs=np.concatenate(outputs[:-2], axis=0))
-    trainval_data = dict(inputs=inputs[-2], xGz0=xGz0[-2],
-                         outputs=outputs[-2])
-    val_data = dict(inputs=inputs[-1], xGz0=xGz0[-1],
-                    outputs=outputs[-1])
-    # Return.
-    return (train_data, trainval_data, val_data, xuscales)
-
 def get_cstr_flash_train_val_data(*, Np, parameters,
                                      greybox_processed_data):
     """ Get the data for training in appropriate format. """

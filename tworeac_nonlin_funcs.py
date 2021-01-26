@@ -1,3 +1,4 @@
+# [depends] %LIB%/hybridid.py %LIB%/linNonlinMPC.py
 """ Script to generate the necessary 
     parameters and training data for the 
     three reaction example.
@@ -7,6 +8,9 @@ import sys
 sys.path.append('lib/')
 import mpctools as mpc
 import numpy as np
+import copy
+from linNonlinMPC import NonlinearPlantSimulator
+from hybridid import get_scaling, _resample_fast, interpolate_yseq
 
 def plant_ode(x, u, p, parameters):
     """ Simple ODE describing a 2D system. """
@@ -95,8 +99,8 @@ def get_rectified_xs(*, parameters):
     xs = parameters['xs']
     us = parameters['us']
     ps = parameters['ps']
-    tworeac_plant_ode = lambda x, u, p: _tworeac_plant_ode(x, u, 
-                                                      p, parameters)
+    tworeac_plant_ode = lambda x, u, p: plant_ode(x, u, p, parameters)
+
     # Construct the casadi class.
     model = mpc.DiscreteSimulator(tworeac_plant_ode, 
                                   parameters['Delta'],
@@ -113,11 +117,10 @@ def get_model(*, parameters, plant=True):
     """ Return a nonlinear plant simulator object."""
     if plant:
         # Construct and return the plant.
-        tworeac_plant_ode = lambda x, u, p: _tworeac_plant_ode(x, u, 
-                                                               p, parameters)
+        tworeac_plant_ode = lambda x, u, p: plant_ode(x, u, p, parameters)
         xs = parameters['xs'][:, np.newaxis]
         return NonlinearPlantSimulator(fxup = tworeac_plant_ode,
-                                        hx = _tworeac_measurement,
+                                        hx = measurement,
                                         Rv = parameters['Rv'], 
                                         Nx = parameters['Nx'], 
                                         Nu = parameters['Nu'], 
@@ -127,13 +130,12 @@ def get_model(*, parameters, plant=True):
                                         x0 = xs)
     else:
         # Construct and return the grey-box model.
-        tworeac_greybox_ode = lambda x, u, p: _tworeac_greybox_ode(x, u, 
-                                                               p, parameters)
+        tworeac_greybox_ode = lambda x, u, p: greybox_ode(x, u, p, parameters)
         Ng = parameters['Ng']
         xs = parameters['xs'][:Ng, np.newaxis]
         return NonlinearPlantSimulator(fxup = tworeac_greybox_ode,
-                                        hx = _tworeac_measurement,
-                                        Rv = 0*np.eye(parameters['Ny']), 
+                                        hx = measurement,
+                                        Rv = 0*parameters['Rv'], 
                                         Nx = parameters['Ng'], 
                                         Nu = parameters['Nu'], 
                                         Np = parameters['Np'], 
@@ -185,3 +187,121 @@ def get_tworeac_train_val_data(*, Np, parameters, data_list):
                     outputs=outputs[-1])
     # Return.
     return (train_data, trainval_data, val_data, xuscales)
+
+def get_hybrid_pars(*, parameters, Npast, fnn_weights, xuscales):
+    """ Get the hybrid model parameters. """
+
+    hybrid_pars = copy.deepcopy(parameters)
+    # Update sizes.
+    Ng, Nu, Ny = parameters['Ng'], parameters['Nu'], parameters['Ny']
+    hybrid_pars['Nx'] = parameters['Ng'] + Npast*(Nu + Ny)
+
+    # Update steady state.
+    ys = measurement(parameters['xs'])
+    yspseq = np.tile(ys, (Npast, ))
+    us = parameters['us']
+    uspseq = np.tile(us, (Npast, ))
+    xs = parameters['xs'][:Ng]
+    hybrid_pars['xs'] = np.concatenate((xs, yspseq, uspseq))
+    
+    # NN pars.
+    hybrid_pars['Npast'] = Npast
+    hybrid_pars['fnn_weights'] = fnn_weights 
+
+    # Scaling.
+    hybrid_pars['xuscales'] = xuscales
+
+    # Return.
+    return hybrid_pars
+
+def fnn(xG, z, Npast, fnn_weights):
+    """ Compute the NN output. """
+    nn_output = np.concatenate((xG, z))[:, np.newaxis]
+    for i in range(0, len(fnn_weights)-2, 2):
+        (W, b) = fnn_weights[i:i+2]
+        nn_output = W.T @ nn_output + b[:, np.newaxis]
+        nn_output = 1./(1. + np.exp(-nn_output))
+    Wf = fnn_weights[-1]
+    nn_output = (Wf.T @ nn_output)[:, 0]
+    # Return.
+    return nn_output
+
+def hybrid_func(xGz, u, parameters):
+    """ The augmented continuous time model. """
+
+    # Extract a few parameters.
+    Ng = parameters['Ng']
+    Ny = parameters['Ny']
+    Nu = parameters['Nu']
+    ps = parameters['ps']
+    Npast = parameters['Npast']
+    Delta = parameters['Delta']
+    fnn_weights = parameters['fnn_weights']
+    xuscales = parameters['xuscales']
+    xmean, xstd = xuscales['xscale']
+    umean, ustd = xuscales['uscale']
+    xGzmean = np.concatenate((xmean,
+                              np.tile(xmean, (Npast, )), 
+                              np.tile(umean, (Npast, ))))
+    xGzstd = np.concatenate((xstd,
+                             np.tile(xstd, (Npast, )), 
+                             np.tile(ustd, (Npast, ))))
+    
+    # Get some vectors.
+    xGz = (xGz - xGzmean)/xGzstd
+    u = (u-umean)/ustd
+    xG, ypseq, upseq = xGz[:Ng], xGz[Ng:Ng+Npast*Ny], xGz[-Npast*Nu:]
+    z = xGz[Ng:]
+    hxG = measurement(xG)
+    
+    # Get k1.
+    k1 = greybox_ode(xG*xstd + xmean, u*ustd + umean, ps, parameters)/xstd
+    k1 += fnn(xG, z, Npast, fnn_weights)
+
+    # Interpolate for k2 and k3.
+    ypseq_interp = interpolate_yseq(np.concatenate((ypseq, hxG)), Npast, Ny)
+    z = np.concatenate((ypseq_interp, upseq))
+    
+    # Get k2.
+    k2 = greybox_ode((xG + Delta*(k1/2))*xstd + xmean, u*ustd + umean, 
+                      ps, parameters)/xstd
+    k2 += fnn(xG + Delta*(k1/2), z, Npast, fnn_weights)
+
+    # Get k3.
+    k3 = greybox_ode((xG + Delta*(k2/2))*xstd + xmean, u*ustd + umean, 
+                      ps, parameters)/xstd
+    k3 += fnn(xG + Delta*(k2/2), z, Npast, fnn_weights)
+
+    # Get k4.
+    ypseq_shifted = np.concatenate((ypseq[Ny:], hxG))
+    z = np.concatenate((ypseq_shifted, upseq))
+    k4 = greybox_ode((xG + Delta*k3)*xstd + xmean, u*ustd + umean, 
+                      ps, parameters)/xstd
+    k4 += fnn(xG + Delta*k3, z, Npast, fnn_weights)
+    
+    # Get the current output/state and the next time step.
+    xGplus = xG + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
+    zplus = np.concatenate((ypseq_shifted, upseq[Nu:], u))
+    xGzplus = np.concatenate((xGplus, zplus))
+    xGzplus = xGzplus*xGzstd + xGzmean
+
+    # Return the sum.
+    return xGzplus
+
+def get_economic_opt_pars(*, Delta):
+    """ Get economic MPC parameters for the tworeac example. """
+    raw_mat_price = _resample_fast(x = np.array([[105.], [105.], 
+                                                 [105.], [105.], 
+                                                 [105.], [105.]]), 
+                                   xDelta=2*60,
+                                   newDelta=Delta,
+                                   resample_type='zoh')
+    product_price = _resample_fast(x = np.array([[170.], [210.], 
+                                                 [120.], [160.], 
+                                                 [160.], [160.]]),
+                                   xDelta=2*60,
+                                   newDelta=Delta,
+                                   resample_type='zoh')
+    cost_pars = 100*np.concatenate((raw_mat_price, product_price), axis=1)
+    # Return the cost pars.
+    return cost_pars
