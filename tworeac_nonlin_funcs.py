@@ -1,0 +1,187 @@
+""" Script to generate the necessary 
+    parameters and training data for the 
+    three reaction example.
+    Pratyush Kumar, pratyushkumar@ucsb.edu """
+
+import sys
+sys.path.append('lib/')
+import mpctools as mpc
+import numpy as np
+
+def plant_ode(x, u, p, parameters):
+    """ Simple ODE describing a 2D system. """
+    # Extract the parameters.
+    k1 = parameters['k1']
+    k2 = parameters['k2']
+    k3 = parameters['k3']
+
+    # Extract the plant states into meaningful names.
+    (Ca, Cb, Cc) = x[0:3]
+    Ca0 = u[0:1]
+    tau = p[0:1]
+
+    # Write the ODEs.
+    dCabydt = (Ca0-Ca)/tau - k1*Ca
+    dCbbydt = k1*Ca - 3*k2*(Cb**3) + 3*k3*Cc - Cb/tau
+    dCcbydt = k2*(Cb**3) - k3*Cc - Cc/tau
+
+    # Return the derivative.
+    return np.array([dCabydt, dCbbydt, dCcbydt])
+
+def greybox_ode(x, u, p, parameters):
+    """ Simple ODE describing the grey-box plant. """
+    # Extract the parameters.
+    k1 = parameters['k1']
+
+    # Extract the plant states into meaningful names.
+    (Ca, Cb) = x[0:2]
+    Ca0 = u[0]
+    tau = p[0]
+
+    # Write the ODEs.
+    dCabydt = (Ca0-Ca)/tau - k1*Ca
+    dCbbydt = k1*Ca - Cb/tau
+
+    # Return the derivative.
+    return np.array([dCabydt, dCbbydt])
+
+def measurement(x):
+    # Return the measurement.
+    return x[0:2]
+
+def get_parameters():
+    """ Get the parameter values for the 
+        three reaction example. """
+    
+    # Parameters.
+    parameters = {}
+    parameters['k1'] = 1. # m^3/min.
+    parameters['k2'] = 0.01 # m^3/min.
+    parameters['k3'] = 0.05 # m^3/min.
+
+    # Store the dimensions.
+    parameters['Nx'] = 3
+    parameters['Ng'] = 2
+    parameters['Nu'] = 1
+    parameters['Ny'] = 2
+    parameters['Np'] = 1
+
+    # Sample time.
+    parameters['Delta'] = 1. # min.
+
+    # Get the steady states.
+    parameters['xs'] = np.array([1., 0.5, 0.5]) # to be updated.
+    parameters['us'] = np.array([1.5]) # Ca0s
+    parameters['ps'] = np.array([10.]) # tau (min)
+
+    # Get the constraints. 
+    ulb = np.array([0.5])
+    uub = np.array([2.5])
+    parameters['ulb'] = ulb
+    parameters['uub'] = uub
+
+    # Number of time-steps to keep the plant at steady.
+    parameters['tsteps_steady'] = 10
+
+    # Measurement noise.
+    parameters['Rv'] = 0*np.diag([1e-3, 1e-3])
+
+    # Return the parameters dict.
+    return parameters
+
+def get_rectified_xs(*, parameters):
+    """ Get the steady state of the plant. """
+    # (xs, us, ps)
+    xs = parameters['xs']
+    us = parameters['us']
+    ps = parameters['ps']
+    tworeac_plant_ode = lambda x, u, p: _tworeac_plant_ode(x, u, 
+                                                      p, parameters)
+    # Construct the casadi class.
+    model = mpc.DiscreteSimulator(tworeac_plant_ode, 
+                                  parameters['Delta'],
+                                  [parameters['Nx'], parameters['Nu'], 
+                                   parameters['Np']], 
+                                  ["x", "u", "p"])
+    # Steady state of the plant.
+    for _ in range(360):
+        xs = model.sim(xs, us, ps)
+    # Return the disturbances.
+    return xs
+
+def get_model(*, parameters, plant=True):
+    """ Return a nonlinear plant simulator object."""
+    if plant:
+        # Construct and return the plant.
+        tworeac_plant_ode = lambda x, u, p: _tworeac_plant_ode(x, u, 
+                                                               p, parameters)
+        xs = parameters['xs'][:, np.newaxis]
+        return NonlinearPlantSimulator(fxup = tworeac_plant_ode,
+                                        hx = _tworeac_measurement,
+                                        Rv = parameters['Rv'], 
+                                        Nx = parameters['Nx'], 
+                                        Nu = parameters['Nu'], 
+                                        Np = parameters['Np'], 
+                                        Ny = parameters['Ny'],
+                                    sample_time = parameters['Delta'], 
+                                        x0 = xs)
+    else:
+        # Construct and return the grey-box model.
+        tworeac_greybox_ode = lambda x, u, p: _tworeac_greybox_ode(x, u, 
+                                                               p, parameters)
+        Ng = parameters['Ng']
+        xs = parameters['xs'][:Ng, np.newaxis]
+        return NonlinearPlantSimulator(fxup = tworeac_greybox_ode,
+                                        hx = _tworeac_measurement,
+                                        Rv = 0*np.eye(parameters['Ny']), 
+                                        Nx = parameters['Ng'], 
+                                        Nu = parameters['Nu'], 
+                                        Np = parameters['Np'], 
+                                        Ny = parameters['Ny'],
+                                    sample_time = parameters['Delta'], 
+                                        x0 = xs)
+
+def get_tworeac_train_val_data(*, Np, parameters, data_list):
+    """ Get the data for training in appropriate format. """
+    tsteps_steady = parameters['tsteps_steady']
+    Ny, Nu = parameters['Ny'], parameters['Nu']
+    xuyscales = get_scaling(data=data_list[0])
+    xuscales = dict(xscale=xuyscales['yscale'], uscale=xuyscales['uscale'])
+    inputs, xGz0, outputs = [], [], []
+    # Loop through the data list.
+    for data in data_list:
+
+        # Scale data.
+        u = (data.u-xuscales['uscale'][0])/xuscales['uscale'][1]
+        y = (data.y-xuscales['xscale'][0])/xuscales['xscale'][1]
+
+        # Starting time point.
+        t = tsteps_steady
+        
+        # Get input trajectory.
+        u_traj = u[t:][np.newaxis, :]
+        
+        # Get initial state.
+        xG0 = y[t, :][np.newaxis, :]
+        yp0seq = y[t-Np:t, :].reshape(Np*Ny, )[np.newaxis, :]
+        up0seq = u[t-Np:t, :].reshape(Np*Nu, )[np.newaxis, :]
+        xGz0_traj = np.concatenate((xG0, yp0seq, up0seq), axis=-1)
+        
+        # Get output trajectory.
+        y_traj = y[t:, :][np.newaxis, ...]
+
+        # Collect the trajectories in list.
+        inputs.append(u_traj)
+        xGz0.append(xGz0_traj)
+        outputs.append(y_traj)
+    
+    # Get the training and validation data for training in compact dicts.
+    train_data = dict(inputs=np.concatenate(inputs[:-2], axis=0),
+                      xGz0=np.concatenate(xGz0[:-2], axis=0),
+                      outputs=np.concatenate(outputs[:-2], axis=0))
+    trainval_data = dict(inputs=inputs[-2], xGz0=xGz0[-2],
+                         outputs=outputs[-2])
+    val_data = dict(inputs=inputs[-1], xGz0=xGz0[-1],
+                    outputs=outputs[-1])
+    # Return.
+    return (train_data, trainval_data, val_data, xuscales)
