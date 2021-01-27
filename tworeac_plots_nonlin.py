@@ -157,9 +157,12 @@ def main():
                                     type='read')
     val_predictions = tworeac_train['val_predictions']
 
-    # Load data after economic MPC simulation.
+    # Load data after economic MPC/RTO simulation.
     tworeac_empc = PickleTool.load(filename=
                                     "tworeac_empc_nonlin.pickle", 
+                                    type='read')
+    tworeac_rto = PickleTool.load(filename=
+                                    "tworeac_rto_nonlin.pickle", 
                                     type='read')
     cl_data_list = tworeac_empc['cl_data_list']
     cost_pars = tworeac_empc['cost_pars']
@@ -222,6 +225,19 @@ def main():
                             avg_stage_costs=tworeac_empc['avg_stage_costs'], 
                             legend_colors=legend_colors,
                             legend_names=legend_names)
+
+    # PLot the RTO simulation data.
+    cl_data_list = tworeac_rto['cl_data_list']
+    t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
+                                                     cl_data_list,
+                                                     plot_range=(0, 8*60))
+    figures += plot_xudata(t=t, xlist=xlist, ulist=ulist,
+                           legend_names=legend_names,
+                           legend_colors=legend_colors)
+    figures += plot_avg_profits(t=t,
+                            avg_stage_costs=tworeac_rto['avg_stage_costs'], 
+                            legend_colors=legend_colors,
+                            legend_names=legend_names)                     
 
     # Plot predictions on validation data.
     #val_predictions.pop(0)

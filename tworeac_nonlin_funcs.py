@@ -305,3 +305,71 @@ def get_economic_opt_pars(*, Delta):
     cost_pars = 100*np.concatenate((raw_mat_price, product_price), axis=1)
     # Return the cost pars.
     return cost_pars
+
+def stage_cost(y, u, p):
+    """ Custom stage cost for the tworeac system. """    
+    # Get inputs, parameters, and states.
+    CAf = u[0:1]
+    ca, cb = p[0:2]
+    CA, CB = y[0:2]
+    # Compute and return cost.
+    return ca*CAf - cb*CB
+
+def sim_hybrid(hybrid_func, hybrid_pars, uval, training_data):
+    """ Hybrid validation simulation to make 
+        sure the above programmed function is 
+        the same is what tensorflow is training. """
+    
+    # Get initial state.
+    t = hybrid_pars['tsteps_steady']
+    Np = hybrid_pars['Npast']
+    Ng = hybrid_pars['Ng']
+    Ny = hybrid_pars['Ny']
+    Nu = hybrid_pars['Nu']
+    y = training_data[-1].y
+    u = training_data[-1].u
+    yp0seq = y[t-Np:t, :].reshape(Np*Ny, )[:, np.newaxis]
+    up0seq = u[t-Np:t:, ].reshape(Np*Nu, )[:, np.newaxis]
+    z0 = np.concatenate((yp0seq, up0seq))
+    xG0 = y[t, :][:, np.newaxis]
+    xGz0 = np.concatenate((xG0, z0))
+
+    # Start the validation simulation.
+    uval = uval[t:, :]
+    Nval = uval.shape[0]
+    hx = lambda x: measurement(x)
+    fxu = lambda x, u: hybrid_func(x, u, hybrid_pars)
+    x = xGz0[:, 0]
+    yval, xGval = [], []
+    xGval.append(x)
+    for t in range(Nval):
+        yval.append(hx(x))
+        x = fxu(x, uval[t, :].T)
+        xGval.append(x)
+    yval = np.asarray(yval)
+    xGval = np.asarray(xGval)[:-1, :Ng]
+    # Return.
+    return yval, xGval
+
+def get_hybrid_pars_check_func(*, parameters, training_data, train):
+    """ Get parameters for the hybrid function 
+        and test by simulating on validation data. """
+
+    # Get NN weights and parameters for the hybrid function.
+    Np = train['Nps'][0]
+    fnn_weights = train['trained_weights'][0][-1]
+    xuscales = train['xuscales']
+    hybrid_pars = get_hybrid_pars(parameters=parameters,
+                                  Npast=Np,
+                                  fnn_weights=fnn_weights,
+                                  xuscales=xuscales)
+
+    # Check the hybrid function.
+    uval = training_data[-1].u
+    ytfval = train['val_predictions'][0].y
+    xGtfval = train['val_predictions'][0].x
+    yval, xGval = sim_hybrid(hybrid_func, hybrid_pars, 
+                             uval, training_data)
+
+    # Return the parameters.
+    return hybrid_pars
