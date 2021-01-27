@@ -16,9 +16,11 @@ from hybridid import (PickleTool, PAPER_FIGSIZE, get_plotting_array_list,
 
 ylabels = [r'$H_r \ (\textnormal{m})$',
            r'$C_{Ar} \ (\textnormal{mol/m}^3)$', 
+           r'$C_{Br} \ (\textnormal{mol/m}^3)$', 
            r'$T_r \ (K)$',
-           r'$H_b \ (\textnormal{m})$', 
+           r'$H_b \ (\textnormal{m})$',
            r'$C_{Ab} \ (\textnormal{mol/m}^3)$',
+           r'$C_{Bb} \ (\textnormal{mol/m}^3)$',
            r'$T_b \ (K)$']
 
 xlabels = [r'$H_r \ (\textnormal{m})$',
@@ -228,11 +230,11 @@ def main():
                               legend_colors=legend_colors)
     
     # Plot the closed-loop simulation.
-    legend_names = ['Plant', 'Grey-box']
-    legend_colors = ['b', 'g']
+    legend_names = ['Plant', 'Grey-box', 'Hybrid']
+    legend_colors = ['b', 'g', 'm']
     cl_data_list = cstr_flash_empc['cl_data_list']
     (t, udatum, ydatum, xdatum) = get_plotting_array_list(simdata_list=
-                                       cl_data_list[:2],
+                                       cl_data_list[:3],
                                        plot_range = (0, 24*60))
     figures += plot_data(t=t, udatum=udatum, ydatum=ydatum,
                               xdatum=xdatum, data_type='closed_loop',

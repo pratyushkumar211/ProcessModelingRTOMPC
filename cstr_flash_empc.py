@@ -21,7 +21,7 @@ from hybridid import _cstr_flash_greybox_ode as _greybox_ode
 from hybridid import _cstr_flash_measurement as _measurement
 
 def get_controller(model_func, model_pars, model_type, 
-                   cost_pars, mhe_noise_tuning):
+                   cost_pars, mhe_noise_tuning, regulator_guess):
     """ Construct the controller object comprised of 
         EMPC regulator and MHE estimator. """
 
@@ -60,17 +60,21 @@ def get_controller(model_func, model_pars, model_type,
     if model_type == 'plant':
         Bd[1, 0] = 1.
         Bd[2, 1] = 1.
-        Bd[4, 2] = 1.
-        Bd[6, 3] = 1.
-        Bd[7, 4] = 1.
-        Bd[9, 5] = 1.
-    else:
-        Bd[0, 0] = 1.
-        Bd[1, 1] = 1.
         Bd[3, 2] = 1.
         Bd[4, 3] = 1.
-        Bd[5, 4] = 1.
+        Bd[6, 4] = 1.
         Bd[7, 5] = 1.
+        Bd[8, 6] = 1.
+        Bd[9, 7] = 1.
+    else:
+        #Bd[0, 0] = 1.
+        #Bd[1, 1] = 1.
+        #Bd[3, 2] = 1.
+        #Bd[4, 3] = 1.
+        #Bd[5, 4] = 1.
+        #Bd[7, 5] = 1.
+        Ng = model_pars['Ng']
+        Bd[:Ng, :] = np.eye(Nd)
     Cd = np.zeros((Ny, Nd))
 
     # Get steady states.
@@ -97,7 +101,8 @@ def get_controller(model_func, model_pars, model_type,
                                    xs=xs, us=us, ds=ds, ys=ys,
                                    empc_pars=cost_pars,
                                    ulb=ulb, uub=uub, Nmpc=Nmpc,
-                                   Qwx=Qwx, Qwd=Qwd, Rv=Rv, Nmhe=Nmhe)
+                                   Qwx=Qwx, Qwd=Qwd, Rv=Rv, Nmhe=Nmhe,
+                                   regulator_guess=regulator_guess)
 
 def get_hybrid_pars(*, greybox_pars, Npast, fnn_weights, xuyscales):
     """ Get the hybrid model parameters. """
@@ -131,7 +136,8 @@ def _fnn(xG, z, u, Npast, xuyscales, fnn_weights):
     nn_output = nn_output[:, np.newaxis]
     for i in range(0, len(fnn_weights)-2, 2):
         (W, b) = fnn_weights[i:i+2]
-        nn_output = np.tanh(W.T @ nn_output + b[:, np.newaxis])
+        nn_output = W.T @ nn_output + b[:, np.newaxis]
+        nn_output = 1./(1. + np.exp(-nn_output))
     (Wf, bf) = fnn_weights[-2:]
     nn_output = (Wf.T @ nn_output + bf[:, np.newaxis])[:, 0]
     # Return.
@@ -303,8 +309,8 @@ def main():
                                          plant_pars=plant_pars)
 
     # Get NN weights and the hybrid ODE.
-    Np = cstr_flash_train['Nps'][1] # To change.
-    fnn_weights = cstr_flash_train['trained_weights'][1][-1] # To change.
+    Np = cstr_flash_train['Nps'][0] # To change.
+    fnn_weights = cstr_flash_train['trained_weights'][0][-1] # To change.
     xuyscales = cstr_flash_train['xuyscales']
     hybrid_pars = get_hybrid_pars(greybox_pars=greybox_pars,
                                   Npast=Np,
@@ -318,25 +324,29 @@ def main():
     greybox_processed_data = cstr_flash_parameters['greybox_processed_data'][-1]
     yval, xGval = sim_hybrid(_hybrid_func, uval, 
                              hybrid_pars, greybox_processed_data)
-
+    
     # Run simulations for different model.
     cl_data_list, avg_stage_costs_list, openloop_sol_list = [], [], []
     model_odes = [_plant_ode, _greybox_ode, _hybrid_func]
     model_pars = [plant_pars, greybox_pars, hybrid_pars]
     model_types = ['plant', 'grey-box', 'hybrid']
-    Nsims = [24*60, 24*60, 0]
+    Nsims = [120, 120, 120]
     plant_lxup = lambda x, u, p: stage_cost(x, u, p, plant_pars, [5, 7, 9])
+    regulator_guess = None
     for (model_ode, model_par,
          model_type, Nsim) in zip(model_odes, model_pars, model_types, Nsims):
         mhe_noise_tuning = get_mhe_noise_tuning(model_type, model_par)
         plant = get_plant(parameters=plant_pars)
         controller = get_controller(model_ode, model_par, model_type,
-                                    cost_pars, mhe_noise_tuning)
+                                    cost_pars, mhe_noise_tuning,
+                                    regulator_guess)
         cl_data, avg_stage_costs, openloop_sol = online_simulation(plant,
                                          controller,
                                          plant_lxup=plant_lxup,
                                          Nsim=Nsim, disturbances=disturbances,
                                          stdout_filename='cstr_flash_empc.txt')
+        regulator_guess = [controller.regulator.xseq[0],
+                           controller.regulator.useq[0]]
         cl_data_list += [cl_data]
         avg_stage_costs_list += [avg_stage_costs]
         openloop_sol_list += [openloop_sol]

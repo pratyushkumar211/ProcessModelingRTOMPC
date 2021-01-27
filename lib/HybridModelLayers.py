@@ -459,10 +459,12 @@ class CstrFlashModel(tf.keras.Model):
         # Dense layers for the NN.
         fnn_layers = []
         for dim in fnn_dims[1:-1]:
-            fnn_layers.append(tf.keras.layers.Dense(dim,
-                                            activation='tanh'))
+            fnn_layers.append(tf.keras.layers.Dense(dim, activation='sigmoid',
+                              kernel_regularizer=tf.keras.regularizers.l2(1e-3),
+                              bias_regularizer=tf.keras.regularizers.l2(1e-3)))
         fnn_layers.append(tf.keras.layers.Dense(fnn_dims[-1], 
-                                                kernel_initializer='zeros'))
+                          kernel_initializer='zeros',
+                          kernel_regularizer=tf.keras.regularizers.l2(1e-3)))
 
         # Build model depending on option.
         if model_type == 'black-box':

@@ -83,10 +83,9 @@ class PIController:
 class RTOController:
 
     def __init__(self, *, fxu, hx, lyup, Nx, Nu, Np, 
-                 ulb, uub, init_guess, init_opt_pars,
-                 Ntsep_solve):
+                 ulb, uub, init_guess, opt_pars, Ntstep_solve):
         """ Class to construct and solve steady state optimization
-            problems. 
+            problems.
                 
         Optimization problem:
         min_{xs, us} l(ys, us, p)
@@ -110,38 +109,65 @@ class RTOController:
 
         # Inital guess/parameters.
         self.init_guess = init_guess
-        self.init_opt_pars = init_opt_pars
-        self.Ntsep_solve = Ntsep_solve
+        self.opt_pars = opt_pars
+        self.Ntstep_solve = Ntstep_solve
 
         # Setup the optimization problem.
         self._setup_ss_optimization()
-         
+
+        # Lists to save data.
+        self.xs = []
+        self.us = []
+        self.computation_times = []
+
     def _setup_ss_optimization(self):
         """ Setup the steady state optimization. """
         # Construct NLP and solve.
         xs = casadi.SX.sym('xs', self.Nx)
         us = casadi.SX.sym('us', self.Nu)
-        p = casadi.SX.sym('us', self.Np)
-        ys = self.hx(xs)
-        plant_nlp = dict(x = casadi.vertcat(xs, us), 
-                         f = self.lyup(ys, us, p), 
-                         g = casadi.vertcat(plant(xs, us), us))
-        plant_nlp = casadi.nlpsol('plant_nlp', 'ipopt', plant_nlp)
-        xuguess = np.concatenate((init_guess['x'], 
-                                  init_guess['u']))[:, np.newaxis]
-        lbg = np.concatenate((np.zeros((self.Nx,)), 
-                              self.ulb))[:, np.newaxis]
-        ubg = np.concatenate((np.zeros((self.Nx,)), 
-                              self.uub))[:, np.newaxis]
-        plant_nlp_soln = plant_nlp(x0=xuguess, lbg=lbg, ubg=ubg)
+        p = casadi.SX.sym('p', self.Np)
+        lyup = lambda x, u, p: self.lyup(self.hx(x), u, p)
+        lyup = mpc.getCasadiFunc(lyup,
+                          [self.Nx, self.Nu, self.Np],
+                          ["x", "u", "p"])
+        fxu = mpc.getCasadiFunc(self.fxu,
+                          [self.Nx, self.Nu],
+                          ["x", "u"])
+        nlp = dict(x=casadi.vertcat(xs, us), 
+                   f=lyup(xs, us, p),
+                   g=casadi.vertcat(xs -  fxu(xs, us), us), 
+                   p=p)
+        self.nlp = casadi.nlpsol('nlp', 'ipopt', nlp)
+        xuguess = np.concatenate((self.init_guess['x'], 
+                                  self.init_guess['u']))[:, np.newaxis]
+        self.lbg = np.concatenate((np.zeros((self.Nx,)), 
+                                   self.ulb))[:, np.newaxis]
+        self.ubg = np.concatenate((np.zeros((self.Nx,)), 
+                                   self.uub))[:, np.newaxis]
+        nlp_soln = self.nlp(x0=xuguess, lbg=self.lbg, ubg=self.ubg, 
+                            p=self.opt_pars[0:1, :])
+        self.xuguess = np.asarray(nlp_soln['x'])        
 
-        return
+    def control_law(self, simt, y):
+        """ RTO Controller, no use of feedback. 
+            Only solve every certain interval. """
 
-    def control_law(self, simt):
-        """ RTO Controller, no feedback. """
+        tstart = time.time()
+        if simt%self.Ntstep_solve == 0:
+            nlp_soln = self.nlp(x0=self.xuguess, lbg=self.lbg, ubg=self.ubg, 
+                                p=self.opt_pars[simt:simt+1, :])
+            self.xuguess = np.asarray(nlp_soln['x'])
+        xs, us = np.split(self.xuguess, [self.Nx,], axis=0)
+        tend = time.time()
+        self._append_data(xs, us)
+        self.computation_times.append(tend-tstart)
+        # Return the steady input.
+        return us
 
-
-        return
+    def _append_data(self, xs, us):
+        " Append data. "
+        self.xs.append(xs)
+        self.us.append(us)
 
 class NonlinearEMPCRegulator:
 
@@ -368,7 +394,7 @@ class NonlinearEMPCController:
         self.uprev = us
 
         # MPC Regulator parameters.
-        self.empc_pars = empc_pars
+        self.opt_pars = empc_pars
         self.ulb = ulb
         self.uub = uub
         self.Nmpc = Nmpc
@@ -434,7 +460,7 @@ class NonlinearEMPCController:
         fxud = mpc.getCasadiFunc(self._aug_ss_model(),
                                 [self.Nx + self.Nd, self.Nu], ["x", "u"])
         init_guess = dict(x=np.concatenate((self.xs, self.ds)), u=self.us)
-        init_empc_pars = self.empc_pars[0:self.Nmpc, :]
+        init_empc_pars = self.opt_pars[0:self.Nmpc, :]
         lxup = lambda x, u, p: self.lyup(self.hx(x), u, p)
         self.regulator  = NonlinearEMPCRegulator(fxu=fxud, lxup=lxup,
                                                  Nx=self.Nx + self.Nd,
@@ -452,7 +478,7 @@ class NonlinearEMPCController:
         tstart = time.time()
         xdhat =  self.estimator.solve(y, self.uprev)
         mpc_N = slice(simt, simt + self.Nmpc, 1)
-        empc_pars = self.empc_pars[mpc_N, :]
+        empc_pars = self.opt_pars[mpc_N, :]
         useq = self.regulator.solve(xdhat, empc_pars)
         self.uprev = useq[:1, :].T
         tend = time.time()
@@ -477,7 +503,7 @@ def online_simulation(plant, controller, *, plant_lyup, Nsim=None,
         control_input = controller.control_law(simt, measurement)
         print("Computation time:" + str(controller.computation_times[-1]))
         stage_cost = plant_lyup(plant.y[-1], control_input,
-                                controller.empc_pars[simt:simt+1, :].T)[0]
+                                controller.opt_pars[simt:simt+1, :].T)[0]
         avg_stage_costs += [(avg_stage_costs[-1]*simt + stage_cost)/(simt+1)]
 
         # Inject control/disturbance to the plant.

@@ -19,6 +19,7 @@ from linNonlinMPC import (NonlinearPlantSimulator, NonlinearEMPCController,
 from tworeac_nonlin_funcs import plant_ode, greybox_ode, measurement
 from tworeac_nonlin_funcs import get_model, get_hybrid_pars, hybrid_func
 from tworeac_nonlin_funcs import get_economic_opt_pars
+from tworeac_nonlin_funcs import get_hybrid_pars_check_func, stage_cost
 
 def get_controller(model_func, model_pars, model_type,
                    cost_pars, mhe_noise_tuning):
@@ -91,74 +92,6 @@ def get_controller(model_func, model_pars, model_type,
                                    ulb=ulb, uub=uub, Nmpc=Nmpc,
                                    Qwx=Qwx, Qwd=Qwd, Rv=Rv, Nmhe=Nmhe)
 
-def stage_cost(y, u, p):
-    """ Custom stage cost for the tworeac system. """    
-    # Get inputs, parameters, and states.
-    CAf = u[0:1]
-    ca, cb = p[0:2]
-    CA, CB = y[0:2]
-    # Compute and return cost.
-    return ca*CAf - cb*CB
-
-def sim_hybrid(hybrid_func, hybrid_pars, uval, training_data):
-    """ Hybrid validation simulation to make 
-        sure the above programmed function is 
-        the same is what tensorflow is training. """
-    
-    # Get initial state.
-    t = hybrid_pars['tsteps_steady']
-    Np = hybrid_pars['Npast']
-    Ng = hybrid_pars['Ng']
-    Ny = hybrid_pars['Ny']
-    Nu = hybrid_pars['Nu']
-    y = training_data[-1].y
-    u = training_data[-1].u
-    yp0seq = y[t-Np:t, :].reshape(Np*Ny, )[:, np.newaxis]
-    up0seq = u[t-Np:t:, ].reshape(Np*Nu, )[:, np.newaxis]
-    z0 = np.concatenate((yp0seq, up0seq))
-    xG0 = y[t, :][:, np.newaxis]
-    xGz0 = np.concatenate((xG0, z0))
-
-    # Start the validation simulation.
-    uval = uval[t:, :]
-    Nval = uval.shape[0]
-    hx = lambda x: measurement(x)
-    fxu = lambda x, u: hybrid_func(x, u, hybrid_pars)
-    x = xGz0[:, 0]
-    yval, xGval = [], []
-    xGval.append(x)
-    for t in range(Nval):
-        yval.append(hx(x))
-        x = fxu(x, uval[t, :].T)
-        xGval.append(x)
-    yval = np.asarray(yval)
-    xGval = np.asarray(xGval)[:-1, :Ng]
-    # Return.
-    return yval, xGval
-
-def check_hybrid_func(*, parameters, training_data, train):
-    """ Get parameters for the hybrid function 
-        and test by simulating on validation data. """
-
-    # Get NN weights and parameters for the hybrid function.
-    Np = train['Nps'][0]
-    fnn_weights = train['trained_weights'][0][-1]
-    xuscales = train['xuscales']
-    hybrid_pars = get_hybrid_pars(parameters=parameters,
-                                  Npast=Np,
-                                  fnn_weights=fnn_weights,
-                                  xuscales=xuscales)
-
-    # Check the hybrid function.
-    uval = training_data[-1].u
-    ytfval = train['val_predictions'][0].y
-    xGtfval = train['val_predictions'][0].x
-    yval, xGval = sim_hybrid(hybrid_func, hybrid_pars, 
-                             uval, training_data)
-
-    # Return the parameters.
-    return hybrid_pars
-
 def get_mhe_noise_tuning(model_type, model_par):
     # Get MHE tuning.
     if model_type == 'plant' or model_type == 'hybrid':
@@ -188,7 +121,7 @@ def main():
     disturbances = np.repeat(parameters['ps'][np.newaxis, :], Nsim)
     
     # Get parameters for the hybrid function and check.
-    hybrid_pars = check_hybrid_func(parameters=parameters,
+    hybrid_pars = get_hybrid_pars_check_func(parameters=parameters,
                     training_data=tworeac_parameters_nonlin['training_data'],
                     train=tworeac_train_nonlin)
 
@@ -211,7 +144,7 @@ def main():
                                          stdout_filename='tworeac_empc.txt')
         cl_data_list += [cl_data]
         avg_stage_costs_list += [avg_stage_costs]
-    
+
     # Save data.
     PickleTool.save(data_object=dict(cl_data_list=cl_data_list,
                                      cost_pars=cost_pars,

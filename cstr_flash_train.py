@@ -77,6 +77,7 @@ def train_model(model, x0key, xuyscales, train_data, trainval_data, val_data,
 
     # Std out.
     sys.stdout = open(stdout_filename, 'w')
+    
     # Create the checkpoint callback.
     checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(filepath=ckpt_path,
                                                     monitor='val_loss',
@@ -85,8 +86,8 @@ def train_model(model, x0key, xuyscales, train_data, trainval_data, val_data,
                                                     verbose=1)
     # Call the fit method to train.
     model.fit(x = [train_data['inputs'], train_data[x0key]],
-              y = train_outputs, 
-              epochs=600, batch_size=2,
+              y = train_outputs,
+              epochs=6000, batch_size=12,
         validation_data = ([trainval_data['inputs'], trainval_data[x0key]], 
                            trainval_outputs),
         callbacks = [checkpoint_callback])
@@ -124,9 +125,9 @@ def main():
     num_samples = [batch*Nsim_train for batch in num_batches]
 
     # Create lists.
-    Nps = [5, 5]
-    fnn_dims = [[102, 32, 6], [102, 32, 8]]
-    model_types = ['black-box', 'hybrid']
+    Nps = [5]
+    fnn_dims = [[102, 32, 32, 8]]
+    model_types = ['hybrid']
     trained_weights = []
     val_metrics = []
     val_predictions = []
