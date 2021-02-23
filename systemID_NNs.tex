@@ -249,21 +249,12 @@ requirements of the hybrid and black-box modeling frameworks, and enable an
 understanding of their performance if used for real-time economic optimization
 purposes in chemical plants.
 
-The Figure \ref{fig:validation_pred} shows predictions of the trained black-box
+The Figure shows predictions of the trained black-box
 and hybrid models after training with 8 hours (480 samples) of data. We observe
 that both the models can match the plant data accurately. The black-box model
 shows slightly worse predictions in a few places. However, both the trained
 models are adequate for real-time optimization purpose in a feedback control system.
 
-\begin{figure}[!h]
-  \centering
-  \includegraphics[page=2, width=\textwidth]{tworeac_plots_nonlin.pdf}
-  \caption{Model validation for the nonlinear reactor model. Both the black-box
-           and hybrid model can predict the plant responses accurately. The
-           model predictions shown in this plot correspond to training with 8
-           hours of data.}
-  \label{fig:validation_pred}
-\end{figure}
 
 We examine the prediction accuracy of the models as a function of the number of
 training samples using the mean squared error (MSE) metric computed as follows
@@ -273,22 +264,11 @@ on the validation data
   \dfrac{1}{N_s}(\hat{y}(k) - y(k))^2
 \end{align*}
 in which $\hat{y}$ are the model predictions and $y$ denotes the plant
-measurements. The Figure \ref{fig:validation_mse} shows the variation of this
+measurements. The Figure  shows the variation of this
 MSE metric as a function of the number of training data obtained with both the
 black-box and hybrid models. We observe that the hybrid model provides better
 performance than the black-box model in terms of overall prediction accuracy and
 data requirements.
-
-\begin{figure}[!h]
-  \centering
-  \includegraphics[page=9, width=\textwidth]{tworeac_plots_nonlin.pdf}
-  \caption{Mean squared error (MSE) performance metric obtained with the
-           black-box and hybrid model with increase in the number of training
-           samples. We notice that the hybrid model slightly outperforms the
-           black-box model in data requirements and 
-           overall prediction accuracy.}
-  \label{fig:validation_mse}
-\end{figure}
 
 Next, we study the performance of the trained models in a steady-state economic
 optimization problem, and compare the cost curves obtained with the trained
@@ -305,7 +285,7 @@ layers common in chemical process industries. The optimization problem solved is
 in which $x_s$, $y_s$, $u_s$ are the state, output, and control respectively at
 steady-states. For the nonlinear reactor example, the cost is chosen as
 $\ell(y_s, u_s) = c_1C_{Af} - c_2C_B$, which measures the raw material cost and
-product profit. The Figure \ref{fig:cost_curves} shows the cost curves of the
+product profit. The Figure shows the cost curves of the
 plant, grey-box, black-box, and hybrid model obtained with 8 hours of training
 data. We first notice from the cost curve of the grey-box model that an
 optimization with the grey-box model results in the optimizer recommending a
@@ -321,23 +301,8 @@ same as the cost curve of the plant model in the entire actuator constraint set.
 The cost curve of the black-box model is also shown and we notice that it is not
 as closely aligned with the plant as compared to the hybrid model.
 
-\begin{figure}[!h]
-  \centering
-  \includegraphics[page=6, width=\textwidth]{tworeac_plots_nonlin.pdf}
-  \caption{Steady-state cost curve for the nonlinear plant, grey-box, black-box,
-  and hybrid model after training with 8 hours of data.}
-  \label{fig:cost_curves}
-\end{figure}
 
-\begin{figure}[!h]
-  \centering
-  \includegraphics[page=7, width=\textwidth]{tworeac_plots_nonlin.pdf}
-  \caption{Variation of the cost error metric ($e(C_{Af})$) in the actuator
-           constraint set with increase in the training data for the 
-           black-box neural network. The metric improves in the 
-           constraint set with an increase in training data.}
-  \label{fig:cost_error_bb}
-\end{figure}
+
 
 Finally, we analyze the variation in the cost curves of the black-box and hybrid
 models with increasing number of training samples. We analyze the following cost
@@ -346,8 +311,7 @@ error metric in the entire actuator constraint set
   e(u_s) = \vert \ell(y_p(u_s), u_s) - \ell(y_m(u_s), u_s) \vert
 \end{align*}
 in which $y_p(\cdot)$ and $y_m(\cdot)$ denote the plant and model steady state
-output respectively. The Figures \ref{fig:cost_error_bb} and
-\ref{fig:cost_error_hybrid} show the variation in this cost error metric in the
+output respectively. The Figures and show the variation in this cost error metric in the
 actuator constraint set with increasing number of training samples for the
 black-box and hybrid model respectively. We observe that with an increase in the
 number of training samples, the error metric for the hybrid model approaches
@@ -358,16 +322,6 @@ implication of this error metric going to zero for all actuator values in the
 constraint set is that the optimum computed for the steady-state economic
 optimization problem with the trained model will be the same as the true plant
 optimum.
-
-\begin{figure}[!h]
-  \centering
-  \includegraphics[page=8, width=\textwidth]{tworeac_plots_nonlin.pdf}
-  \caption{Variation of the cost error metric ($e(C_{Af})$) in the actuator
-  constraint set with increase in the training data for the 
-  hybrid grey-box and neural network model. The metric improves in the 
-  constraint set with an increase in training data.}
-  \label{fig:cost_error_hybrid}
-\end{figure}
 
 \section{Large, CSTR and flash in series example}
 \begin{figure}[!h]

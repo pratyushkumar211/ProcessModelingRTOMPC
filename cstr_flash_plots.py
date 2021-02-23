@@ -187,6 +187,8 @@ def main():
                                        type='read')
     cstr_flash_empc = PickleTool.load(filename="cstr_flash_empc.pickle",
                                        type='read')
+    cstr_flash_rto = PickleTool.load(filename="cstr_flash_rto.pickle",
+                                       type='read')
 
     # Collect data to plot open-loop predictions.
     val_predictions = cstr_flash_train['val_predictions']
@@ -203,8 +205,8 @@ def main():
     ulist += ulist_train
     ylist += ylist_train
     xlist += xlist_train
-    legend_names = ['Plant', 'Grey-Box', 'Black-box', 'Hybrid']
-    legend_colors = ['b', 'g', 'dimgrey', 'm']
+    legend_names = ['Plant', 'Grey-Box','Hybrid']
+    legend_colors = ['b', 'g', 'm']
     figures = []
     figures += plot_data(t=t, udatum=ulist, ydatum=ylist,
                               xdatum=xlist, data_type='open_loop',
@@ -220,19 +222,19 @@ def main():
     #                            legends=['Black-box', 'Hybrid'])
 
     # Plot the open-loop solutions.
-    legend_names = ['Plant', 'Grey-box', 'Hybrid']
-    legend_colors = ['b', 'g', 'm']
-    openloop_sols = cstr_flash_empc['openloop_sols']
-    udatum = [openloop_sols[0][0], openloop_sols[1][0], openloop_sols[2][0]]
-    xdatum = [openloop_sols[0][1], openloop_sols[1][1], openloop_sols[2][1]]
-    figures += plot_openloop_sols(t=t, udatum=udatum, xdatum=xdatum,
-                              legend_names=legend_names,
-                              legend_colors=legend_colors)
+    #legend_names = ['Plant', 'Grey-box', 'Hybrid']
+    #legend_colors = ['b', 'g', 'm']
+    #openloop_sols = cstr_flash_empc['openloop_sols']
+    #udatum = [openloop_sols[0][0], openloop_sols[1][0], openloop_sols[2][0]]
+    #xdatum = [openloop_sols[0][1], openloop_sols[1][1], openloop_sols[2][1]]
+    #figures += plot_openloop_sols(t=t, udatum=udatum, xdatum=xdatum,
+    #                          legend_names=legend_names,
+    #                          legend_colors=legend_colors)
     
     # Plot the closed-loop simulation.
-    legend_names = ['Plant', 'Grey-box', 'Hybrid']
-    legend_colors = ['b', 'g', 'm']
-    cl_data_list = cstr_flash_empc['cl_data_list']
+    #legend_names = ['Plant', 'Grey-box', 'Hybrid']
+    #legend_colors = ['b', 'g', 'm']
+    cl_data_list = cstr_flash_rto['cl_data_list']
     (t, udatum, ydatum, xdatum) = get_plotting_array_list(simdata_list=
                                        cl_data_list[:3],
                                        plot_range = (0, 24*60))
@@ -243,13 +245,13 @@ def main():
     
     # Plot the empc costs.
     figures += plot_cost_pars(t=t, 
-                              cost_pars=cstr_flash_empc['cost_pars'][:24*60, :])
+                              cost_pars=cstr_flash_rto['cost_pars'][:24*60, :])
 
     # Plot the plant profit in time.
     figures += plot_avg_profits(t=t,
-                            avg_stage_costs=cstr_flash_empc['avg_stage_costs'], 
-                            legend_colors=legend_colors,
-                            legend_names=legend_names)
+                        avg_stage_costs=cstr_flash_rto['avg_stage_costs'][:3], 
+                        legend_colors=legend_colors,
+                        legend_names=legend_names)
 
     # Save PDF.
     with PdfPages('cstr_flash_plots.pdf', 'w') as pdf_file:

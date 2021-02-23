@@ -1,4 +1,5 @@
 # [depends] %LIB%/hybridid.py %LIB%/HybridModelLayers.py
+# [depends] %LIB%/../tworeac_nonlin_funcs.py
 # [depends] tworeac_parameters_nonlin.pickle
 # [makes] pickle
 """ Script to train the hybrid model for the 
@@ -45,7 +46,7 @@ def train_model(model, train_data, trainval_data, val_data,
     # Call the fit method to train.
     model.fit(x=[train_data['inputs'], train_data['xGz0']], 
               y=train_data['outputs'], 
-              epochs=8000, batch_size=1,
+              epochs=2000, batch_size=1,
         validation_data = ([trainval_data['inputs'], trainval_data['xGz0']], 
                             trainval_data['outputs']),
             callbacks = [checkpoint_callback])
@@ -143,11 +144,11 @@ def main():
                                  trained_weights=trained_weights,
                                  val_predictions=val_predictions,
                                  val_metrics=val_metrics,
-                                 num_samples=num_samples, 
+                                 num_samples=num_samples,
                                  xuscales=xuscales)
     
     # Save data.
-    PickleTool.save(data_object=tworeac_training_data, 
+    PickleTool.save(data_object=tworeac_training_data,
                     filename='tworeac_train_nonlin.pickle')
 
 main()

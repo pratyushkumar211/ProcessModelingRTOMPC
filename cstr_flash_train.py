@@ -10,9 +10,9 @@ sys.path.append('lib/')
 import tensorflow as tf
 import time
 import numpy as np
-from hybridid import (PickleTool, get_cstr_flash_train_val_data, 
-                      SimData)
+from hybridid import (PickleTool, SimData)
 from HybridModelLayers import CstrFlashModel
+from cstr_flash_funcs import get_train_val_data
 
 # Set the tensorflow global and graph-level seed.
 tf.random.set_seed(2)
@@ -87,7 +87,7 @@ def train_model(model, x0key, xuyscales, train_data, trainval_data, val_data,
     # Call the fit method to train.
     model.fit(x = [train_data['inputs'], train_data[x0key]],
               y = train_outputs,
-              epochs=6000, batch_size=12,
+              epochs=2000, batch_size=2,
         validation_data = ([trainval_data['inputs'], trainval_data[x0key]], 
                            trainval_outputs),
         callbacks = [checkpoint_callback])
@@ -126,7 +126,7 @@ def main():
 
     # Create lists.
     Nps = [5]
-    fnn_dims = [[102, 32, 32, 8]]
+    fnn_dims = [[102, 32, 8]]
     model_types = ['hybrid']
     trained_weights = []
     val_metrics = []
@@ -145,7 +145,7 @@ def main():
         # Get the training data.
         (train_data,
          trainval_data,
-         val_data, xuyscales) = get_cstr_flash_train_val_data(Np=Np,
+         val_data, xuyscales) = get_train_val_data(Np=Np,
                                 parameters=greybox_pars,
                                 greybox_processed_data=greybox_processed_data)
 

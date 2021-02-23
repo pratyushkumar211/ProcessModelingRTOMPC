@@ -459,12 +459,109 @@ class CstrFlashModel(tf.keras.Model):
         # Dense layers for the NN.
         fnn_layers = []
         for dim in fnn_dims[1:-1]:
-            fnn_layers.append(tf.keras.layers.Dense(dim, activation='sigmoid',
-                              kernel_regularizer=tf.keras.regularizers.l2(1e-3),
-                              bias_regularizer=tf.keras.regularizers.l2(1e-3)))
+            fnn_layers.append(tf.keras.layers.Dense(dim, activation='tanh'))
         fnn_layers.append(tf.keras.layers.Dense(fnn_dims[-1], 
-                          kernel_initializer='zeros',
-                          kernel_regularizer=tf.keras.regularizers.l2(1e-3)))
+                          kernel_initializer='zeros'))
+
+        # Build model depending on option.
+        if model_type == 'black-box':
+            cstr_flash_cell = BlackBoxCell(Np, Ny, Nu, fnn_layers)
+        if model_type == 'hybrid':
+            interp_layer = InterpolationLayer(p=Ny, Np=Np)
+            cstr_flash_cell = CstrFlashHybridCell(Np, interp_layer, fnn_layers,
+                                            xuyscales, cstr_flash_parameters)
+        #if model_type == 'grey-black':
+        #    cstr_flash_cell = CstrFlashGreyBlackCell(Np, fnn_layers,
+        #                                             cstr_flash_parameters)
+
+        # Construct the RNN layer and the computation graph.
+        cstr_flash_layer = tf.keras.layers.RNN(cstr_flash_cell,
+                                               return_sequences=True)
+        layer_output = cstr_flash_layer(inputs=layer_input,
+                                        initial_state=[initial_state])
+        if model_type == 'black-box':
+            outputs = [layer_output]
+        else:
+            y, xG = tf.split(layer_output, [Ny, Ng], axis=-1)
+            outputs = [y, xG]
+        # Construct model.
+        super().__init__(inputs=[layer_input, initial_state],
+                         outputs=outputs)
+
+class KoopmanCell(tf.keras.layers.AbstractRNNCell):
+    """
+    RNN Cell.
+    z = [y_{k-N_p:k-1}', u_{k-N_p:k-1}'];
+    x_{kp} = NN(y, z)
+    x_{kp}^+  = A_x_{kp} + Bu
+    [y';z']^+ = Hx_{kp}^+
+    y = [I, 0][y';z']
+    """
+    def __init__(self, Np, Ny, Nu, fnn_layers, A, B, H, **kwargs):
+        super(KoopmanCell, self).__init__(**kwargs)
+        self.Np = Np
+        (self.Ny, self.Nu) = (Ny, Nu)
+        self.fnn_layers = fnn_layers
+        self.A, self.B, self.H = A, B, H
+
+    @property
+    def state_size(self):
+        return self.Ny + self.Np*(self.Ny + self.Nu)
+    
+    @property
+    def output_size(self):
+        return self.Ny
+
+    def _fnn(self, y, ypseq, upseq, u):
+        """ Compute the output of the feedforward network. """
+        fnn_output = tf.concat((y, ypseq, upseq, u), axis=-1)
+        for layer in self.fnn_layers:
+            fnn_output = layer(fnn_output)
+        return fnn_output
+
+    def call(self, inputs, states):
+        """ Call function of the hybrid RNN cell.
+            Dimension of states: (None, Ny + Np*(Ny + Nu))
+            Dimension of input: (None, Nu)
+        """
+        # Extract important variables.
+        [yz] = states
+        [y, z] = tf.split(yz, [self.Ny, self.Np*(self.Ny + self.Nu)],
+                          axis=-1)
+        (ypseq, upseq) = tf.split(z, [self.Np*self.Ny, self.Np*self.Nu],
+                           axis=-1)
+        u = inputs
+        
+        # Get the current output/state and the next time step.
+        xkp = self._fnn(y, ypseq, upseq)
+        xkplus = self.A @ xkp + self.B @ u
+        zplus = self.H @ xkplus
+
+        zplus = tf.concat((ypseq[..., self.Ny:], y, upseq[..., self.Nu:], u),
+                           axis=-1)
+        xplus = tf.concat((yplus, zplus), axis=-1)
+
+        # Return output and states at the next time-step.
+        return (y, xplus)
+
+class KoopmanModel(tf.keras.Model):
+    """ Custom model for the Deep Koopman operator model. """
+    def __init__(self, Np, Ny, Nu, Nxkp, fnn_dims):
+
+        layer_input = tf.keras.Input(name='u', shape=(None, Nu))
+        if model_type == 'black-box':
+            initial_state = tf.keras.Input(name='yz0',
+                                           shape=(Ny + Np*(Ny+Nu), ))
+        else:
+            initial_state = tf.keras.Input(name='xGz0',
+                                           shape=(Ng + Np*(Ny+Nu), ))
+        
+        # Dense layers for the NN.
+        fnn_layers = []
+        for dim in fnn_dims[1:-1]:
+            fnn_layers.append(tf.keras.layers.Dense(dim, activation='tanh'))
+        fnn_layers.append(tf.keras.layers.Dense(fnn_dims[-1], 
+                          kernel_initializer='zeros'))
 
         # Build model depending on option.
         if model_type == 'black-box':

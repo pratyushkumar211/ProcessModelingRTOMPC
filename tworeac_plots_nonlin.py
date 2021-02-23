@@ -147,25 +147,22 @@ def main():
                                          "tworeac_parameters_nonlin.pickle",
                                          type='read')
     (parameters, training_data,
-     greybox_val_data) = (tworeac_parameters['parameters'], 
+     greybox_val_data) = (tworeac_parameters['parameters'],
                           tworeac_parameters['training_data'],
                           tworeac_parameters['greybox_val_data'])
     
     # Load data after training.
     tworeac_train = PickleTool.load(filename=
-                                    "tworeac_train_nonlin.pickle", 
+                                    "tworeac_train_nonlin.pickle",
                                     type='read')
     val_predictions = tworeac_train['val_predictions']
 
     # Load data after economic MPC/RTO simulation.
-    tworeac_empc = PickleTool.load(filename=
-                                    "tworeac_empc_nonlin.pickle", 
-                                    type='read')
-    tworeac_rto = PickleTool.load(filename=
-                                    "tworeac_rto_nonlin.pickle", 
-                                    type='read')
-    cl_data_list = tworeac_empc['cl_data_list']
-    cost_pars = tworeac_empc['cost_pars']
+    #tworeac_empc = PickleTool.load(filename=
+    #                                "tworeac_empc_nonlin.pickle", 
+    #                                type='read')
+    #cl_data_list = tworeac_empc['cl_data_list']
+    #cost_pars = tworeac_empc['cost_pars']
 
     # Create a figures list.
     figures = []
@@ -173,7 +170,7 @@ def main():
     # Plot validation data.
     legend_names = ['Plant', 'Grey-box', 'Hybrid']
     legend_colors = ['b', 'g', 'm']
-    valdata_list = [training_data[-1], greybox_val_data] 
+    valdata_list = [training_data[-1], greybox_val_data]
     valdata_list += val_predictions
     t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
                                                      valdata_list[:2],
@@ -210,34 +207,34 @@ def main():
     # Plot closed-loop simulation data.
     #legend_names = ['Plant', 'Grey-box', 'Hybrid']
     #legend_colors = ['b', 'g', 'm']
-    t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
-                                                     cl_data_list,
-                                                     plot_range=(0, 8*60))
-    figures += plot_xudata(t=t, xlist=xlist, ulist=ulist,
-                           legend_names=legend_names,
-                           legend_colors=legend_colors)
+    #t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
+    #                                                 cl_data_list,
+    #                                                 plot_range=(0, 8*60))
+    #figures += plot_xudata(t=t, xlist=xlist, ulist=ulist,
+    #                       legend_names=legend_names,
+    #                       legend_colors=legend_colors)
 
     # Plot empc pars.
-    figures += plot_cost_pars(t=t, cost_pars=tworeac_empc['cost_pars'])
+    #figures += plot_cost_pars(t=t, cost_pars=tworeac_empc['cost_pars'])
 
     # Plot profit curve.
-    figures += plot_avg_profits(t=t,
-                            avg_stage_costs=tworeac_empc['avg_stage_costs'], 
-                            legend_colors=legend_colors,
-                            legend_names=legend_names)
+    #figures += plot_avg_profits(t=t,
+    #                        avg_stage_costs=tworeac_empc['avg_stage_costs'], 
+    #                        legend_colors=legend_colors,
+    #                        legend_names=legend_names)
 
     # PLot the RTO simulation data.
-    cl_data_list = tworeac_rto['cl_data_list']
-    t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
-                                                     cl_data_list,
-                                                     plot_range=(0, 8*60))
-    figures += plot_xudata(t=t, xlist=xlist, ulist=ulist,
-                           legend_names=legend_names,
-                           legend_colors=legend_colors)
-    figures += plot_avg_profits(t=t,
-                            avg_stage_costs=tworeac_rto['avg_stage_costs'], 
-                            legend_colors=legend_colors,
-                            legend_names=legend_names)                     
+    #cl_data_list = tworeac_rto['cl_data_list']
+    #t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
+    #                                                 cl_data_list,
+    #                                                 plot_range=(0, 8*60))
+    #figures += plot_xudata(t=t, xlist=xlist, ulist=ulist,
+    #                       legend_names=legend_names,
+    #                       legend_colors=legend_colors)
+    #figures += plot_avg_profits(t=t,
+    #                        avg_stage_costs=tworeac_rto['avg_stage_costs'], 
+    #                        legend_colors=legend_colors,
+    #                        legend_names=legend_names)                     
 
     # Plot predictions on validation data.
     #val_predictions.pop(0)

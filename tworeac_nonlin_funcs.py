@@ -18,7 +18,7 @@ def plant_ode(x, u, p, parameters):
     k1 = parameters['k1']
     k2 = parameters['k2']
     k3 = parameters['k3']
-
+    
     # Extract the plant states into meaningful names.
     (Ca, Cb, Cc) = x[0:3]
     Ca0 = u[0:1]
