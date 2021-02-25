@@ -151,11 +151,18 @@ def main():
                           tworeac_parameters['training_data'],
                           tworeac_parameters['greybox_val_data'])
     
-    # Load data after training.
+    # Load data after NN training.
     tworeac_train = PickleTool.load(filename=
                                     "tworeac_train_nonlin.pickle",
                                     type='read')
-    val_predictions = tworeac_train['val_predictions']
+    nnval_predictions = tworeac_train['val_predictions']
+
+    # Load data after Koopman training.
+    tworeac_kooptrain = PickleTool.load(filename=
+                                    "tworeac_kooptrain_nonlin.pickle",
+                                    type='read')
+    koopval_predictions = tworeac_kooptrain['val_predictions']
+
 
     # Load data after economic MPC/RTO simulation.
     #tworeac_empc = PickleTool.load(filename=
@@ -168,10 +175,11 @@ def main():
     figures = []
 
     # Plot validation data.
-    legend_names = ['Plant', 'Grey-box', 'Hybrid']
-    legend_colors = ['b', 'g', 'm']
+    legend_names = ['Plant', 'Grey-box', 'Black-box', 'Koopman']
+    legend_colors = ['b', 'g', 'dimgrey', 'm']
     valdata_list = [training_data[-1], greybox_val_data]
-    valdata_list += val_predictions
+    valdata_list += nnval_predictions
+    valdata_list += koopval_predictions
     t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
                                                      valdata_list[:2],
                                                      plot_range=(10, 12*60+10))
