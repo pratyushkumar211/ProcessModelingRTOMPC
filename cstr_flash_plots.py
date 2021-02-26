@@ -15,11 +15,9 @@ from hybridid import (PickleTool, PAPER_FIGSIZE, get_plotting_array_list,
                       plot_avg_profits, plot_val_metrics)
 
 ylabels = [r'$H_r \ (\textnormal{m})$',
-           r'$C_{Ar} \ (\textnormal{mol/m}^3)$', 
            r'$C_{Br} \ (\textnormal{mol/m}^3)$', 
            r'$T_r \ (K)$',
            r'$H_b \ (\textnormal{m})$',
-           r'$C_{Ab} \ (\textnormal{mol/m}^3)$',
            r'$C_{Bb} \ (\textnormal{mol/m}^3)$',
            r'$T_b \ (K)$']
 
@@ -183,18 +181,24 @@ def main():
     cstr_flash_parameters = PickleTool.load(filename=
                                             "cstr_flash_parameters.pickle",
                                             type='read')
-    cstr_flash_train = PickleTool.load(filename="cstr_flash_train.pickle",
-                                       type='read')
-    cstr_flash_empc = PickleTool.load(filename="cstr_flash_empc.pickle",
-                                       type='read')
-    cstr_flash_rto = PickleTool.load(filename="cstr_flash_rto.pickle",
-                                       type='read')
+    cstr_flash_blackbox_train = PickleTool.load(filename=
+                                            "cstr_flash_blackbox_train.pickle",
+                                            type='read')
+    cstr_flash_kooptrain = PickleTool.load(filename=
+                                            "cstr_flash_kooptrain.pickle",
+                                            type='read')
+    #cstr_flash_empc = PickleTool.load(filename="cstr_flash_empc.pickle",
+    #                                   type='read')
+    #cstr_flash_rto = PickleTool.load(filename="cstr_flash_rto.pickle",
+    #                                   type='read')
 
     # Collect data to plot open-loop predictions.
-    val_predictions = cstr_flash_train['val_predictions']
+    blackbox_val_predictions = cstr_flash_blackbox_train['val_predictions']
+    koopman_val_predictions = cstr_flash_kooptrain['val_predictions']
     valdata_list = [cstr_flash_parameters['training_data'][-1], 
                     cstr_flash_parameters['greybox_val_data']]
-    valdata_list += val_predictions
+    valdata_list += blackbox_val_predictions
+    valdata_list += koopman_val_predictions
     (t, ulist, ylist, xlist) = get_plotting_array_list(simdata_list=
                                                     valdata_list[:2], 
                                                 plot_range = (120, 14*60+120))
@@ -205,8 +209,8 @@ def main():
     ulist += ulist_train
     ylist += ylist_train
     xlist += xlist_train
-    legend_names = ['Plant', 'Grey-Box','Hybrid']
-    legend_colors = ['b', 'g', 'm']
+    legend_names = ['Plant', 'Grey-Box','Black-box', 'Koopman']
+    legend_colors = ['b', 'g', 'dimgrey', 'm']
     figures = []
     figures += plot_data(t=t, udatum=ulist, ydatum=ylist,
                               xdatum=xlist, data_type='open_loop',
@@ -234,24 +238,24 @@ def main():
     # Plot the closed-loop simulation.
     #legend_names = ['Plant', 'Grey-box', 'Hybrid']
     #legend_colors = ['b', 'g', 'm']
-    cl_data_list = cstr_flash_rto['cl_data_list']
-    (t, udatum, ydatum, xdatum) = get_plotting_array_list(simdata_list=
-                                       cl_data_list[:3],
-                                       plot_range = (0, 24*60))
-    figures += plot_data(t=t, udatum=udatum, ydatum=ydatum,
-                              xdatum=xdatum, data_type='closed_loop',
-                              legend_names=legend_names,
-                              legend_colors=legend_colors)
+    #cl_data_list = cstr_flash_rto['cl_data_list']
+    #(t, udatum, ydatum, xdatum) = get_plotting_array_list(simdata_list=
+    #                                   cl_data_list[:3],
+    #                                   plot_range = (0, 24*60))
+    #figures += plot_data(t=t, udatum=udatum, ydatum=ydatum,
+    #                          xdatum=xdatum, data_type='closed_loop',
+    #                          legend_names=legend_names,
+    #                          legend_colors=legend_colors)
     
     # Plot the empc costs.
-    figures += plot_cost_pars(t=t, 
-                              cost_pars=cstr_flash_rto['cost_pars'][:24*60, :])
+    #figures += plot_cost_pars(t=t, 
+    #                          cost_pars=cstr_flash_rto['cost_pars'][:24*60, :])
 
     # Plot the plant profit in time.
-    figures += plot_avg_profits(t=t,
-                        avg_stage_costs=cstr_flash_rto['avg_stage_costs'][:3], 
-                        legend_colors=legend_colors,
-                        legend_names=legend_names)
+    #figures += plot_avg_profits(t=t,
+    #                    avg_stage_costs=cstr_flash_rto['avg_stage_costs'][:3], 
+    #                    legend_colors=legend_colors,
+    #                    legend_names=legend_names)
 
     # Save PDF.
     with PdfPages('cstr_flash_plots.pdf', 'w') as pdf_file:

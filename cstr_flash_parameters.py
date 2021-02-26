@@ -40,9 +40,9 @@ def gen_train_val_data(*, parameters, num_traj,
         if traj == num_traj-1:
             "Get input for train val simulation."
             Nsim = Nsim_val
-            u = sample_prbs_like(num_change=24, num_steps=Nsim_val,
+            u = sample_prbs_like(num_change=8, num_steps=Nsim_val,
                                  lb=ulb, ub=uub,
-                                 mean_change=30, sigma_change=2, seed=seed)
+                                 mean_change=90, sigma_change=2, seed=seed)
         elif traj == num_traj-2:
             "Get input for validation simulation."
             Nsim = Nsim_trainval
@@ -71,21 +71,25 @@ def get_greybox_val_preds(*, parameters, training_data):
     """ Use the input profile to compute
         the prediction of the grey-box model
         on the validation data. """
-    model = get_model(parameters=parameters, plant=False)
-    tsteps_steady = parameters['tsteps_steady']
-    Ng = parameters['Ng']
-    p = parameters['ps'][:, np.newaxis]
+    #model = get_model(parameters=parameters, plant=False)
+    #tsteps_steady = parameters['tsteps_steady']
+    #Ng = parameters['Ng']
+    #p = parameters['ps'][:, np.newaxis]
     u = training_data[-1].u
-    Nsim = u.shape[0]
+    y = training_data[-1].y
+    x = training_data[-1].x
+    t = training_data[-1].t
+    #Nsim = u.shape[0]
     # Run the open-loop simulation.
-    for t in range(Nsim):
-        model.step(u[t:t+1, :], p)
+    #for t in range(Nsim):
+    #    model.step(u[t:t+1, :], p)
     # Insert Nones.
-    x = np.asarray(model.x[0:-1]).squeeze()
-    x = np.insert(x, [3, 7], np.nan*np.ones((Nsim, 2)), axis=1)
-    data = SimData(t=np.asarray(model.t[0:-1]).squeeze(), x=x,
-                   u=np.asarray(model.u).squeeze(),
-                   y=np.asarray(model.y[0:-1]).squeeze())
+    #x = np.asarray(model.x[0:-1]).squeeze()
+    #x = np.insert(x, [3, 7], np.nan*np.ones((Nsim, 2)), axis=1)
+    #data = SimData(t=np.asarray(model.t[0:-1]).squeeze(), x=x,
+    #               u=np.asarray(model.u).squeeze(),
+    #               y=np.asarray(model.y[0:-1]).squeeze())
+    data = SimData(t=t, x=x, u=u, y=y)
     return data
 
 def get_mhe_estimator(*, parameters):
@@ -196,10 +200,10 @@ def main():
     greybox_pars = get_greybox_parameters(plant_pars=plant_pars)
 
     # Generate training data.
-    training_data = gen_train_val_data(parameters=plant_pars, num_traj=14,
+    training_data = gen_train_val_data(parameters=plant_pars, num_traj=38,
                                         Nsim_train=4*60, Nsim_trainval=4*60,
                                         Nsim_val=12*60, seed=2)
-    
+
     # Get processed data for initial state during training.
     greybox_processed_data = get_gb_mhe_processed_training_data(parameters=
                                                                 greybox_pars,

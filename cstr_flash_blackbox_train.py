@@ -11,27 +11,31 @@ import tensorflow as tf
 import time
 import numpy as np
 from hybridid import (PickleTool, SimData)
-from HybridModelLayers import KoopmanModel
+from HybridModelLayers import CstrFlashModel
 from cstr_flash_funcs import get_train_val_data
 
 # Set the tensorflow global and graph-level seed.
 tf.random.set_seed(2)
 
-def create_model(*, Np, fnn_dims, cstr_flash_parameters):
+def create_model(*, Np, fnn_dims, xuyscales, cstr_flash_parameters):
     """ Create/compile the two reaction model for training. """
 
-    Ny, Nu = cstr_flash_parameters['Ny'], cstr_flash_parameters['Nu']
-    model = KoopmanModel(Np=Np, Ny=Ny, Nu=Nu, fnn_dims=fnn_dims)
-    model.compile(optimizer='adam', loss='mean_squared_error',
-                  loss_weights = [1., 0.])
+    model = CstrFlashModel(Np=Np, fnn_dims=fnn_dims, xuyscales=xuyscales,
+                           cstr_flash_parameters=cstr_flash_parameters,
+                           model_type='black-box')
+    
+    # Compile the nn controller.
+    model.compile(optimizer='adam', loss='mean_squared_error')
     
     # Return the compiled model.
     return model
 
 def train_model(model, train_data, trainval_data, stdout_filename, ckpt_path):
     """ Function to train the NN controller. """
+    
     # Std out.
     sys.stdout = open(stdout_filename, 'w')
+    
     # Create the checkpoint callback.
     checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(filepath=ckpt_path,
                                                     monitor='val_loss',
@@ -40,10 +44,10 @@ def train_model(model, train_data, trainval_data, stdout_filename, ckpt_path):
                                                     verbose=1)
     # Call the fit method to train.
     model.fit(x = [train_data['inputs'], train_data['yz0']],
-              y = [train_data['yz'], train_data['outputs']],
-              epochs=10000, batch_size=36,
+              y = train_data['outputs'],
+              epochs=3000, batch_size=36,
         validation_data = ([trainval_data['inputs'], trainval_data['yz0']], 
-                           [trainval_data['yz'], trainval_data['outputs']]),
+                           trainval_data['outputs']),
         callbacks = [checkpoint_callback])
 
 def get_val_predictions(model, val_data, xuyscales, ckpt_path):
@@ -60,13 +64,13 @@ def get_val_predictions(model, val_data, xuyscales, ckpt_path):
     umean, ustd = xuyscales['uscale']
     u = val_data['inputs'][0, ...]*ustd + umean
     t = np.arange(0, val_data['inputs'].shape[1], 1)
-    ypredictions = model_predictions[1].squeeze()*ystd + ymean
+    ypredictions = model_predictions[0].squeeze()*ystd + ymean
     xpredictions = np.nan*np.ones((ypredictions.shape[0], 10))
     val_predictions = SimData(t=t, x=xpredictions, u=u, y=ypredictions)
 
     # Get the validation metric.
     val_metric = model.evaluate(x = [val_data['inputs'], val_data['yz0']],
-                                y = [val_data['yz'], val_data['outputs']])
+                                y = val_data['outputs'])
 
     # Return predictions and metric.
     return (val_predictions, val_metric)
@@ -90,14 +94,14 @@ def main():
 
     # Create lists.
     Np = 3
-    fnn_dims = [102, 256, 32]
+    fnn_dims = [102, 64, 6]
     trained_weights = []
     val_metrics = []
     val_predictions = []
     
     # Filenames.
-    ckpt_path = 'cstr_flash_kooptrain.ckpt'
-    stdout_filename = 'cstr_flash_kooptrain.txt'
+    ckpt_path = 'cstr_flash_blackbox_train.ckpt'
+    stdout_filename = 'cstr_flash_blackbox_train.txt'
     
     # Get the training data.
     (train_data,
@@ -111,11 +115,11 @@ def main():
             
         # Create model.
         cstr_flash_model = create_model(Np=Np, fnn_dims=fnn_dims,
+                                        xuyscales=xuyscales,
                                         cstr_flash_parameters=greybox_pars)
 
         train_samples=dict(inputs=train_data['inputs'][:num_batch, ...],
                            outputs=train_data['outputs'][:num_batch, ...], 
-                           yz=train_data['yz'][:num_batch, ...],
                            yz0=train_data['yz0'][:num_batch, ...])
         
         # Train.
@@ -149,6 +153,6 @@ def main():
     
     # Save data.
     PickleTool.save(data_object=cstr_flash_training_data,
-                    filename='cstr_flash_kooptrain.pickle')
+                    filename='cstr_flash_blackbox_train.pickle')
     
 main()

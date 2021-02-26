@@ -163,7 +163,7 @@ def get_plant_parameters():
     parameters['Td'] = 300 # K
 
     # Store the dimensions.
-    Nx, Nu, Np, Ny = 10, 4, 2, 8
+    Nx, Nu, Np, Ny = 10, 4, 2, 6
     parameters['Nx'] = Nx
     parameters['Nu'] = Nu
     parameters['Ny'] = Ny
@@ -183,10 +183,10 @@ def get_plant_parameters():
     parameters['uub'] = np.array([15., 400., 8., 400.])
 
     # The C matrix for the plant.
-    parameters['yindices'] = [0, 1, 2, 4, 5, 6, 7, 9]
+    parameters['yindices'] = [0, 2, 4, 5, 7, 9]
     parameters['tsteps_steady'] = 120
-    parameters['Rv'] = 0*np.diag([0.8, 1e-3, 1e-3, 1., 
-                                  0.8, 1e-3, 1e-3, 1.])
+    parameters['Rv'] = 0*np.diag([0.8, 1e-3, 1., 
+                                  0.8, 1e-3, 1.])
     
     # Return the parameters dict.
     return parameters
@@ -289,13 +289,12 @@ def get_model(*, parameters, plant=True):
                                         sample_time = parameters['Delta'], 
                                         x0 = xs)
 
-def get_train_val_data(*, Np, parameters,
-                                     greybox_processed_data):
+def get_train_val_data(*, Np, parameters, greybox_processed_data):
     """ Get the data for training in appropriate format. """
     tsteps_steady = parameters['tsteps_steady']
     (Ng, Ny, Nu) = (parameters['Ng'], parameters['Ny'], parameters['Nu'])
     xuyscales = get_scaling(data=greybox_processed_data[0])
-    inputs, xGz0, yz0, outputs, xG = [], [], [], [], []
+    inputs, xGz0, yz0, yz, outputs, xG = [], [], [], [], [], []
     for data in greybox_processed_data:
         
         # Scale data.
@@ -303,7 +302,10 @@ def get_train_val_data(*, Np, parameters,
         y = (data.y-xuyscales['yscale'][0])/xuyscales['yscale'][1]
         x = (data.x-xuyscales['xscale'][0])/xuyscales['xscale'][1]
 
+        # Get some shapes.
+        Nt = u.shape[0]
         t = tsteps_steady
+
         # Get input trajectory.
         u_traj = u[t:, :][np.newaxis, ...]
 
@@ -322,10 +324,20 @@ def get_train_val_data(*, Np, parameters,
         # Get output trajectory.
         y_traj = y[t:, :][np.newaxis, ...]
 
+        # Get yz_traj.
+        z_traj = []
+        for t in range(tsteps_steady, Nt):
+            ypseq = y[t-Np:t, :].reshape(Np*Ny, )[np.newaxis, :]
+            upseq = u[t-Np:t, :].reshape(Np*Nu, )[np.newaxis, :]
+            z_traj.append(np.concatenate((ypseq, upseq), axis=-1))
+        z_traj = np.concatenate(z_traj, axis=0)[np.newaxis, ...]
+        yz_traj = np.concatenate((y_traj, z_traj), axis=-1)
+
         # Collect the trajectories in list.
         inputs.append(u_traj)
         xGz0.append(xGz0_traj)
         yz0.append(yz0_traj)
+        yz.append(yz_traj)
         outputs.append(y_traj)
         xG.append(xG_traj)
 
@@ -333,12 +345,13 @@ def get_train_val_data(*, Np, parameters,
     train_data = dict(inputs=np.concatenate(inputs[:-2], axis=0),
                       xGz0=np.concatenate(xGz0[:-2], axis=0),
                       yz0=np.concatenate(yz0[:-2], axis=0),
+                      yz=np.concatenate(yz[:-2], axis=0),
                       outputs=np.concatenate(outputs[:-2], axis=0), 
                       xG=np.concatenate(xG[:-2], axis=0))
-    trainval_data = dict(inputs=inputs[-2], xGz0=xGz0[-2],
-                         yz0=yz0[-2], outputs=outputs[-2], xG=xG[-2])
-    val_data = dict(inputs=inputs[-1], xGz0=xGz0[-1],
-                    yz0=yz0[-1], outputs=outputs[-1], xG=xG[-1])
+    trainval_data = dict(inputs=inputs[-2], xGz0=xGz0[-2], yz0=yz0[-2], 
+                         yz=yz[-2], outputs=outputs[-2], xG=xG[-2])
+    val_data = dict(inputs=inputs[-1], xGz0=xGz0[-1], yz0=yz0[-1], 
+                    yz=yz[-1], outputs=outputs[-1], xG=xG[-1])
     # Return.
     return (train_data, trainval_data, val_data, xuyscales)
 
