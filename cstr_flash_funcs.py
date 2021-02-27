@@ -536,6 +536,85 @@ def get_hybrid_pars_check_func(*, greybox_pars, train,
     # Just return the hybrid parameters.
     return hybrid_pars
 
+def fnn_koopman(yz, fnn_weights):
+    """ Compute the NN output. """
+    nn_output = yz[:, np.newaxis]
+    for i in range(0, len(fnn_weights)-2, 2):
+        (W, b) = fnn_weights[i:i+2]
+        nn_output = W.T @ nn_output + b[:, np.newaxis]
+        nn_output = np.tanh(nn_output)
+    (Wf, bf) = fnn_weights[-2:]
+    nn_output = (Wf.T @ nn_output + bf[:, np.newaxis])[:, 0]
+    # Return.
+    return nn_output
+
+def koopman_func(yz, u, parameters):
+    """ The Koopman Operator model function. """
+
+    # Fnn weights.
+    fnn_weights = parameters['fnn_weights']
+    A = parameters['A']
+    B = parameters['B']
+    H = parameters['H']
+
+    # The Deep Koopman model.
+    xkp = fnn_koopman(yz, fnn_weights)
+    xkpplus = A @ xkp + B @ u
+    yzplus = H @ xkpplus
+    # Return the sum.
+    return yzplus
+
+def get_koopman_pars_check_func(*, train, greybox_processed_data):
+    """ Get the Koopman operator model parameters. """
+
+    # Koopman parameters.
+    trained_weights = train['trained_weights']
+    fnn_weights = trained_weights[:-3]
+    A = trained_weights[-3]
+    B = trained_weights[-2]
+    H = trained_weights[-1]
+    koopman_pars  = dict(Np=train['Np'],
+                         fnn_weights=train['trained_weights'][-1],
+                         A=A, B=B, H=H)
+
+    # Check the hybrid function.
+    uval = greybox_processed_data[-1].u
+    ytfval = train['val_predictions'][0].y
+    greybox_processed_data = greybox_processed_data[-1]
+    koopman_fxu = lambda x, u: koopman_func(x, u, koopman_pars)
+    ts = hybrid_pars['tsteps_steady']
+    Np = hybrid_pars['Npast']
+    Ny = hybrid_pars['Ny']
+    Nu = hybrid_pars['Nu']
+    Ng = hybrid_pars['Ng']
+    y = greybox_processed_data.y
+    u = greybox_processed_data.u
+    x = greybox_processed_data.x
+    yp0seq = y[t-Np:t, :].reshape(Np*Ny, )[:, np.newaxis]
+    up0seq = u[t-Np:t:, ].reshape(Np*Nu, )[:, np.newaxis]
+    z0 = np.concatenate((yp0seq, up0seq))
+    xG0 = x[t, :][:, np.newaxis]
+    xGz0 = np.concatenate((xG0, z0))
+    yval, xGval = quick_sim(koopman_func, x0, uval)
+
+    # Just return the hybrid parameters.
+    return hybrid_pars
+
+def quick_sim(*, fxu, hx, x0, u):
+    """ Do a quick open-loop simulation. """
+    Nsim = u.shape[0]
+    y, x = [], []
+    x.append(x0)
+    xt = x0
+    for t in range(Nsim):
+        y.append(hx(xt))
+        xt = fxu(xt, u[t, :])
+        x.append(xt)
+    y = np.asarray(y)
+    x = np.asarray(x[:-1])
+    # Return.
+    return x, y
+
 def get_energy_price(*, num_days, sample_time):
     """ Get a two day heat disturbance profile. """
     energy_price = np.zeros((24, 1))
