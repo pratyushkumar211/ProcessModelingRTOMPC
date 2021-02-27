@@ -354,7 +354,7 @@ class BlackBoxCell(tf.keras.layers.AbstractRNNCell):
         for layer in self.fnn_layers:
             fnn_output = layer(fnn_output)
         return fnn_output
-
+    
     def call(self, inputs, states):
         """ Call function of the hybrid RNN cell.
             Dimension of states: (None, Ny + Np*(Ny + Nu))
@@ -367,11 +367,15 @@ class BlackBoxCell(tf.keras.layers.AbstractRNNCell):
         (ypseq, upseq) = tf.split(z, [self.Np*self.Ny, self.Np*self.Nu],
                            axis=-1)
         u = inputs
-        
+
         # Get the current output/state and the next time step.
         yplus = self._fnn(y, ypseq, upseq, u)
-        zplus = tf.concat((ypseq[..., self.Ny:], y, upseq[..., self.Nu:], u),
-                           axis=-1)
+        if self.Np > 0:
+            zplus = tf.concat((ypseq[..., self.Ny:], y, 
+                               upseq[..., self.Nu:], u),
+                               axis=-1)
+        else:
+            zplus = z
         xplus = tf.concat((yplus, zplus), axis=-1)
 
         # Return output and states at the next time-step.
@@ -402,34 +406,33 @@ class InterpolationLayer(tf.keras.layers.Layer):
 
 class TwoReacModel(tf.keras.Model):
     """ Custom model for the Two reaction model. """
-    def __init__(self, Np, fnn_dims, xuscales, tworeac_parameters, model_type):
+    def __init__(self, Np, fnn_dims, xuyscales, tworeac_parameters, model_type):
         """ Create the dense layers for the NN, and 
             construct the overall model. """
 
         # Get the size and input layer, and initial state layer.
-        Ng, Nu = tworeac_parameters['Ng'], tworeac_parameters['Nu']
+        Ng, Ny, Nu = (tworeac_parameters['Ng'], 
+                      tworeac_parameters['Ny'],
+                      tworeac_parameters['Nu'])
         layer_input = tf.keras.Input(name='u', shape=(None, Nu))
-        initial_state = tf.keras.Input(name='xGz0',
-                                       shape=(Ng + Np*(Ng+Nu), ))
 
         # Dense layers for the NN.
         fnn_layers = []
         for dim in fnn_dims[1:-1]:
-            fnn_layers.append(tf.keras.layers.Dense(dim, activation='sigmoid',
-                              kernel_regularizer=tf.keras.regularizers.l2(1e-3),
-                              bias_regularizer=tf.keras.regularizers.l2(1e-3)))
-        fnn_layers.append(tf.keras.layers.Dense(fnn_dims[-1],
-                                                kernel_initializer='zeros',
-                            kernel_regularizer=tf.keras.regularizers.l2(1e-3),
-                            use_bias=False))
+            fnn_layers.append(tf.keras.layers.Dense(dim, activation='tanh'))
+        fnn_layers.append(tf.keras.layers.Dense(fnn_dims[-1]))
 
         # Build model depending on option.
         if model_type == 'black-box':
-            tworeac_cell = BlackBoxCell(Np, Ng, Nu, fnn_layers)
+            initial_state = tf.keras.Input(name='yz0',
+                                       shape=(Ny + Np*(Ny+Nu), ))
+            tworeac_cell = BlackBoxCell(Np, Ny, Nu, fnn_layers)
         if model_type == 'hybrid':
+            initial_state = tf.keras.Input(name='xGz0',
+                                       shape=(Ng + Np*(Ny+Nu), ))
             interp_layer = InterpolationLayer(p=Ng, Np=Np)
             tworeac_cell = TwoReacHybridCell(Np, interp_layer, fnn_layers,
-                                             xuscales, tworeac_parameters)
+                                             xuyscales, tworeac_parameters)
 
         # Construct the RNN layer and the computation graph.
         tworeac_layer = tf.keras.layers.RNN(tworeac_cell, return_sequences=True)
@@ -460,19 +463,16 @@ class CstrFlashModel(tf.keras.Model):
         fnn_layers = []
         for dim in fnn_dims[1:-1]:
             fnn_layers.append(tf.keras.layers.Dense(dim, activation='tanh'))
-        fnn_layers.append(tf.keras.layers.Dense(fnn_dims[-1], 
-                          kernel_initializer='zeros'))
+        fnn_layers.append(tf.keras.layers.Dense(fnn_dims[-1]))
 
         # Build model depending on option.
         if model_type == 'black-box':
             cstr_flash_cell = BlackBoxCell(Np, Ny, Nu, fnn_layers)
+
         if model_type == 'hybrid':
             interp_layer = InterpolationLayer(p=Ny, Np=Np)
             cstr_flash_cell = CstrFlashHybridCell(Np, interp_layer, fnn_layers,
                                             xuyscales, cstr_flash_parameters)
-        #if model_type == 'grey-black':
-        #    cstr_flash_cell = CstrFlashGreyBlackCell(Np, fnn_layers,
-        #                                             cstr_flash_parameters)
 
         # Construct the RNN layer and the computation graph.
         cstr_flash_layer = tf.keras.layers.RNN(cstr_flash_cell,
@@ -527,8 +527,6 @@ class KoopmanCell(tf.keras.layers.AbstractRNNCell):
         """
         # Extract important variables.
         [yz] = states
-        [y, z] = tf.split(yz, [self.Ny, self.Np*(self.Ny + self.Nu)],
-                          axis=-1)
         u = inputs
 
         # Get the state prediction at the next time step.
@@ -545,23 +543,29 @@ class KoopmanCell(tf.keras.layers.AbstractRNNCell):
 
 class KoopmanModel(tf.keras.Model):
     """ Custom model for the Deep Koopman operator model. """
-    def __init__(self, Np, Ny, Nu, Nxkp, fnn_dims):
+    def __init__(self, Np, Ny, Nu, fnn_dims):
         
+        # Get a few sizes. 
+        Nz = Np*(Ny+Nu)
+        Nxkp = fnn_dims[-1]
+
         # Create inputs to the layers.
         layer_input = tf.keras.Input(name='u', shape=(None, Nu))
-        Nz = Ny + Np*(Ny+Nu)
-        initial_state = tf.keras.Input(name='yz0', shape=(Nz, ))
+        initial_state = tf.keras.Input(name='yz0', shape=(Ny + Nz, ))
         
         # Dense layers for the Koopman lifting NN.
         fnn_layers = []
         for dim in fnn_dims[1:-1]:
-            fnn_layers.append(tf.keras.layers.Dense(dim, activation='relu'))
+            fnn_layers.append(tf.keras.layers.Dense(dim, activation='tanh'))
         fnn_layers.append(tf.keras.layers.Dense(fnn_dims[-1]))
 
         # Custom weights for the linear dynamics in lifted space.
-        A = tf.keras.layers.Dense(Nxkp, input_shape=(Nz, ))
-        B = tf.keras.layers.Dense(Nxkp, input_shape=(Nu, ))
-        H = tf.keras.layers.Dense(Nxkp, input_shape=(Nxkp, ))
+        A = tf.keras.layers.Dense(Nxkp, input_shape=(Nxkp, ),
+                                  use_bias=False)
+        B = tf.keras.layers.Dense(Nxkp, input_shape=(Nu, ), 
+                                  use_bias=False)
+        H = tf.keras.layers.Dense(Ny+Nz, input_shape=(Nxkp, ), 
+                                  use_bias=False)
         
         # Build model depending on option.
         koopman_cell = KoopmanCell(Np, Ny, Nu, fnn_layers, A, B, H)
@@ -570,8 +574,11 @@ class KoopmanModel(tf.keras.Model):
         koopman_layer = tf.keras.layers.RNN(koopman_cell,
                                             return_sequences=True)
         layer_output = koopman_layer(inputs=layer_input,
-                                        initial_state=[initial_state])
-        outputs = [layer_output]
+                                     initial_state=[initial_state])
+        
+        # Get the list of outputs.
+        y, _ = tf.split(layer_output, [Ny, Nz], axis=-1)
+        outputs = [layer_output, y]
 
         # Construct model.
         super().__init__(inputs=[layer_input, initial_state],

@@ -67,18 +67,20 @@ def get_greybox_val_preds(*, parameters, training_data):
     """ Use the input profile to compute 
         the prediction of the grey-box model
         on the validation data. """
-    model = get_model(parameters=parameters, plant=False)
-    tsteps_steady = parameters['tsteps_steady']
-    p = parameters['ps'][:, np.newaxis]
+    #model = get_model(parameters=parameters, plant=False)
+    #p = parameters['ps'][:, np.newaxis]
     u = training_data[-1].u
-    Nsim = u.shape[0]
+    y = training_data[-1].y
+    x = training_data[-1].x
+    t = training_data[-1].t
+    #Nsim = u.shape[0]
     # Run the open-loop simulation.
-    for t in range(Nsim):
-        model.step(u[t:t+1, :], p)
-    x = np.asarray(model.x[0:-1]).squeeze()
-    x = np.insert(x, [2], np.nan*np.ones((Nsim, 1)), axis=1)
-    data = SimData(t=np.asarray(model.t[0:-1]), x=x, u=u,
-                   y=np.asarray(model.y[:-1]).squeeze())
+    #for t in range(Nsim):
+    #    model.step(u[t:t+1, :], p)
+    #x = np.asarray(model.x[0:-1]).squeeze()
+    #data = SimData(t=np.asarray(model.t[0:-1]), x=x, u=u,
+    #               y=np.asarray(model.y[:-1]).squeeze())
+    data = SimData(t=t, x=x, u=u, y=y)
     # Return data.
     return data
 

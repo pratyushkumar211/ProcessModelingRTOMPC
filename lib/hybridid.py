@@ -282,6 +282,8 @@ def koopman_func(yz, u, parameters):
     xkp = fnn_koopman(yz, fnn_weights)
     xkpplus = A @ xkp + B @ u
     yzplus = H @ xkpplus
+    yzplus = yzplus*yzstd + yzmean
+    
     # Return the sum.
     return yzplus
 
@@ -319,7 +321,6 @@ def get_koopman_pars_check_func(*, train, parameters, greybox_processed_data):
 
     # Run the simulation.
     yzval, yval = quick_sim(koopman_fxu, koopman_hx, x0, uval)
-    yval = yval
 
     # To compare with predictions made by the tensorflow model.
     ytfval = train['val_predictions'][-1].y
