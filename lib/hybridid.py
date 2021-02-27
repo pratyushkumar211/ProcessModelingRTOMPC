@@ -228,3 +228,101 @@ def plot_val_metrics(*, num_samples, val_metrics, colors, legends,
                     x=0.52, y=0.92)
    # Return the figure object.
     return [figure]
+
+def quick_sim(*, fxu, hx, x0, u):
+    """ Do a quick open-loop simulation. """
+    Nsim = u.shape[0]
+    y, x = [], []
+    x.append(x0)
+    xt = x0
+    for t in range(Nsim):
+        y.append(hx(xt))
+        xt = fxu(xt, u[t, :])
+        x.append(xt)
+    y = np.asarray(y)
+    x = np.asarray(x[:-1])
+    # Return.
+    return x, y
+
+def fnn_koopman(yz, fnn_weights):
+    """ Compute the NN output. """
+    nn_output = yz[:, np.newaxis]
+    for i in range(0, len(fnn_weights)-2, 2):
+        (W, b) = fnn_weights[i:i+2]
+        nn_output = W.T @ nn_output + b[:, np.newaxis]
+        nn_output = np.tanh(nn_output)
+    (Wf, bf) = fnn_weights[-2:]
+    nn_output = (Wf.T @ nn_output + bf[:, np.newaxis])[:, 0]
+    # Return.
+    return nn_output
+
+def koopman_func(yz, u, parameters):
+    """ The Koopman Operator model function. """
+
+    # Fnn weights.
+    fnn_weights = parameters['fnn_weights']
+    A = parameters['A']
+    B = parameters['B']
+    H = parameters['H']
+    
+    # Get scaling.
+    ymean, ystd = parameters['yscale']
+    umean, ustd = parameters['uscale']
+
+    # Scale inputs/state.
+    u = (u - umean)/ustd
+    Np = parameters['Np']
+    yzmean = np.concatenate((np.tile(ymean, (Np+1, )), 
+                            np.tile(umean, (Np+1, ))))
+    yzstd = np.concatenate((np.tile(ystd, (Np+1, )), 
+                            np.tile(ustd, (Np+1, ))))
+    yz = (yz - yzmean)/yzstd
+
+    # The Deep Koopman model.
+    xkp = fnn_koopman(yz, fnn_weights)
+    xkpplus = A @ xkp + B @ u
+    yzplus = H @ xkpplus
+    # Return the sum.
+    return yzplus
+
+def get_koopman_pars_check_func(*, train, parameters, greybox_processed_data):
+    """ Get the Koopman operator model parameters. """
+
+    # Get the Koopman parameters.
+    Np = train['Np']
+    Ny, Nu = parameters['Ny'], parameters['Nu']
+    trained_weights = train['trained_weights'][-1]
+    fnn_weights = trained_weights[:-3]
+    A = trained_weights[-3]
+    B = trained_weights[-2]
+    H = trained_weights[-1]
+    koopman_pars  = dict(Np=train['Np'],
+                         fnn_weights=fnn_weights,
+                         A=A, B=B, H=H)    
+
+    # Get the control input profile for the simulation.
+    greybox_processed_data = greybox_processed_data[-1]
+    uval = greybox_processed_data.u
+
+    # Get the functions.
+    koopman_fxu = lambda x, u: koopman_func(x, u, koopman_pars)
+    koopman_hx = lambda x: x[:Ny]
+
+    # Get initial state for the simulation.
+    ts = parameters['tsteps_steady']
+    y = greybox_processed_data.y 
+    u = greybox_processed_data.u
+    yp0seq = y[ts-Np:ts, :].reshape(Np*Ny, )[:, np.newaxis]
+    up0seq = u[ts-Np:ts:, ].reshape(Np*Nu, )[:, np.newaxis]
+    y0 = y[ts, :][:, np.newaxis]
+    x0 = np.concatenate((y0, yp0seq, up0seq))
+
+    # Run the simulation.
+    yzval, yval = quick_sim(koopman_fxu, koopman_hx, x0, uval)
+    yval = yval
+
+    # To compare with predictions made by the tensorflow model.
+    ytfval = train['val_predictions'][-1].y
+
+    # Just return the hybrid parameters.
+    return koopman_pars
