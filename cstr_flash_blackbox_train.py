@@ -55,7 +55,7 @@ def get_val_predictions(model, val_data, xuyscales, ckpt_path):
     
     # Load best weights during training.
     model.load_weights(ckpt_path)
-
+    
     # Predict.
     model_predictions = model.predict(x=[val_data['inputs'], 
                                          val_data['yz0']])

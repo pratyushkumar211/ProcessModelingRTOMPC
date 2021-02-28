@@ -35,7 +35,7 @@ def create_model(*, Np, fnn_dims, xuyscales, cstr_flash_parameters, model_type):
     # Return the compiled model.
     return cstr_flash_model
 
-def train_model(model, x0key, xuyscales, train_data, trainval_data, val_data,
+def train_model(model, x0key, train_data, trainval_data,
                 model_type, stdout_filename, ckpt_path):
     """ Function to train the NN controller. """
     def get_model_targets(model_type, train_data, trainval_data, val_data):
@@ -50,25 +50,6 @@ def train_model(model, x0key, xuyscales, train_data, trainval_data, val_data,
             val_outputs = [val_data['outputs'], val_data['xG']]
         # Return.
         return train_outputs, trainval_outputs, val_outputs
-
-    def get_model_val_predictions(model, model_type, val_data, xuyscales):
-        """ Load model weights and get validation predictions. """
-        model_predictions = model.predict(x=[val_data['inputs'], 
-                                             val_data[x0key]])
-        ymean, ystd = xuyscales['yscale']
-        xmean, xstd = xuyscales['xscale']
-        umean, ustd = xuyscales['uscale']
-        u = val_data['inputs'][0, ...]*ustd + umean
-        t = np.arange(0, val_data['inputs'].shape[1], 1)
-        ypredictions = model_predictions[0].squeeze()*ystd + ymean
-        if model_type == 'hybrid':
-            xpredictions = model_predictions[1].squeeze()*xstd + xmean
-            xpredictions = np.insert(xpredictions, [3, 7], 
-                             np.nan*np.ones((xpredictions.shape[0], 2)), axis=1)
-        else:
-            xpredictions = np.nan*np.ones((ypredictions.shape[0], 10))
-        # Return.
-        return SimData(t=t, x=xpredictions, u=u, y=ypredictions)
     
     # Get model targets.
     (train_outputs, 
@@ -92,8 +73,29 @@ def train_model(model, x0key, xuyscales, train_data, trainval_data, val_data,
                            trainval_outputs),
         callbacks = [checkpoint_callback])
 
-    # Load best weights.
+def get_val_predictions(model, val_data, xuscales, ckpt_path):
+    """ Get the validation predictions. """
+
     model.load_weights(ckpt_path)
+
+    def get_model_val_predictions(model, model_type, val_data, xuyscales):
+        """ Load model weights and get validation predictions. """
+        model_predictions = model.predict(x=[val_data['inputs'], 
+                                             val_data[x0key]])
+        ymean, ystd = xuyscales['yscale']
+        xmean, xstd = xuyscales['xscale']
+        umean, ustd = xuyscales['uscale']
+        u = val_data['inputs'][0, ...]*ustd + umean
+        t = np.arange(0, val_data['inputs'].shape[1], 1)
+        ypredictions = model_predictions[0].squeeze()*ystd + ymean
+        if model_type == 'hybrid':
+            xpredictions = model_predictions[1].squeeze()*xstd + xmean
+            xpredictions = np.insert(xpredictions, [3, 7], 
+                             np.nan*np.ones((xpredictions.shape[0], 2)), axis=1)
+        else:
+            xpredictions = np.nan*np.ones((ypredictions.shape[0], 10))
+        # Return.
+        return SimData(t=t, x=xpredictions, u=u, y=ypredictions)
 
     # Load model weights and get model predictions.
     val_predictions = get_model_val_predictions(model, model_type, 
@@ -104,8 +106,9 @@ def train_model(model, x0key, xuyscales, train_data, trainval_data, val_data,
                                 y = val_outputs)
     if model_type == 'hybrid':
         val_metric = val_metric[0]
-    # Return model/predictions/metric.
-    return (model, val_predictions, val_metric)
+
+    # Return predictions and metric.
+    return (val_predictions, val_metric)
 
 def main():
     """ Main function to be executed. """

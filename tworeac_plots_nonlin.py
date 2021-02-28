@@ -152,10 +152,10 @@ def main():
                           tworeac_parameters['greybox_val_data'])
     
     # Load data after NN training.
-    tworeac_train = PickleTool.load(filename=
-                                    "tworeac_train_nonlin.pickle",
+    tworeac_blackbox_train = PickleTool.load(filename=
+                                    "tworeac_blackbox_train_nonlin.pickle",
                                     type='read')
-    nnval_predictions = tworeac_train['val_predictions']
+    blackbox_predictions = tworeac_blackbox_train['val_predictions']
 
     # Load data after Koopman training.
     tworeac_kooptrain = PickleTool.load(filename=
@@ -178,7 +178,7 @@ def main():
     legend_names = ['Plant', 'Grey-box', 'Black-box', 'Koopman']
     legend_colors = ['b', 'g', 'dimgrey', 'm']
     valdata_list = [training_data[-1], greybox_val_data]
-    valdata_list += nnval_predictions
+    valdata_list += blackbox_predictions
     valdata_list += koopval_predictions
     t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
                                                      valdata_list[:2],
@@ -230,8 +230,8 @@ def main():
     #                        avg_stage_costs=tworeac_empc['avg_stage_costs'], 
     #                        legend_colors=legend_colors,
     #                        legend_names=legend_names)
-
-    # PLot the RTO simulation data.
+    
+    # Plot the RTO simulation data.
     #cl_data_list = tworeac_rto['cl_data_list']
     #t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
     #                                                 cl_data_list,

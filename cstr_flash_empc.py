@@ -19,6 +19,7 @@ from linNonlinMPC import (NonlinearPlantSimulator, NonlinearEMPCController,
 from hybridid import _cstr_flash_plant_ode as _plant_ode
 from hybridid import _cstr_flash_greybox_ode as _greybox_ode
 from hybridid import _cstr_flash_measurement as _measurement
+from hybridid import get_koopman_pars_check_func
 
 def get_controller(model_func, model_pars, model_type, 
                    cost_pars, mhe_noise_tuning, regulator_guess):
@@ -297,25 +298,25 @@ def main():
     cstr_flash_parameters = PickleTool.load(filename=
                                             'cstr_flash_parameters.pickle',
                                             type='read')
-    cstr_flash_train = PickleTool.load(filename=
-                                            'cstr_flash_train.pickle',
+    cstr_flash_kooptrain = PickleTool.load(filename=
+                                            'cstr_flash_kooptrain.pickle',
                                             type='read')
 
     # Get parameters.
     plant_pars = cstr_flash_parameters['plant_pars']
-    greybox_pars = cstr_flash_parameters['greybox_pars']
-    cost_pars, disturbances = get_cstr_flash_empc_pars(num_days=2,
-                                         sample_time=plant_pars['Delta'], 
-                                         plant_pars=plant_pars)
+    #greybox_pars = cstr_flash_parameters['greybox_pars']
+    #cost_pars, disturbances = get_cstr_flash_empc_pars(num_days=2,
+    #                                     sample_time=plant_pars['Delta'], 
+    #                                     plant_pars=plant_pars)
 
     # Get NN weights and the hybrid ODE.
-    Np = cstr_flash_train['Nps'][0] # To change.
-    fnn_weights = cstr_flash_train['trained_weights'][0][-1] # To change.
-    xuyscales = cstr_flash_train['xuyscales']
-    hybrid_pars = get_hybrid_pars(greybox_pars=greybox_pars,
-                                  Npast=Np,
-                                  fnn_weights=fnn_weights,
-                                  xuyscales=xuyscales)
+    #Np = cstr_flash_train['Nps'][0] # To change.
+    #fnn_weights = cstr_flash_train['trained_weights'][0][-1] # To change.
+    #xuyscales = cstr_flash_train['xuyscales']
+    #hybrid_pars = get_hybrid_pars(greybox_pars=greybox_pars,
+    #                              Npast=Np,
+    #                              fnn_weights=fnn_weights,
+    #                              xuyscales=xuyscales)
 
     # Check the hybrid function.
     uval = cstr_flash_parameters['training_data'][-1].u
@@ -326,37 +327,37 @@ def main():
                              hybrid_pars, greybox_processed_data)
     
     # Run simulations for different model.
-    cl_data_list, avg_stage_costs_list, openloop_sol_list = [], [], []
-    model_odes = [_plant_ode, _greybox_ode, _hybrid_func]
-    model_pars = [plant_pars, greybox_pars, hybrid_pars]
-    model_types = ['plant', 'grey-box', 'hybrid']
-    Nsims = [120, 120, 120]
-    plant_lxup = lambda x, u, p: stage_cost(x, u, p, plant_pars, [5, 7, 9])
-    regulator_guess = None
-    for (model_ode, model_par,
-         model_type, Nsim) in zip(model_odes, model_pars, model_types, Nsims):
-        mhe_noise_tuning = get_mhe_noise_tuning(model_type, model_par)
-        plant = get_plant(parameters=plant_pars)
-        controller = get_controller(model_ode, model_par, model_type,
-                                    cost_pars, mhe_noise_tuning,
-                                    regulator_guess)
-        cl_data, avg_stage_costs, openloop_sol = online_simulation(plant,
-                                         controller,
-                                         plant_lxup=plant_lxup,
-                                         Nsim=Nsim, disturbances=disturbances,
-                                         stdout_filename='cstr_flash_empc.txt')
-        regulator_guess = [controller.regulator.xseq[0],
-                           controller.regulator.useq[0]]
-        cl_data_list += [cl_data]
-        avg_stage_costs_list += [avg_stage_costs]
-        openloop_sol_list += [openloop_sol]
+    #cl_data_list, avg_stage_costs_list, openloop_sol_list = [], [], []
+    #model_odes = [_plant_ode, _greybox_ode, _hybrid_func]
+    #model_pars = [plant_pars, greybox_pars, hybrid_pars]
+    #model_types = ['plant', 'grey-box', 'hybrid']
+    #Nsims = [120, 120, 120]
+    #plant_lxup = lambda x, u, p: stage_cost(x, u, p, plant_pars, [5, 7, 9])
+    #regulator_guess = None
+    #for (model_ode, model_par,
+    #     model_type, Nsim) in zip(model_odes, model_pars, model_types, Nsims):
+    #    mhe_noise_tuning = get_mhe_noise_tuning(model_type, model_par)
+    #    plant = get_plant(parameters=plant_pars)
+    #    controller = get_controller(model_ode, model_par, model_type,
+    #                                cost_pars, mhe_noise_tuning,
+    #                                regulator_guess)
+    #    cl_data, avg_stage_costs, openloop_sol = online_simulation(plant,
+    #                                     controller,
+    #                                     plant_lxup=plant_lxup,
+    #                                     Nsim=Nsim, disturbances=disturbances,
+    #                                     stdout_filename='cstr_flash_empc.txt')
+    #    regulator_guess = [controller.regulator.xseq[0],
+    #                       controller.regulator.useq[0]]
+    #    cl_data_list += [cl_data]
+    #    avg_stage_costs_list += [avg_stage_costs]
+    #    openloop_sol_list += [openloop_sol]
     
     # Save data.
-    PickleTool.save(data_object=dict(cl_data_list=cl_data_list,
-                                     cost_pars=cost_pars,
-                                     disturbances=disturbances,
-                                     avg_stage_costs=avg_stage_costs_list,
-                                     openloop_sols=openloop_sol_list),
-                    filename='cstr_flash_empc.pickle')
+    #PickleTool.save(data_object=dict(cl_data_list=cl_data_list,
+    #                                 cost_pars=cost_pars,
+    #                                 disturbances=disturbances,
+    #                                 avg_stage_costs=avg_stage_costs_list,
+    #                                 openloop_sols=openloop_sol_list),
+    #                filename='cstr_flash_empc.pickle')
 
 main()

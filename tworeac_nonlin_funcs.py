@@ -390,7 +390,7 @@ def get_hybrid_pars_check_func(*, parameters, training_data, train):
     uval = training_data[-1].u
     ytfval = train['val_predictions'][0].y
     xGtfval = train['val_predictions'][0].x
-    yval, xGval = sim_hybrid(hybrid_func, hybrid_pars, 
+    yval, xGval = sim_hybrid(hybrid_func, hybrid_pars,
                              uval, training_data)
 
     # Return the parameters.
