@@ -152,7 +152,7 @@ def plot_openloop_sols(*, t, udatum, xdatum,
     return figures
 
 def plot_cost_pars(t, cost_pars,
-                   figure_size=PAPER_FIGSIZE, 
+                   figure_size=PAPER_FIGSIZE,
                    ylabel_xcoordinate=-0.15):
     """ Plot the economic MPC cost parameters. """
     num_pars = cost_pars.shape[1]

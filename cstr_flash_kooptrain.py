@@ -41,7 +41,7 @@ def train_model(model, train_data, trainval_data, stdout_filename, ckpt_path):
     # Call the fit method to train.
     model.fit(x = [train_data['inputs'], train_data['yz0']],
               y = [train_data['yz'], train_data['outputs']],
-              epochs=10000, batch_size=36,
+              epochs=20000, batch_size=36,
         validation_data = ([trainval_data['inputs'], trainval_data['yz0']], 
                            [trainval_data['yz'], trainval_data['outputs']]),
         callbacks = [checkpoint_callback])
@@ -51,7 +51,7 @@ def get_val_predictions(model, val_data, xuyscales, ckpt_path):
     
     # Load best weights during training.
     model.load_weights(ckpt_path)
-
+    
     # Predict.
     model_predictions = model.predict(x=[val_data['inputs'], 
                                          val_data['yz0']])
