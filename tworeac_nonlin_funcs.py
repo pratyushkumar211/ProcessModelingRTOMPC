@@ -328,15 +328,6 @@ def get_economic_opt_pars(*, Delta):
     # Return the cost pars.
     return cost_pars
 
-def stage_cost(y, u, p):
-    """ Custom stage cost for the tworeac system. """    
-    # Get inputs, parameters, and states.
-    CAf = u[0:1]
-    ca, cb = p[0:2]
-    CA, CB = y[0:2]
-    # Compute and return cost.
-    return ca*CAf - cb*CB
-
 def sim_hybrid(hybrid_func, hybrid_pars, uval, training_data):
     """ Hybrid validation simulation to make 
         sure the above programmed function is 

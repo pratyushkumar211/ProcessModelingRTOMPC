@@ -13,13 +13,14 @@ import time
 import casadi
 import numpy as np
 from hybridid import (PickleTool, SimData, _resample_fast, c2dNonlin,
-                     interpolate_yseq)
+                     interpolate_yseq, koopman_func, 
+                     get_koopman_pars_check_func)
 from linNonlinMPC import (NonlinearPlantSimulator, NonlinearEMPCController, 
                          online_simulation)
 from tworeac_nonlin_funcs import plant_ode, greybox_ode, measurement
 from tworeac_nonlin_funcs import get_model, get_hybrid_pars, hybrid_func
 from tworeac_nonlin_funcs import get_economic_opt_pars
-from tworeac_nonlin_funcs import get_hybrid_pars_check_func, stage_cost
+from tworeac_nonlin_funcs import get_hybrid_pars_check_func
 
 def get_controller(model_func, model_pars, model_type,
                    cost_pars, mhe_noise_tuning):
@@ -38,7 +39,7 @@ def get_controller(model_func, model_pars, model_type,
         fxu = c2dNonlin(fxu, Delta)
 
     # Measurement function.
-    hx = lambda x: measurement(x)
+    hx = lambda x: measurement(x, model_pars)
 
     # Get the state dimension.
     if model_type == 'grey-box':
@@ -92,9 +93,18 @@ def get_controller(model_func, model_pars, model_type,
                                    ulb=ulb, uub=uub, Nmpc=Nmpc,
                                    Qwx=Qwx, Qwd=Qwd, Rv=Rv, Nmhe=Nmhe)
 
+def stage_cost(y, u, p):
+    """ Custom stage cost for the tworeac system. """    
+    # Get inputs, parameters, and states.
+    CAf = u[0:1]
+    ca, cb = p[0:2]
+    CA, CB = y[0:2]
+    # Compute and return cost.
+    return ca*CAf - cb*CB
+
 def get_mhe_noise_tuning(model_type, model_par):
     # Get MHE tuning.
-    if model_type == 'plant' or model_type == 'hybrid':
+    if model_type == 'plant':
         Qwx = 1e-6*np.eye(model_par['Nx'])
         Qwd = 1e-6*np.eye(model_par['Ny'])
         Rv = 1e-3*np.eye(model_par['Ny'])
@@ -110,8 +120,8 @@ def main():
     tworeac_parameters_nonlin = PickleTool.load(filename=
                                             'tworeac_parameters_nonlin.pickle',
                                             type='read')
-    tworeac_train_nonlin = PickleTool.load(filename=
-                                            'tworeac_train_nonlin.pickle',
+    tworeac_kooptrain_nonlin = PickleTool.load(filename=
+                                            'tworeac_kooptrain_nonlin.pickle',
                                             type='read')
 
     # Get EMPC simulation parameters.
@@ -121,15 +131,22 @@ def main():
     disturbances = np.repeat(parameters['ps'][np.newaxis, :], Nsim)
     
     # Get parameters for the hybrid function and check.
-    hybrid_pars = get_hybrid_pars_check_func(parameters=parameters,
+    #hybrid_pars = get_hybrid_pars_check_func(parameters=parameters,
+    #                training_data=tworeac_parameters_nonlin['training_data'],
+    #                train=tworeac_train_nonlin)
+
+    # Get parameters for the EMPC nonlin function and check.
+    koopman_pars = get_koopman_pars_check_func(parameters=parameters,
                     training_data=tworeac_parameters_nonlin['training_data'],
-                    train=tworeac_train_nonlin)
+                    train=tworeac_kooptrain_nonlin)
+
+
 
     # Run simulations for different model.
     cl_data_list, avg_stage_costs_list = [], []
-    model_odes = [plant_ode, greybox_ode, hybrid_func]
-    model_pars = [parameters, parameters, hybrid_pars]
-    model_types = ['plant', 'grey-box', 'hybrid']
+    model_odes = [plant_ode, greybox_ode]
+    model_pars = [parameters, parameters]
+    model_types = ['plant', 'grey-box']
 
     # Do different simulations for the different plant models.
     for (model_ode,

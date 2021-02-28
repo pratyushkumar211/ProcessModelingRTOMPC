@@ -551,7 +551,7 @@ def get_augmented_matrices_for_filter(A, B, C, Bd, Cd, Qwx, Qwd):
     Caug = np.concatenate((C, Cd), axis=1)
     # Augmented Noise Covariance.
     Qwaug = scipy.linalg.block_diag(Qwx, Qwd)
-    # Check that the augmented model is detectable. 
+    # Check that the augmented model is detectable.
     assert_detectable(Aaug, Caug)
     return (Aaug, Baug, Caug, Qwaug)
 
