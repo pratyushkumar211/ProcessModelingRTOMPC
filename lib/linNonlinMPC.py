@@ -370,7 +370,8 @@ class NonlinearEMPCController:
                      Nx, Nu, Ny, Nd,
                      xs, us, ds, ys,
                      empc_pars, ulb, uub, Nmpc,
-                     Qwx, Qwd, Rv, Nmhe):
+                     Qwx, Qwd, Rv, Nmhe, 
+                     guess = None):
         
         # Model and stage cost.
         self.fxu = fxu
@@ -398,6 +399,7 @@ class NonlinearEMPCController:
         self.ulb = ulb
         self.uub = uub
         self.Nmpc = Nmpc
+        self.guess = guess
         self._setup_regulator()
 
         # MHE Parameters.
@@ -459,7 +461,16 @@ class NonlinearEMPCController:
         build the regulator. """
         fxud = mpc.getCasadiFunc(self._aug_ss_model(),
                                 [self.Nx + self.Nd, self.Nu], ["x", "u"])
-        init_guess = dict(x=np.concatenate((self.xs, self.ds)), u=self.us)
+        if self.guess is None:
+            init_guess = dict(x=np.concatenate((self.xs, self.ds)), u=self.us)
+        else:
+            xguess = [np.concatenate((self.xs, self.ds))]
+            uguess = self.guess['u']
+            for t in range(uguess.shape[0]):
+                xguess_tplus = np.asarray(fxud(xguess[-1], uguess[t, :]))[:, 0]
+                xguess.append(xguess_tplus)
+            xguess = np.asarray(xguess)
+            init_guess = dict(x=xguess, u=uguess)
         init_empc_pars = self.opt_pars[0:self.Nmpc, :]
         lxup = lambda x, u, p: self.lyup(self.hx(x), u, p)
         self.regulator  = NonlinearEMPCRegulator(fxu=fxud, lxup=lxup,
@@ -515,9 +526,10 @@ def online_simulation(plant, controller, *, plant_lyup, Nsim=None,
                 u=np.asarray(plant.u),
                 y=np.asarray(plant.y[0:-1]).squeeze())
     avg_stage_costs = np.array(avg_stage_costs[1:])
-
+    openloop_sol = [np.asarray(controller.regulator.useq[0]), 
+                    np.asarray(controller.regulator.xseq[0])]
     # Return.
-    return cl_data, avg_stage_costs
+    return cl_data, avg_stage_costs, openloop_sol
 
 def _eigval_eigvec_test(X,Y):
     """Return True if an eigenvector of X corresponding to 

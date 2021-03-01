@@ -237,91 +237,106 @@ def quick_sim(fxu, hx, x0, u):
     xt = x0
     for t in range(Nsim):
         y.append(hx(xt))
-        xt = fxu(xt, u[t, :])
+        xt = fxu(xt, u[t:t+1, :].T)
         x.append(xt)
-    y = np.asarray(y)
-    x = np.asarray(x[:-1])
+    y = np.asarray(y)[..., 0]
+    x = np.asarray(x[:-1])[..., 0]
     # Return.
     return x, y
 
 def fnn_koopman(yz, fnn_weights):
     """ Compute the NN output. """
-    nn_output = yz[:, np.newaxis]
+    nn_output = yz
     for i in range(0, len(fnn_weights)-2, 2):
         (W, b) = fnn_weights[i:i+2]
         nn_output = W.T @ nn_output + b[:, np.newaxis]
         nn_output = np.tanh(nn_output)
     (Wf, bf) = fnn_weights[-2:]
-    nn_output = (Wf.T @ nn_output + bf[:, np.newaxis])[:, 0]
+    xkp = (Wf.T @ nn_output + bf[:, np.newaxis])
     # Return.
-    return nn_output
+    return xkp
 
-def koopman_func(yz, u, parameters):
+def koopman_func(xkp, u, parameters):
     """ The Koopman Operator model function. """
 
     # Fnn weights.
-    fnn_weights = parameters['fnn_weights']
     A = parameters['A']
     B = parameters['B']
-    H = parameters['H']
     
     # Get scaling.
     xuyscales = parameters['xuyscales']
-    ymean, ystd = xuyscales['yscale']
     umean, ustd = xuyscales['uscale']
 
     # Scale inputs/state.
     u = (u - umean)/ustd
-    Np = parameters['Np']
-    yzmean = np.concatenate((np.tile(ymean, (Np+1, )), 
-                            np.tile(umean, (Np, ))))
-    yzstd = np.concatenate((np.tile(ystd, (Np+1, )), 
-                            np.tile(ustd, (Np, ))))
-    yz = (yz - yzmean)/yzstd
 
-    # The Deep Koopman model.
-    xkp = fnn_koopman(yz, fnn_weights)
+    # The Deep Koopman linear model.
     xkpplus = A @ xkp + B @ u
-    yzplus = H @ xkpplus
-    yzplus = yzplus*yzstd + yzmean
-    
+
     # Return the sum.
-    return yzplus
+    return xkpplus
 
 def get_koopman_pars_check_func(*, parameters, training_data, train):
     """ Get the Koopman operator model parameters. """
 
-    # Get the Koopman parameters.
-    Np = train['Np']
-    Ny, Nu = parameters['Ny'], parameters['Nu']
+    # Get weights.
     trained_weights = train['trained_weights'][-1]
     fnn_weights = trained_weights[:-3]
     A = trained_weights[-3].T
     B = trained_weights[-2].T
     H = trained_weights[-1].T
-    koopman_pars  = dict(Np=Np, xuyscales=train['xuyscales'],
-                         fnn_weights=fnn_weights,
-                         A=A, B=B, H=H)
+
+    # Get sizes.
+    Np = train['Np']
+    Ny, Nu = parameters['Ny'], parameters['Nu']
+    Nx = train['fnn_dims'][-1]
+
+    # Get scaling.
+    xuyscales = train['xuyscales']
+    ymean, ystd = xuyscales['yscale']
+    umean, ustd = xuyscales['uscale']
+    yzmean = np.concatenate((np.tile(ymean, (Np+1, )), 
+                             np.tile(umean, (Np, ))))[:, np.newaxis]
+    yzstd = np.concatenate((np.tile(ystd, (Np+1, )), 
+                             np.tile(ustd, (Np, ))))[:, np.newaxis]
+
+    # Get steady state in the lifted space.
+    us = parameters['us']
+    ys = parameters['xs'][:Ny]
+    yzs = np.concatenate((np.tile(ys, (Np+1, )), 
+                          np.tile(us, (Np, ))))[:, np.newaxis]
+    yzs = (yzs - yzmean)/yzstd
+    xkps = fnn_koopman(yzs, fnn_weights)[:, 0]
+
+    # Constraints for MPC.
+    ulb, uub = parameters['ulb'], parameters['uub']
+
+    # Make the parameter dictionary.
+    koopman_pars  = dict(Np=Np, Nx=Nx, Nu=Nu, Ny=Ny,
+                         A=A, B=B, H=H, xs=xkps, us=us,
+                         ulb=ulb, uub=uub, xuyscales=xuyscales)
 
     # Get the control input profile for the simulation.
     training_data = training_data[-1]
+    y = training_data.y
+    u = training_data.u
     ts = parameters['tsteps_steady']
-    uval = training_data.u[ts:, :]
+    uval = u[ts:, :]
+
+    # Get initial state for the simulation.
+    yp0seq = y[ts-Np:ts, :].reshape(Np*Ny, )[:, np.newaxis]
+    up0seq = u[ts-Np:ts:, ].reshape(Np*Nu, )[:, np.newaxis]
+    y0 = y[ts, :, np.newaxis]
+    yz0 = np.concatenate((y0, yp0seq, up0seq))
+    yz0 = (yz0 - yzmean)/yzstd
+    xkp0 = fnn_koopman(yz0, fnn_weights)
 
     # Get the functions.
     koopman_fxu = lambda x, u: koopman_func(x, u, koopman_pars)
-    koopman_hx = lambda x: x[:Ny]
-
-    # Get initial state for the simulation.
-    y = training_data.y
-    u = training_data.u
-    yp0seq = y[ts-Np:ts, :].reshape(Np*Ny, )
-    up0seq = u[ts-Np:ts:, ].reshape(Np*Nu, )
-    y0 = y[ts, :]
-    x0 = np.concatenate((y0, yp0seq, up0seq))
+    koopman_hx = lambda x: ((H @ x)*yzstd + yzmean)[:Ny]
 
     # Run the simulation.
-    yzval, yval = quick_sim(koopman_fxu, koopman_hx, x0, uval)
+    yzval, yval = quick_sim(koopman_fxu, koopman_hx, xkp0, uval)
 
     # To compare with predictions made by the tensorflow model.
     ytfval = train['val_predictions'][-1].y

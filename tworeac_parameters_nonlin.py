@@ -36,21 +36,25 @@ def gen_train_val_data(*, parameters, num_traj,
         if traj == num_traj-1:
             "Get input for train val simulation."
             Nsim = Nsim_val
-            u = sample_prbs_like(num_change=12, num_steps=Nsim_val, 
+            u = sample_prbs_like(num_change=24, num_steps=Nsim_val, 
                                  lb=ulb, ub=uub,
                                  mean_change=30, sigma_change=2, seed=seed+1)
         elif traj == num_traj-2:
             "Get input for validation simulation."
             Nsim = Nsim_trainval
-            u = sample_prbs_like(num_change=6, num_steps=Nsim_trainval, 
+            u = sample_prbs_like(num_change=24, num_steps=Nsim_trainval, 
                                  lb=ulb, ub=uub,
-                                 mean_change=20, sigma_change=2, seed=seed+2)
+                                 mean_change=30, sigma_change=2, seed=seed+2)
         else:
             "Get input for training simulation."
             Nsim = Nsim_train
             u = sample_prbs_like(num_change=12, num_steps=Nsim_train, 
                                  lb=ulb, ub=uub,
-                                 mean_change=30, sigma_change=2, seed=seed+3)
+                                 mean_change=30, sigma_change=6, seed=seed+3)
+
+        seed += 1
+        umid = 0.5*(ulb + uub)[0]
+        u = np.where(u<umid, ulb, uub)
 
         # Complete input profile and run open-loop simulation.
         u = np.concatenate((us_init, u), axis=0)
@@ -93,8 +97,8 @@ def main():
     
     # Generate training data.
     training_data = gen_train_val_data(parameters=parameters,
-                                        num_traj=3, Nsim_train=360,
-                                        Nsim_trainval=120, Nsim_val=360,
+                                        num_traj=18, Nsim_train=360,
+                                        Nsim_trainval=720, Nsim_val=720,
                                         seed=100)
     greybox_val_data = get_greybox_val_preds(parameters=
                                             parameters, 

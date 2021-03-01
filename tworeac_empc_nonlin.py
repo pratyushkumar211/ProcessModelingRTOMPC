@@ -23,40 +23,38 @@ from tworeac_nonlin_funcs import get_economic_opt_pars
 from tworeac_nonlin_funcs import get_hybrid_pars_check_func
 
 def get_controller(model_func, model_pars, model_type,
-                   cost_pars, mhe_noise_tuning):
+                   cost_pars, mhe_noise_tuning, 
+                   regulator_guess):
     """ Construct the controller object comprised of 
         EMPC regulator and MHE estimator. """
 
-    # Get models.
-    ps = model_pars['ps']
-    Delta = model_pars['Delta']
-
-    # State-space model (discrete time).
-    if model_type == 'hybrid':
-        fxu = lambda x, u: model_func(x, u, model_pars)
-    else:
-        fxu = lambda x, u: model_func(x, u, ps, model_pars)
-        fxu = c2dNonlin(fxu, Delta)
-
-    # Measurement function.
-    hx = lambda x: measurement(x, model_pars)
-
-    # Get the state dimension.
+    # Get the sizes.
     if model_type == 'grey-box':
         Nx = model_pars['Ng']
     else:
         Nx = model_pars['Nx']
+    Nu, Ny = model_pars['Nu'], model_pars['Ny']
+    Nd = Ny
+
+    # Get state space and input models.
+    if model_type == 'koopman':
+        fxu = lambda x, u: model_func(x, u, model_pars)
+        H = model_pars['H']
+        ymean, ystd = model_pars['xuyscales']['yscale']
+        hx = lambda x: (H @ x[:Nx])[:Ny]*ystd + ymean
+    else:
+        ps = model_pars['ps']
+        Delta = model_pars['Delta']
+        fxu = lambda x, u: model_func(x, u, ps, model_pars)
+        fxu = c2dNonlin(fxu, Delta)
+        hx = lambda x: measurement(x, model_pars)
 
     # Get the stage cost.
     lyup = lambda y, u, p: stage_cost(y, u, p)
     
-    # Get the sizes/sample time.
-    Nu, Ny = model_pars['Nu'], model_pars['Ny']
-    Nd = Ny
-
     # Get the disturbance models.
     Bd = np.zeros((Nx, Nd))
-    if model_type == 'plant' or model_type == 'black-box-state-feed':
+    if model_type == 'plant' or model_type == 'koopman':
         Bd[0, 0] = 1.
         Bd[1, 1] = 1.
     else:
@@ -91,10 +89,11 @@ def get_controller(model_func, model_pars, model_type,
                                    xs=xs, us=us, ds=ds, ys=ys,
                                    empc_pars=cost_pars,
                                    ulb=ulb, uub=uub, Nmpc=Nmpc,
-                                   Qwx=Qwx, Qwd=Qwd, Rv=Rv, Nmhe=Nmhe)
+                                   Qwx=Qwx, Qwd=Qwd, Rv=Rv, Nmhe=Nmhe,
+                                   guess=regulator_guess), hx
 
 def stage_cost(y, u, p):
-    """ Custom stage cost for the tworeac system. """    
+    """ Custom stage cost for the tworeac system. """
     # Get inputs, parameters, and states.
     CAf = u[0:1]
     ca, cb = p[0:2]
@@ -104,12 +103,12 @@ def stage_cost(y, u, p):
 
 def get_mhe_noise_tuning(model_type, model_par):
     # Get MHE tuning.
-    if model_type == 'plant':
+    if model_type == 'plant' or model_type =='koopman':
         Qwx = 1e-6*np.eye(model_par['Nx'])
         Qwd = 1e-6*np.eye(model_par['Ny'])
         Rv = 1e-3*np.eye(model_par['Ny'])
     if model_type == 'grey-box':
-        Qwx = 1e-3*np.eye(model_par['Ng'])
+        Qwx = 1e-6*np.eye(model_par['Ng'])
         Qwd = np.eye(model_par['Ny'])
         Rv = 1e-3*np.eye(model_par['Ny'])
     return (Qwx, Qwd, Rv)
@@ -140,33 +139,44 @@ def main():
                     training_data=tworeac_parameters_nonlin['training_data'],
                     train=tworeac_kooptrain_nonlin)
 
-
-
     # Run simulations for different model.
-    cl_data_list, avg_stage_costs_list = [], []
-    model_odes = [plant_ode, greybox_ode]
-    model_pars = [parameters, parameters]
-    model_types = ['plant', 'grey-box']
-
+    cl_data_list, avg_stage_costs_list, openloop_sols = [], [], []
+    model_odes = [plant_ode, greybox_ode, koopman_func]
+    model_pars = [parameters, parameters, koopman_pars]
+    model_types = ['plant', 'grey-box', 'koopman']
+    regulator_guess = None
     # Do different simulations for the different plant models.
     for (model_ode,
          model_par, model_type) in zip(model_odes, model_pars, model_types):
         mhe_noise_tuning = get_mhe_noise_tuning(model_type, model_par)
         plant = get_model(parameters=parameters, plant=True)
-        controller = get_controller(model_ode, model_par, model_type,
-                                    cost_pars, mhe_noise_tuning)
-        cl_data, avg_stage_costs = online_simulation(plant, controller,
+        controller, hx = get_controller(model_ode, model_par, model_type,
+                                    cost_pars, mhe_noise_tuning,
+                                    regulator_guess)
+        cl_data, avg_stage_costs, openloop_sol = online_simulation(plant,
+                                         controller,
                                          plant_lyup=controller.lyup,
                                          Nsim=8*60, disturbances=disturbances,
                                          stdout_filename='tworeac_empc.txt')
         cl_data_list += [cl_data]
         avg_stage_costs_list += [avg_stage_costs]
+        if model_type == 'koopman':
+            xseq = []
+            xkpseq = openloop_sol[1]
+            for t in range(controller.Nmpc+1):
+                xseq.append(hx(xkpseq[t, :]))
+            openloop_sol[1] = np.asarray(xseq)
+        openloop_sols += [openloop_sol]
+        if model_type == 'plant':
+            regulator_guess = dict(u=controller.regulator.useq[0],
+                                   x=controller.regulator.xseq[0])
 
     # Save data.
     PickleTool.save(data_object=dict(cl_data_list=cl_data_list,
                                      cost_pars=cost_pars,
                                      disturbances=disturbances,
-                                     avg_stage_costs=avg_stage_costs_list),
+                                     avg_stage_costs=avg_stage_costs_list,
+                                     openloop_sols=openloop_sols),
                     filename='tworeac_empc_nonlin.pickle')
 
 main()

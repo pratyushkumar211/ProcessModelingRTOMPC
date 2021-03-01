@@ -312,13 +312,13 @@ def hybrid_func(xGz, u, parameters):
 
 def get_economic_opt_pars(*, Delta):
     """ Get economic MPC parameters for the tworeac example. """
-    raw_mat_price = _resample_fast(x = np.array([[105.], [105.], 
-                                                 [105.], [105.], 
-                                                 [105.], [105.]]), 
+    raw_mat_price = _resample_fast(x = np.array([[100.], [100.], 
+                                                 [100.], [100.], 
+                                                 [100.], [100.]]), 
                                    xDelta=2*60,
                                    newDelta=Delta,
                                    resample_type='zoh')
-    product_price = _resample_fast(x = np.array([[170.], [210.], 
+    product_price = _resample_fast(x = np.array([[160.], [210.], 
                                                  [120.], [160.], 
                                                  [160.], [160.]]),
                                    xDelta=2*60,

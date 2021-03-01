@@ -174,11 +174,11 @@ def main():
     valdata_list += koopval_predictions
     t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
                                                      valdata_list[:2],
-                                                     plot_range=(10, 12*60+10))
+                                                     plot_range=(10, 24*60+10))
     (t, ulist_train, 
      ylist_train, xlist_train) = get_plotting_array_list(simdata_list=
                                                      valdata_list[2:],
-                                                     plot_range=(0, 12*60))
+                                                     plot_range=(0, 24*60))
     ulist += ulist_train
     ylist += ylist_train
     xlist += xlist_train
@@ -194,16 +194,6 @@ def main():
     #                            colors=['dimgray', 'm'], 
     #                            legends=['Black-box', 'Hybrid'])
 
-    # Plot first open-loop simulation.
-    #legend_names = ['Plant', 'Grey-box', 'Hybrid']
-    #legend_colors = ['b', 'g', 'm']
-    #openloop_sols = tworeac_empc['openloop_sols']
-    #udatum = [openloop_sols[0][0], openloop_sols[1][0], openloop_sols[2][0]]
-    #xdatum = [openloop_sols[0][1], openloop_sols[1][1], openloop_sols[2][1]]
-    #figures += plot_openloop_sols(t=t, udatum=udatum, xdatum=xdatum,
-    #                              legend_names=legend_names,
-    #                              legend_colors=legend_colors)
-
     # Load data for the economic MPC simulation.
     tworeac_empc = PickleTool.load(filename=
                                     "tworeac_empc_nonlin.pickle", 
@@ -211,10 +201,18 @@ def main():
     cl_data_list = tworeac_empc['cl_data_list']
     cost_pars = tworeac_empc['cost_pars']
     avg_stage_costs=tworeac_empc['avg_stage_costs']
+    openloop_sols = tworeac_empc['openloop_sols']
+
+    # Plot first open-loop simulation.
+    legend_names = ['Plant', 'Grey-box', 'Koopman']
+    legend_colors = ['b', 'g', 'm']
+    udatum = [openloop_sols[0][0], openloop_sols[1][0], openloop_sols[2][0]]
+    xdatum = [openloop_sols[0][1], openloop_sols[1][1], openloop_sols[2][1]]
+    figures += plot_openloop_sols(t=t, udatum=udatum, xdatum=xdatum,
+                                  legend_names=legend_names,
+                                  legend_colors=legend_colors)
 
     # Plot closed-loop simulation data.
-    legend_names = ['Plant', 'Grey-box']
-    legend_colors = ['b', 'g']
     t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
                                                      cl_data_list,
                                                      plot_range=(0, 8*60))

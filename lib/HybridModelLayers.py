@@ -491,73 +491,66 @@ class CstrFlashModel(tf.keras.Model):
 class KoopmanCell(tf.keras.layers.AbstractRNNCell):
     """
     RNN Cell.
-    z = [y_{k-N_p:k-1}', u_{k-N_p:k-1}'];
-    x_{kp} = NN(y, z)
-    x_{kp}^+  = A_x_{kp} + Bu
-    [y';z']^+ = Hx_{kp}^+
-    y = [I, 0][y';z']
+    #z = [y_{k-N_p:k-1}', u_{k-N_p:k-1}'];
+    #x_{kp} = NN(y, z)
+    x_{kp}^+  = Ax_{kp} + Bu
+    #[y';z']^+ = Hx_{kp}^+
+    [y;z] = H*xkp
+    y = [I, 0]*[y;z]
     """
-    def __init__(self, Np, Ny, Nu, fnn_layers, A, B, H, **kwargs):
+    def __init__(self, Nxkp, Ny, A, B, H, **kwargs):
         super(KoopmanCell, self).__init__(**kwargs)
-        self.Np = Np
-        (self.Ny, self.Nu) = (Ny, Nu)
-        self.fnn_layers = fnn_layers
+        self.Nxkp, self.Ny = Nxkp, Ny
         self.A, self.B, self.H = A, B, H
 
     @property
     def state_size(self):
-        return self.Ny + self.Np*(self.Ny + self.Nu)
+        return self.Nxkp
     
     @property
     def output_size(self):
         return self.Ny
 
-    def _fnn(self, yz):
-        """ Compute the output of the feedforward network. """
-        fnn_output = yz
-        for layer in self.fnn_layers:
-            fnn_output = layer(fnn_output)
-        return fnn_output
-
     def call(self, inputs, states):
         """ Call function of the hybrid RNN cell.
-            Dimension of states: (None, Ny + Np*(Ny + Nu))
+            Dimension of states: (None, Nxkp)
             Dimension of input: (None, Nu)
             Dimension of output: (None, Ny)
         """
         # Extract important variables.
-        [yz] = states
+        [xkp] = states
         u = inputs
 
         # Get the state prediction at the next time step.
-        xkp = self._fnn(yz)
         xkplus = self.A(xkp) + self.B(u)
-        yzplus = self.H(xkplus)
-        xplus = yzplus
-
-        # Get the output prediction at the current timestep.
+        
+        # Get the output at the current timestep.
+        yz = self.H(xkp)
         y = yz
 
         # Return output and states at the next time-step.
-        return (y, xplus)
+        return (y, xkplus)
 
 class KoopmanModel(tf.keras.Model):
     """ Custom model for the Deep Koopman operator model. """
     def __init__(self, Np, Ny, Nu, fnn_dims):
         
-        # Get a few sizes. 
+        # Get a few sizes.
         Nz = Np*(Ny+Nu)
         Nxkp = fnn_dims[-1]
 
         # Create inputs to the layers.
         layer_input = tf.keras.Input(name='u', shape=(None, Nu))
-        initial_state = tf.keras.Input(name='yz0', shape=(Ny + Nz, ))
+        yz0 = tf.keras.Input(name='yz0', shape=(Ny + Nz, ))
         
         # Dense layers for the Koopman lifting NN.
         fnn_layers = []
         for dim in fnn_dims[1:-1]:
-            fnn_layers.append(tf.keras.layers.Dense(dim, activation='tanh'))
+            fnn_layers.append(tf.keras.layers.Dense(dim, activation='sigmoid'))
         fnn_layers.append(tf.keras.layers.Dense(fnn_dims[-1]))
+
+        # Use the created layers to create the initial state.
+        initial_state = self._fnn(yz0, fnn_layers)
 
         # Custom weights for the linear dynamics in lifted space.
         A = tf.keras.layers.Dense(Nxkp, input_shape=(Nxkp, ),
@@ -568,7 +561,7 @@ class KoopmanModel(tf.keras.Model):
                                   use_bias=False)
         
         # Build model depending on option.
-        koopman_cell = KoopmanCell(Np, Ny, Nu, fnn_layers, A, B, H)
+        koopman_cell = KoopmanCell(Nxkp, Ny, A, B, H)
 
         # Construct the RNN layer and the computation graph.
         koopman_layer = tf.keras.layers.RNN(koopman_cell,
@@ -581,5 +574,12 @@ class KoopmanModel(tf.keras.Model):
         outputs = [layer_output, y]
 
         # Construct model.
-        super().__init__(inputs=[layer_input, initial_state],
+        super().__init__(inputs=[layer_input, yz0],
                          outputs=outputs)
+
+    def _fnn(self, yz, fnn_layers):
+        """ Compute the output of the feedforward network. """
+        fnn_output = yz
+        for layer in fnn_layers:
+            fnn_output = layer(fnn_output)
+        return fnn_output
