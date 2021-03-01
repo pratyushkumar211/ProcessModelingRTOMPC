@@ -319,8 +319,8 @@ def get_economic_opt_pars(*, Delta):
                                    newDelta=Delta,
                                    resample_type='zoh')
     product_price = _resample_fast(x = np.array([[160.], [210.], 
-                                                 [120.], [160.], 
-                                                 [160.], [160.]]),
+                                                 [120.], [230.], 
+                                                 [230.], [230.]]),
                                    xDelta=2*60,
                                    newDelta=Delta,
                                    resample_type='zoh')
