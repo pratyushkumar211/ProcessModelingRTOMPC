@@ -1,0 +1,409 @@
+\documentclass{article}
+\usepackage[total={6in, 7in}]{geometry}
+%% The graphicx and color packages should give you all the color, % figure
+%inclusion, and text/figure resizing capabilities you need.
+\usepackage{graphicx}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{tikz,tikzsettings,bm}
+\usepackage{almostfull}
+
+\definecolor{pblue}{HTML}{1F77B4}
+\definecolor{pgold}{HTML}{FF7f0E}
+\definecolor{pgreen}{HTML}{2CA02C}
+\definecolor{pred}{HTML}{D62728}
+\definecolor{ppurple}{HTML}{9467BD}
+\definecolor{ppink}{HTML}{E377C2}
+\definecolor{pyellow}{HTML}{BCBD22}
+\definecolor{pcyan}{HTML}{17BECF}
+
+\usepackage{authblk}
+
+%% You should not need more than this for fancy math.
+\usepackage{amsmath}   % Extra math commands and environments from the AMS
+\usepackage{amssymb}   % Special symbols from the AMS
+\usepackage{amsthm}    % Enhanced theorem and proof environments from the AMS
+\usepackage{latexsym}  % A few extra LaTeX symbols
+\usepackage{cleveref}
+%\usepackage{lucidbry}
+\input{stanacce}
+\renewcommand{\baselinestretch}{1.0666}
+
+%% The URL package is handy for typesetting URLs.  It does not define % an
+%\email command because so many document styles already do that. % So we define
+%one here that uses a typewriter font.
+\usepackage{url}
+%\DeclareRobustCommand{\email}{\begingroup \urlstyle{tt}\Url}
+\providecommand{\email}{}
+\renewcommand{\email}[1]{\texttt{#1}}
+
+%% This provides various customized verbatim commands and % environments.  You
+%probably don't need it.
+\usepackage{fancyvrb}
+\DefineShortVerb{\|} \VerbatimFootnotes
+\DefineVerbatimEnvironment{code}{Verbatim}{%
+  frame=single, framesep=1em, xleftmargin=1em, xrightmargin=1em, samepage=true,
+  fontsize=\footnotesize}
+\usepackage{upquote}
+
+%% Your document may require a different bibliography style.  I've % come to
+%prefer Author (YYYY) styles because it makes it easier for % a person who knows
+%something about the literature to understand % what is being cited without
+%having to skip to the list of % references.
+\usepackage[authoryear,round,longnamesfirst]{natbib}
+
+%% You won't normally need this definition in your documents, but it % is here
+%so we can typeset the BibTeX logo correctly.
+\makeatletter
+\@ifundefined{BibTeX} {\def\BibTeX{{\rmfamily B\kern-.05em%
+    \textsc{i\kern-.025em b}\kern-.08em%
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}}{}
+
+\def\blfootnote{\xdef\@thefnmark{}\@footnotetext}
+\makeatother
+
+%% Allow more of the pages to be occupied by graphs.  These parameters % are
+%described in section c.9.1 of the LaTeXbook.  Your document may % not benefit
+%from these parameters (it could make things worse) so % you should only change
+%these from the defaults if you need to.
+\setcounter{topnumber}{2}              %% 2
+\setcounter{bottomnumber}{1}           %% 1
+\setcounter{totalnumber}{3}            %% 3
+\renewcommand{\topfraction}{0.9}       %% 0.7
+\renewcommand{\bottomfraction}{0.9}    %% 0.3
+\renewcommand{\textfraction}{0.1}      %% 0.2
+\renewcommand{\floatpagefraction}{.7}  %% 0.5
+\newlength{\graphwidth}
+\setlength{\graphwidth}{0.8\columnwidth}
+
+\usepackage{subfiles}
+
+\graphicspath{{./}{./figures/}{./figures/paper/}}
+
+\newcommand{\Is}{\bm{\mathrm{I}}} % Resources.
+\newcommand{\Js}{\bm{\mathrm{J}}} % Units.
+\newcommand{\Ks}{\bm{\mathrm{K}}} % Resources.
+\newcommand{\Ms}{\bm{\mathrm{M}}} % Transition catalog.
+\newcommand{\Ns}{\bm{\mathrm{N}}} % Transition counter.
+
+\newcommand{\useq}{\mathbf{u}} \newcommand{\xseq}{\mathbf{x}}
+\newcommand{\bbR}{\mathbb{R}} \newcommand{\bbW}{\mathbb{W}}
+\newcommand{\bbU}{\mathbb{U}} \newcommand{\bbI}{\mathbb{I}}
+\newcommand{\bbX}{\mathbb{X}} \newcommand{\bbP}{\mathbb{P}}
+
+\title{Hybrid nonlinear system identification using neural networks}
+\author{Pratyush Kumar}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Process modeling}
+Consider a nonlinear plant evolving in continuous time as
+\begin{align*}
+  \dot{x}_p &= f_p(x_p, u, w) \\
+  y &= h_p(x_p) + v
+\end{align*}
+in which $x_p \in \bbR^{n_p}$ is the plant state, $u \in \bbU$ is the
+manipulated control input, $y \in \bbR^p$ is the measurement, $w$ is the process
+noise, and $v$ is the measurement noise.
+
+\subsection{Completion of the u-y model}
+We assume that grey-box modeling is performed for the plant, and we wish to
+augment the grey-box model with neural networks for improvement in the accuracy
+of the model. From first-principles modeling, we have the following grey-box
+model in continuous time
+\begin{align*}
+  \dot{x}_g &= f_g(x_g, u) \\
+  y &= h_g(x_g)
+\end{align*}
+
+in which $x_g \in \bbR^{n_g}$ are the grey-box states, which are some subset of
+the plant states (denote $x_g = Gx_p$) chosen to be modeled. The dynamics of
+these grey-box states potentially have some missing terms in their ODEs. For
+observable nonlinear systems, we can construct the original plant state using a
+history of measurements and control inputs. Denote this history as 
+\begin{align*}
+  \mathbf{y}_{k-N_p:k-1} &= [y(k-N_p\Delta)', ... \ , y(k-\Delta)']' \\
+  \mathbf{u}_{k-N_p:k-1} &= [u(k-N_p\Delta)', 
+                               ... \ , u(k-\Delta)']'
+\end{align*}
+
+in which $N_p$ is the number of past measurements and $\Delta$ is the sample
+time between two consecutive measurements. There exists a function $\phi(\cdot)$
+and a number of delay time steps $N_p$, such that the plant state at a given
+time can be written as $x_p(k) = \phi(\mathbf{y}_{k-N_p:k},
+\mathbf{u}_{k-N_p:k-1})$. For linear plants, this function $\phi(\cdot)$ is
+known analytically in terms of the plant dynamic matrices.
+
+We augment the grey-box model using neural networks as follows -
+\begin{align} \label{eq:hybrid_cont_time}
+\dot x_g &= f_g(x_g, u) + 
+f_N(x_g, z, u) \notag \\
+y &= h_g(x_g) 
+\end{align}
+in which $f_N(\cdot)$ is a feedforward neural network and $z(k) =
+[\mathbf{y}'_{k-N_p:k-1}, \mathbf{u}'_{k-N_p:k-1}]'$. This model is converted to
+discrete-time using the Runge-Kutta 4 method, and the vector of past controls
+and measurements ($z$) is also viewed as a state. The discrete-time model is
+represented as 
+\begin{equation} \label{eq:hybrid_discrete_time}
+  \begin{split}
+    x_g^+ &= f_h(x_g, z, u)  \\
+    z^+ &= f_z(z, x_g, u) \\
+    y &= h_g(x_g)       
+  \end{split}
+\end{equation}
+in which, $f_h(\cdot)$ is a obtained by discretization of
+\eqref{eq:hybrid_cont_time} using the Runge-Kutta 4 method, and $f_z$ is known
+analytically.
+
+A few alternative modeling choices are:
+\begin{itemize}
+  \item Black-box: $y^+ = f_N(y, z, u), \ z^+ = f_z(z, y, u)$
+        (purely black-box).
+  \item Hybrid 1: $x_g^+ = f_N(x_g, z, u), \ z^+ = f_z(z, x_g, u), \ y =
+                   h_g(x_g)$, (states have meaning)
+  \item Hybrid 2: $x_g^+ = f_g(x_g, u), \ z^+ = f_z(z, x_g, u), \ y = h_g(x_g) +
+                   h_N(z)$, (model residual)
+  \item Hybrid 3: $\dot x_g = f_g(x_g, u, p(h_g(x_g), z)), \ z^+ = f_z(z, x_g,
+  u), \ y = h_g(x_g)$, (use NNs to learn some parameters)
+\end{itemize}
+
+\section{Conversion to discrete time and training}
+We note that the network $f_N(\cdot)$ is an addition to the grey-box dynamics in
+continuous time in \eqref{eq:hybrid_cont_time}. The Runge-Kutta-4 (RK4) method
+is used for the discretization as follows
+
+\begin{align*}
+  x_{gk} &= x_g(k) \\
+  k_1 &= f_g(x_g, u) + 
+  f_N(x_g, \mathbf{y}_{k-N_p:k-1}, \mathbf{u}_{k-N_p:k-1}, u) \\
+  x_g & := x_g + (\Delta/2)k_1 \\
+  k_2 &= f_g(x_g, u) + 
+  f_N(x_g, \mathbf{y}_{k+0.5-N_p:k-0.5}, \mathbf{u}_{k-N_p:k-1}, u)\\
+  x_g & := x_g + (\Delta/2)k_2 \\
+  k_3 &= f_g(x_g, u) + 
+  f_N(x_g, \mathbf{y}_{k+0.5-N_p:k-0.5}, \mathbf{u}_{k-N_p:k-1}, u)\\
+  x_g & := x_g + \Delta k_3 \\
+  k_4 &= f_g(x_g, u) + 
+  f_N(x_g, \mathbf{y}_{k+1-N_p:k}, \mathbf{u}_{k-N_p:k-1}, u)\\
+  x_g(k+\Delta) &= x_{gk} + (\Delta/6)(k_1 + 2k_2 + 2k_3 + k_4) \\
+  \hat{y}(k+\Delta) &= h_g(x_g(k+\Delta)) 
+\end{align*}
+in which the sequence $\mathbf{y}_{k+0.5-N_p:k-0.5}$ is obtained by linear
+interpolation.
+
+The following optimization problem is solved to compute the weights in the
+neural network
+\begin{align*}
+\underset{W_i, b_i}{\textnormal{min}} \sum_{k=0}^{N_s-1} 
+\dfrac{1}{N_s}(\hat{y}(k) - y(k))^2
+\end{align*}
+in which $W_i$, $b_i$ are the weights in each hidden layer of the network, $N_s$
+is the number of training samples, $\hat{y}$ are the predictions of the
+hybrid grey-box + neural network model, $N_s$ is the number of training
+samples, and $y$ are the measurements from the plant. Note that this
+optimization requires an estimate of the initial grey-box state. We assume that
+before the open-loop system identification experiment is performed for data
+collection, the plant is being operated at some steady-state such that input to
+output responses of the plant and grey-box model can be aligned with the use of an
+integrating disturbance model. We can use the grey-box state at that steady
+state as the initial condition for the above multi-step-ahead prediction-error
+optimization.
+
+\section{Nonlinear reactor example}
+We now demonstrate the application of the above hybrid modeling framework
+via a simulation study on a simple chemical process example. We consider a nonlinear reactor with two reactions ($A \rightarrow B $ and  $3B
+\rightleftharpoons C$), simulated using the following ordinary differential
+equations (ODEs)
+\begin{align*}
+  \dfrac{dC_A}{dt} &= \dfrac{C_{Af} - C_A}{\tau} - k_1C_A\\
+  \dfrac{dC_B}{dt} &= k_1C_A - 3k_2C^3_B + 3k_3C_C- \dfrac{C_B}{\tau}\\
+  \dfrac{dC_C}{dt} &= k_2C^3_B - k_3C_C - \dfrac{C_C}{\tau}
+\end{align*}
+
+The grey-box model is chosen as follows with an assumption that knowledge of the
+second side reaction ($3B \rightleftharpoons C $) is not available
+\begin{align*}
+  \dfrac{dC_A}{dt} &= \dfrac{C_{Af} - C_A}{\tau} - k_1C_A\\
+  \dfrac{dC_B}{dt} &= k_1C_A - \dfrac{C_B}{\tau}
+\end{align*}
+The control input is $u = C_{Af}$, the states in the plant model are $x = [C_A,
+C_B, C_C]'$, and the measurements are $y = [C_A, C_B]'$. We assume the following
+parameter values, $k_1 = 1 \ \textnormal{m}^3/\textnormal{min}, \ k_2 = 0.01 \
+\textnormal{m}^3/\textnormal{min}, \ k_3 = 0.05 \
+\textnormal{m}^3/\textnormal{min}$, and $\tau = 5 \ \textnormal{min}$.
+
+We examine the performance of the hybrid modeling framework
+\eqref{eq:hybrid_discrete_time} in simulation studies. First, we generate
+training data by simulating the plant model using a pseudo-random-binary-signal
+(PRBS) of the manipulated control input. Second, we train a black-box neural network
+and the hybrid model \eqref{eq:hybrid_discrete_time} with network architectures
+of [9, 16, 2] and [8, 16, 2]. Third, we examine the trained model predictions
+and a mean squared error (MSE) performance metric on validation data generated
+using the plant model. Finally, we analyze the steady-state cost curves obtained
+using the trained models and their differences with the steady-state cost curve
+of the plant model. These simulations and analyses shed light on the data
+requirements of the hybrid and black-box modeling frameworks, and enable an
+understanding of their performance if used for real-time economic optimization
+purposes in chemical plants.
+
+The Figure shows predictions of the trained black-box
+and hybrid models after training with 8 hours (480 samples) of data. We observe
+that both the models can match the plant data accurately. The black-box model
+shows slightly worse predictions in a few places. However, both the trained
+models are adequate for real-time optimization purpose in a feedback control system.
+
+
+We examine the prediction accuracy of the models as a function of the number of
+training samples using the mean squared error (MSE) metric computed as follows
+on the validation data
+\begin{align*}
+  \textnormal{MSE} =  \sum_{k=0}^{N_s-1} 
+  \dfrac{1}{N_s}(\hat{y}(k) - y(k))^2
+\end{align*}
+in which $\hat{y}$ are the model predictions and $y$ denotes the plant
+measurements. The Figure  shows the variation of this
+MSE metric as a function of the number of training data obtained with both the
+black-box and hybrid models. We observe that the hybrid model provides better
+performance than the black-box model in terms of overall prediction accuracy and
+data requirements.
+
+Next, we study the performance of the trained models in a steady-state economic
+optimization problem, and compare the cost curves obtained with the trained
+models with the cost curve of the plant model. The motivation is to understand
+the performance of these models if used in real-time economic optimization
+layers common in chemical process industries. The optimization problem solved is
+
+\begin{align*}
+  \underset{u_s}{\textnormal{min}} & \quad \ell(y_s, u_s) \\
+  x_s &= f(x_s, u_s)\\ 
+  y_s &= h(x_s) \\
+  \underline{u} \leq &u_s \leq \overline{u}
+\end{align*}
+in which $x_s$, $y_s$, $u_s$ are the state, output, and control respectively at
+steady-states. For the nonlinear reactor example, the cost is chosen as
+$\ell(y_s, u_s) = c_1C_{Af} - c_2C_B$, which measures the raw material cost and
+product profit. The Figure shows the cost curves of the
+plant, grey-box, black-box, and hybrid model obtained with 8 hours of training
+data. We first notice from the cost curve of the grey-box model that an
+optimization with the grey-box model results in the optimizer recommending a
+full supply of the raw material $A$. Since some of the product $B$ reacts to
+form an undesired side product $C$ in the plant, this recommendation incurs a
+cost as observed from the plant cost curve. An intuitive approach to correct
+this type of plant-model mismatch is to augment the grey-box model with
+integrating disturbance models and estimate the plant model mismatch from data
+at one steady state. This strategy however, cannot recover the plant cost curve
+in the entire actuator constraint set as the integrating disturbance models are
+often linear. We notice that the cost curve of the hybrid model is almost the
+same as the cost curve of the plant model in the entire actuator constraint set.
+The cost curve of the black-box model is also shown and we notice that it is not
+as closely aligned with the plant as compared to the hybrid model.
+
+
+
+
+Finally, we analyze the variation in the cost curves of the black-box and hybrid
+models with increasing number of training samples. We analyze the following cost
+error metric in the entire actuator constraint set
+\begin{align*}
+  e(u_s) = \vert \ell(y_p(u_s), u_s) - \ell(y_m(u_s), u_s) \vert
+\end{align*}
+in which $y_p(\cdot)$ and $y_m(\cdot)$ denote the plant and model steady state
+output respectively. The Figures and show the variation in this cost error metric in the
+actuator constraint set with increasing number of training samples for the
+black-box and hybrid model respectively. We observe that with an increase in the
+number of training samples, the error metric for the hybrid model approaches
+near zero values for a wide range of actuator values in the constraint set. The
+error metric of the black-box model remains relatively larger than that of the
+hybrid model in the constraint set with increase in training data. The
+implication of this error metric going to zero for all actuator values in the
+constraint set is that the optimum computed for the steady-state economic
+optimization problem with the trained model will be the same as the true plant
+optimum.
+
+\section{Large, CSTR and flash in series example}
+\begin{figure}[!h]
+  \centering
+  \includegraphics[width=\textwidth, height=0.4\textheight]{cstr_flash.pdf}
+  \caption{Schematic of the CSTR and flash plant. The CSTR facilitates two 
+  reactions, the first reaction ($A \rightarrow B$) forms the primary product $B$, and the second reaction ($3B \rightarrow C$) 
+  consumes the desired product $B$ and forms the undesired product $C$.
+  The non-adiabatic flash separates the reactant $A$ and 
+  products $B$ and $C$. The major component in the vapor phase 
+  is $A$, and it is recycled back after cooling to the CSTR.}
+  \label{fig:cstr_flash}
+\end{figure}
+%\newpage
+\textbf{Plant -- }
+\begin{align*}
+  \dfrac{dH_r}{dt} &= \dfrac{F + D -F_r}{A_r}\\
+  \dfrac{dC_{Ar}}{dt} &= \dfrac{F(C_{Af} -C_{Ar}) +
+                         D(C_{Ad} -C_{Ar})}{A_rH_r} - r_1 \\
+  \dfrac{dC_{Br}}{dt} &= \dfrac{-FC_{Br} + 
+                          D(C_{Bd} -C_{Br})}{A_rH_r} + r_1 -3r_2\\
+  \dfrac{dC_{Cr}}{dt} &= \dfrac{-FC_{Cr} + 
+  D(C_{Cd} -C_{Cr})}{A_rH_r} + r_2\\
+  \dfrac{dT_r}{dt} &= \dfrac{F(T_f - T_r) + D(T_d -T_r)}{A_rH_r} + 
+                      \dfrac{r_1\Delta H_1 + r_2\Delta H_2}{\rho C_p} + 
+                      \dfrac{Q_r}{\rho A_r C_p H_r}\\
+\end{align*}
+
+\begin{align*}
+  \dfrac{dH_b}{dt} &= \dfrac{F_r - F_b - D}{A_b} \\
+  \dfrac{dC_{Ab}}{dt} &= \dfrac{F_r(C_{Ar} -C_{Ab}) + 
+                          D(C_{Ab} -C_{Ad})}{A_bH_b} \\
+  \dfrac{dC_{Bb}}{dt} &= \dfrac{F_r(C_{Br} -C_{Bb}) + 
+                          D(C_{Bb} -C_{Bd})}{A_bH_b} \\
+  \dfrac{dC_{Cb}}{dt} &= \dfrac{F_r(C_{Cr} -C_{Cb}) + 
+                          D(C_{Cb} -C_{Cd})}{A_bH_b} \\
+  \dfrac{dT_b}{dt} &= \dfrac{F_r(T_r - T_b)}{A_bH_b} +
+                      \dfrac{Q_b}{\rho A_b C_p H_b}\\
+\end{align*}
+
+The sample time for plant measurements is $1$ min, the 
+plant states are ($H_r, C_{Ar}, C_{Br}, C_{Cr}, T_r, 
+H_b, C_{Ab}, C_{Bb}, C_{Cb}, T_b$), and the measurements are just 
+the heights and temperatures of the CSTR and flash. \\
+
+\textbf{Grey-box model -- }
+\begin{align*}
+  \dfrac{dH_r}{dt} &= \dfrac{F + D -F_r}{A_r}\\
+  \dfrac{dC_{Ar}}{dt} &= \dfrac{F(C_{Af} -C_{Ar}) + 
+                         D(C_{Ad} -C_{Ar})}{A_rH_r} - r_1 \\
+  \dfrac{dC_{Br}}{dt} &= \dfrac{-FC_{Br} + 
+                          D(C_{Bd} -C_{Br})}{A_rH_r} + r_1\\
+  \dfrac{dT_r}{dt} &= \dfrac{F(T_f - T_r) + D(T_d -T_r)}{A_rH_r} + 
+                      \dfrac{r_1\Delta H_1}{\rho C_p} + 
+                      \dfrac{Q_r}{\rho A_r C_p H_r}\\
+  \dfrac{dH_b}{dt} &= \dfrac{F_r - F_b - D}{A_b} \\
+  \dfrac{dC_{Ab}}{dt} &= \dfrac{F_r(C_{Ar} -C_{Ab}) + 
+                          D(C_{Ab} -C_{Ad})}{A_bH_b} \\
+  \dfrac{dC_{Bb}}{dt} &= \dfrac{F_r(C_{Br} -C_{Bb}) + 
+                          D(C_{Bb} -C_{Bd})}{A_bH_b} \\
+  \dfrac{dT_b}{dt} &= \dfrac{F_r(T_r - T_b)}{A_bH_b} +
+                      \dfrac{Q_b}{\rho A_b C_p H_b}\\
+\end{align*}
+
+The grey-box model assumes no knowledge of the second 
+reaction ($3B \rightarrow C$), which produces the undesired 
+product $C$. Note that since only heights and temperatures are 
+measured, all the states in the plant model are 
+not observable and only asymptotically detectable. 
+
+The economic objective is -- 
+\begin{align*}
+  \underset{u_s}{\textnormal{min}} \quad 
+  \ell(u_s, x_s) \quad := & \quad c_1FC_{Af} + c_2Q_r + 
+                                      c_2Q_b + c_2D\rho C_p(T_d-T_b) - 
+                                      c_3F_bC_{Bb} \\
+  x_s &= f(x_s, u_s)\\ 
+  y_s &= h(x_s) \\
+  \underline{u} \leq &u_s \leq \overline{u}
+\end{align*}
+
+in which $c_1$ is the raw material cost of unit $\$$/mol-A,
+$c_2$ is the energy price of unit $\$$/kW, 
+and $c_3$ is the product selling price of unit $\$$/mol-B.
+\end{document}
