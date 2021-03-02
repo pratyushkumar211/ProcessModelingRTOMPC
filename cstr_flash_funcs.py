@@ -227,7 +227,7 @@ def get_greybox_parameters(*, plant_pars):
 
     # The C matrix for the grey-box model.
     parameters['tsteps_steady'] = plant_pars['tsteps_steady']
-    parameters['yindices'] = [0, 1, 3, 4, 5, 7]
+    parameters['yindices'] = [0, 2, 3, 4, 6, 7]
 
     # Get the constraints.
     parameters['ulb'] = plant_pars['ulb']
@@ -288,72 +288,6 @@ def get_model(*, parameters, plant=True):
                                         Ny = parameters['Ny'],
                                         sample_time = parameters['Delta'], 
                                         x0 = xs)
-
-def get_train_val_data(*, Np, parameters, greybox_processed_data):
-    """ Get the data for training in appropriate format. """
-    tsteps_steady = parameters['tsteps_steady']
-    (Ng, Ny, Nu) = (parameters['Ng'], parameters['Ny'], parameters['Nu'])
-    xuyscales = get_scaling(data=greybox_processed_data[0])
-    inputs, xGz0, yz0, yz, outputs, xG = [], [], [], [], [], []
-    for data in greybox_processed_data:
-        
-        # Scale data.
-        u = (data.u-xuyscales['uscale'][0])/xuyscales['uscale'][1]
-        y = (data.y-xuyscales['yscale'][0])/xuyscales['yscale'][1]
-        x = (data.x-xuyscales['xscale'][0])/xuyscales['xscale'][1]
-
-        # Get some shapes.
-        Nt = u.shape[0]
-        t = tsteps_steady
-
-        # Get input trajectory.
-        u_traj = u[t:, :][np.newaxis, ...]
-
-        # Get initial state.
-        yp0seq = y[t-Np:t, :].reshape(Np*Ny, )[np.newaxis, :]
-        up0seq = u[t-Np:t:, ].reshape(Np*Nu, )[np.newaxis, :]
-        z0 = np.concatenate((yp0seq, up0seq), axis=-1)
-        xG0 = x[t, :][np.newaxis, :]
-        y0 = y[t, :][np.newaxis, :]
-        xGz0_traj = np.concatenate((xG0, z0), axis=-1)
-        yz0_traj = np.concatenate((y0, z0), axis=1)
-
-        # Get grey-box state trajectory.
-        xG_traj = x[t:, :][np.newaxis, :]
-
-        # Get output trajectory.
-        y_traj = y[t:, :][np.newaxis, ...]
-
-        # Get yz_traj.
-        z_traj = []
-        for t in range(tsteps_steady, Nt):
-            ypseq = y[t-Np:t, :].reshape(Np*Ny, )[np.newaxis, :]
-            upseq = u[t-Np:t, :].reshape(Np*Nu, )[np.newaxis, :]
-            z_traj.append(np.concatenate((ypseq, upseq), axis=-1))
-        z_traj = np.concatenate(z_traj, axis=0)[np.newaxis, ...]
-        yz_traj = np.concatenate((y_traj, z_traj), axis=-1)
-
-        # Collect the trajectories in list.
-        inputs.append(u_traj)
-        xGz0.append(xGz0_traj)
-        yz0.append(yz0_traj)
-        yz.append(yz_traj)
-        outputs.append(y_traj)
-        xG.append(xG_traj)
-
-    # Get the training and validation data for training in compact dicts.
-    train_data = dict(inputs=np.concatenate(inputs[:-2], axis=0),
-                      xGz0=np.concatenate(xGz0[:-2], axis=0),
-                      yz0=np.concatenate(yz0[:-2], axis=0),
-                      yz=np.concatenate(yz[:-2], axis=0),
-                      outputs=np.concatenate(outputs[:-2], axis=0), 
-                      xG=np.concatenate(xG[:-2], axis=0))
-    trainval_data = dict(inputs=inputs[-2], xGz0=xGz0[-2], yz0=yz0[-2], 
-                         yz=yz[-2], outputs=outputs[-2], xG=xG[-2])
-    val_data = dict(inputs=inputs[-1], xGz0=xGz0[-1], yz0=yz0[-1], 
-                    yz=yz[-1], outputs=outputs[-1], xG=xG[-1])
-    # Return.
-    return (train_data, trainval_data, val_data, xuyscales)
 
 def get_hybrid_pars(*, greybox_pars, Npast, fnn_weights, xuyscales):
     """ Get the hybrid model parameters. """
@@ -560,7 +494,7 @@ def get_economic_opt_pars(*, num_days, sample_time, plant_pars):
                                    xDelta=6*60,
                                    newDelta=sample_time,
                                    resample_type='zoh')
-    product_price = _resample_fast(x = np.array([[3000.], [7000.], 
+    product_price = _resample_fast(x = np.array([[8000.], [7000.], 
                                                  [5000.], [4000.], 
                                                  [4000.], [4000.], 
                                                  [4000.], [4000.]]),

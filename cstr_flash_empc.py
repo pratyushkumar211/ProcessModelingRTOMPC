@@ -16,6 +16,7 @@ from hybridid import (PickleTool, SimData, interpolate_yseq, c2dNonlin)
 from linNonlinMPC import (NonlinearPlantSimulator, NonlinearEMPCController, 
                          online_simulation)
 from cstr_flash_funcs import plant_ode, greybox_ode, measurement
+from cstr_flash_funcs import get_economic_opt_pars, get_model
 from hybridid import get_koopman_pars_check_func
 
 def get_controller(model_func, model_pars, model_type, 
@@ -24,30 +25,23 @@ def get_controller(model_func, model_pars, model_type,
         EMPC regulator and MHE estimator. """
 
     # Get models.
-    ps = model_pars['ps']
-    Delta = model_pars['Delta']
-
-    # State-space model (discrete time).
     if model_type == 'hybrid':
         fxu = lambda x, u: model_func(x, u, model_pars)
     else:
+        ps = model_pars['ps']
+        Delta = model_pars['Delta']
         fxu = lambda x, u: model_func(x, u, ps, model_pars)
         fxu = c2dNonlin(fxu, Delta)
 
     # Measurement function.
-    hx = lambda x: _measurement(x, model_pars)
+    hx = lambda x: measurement(x, model_pars)
 
     # Get the stage cost.
-    if model_type == 'plant':
-        lxup_xindices = [5, 7, 9]
-        Nx = model_pars['Nx']
-    elif model_type == 'grey-box':
-        lxup_xindices = [4, 6, 7]
+    if model_type == 'grey-box':
         Nx = model_pars['Ng']
     else:
-        lxup_xindices = [4, 6, 7]
         Nx = model_pars['Nx']
-    lxup = lambda x, u, p: stage_cost(x, u, p, model_pars, lxup_xindices)
+    lyup = lambda y, u, p: stage_cost(y, u, p, model_pars)
     
     # Get the sizes/sample time.
     (Nu, Ny) = (model_pars['Nu'], model_pars['Ny'])
@@ -56,23 +50,19 @@ def get_controller(model_func, model_pars, model_type,
     # Get the disturbance models.
     Bd = np.zeros((Nx, Nd))
     if model_type == 'plant':
-        Bd[1, 0] = 1.
+        Bd[0, 0] = 1.
+        Bd[2, 1] = 1.
+        Bd[4, 2] = 1.
+        Bd[5, 3] = 1.
+        Bd[7, 4] = 1.
+        Bd[9, 5] = 1.
+    else:
+        Bd[0, 0] = 1.
         Bd[2, 1] = 1.
         Bd[3, 2] = 1.
         Bd[4, 3] = 1.
         Bd[6, 4] = 1.
         Bd[7, 5] = 1.
-        Bd[8, 6] = 1.
-        Bd[9, 7] = 1.
-    else:
-        #Bd[0, 0] = 1.
-        #Bd[1, 1] = 1.
-        #Bd[3, 2] = 1.
-        #Bd[4, 3] = 1.
-        #Bd[5, 4] = 1.
-        #Bd[7, 5] = 1.
-        Ng = model_pars['Ng']
-        Bd[:Ng, :] = np.eye(Nd)
     Cd = np.zeros((Ny, Nd))
 
     # Get steady states.
@@ -94,133 +84,117 @@ def get_controller(model_func, model_pars, model_type,
 
     # Return the NN controller.
     return NonlinearEMPCController(fxu=fxu, hx=hx,
-                                   lxup=lxup, Bd=Bd, Cd=Cd,
+                                   lyup=lyup, Bd=Bd, Cd=Cd,
                                    Nx=Nx, Nu=Nu, Ny=Ny, Nd=Nd,
                                    xs=xs, us=us, ds=ds, ys=ys,
                                    empc_pars=cost_pars,
                                    ulb=ulb, uub=uub, Nmpc=Nmpc,
                                    Qwx=Qwx, Qwd=Qwd, Rv=Rv, Nmhe=Nmhe,
-                                   regulator_guess=regulator_guess)
+                                   guess=regulator_guess), hx
 
-def get_hybrid_pars(*, greybox_pars, Npast, fnn_weights, xuyscales):
-    """ Get the hybrid model parameters. """
+#def get_hybrid_pars(*, greybox_pars, Npast, fnn_weights, xuyscales):
+#    """ Get the hybrid model parameters. """
 
-    hybrid_pars = copy.deepcopy(greybox_pars)
-    # Update sizes.
-    Nu, Ny = greybox_pars['Nu'], greybox_pars['Ny']
-    hybrid_pars['Nx'] = greybox_pars['Ng'] + Npast*(Nu + Ny)
-
-    # Update steady state.
-    ys = _measurement(greybox_pars['xs'], greybox_pars)
-    yspseq = np.tile(ys, (Npast, ))
-    us = greybox_pars['us']
-    uspseq = np.tile(us, (Npast, ))
-    xs = greybox_pars['xs']
-    hybrid_pars['xs'] = np.concatenate((xs, yspseq, uspseq))
+#    hybrid_pars = copy.deepcopy(greybox_pars)
+#   # Update sizes.
+#    Nu, Ny = greybox_pars['Nu'], greybox_pars['Ny']
+#    hybrid_pars['Nx'] = greybox_pars['Ng'] + Npast*(Nu + Ny)
+#
+#    # Update steady state.
+#    ys = _measurement(greybox_pars['xs'], greybox_pars)
+#    yspseq = np.tile(ys, (Npast, ))
+#    us = greybox_pars['us']
+#    uspseq = np.tile(us, (Npast, ))
+#    xs = greybox_pars['xs']
+#    hybrid_pars['xs'] = np.concatenate((xs, yspseq, uspseq))
     
     # NN pars.
-    hybrid_pars['Npast'] = Npast
-    hybrid_pars['fnn_weights'] = fnn_weights 
+#    hybrid_pars['Npast'] = Npast
+#    hybrid_pars['fnn_weights'] = fnn_weights 
 
     # Scaling.
-    hybrid_pars['xuyscales'] = xuyscales
+#    hybrid_pars['xuyscales'] = xuyscales
 
     # Return.
-    return hybrid_pars
+#    return hybrid_pars
 
-def _fnn(xG, z, u, Npast, xuyscales, fnn_weights):
-    """ Compute the NN output. """
-    nn_output = np.concatenate((xG, z, u))
-    nn_output = nn_output[:, np.newaxis]
-    for i in range(0, len(fnn_weights)-2, 2):
-        (W, b) = fnn_weights[i:i+2]
-        nn_output = W.T @ nn_output + b[:, np.newaxis]
-        nn_output = 1./(1. + np.exp(-nn_output))
-    (Wf, bf) = fnn_weights[-2:]
-    nn_output = (Wf.T @ nn_output + bf[:, np.newaxis])[:, 0]
+#def _fnn(xG, z, u, Npast, xuyscales, fnn_weights):
+#    """ Compute the NN output. """
+#    nn_output = np.concatenate((xG, z, u))
+#    nn_output = nn_output[:, np.newaxis]
+#    for i in range(0, len(fnn_weights)-2, 2):
+#        (W, b) = fnn_weights[i:i+2]
+#        nn_output = W.T @ nn_output + b[:, np.newaxis]
+#        nn_output = 1./(1. + np.exp(-nn_output))
+#    (Wf, bf) = fnn_weights[-2:]
+#    nn_output = (Wf.T @ nn_output + bf[:, np.newaxis])[:, 0]
     # Return.
-    return nn_output
+#    return nn_output
 
-def _hybrid_func(xGz, u, parameters):
-    """ The augmented continuous time model. """
+#def _hybrid_func(xGz, u, parameters):
+#    """ The augmented continuous time model. """
 
-    # Extract a few parameters.
-    Ng = parameters['Ng']
-    Ny = parameters['Ny']
-    Nu = parameters['Nu']
-    ps = parameters['ps']
-    Npast = parameters['Npast']
-    Delta = parameters['Delta']
-    fnn_weights = parameters['fnn_weights']
-    xuyscales = parameters['xuyscales']
-    xmean, xstd = xuyscales['xscale']
-    umean, ustd = xuyscales['uscale']
-    ymean, ystd = xuyscales['yscale']
-    xGzmean = np.concatenate((xmean,
-                               np.tile(ymean, (Npast, )), 
-                               np.tile(umean, (Npast, ))))
-    xGzstd = np.concatenate((xstd,
-                             np.tile(ystd, (Npast, )), 
-                             np.tile(ustd, (Npast, ))))
+#    # Extract a few parameters.
+#    Ng = parameters['Ng']
+#    Ny = parameters['Ny']
+#    Nu = parameters['Nu']
+#    ps = parameters['ps']
+#    Npast = parameters['Npast']
+#    Delta = parameters['Delta']
+#    fnn_weights = parameters['fnn_weights']
+#    xuyscales = parameters['xuyscales']
+#    xmean, xstd = xuyscales['xscale']
+#    umean, ustd = xuyscales['uscale']
+#    ymean, ystd = xuyscales['yscale']
+#    xGzmean = np.concatenate((xmean,
+#                               np.tile(ymean, (Npast, )), 
+#                               np.tile(umean, (Npast, ))))
+#    xGzstd = np.concatenate((xstd,
+#                             np.tile(ystd, (Npast, )), 
+#                             np.tile(ustd, (Npast, ))))
 
-    # Get some vectors.
-    xGz = (xGz - xGzmean)/xGzstd
-    u = (u-umean)/ustd
-    xG, ypseq, upseq = xGz[:Ng], xGz[Ng:Ng+Npast*Ny], xGz[-Npast*Nu:]
-    z = xGz[Ng:]
-    hxG = _measurement(xG, parameters)
+#    # Get some vectors.
+#    xGz = (xGz - xGzmean)/xGzstd
+#    u = (u-umean)/ustd
+#    xG, ypseq, upseq = xGz[:Ng], xGz[Ng:Ng+Npast*Ny], xGz[-Npast*Nu:]
+#    z = xGz[Ng:]
+#    hxG = _measurement(xG, parameters)
     
     # Get k1.
-    k1 = _greybox_ode(xG*xstd + xmean, u*ustd + umean, ps, parameters)/xstd
-    k1 +=  _fnn(xG, z, u, Npast, xuyscales, fnn_weights)
+#    k1 = _greybox_ode(xG*xstd + xmean, u*ustd + umean, ps, parameters)/xstd
+#    k1 +=  _fnn(xG, z, u, Npast, xuyscales, fnn_weights)
 
     # Interpolate for k2 and k3.
-    ypseq_interp = interpolate_yseq(np.concatenate((ypseq, hxG)), Npast, Ny)
-    z = np.concatenate((ypseq_interp, upseq))
-    
+#    ypseq_interp = interpolate_yseq(np.concatenate((ypseq, hxG)), Npast, Ny)
+#    z = np.concatenate((ypseq_interp, upseq))
+#    
     # Get k2.
-    k2 = _greybox_ode((xG + Delta*(k1/2))*xstd + xmean, u*ustd + umean, 
-                       ps, parameters)/xstd
-    k2 += _fnn(xG + Delta*(k1/2), z, u, Npast, xuyscales, fnn_weights)
+#    k2 = _greybox_ode((xG + Delta*(k1/2))*xstd + xmean, u*ustd + umean, 
+#                       ps, parameters)/xstd
+#    k2 += _fnn(xG + Delta*(k1/2), z, u, Npast, xuyscales, fnn_weights)
 
     # Get k3.
-    k3 = _greybox_ode((xG + Delta*(k2/2))*xstd + xmean, u*ustd + umean, 
-                       ps, parameters)/xstd
-    k3 += _fnn(xG + Delta*(k2/2), z, u, Npast, xuyscales, fnn_weights)
+#    k3 = _greybox_ode((xG + Delta*(k2/2))*xstd + xmean, u*ustd + umean, 
+#                       ps, parameters)/xstd
+#    k3 += _fnn(xG + Delta*(k2/2), z, u, Npast, xuyscales, fnn_weights)
 
     # Get k4.
-    ypseq_shifted = np.concatenate((ypseq[Ny:], hxG))
-    z = np.concatenate((ypseq_shifted, upseq))
-    k4 = _greybox_ode((xG + Delta*k3)*xstd + xmean, u*ustd + umean, 
-                       ps, parameters)/xstd
-    k4 += _fnn(xG + Delta*k3, z, u, Npast, xuyscales, fnn_weights)
+#    ypseq_shifted = np.concatenate((ypseq[Ny:], hxG))
+#    z = np.concatenate((ypseq_shifted, upseq))
+#    k4 = _greybox_ode((xG + Delta*k3)*xstd + xmean, u*ustd + umean, 
+#                       ps, parameters)/xstd
+#    k4 += _fnn(xG + Delta*k3, z, u, Npast, xuyscales, fnn_weights)
     
     # Get the current output/state and the next time step.
-    xGplus = xG + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
-    zplus = np.concatenate((ypseq_shifted, upseq[Nu:], u))
-    xGzplus = np.concatenate((xGplus, zplus))
-    xGzplus = xGzplus*xGzstd + xGzmean
+#    xGplus = xG + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
+#    zplus = np.concatenate((ypseq_shifted, upseq[Nu:], u))
+#    xGzplus = np.concatenate((xGplus, zplus))
+#    xGzplus = xGzplus*xGzstd + xGzmean
 
     # Return the sum.
-    return xGzplus
+#    return xGzplus
 
-def get_plant(*, parameters):
-    """ Return a nonlinear plant simulator object. """
-    measurement = lambda x: _measurement(x, parameters)
-    # Construct and return the plant.
-    plant_ode = lambda x, u, p: _plant_ode(x, u, p, parameters)
-    xs = parameters['xs'][:, np.newaxis]
-    return NonlinearPlantSimulator(fxup = plant_ode,
-                                    hx = measurement,
-                                    Rv = parameters['Rv'], 
-                                    Nx = parameters['Nx'], 
-                                    Nu = parameters['Nu'], 
-                                    Np = parameters['Np'], 
-                                    Ny = parameters['Ny'],
-                                    sample_time = parameters['Delta'], 
-                                    x0 = xs)
-
-def stage_cost(x, u, p, pars, xindices):
+def stage_cost(y, u, p, pars):
     """ Custom stage cost for the CSTR/Flash system. """
     CAf = pars['ps'][0]
     Td = pars['Td']
@@ -231,7 +205,7 @@ def stage_cost(x, u, p, pars, xindices):
     # Get inputs, parameters, and states.
     F, Qr, D, Qb = u[0:4]
     ce, ca, cb = p[0:3]
-    Hb, CBb, Tb = x[xindices]
+    Hb, CBb, Tb = y[[3, 4, 5]]
     Fb = kb*np.sqrt(Hb)
     
     # Compute and return cost.
@@ -281,7 +255,7 @@ def get_mhe_noise_tuning(model_type, model_par):
         Rv = 1e-3*np.eye(model_par['Ny'])
     elif model_type == 'grey-box':
         Qwx = 1e-3*np.eye(model_par['Ng'])
-        Qwd = np.eye(model_par['Ny'])
+        Qwd = 1e-3*np.eye(model_par['Ny'])
         Rv = 1e-3*np.eye(model_par['Ny'])
     else:
         Qwx = 1e-3*np.eye(model_par['Nx'])
@@ -302,10 +276,10 @@ def main():
     # Get parameters.
     plant_pars = cstr_flash_parameters['plant_pars']
     training_data = cstr_flash_parameters['training_data']
-    #greybox_pars = cstr_flash_parameters['greybox_pars']
-    #cost_pars, disturbances = get_cstr_flash_empc_pars(num_days=2,
-    #                                     sample_time=plant_pars['Delta'], 
-    #                                     plant_pars=plant_pars)
+    greybox_pars = cstr_flash_parameters['greybox_pars']
+    cost_pars, disturbances = get_economic_opt_pars(num_days=2,
+                                         sample_time=plant_pars['Delta'], 
+                                         plant_pars=plant_pars)
 
     # Get NN weights and the hybrid ODE.
     #Np = cstr_flash_train['Nps'][0] # To change.
@@ -331,37 +305,43 @@ def main():
                                                train=cstr_flash_kooptrain)
 
     # Run simulations for different model.
-    #cl_data_list, avg_stage_costs_list, openloop_sol_list = [], [], []
-    #model_odes = [_plant_ode, _greybox_ode, _hybrid_func]
-    #model_pars = [plant_pars, greybox_pars, hybrid_pars]
-    #model_types = ['plant', 'grey-box', 'hybrid']
-    #Nsims = [120, 120, 120]
-    #plant_lxup = lambda x, u, p: stage_cost(x, u, p, plant_pars, [5, 7, 9])
-    #regulator_guess = None
-    #for (model_ode, model_par,
-    #     model_type, Nsim) in zip(model_odes, model_pars, model_types, Nsims):
-    #    mhe_noise_tuning = get_mhe_noise_tuning(model_type, model_par)
-    #    plant = get_plant(parameters=plant_pars)
-    #    controller = get_controller(model_ode, model_par, model_type,
-    #                                cost_pars, mhe_noise_tuning,
-    #                                regulator_guess)
-    #    cl_data, avg_stage_costs, openloop_sol = online_simulation(plant,
-    #                                     controller,
-    #                                     plant_lxup=plant_lxup,
-    #                                     Nsim=Nsim, disturbances=disturbances,
-    #                                     stdout_filename='cstr_flash_empc.txt')
-    #    regulator_guess = [controller.regulator.xseq[0],
-    #                       controller.regulator.useq[0]]
-    #    cl_data_list += [cl_data]
-    #    avg_stage_costs_list += [avg_stage_costs]
-    #    openloop_sol_list += [openloop_sol]
+    cl_data_list, avg_stage_costs_list, openloop_sols = [], [], []
+    model_odes = [plant_ode, greybox_ode]
+    model_pars = [plant_pars, greybox_pars]
+    model_types = ['plant', 'grey-box']
+    plant_lyup = lambda y, u, p: stage_cost(y, u, p, plant_pars)
+    regulator_guess = None
+    for (model_ode, model_par, 
+         model_type) in zip(model_odes, model_pars, model_types):
+        mhe_noise_tuning = get_mhe_noise_tuning(model_type, model_par)
+        plant = get_model(parameters=plant_pars, plant=True)
+        controller, hx = get_controller(model_ode, model_par, model_type,
+                                    cost_pars, mhe_noise_tuning,
+                                    regulator_guess)
+        (cl_data, avg_stage_costs, 
+         openloop_sol) = online_simulation(plant, controller,
+                                         plant_lyup=plant_lyup,
+                                         Nsim=24*60, disturbances=disturbances,
+                                         stdout_filename='cstr_flash_empc.txt')
+        if model_type == 'plant':
+            regulator_guess = dict(u=controller.regulator.useq[0],
+                                   x=controller.regulator.xseq[0])
+        cl_data_list += [cl_data]
+        avg_stage_costs_list += [avg_stage_costs]
+        if model_type == 'koopman':
+            xseq = []
+            xkpseq = openloop_sol[1]
+            for t in range(controller.Nmpc+1):
+                xseq.append(hx(xkpseq[t, :]))
+            openloop_sol[1] = np.asarray(xseq)
+        openloop_sols += [openloop_sol]
     
     # Save data.
-    #PickleTool.save(data_object=dict(cl_data_list=cl_data_list,
-    #                                 cost_pars=cost_pars,
-    #                                 disturbances=disturbances,
-    #                                 avg_stage_costs=avg_stage_costs_list,
-    #                                 openloop_sols=openloop_sol_list),
-    #                filename='cstr_flash_empc.pickle')
+    PickleTool.save(data_object=dict(cl_data_list=cl_data_list,
+                                     cost_pars=cost_pars,
+                                     disturbances=disturbances,
+                                     avg_stage_costs=avg_stage_costs_list,
+                                     openloop_sols=openloop_sols),
+                    filename='cstr_flash_empc.pickle')
 
 main()
