@@ -12,13 +12,10 @@ import time
 import casadi
 import copy
 import numpy as np
-from hybridid import (PickleTool, SimData, get_cstr_flash_empc_pars,
-                      interpolate_yseq, c2dNonlin)
+from hybridid import (PickleTool, SimData, interpolate_yseq, c2dNonlin)
 from linNonlinMPC import (NonlinearPlantSimulator, NonlinearEMPCController, 
                          online_simulation)
-from hybridid import _cstr_flash_plant_ode as _plant_ode
-from hybridid import _cstr_flash_greybox_ode as _greybox_ode
-from hybridid import _cstr_flash_measurement as _measurement
+from cstr_flash_funcs import plant_ode, greybox_ode, measurement
 from hybridid import get_koopman_pars_check_func
 
 def get_controller(model_func, model_pars, model_type, 
@@ -304,6 +301,7 @@ def main():
 
     # Get parameters.
     plant_pars = cstr_flash_parameters['plant_pars']
+    training_data = cstr_flash_parameters['training_data']
     #greybox_pars = cstr_flash_parameters['greybox_pars']
     #cost_pars, disturbances = get_cstr_flash_empc_pars(num_days=2,
     #                                     sample_time=plant_pars['Delta'], 
@@ -319,13 +317,19 @@ def main():
     #                              xuyscales=xuyscales)
 
     # Check the hybrid function.
-    uval = cstr_flash_parameters['training_data'][-1].u
-    ytfval = cstr_flash_train['val_predictions'][0].y
-    xGtfval = cstr_flash_train['val_predictions'][0].x
-    greybox_processed_data = cstr_flash_parameters['greybox_processed_data'][-1]
-    yval, xGval = sim_hybrid(_hybrid_func, uval, 
-                             hybrid_pars, greybox_processed_data)
+    #uval = cstr_flash_parameters['training_data'][-1].u
+    #ytfval = cstr_flash_train['val_predictions'][0].y
+    #xGtfval = cstr_flash_train['val_predictions'][0].x
+    #greybox_processed_data = cstr_flash_parameters['greybox_processed_data'][-1]
+    #yval, xGval = sim_hybrid(_hybrid_func, uval, 
+    #                         hybrid_pars, greybox_processed_data)
     
+    # Get parameters for the EMPC nonlin function and check.
+
+    koopman_pars = get_koopman_pars_check_func(parameters=plant_pars,
+                                               training_data=training_data,
+                                               train=cstr_flash_kooptrain)
+
     # Run simulations for different model.
     #cl_data_list, avg_stage_costs_list, openloop_sol_list = [], [], []
     #model_odes = [_plant_ode, _greybox_ode, _hybrid_func]

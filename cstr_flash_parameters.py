@@ -40,15 +40,15 @@ def gen_train_val_data(*, parameters, num_traj,
         if traj == num_traj-1:
             "Get input for train val simulation."
             Nsim = Nsim_val
-            u = sample_prbs_like(num_change=8, num_steps=Nsim_val,
+            u = sample_prbs_like(num_change=12, num_steps=Nsim_val,
                                  lb=ulb, ub=uub,
-                                 mean_change=90, sigma_change=2, seed=seed)
+                                 mean_change=60, sigma_change=2, seed=seed)
         elif traj == num_traj-2:
             "Get input for validation simulation."
             Nsim = Nsim_trainval
-            u = sample_prbs_like(num_change=8, num_steps=Nsim_trainval,
+            u = sample_prbs_like(num_change=12, num_steps=Nsim_trainval,
                                  lb=ulb, ub=uub,
-                                 mean_change=30, sigma_change=2, seed=seed)
+                                 mean_change=60, sigma_change=2, seed=seed)
         else:
             "Get input for training simulation."
             Nsim = Nsim_train
@@ -56,6 +56,9 @@ def gen_train_val_data(*, parameters, num_traj,
                                  lb=ulb, ub=uub,
                                  mean_change=30, sigma_change=2, seed=seed)
         seed += 1
+        umid = 0.5*(ulb + uub)
+        u = np.where(u<umid, ulb, uub)
+
         # Complete input profile and run open-loop simulation.
         u = np.concatenate((us_init, u), axis=0)
         for t in range(tsteps_steady + Nsim):
@@ -71,25 +74,25 @@ def get_greybox_val_preds(*, parameters, training_data):
     """ Use the input profile to compute
         the prediction of the grey-box model
         on the validation data. """
-    #model = get_model(parameters=parameters, plant=False)
-    #tsteps_steady = parameters['tsteps_steady']
-    #Ng = parameters['Ng']
-    #p = parameters['ps'][:, np.newaxis]
+    model = get_model(parameters=parameters, plant=False)
+    tsteps_steady = parameters['tsteps_steady']
+    Ng = parameters['Ng']
+    p = parameters['ps'][:, np.newaxis]
     u = training_data[-1].u
-    y = training_data[-1].y
-    x = training_data[-1].x
-    t = training_data[-1].t
-    #Nsim = u.shape[0]
+    #y = training_data[-1].y
+    #x = training_data[-1].x
+    #t = training_data[-1].t
+    Nsim = u.shape[0]
     # Run the open-loop simulation.
-    #for t in range(Nsim):
-    #    model.step(u[t:t+1, :], p)
+    for t in range(Nsim):
+        model.step(u[t:t+1, :], p)
     # Insert Nones.
-    #x = np.asarray(model.x[0:-1]).squeeze()
-    #x = np.insert(x, [3, 7], np.nan*np.ones((Nsim, 2)), axis=1)
-    #data = SimData(t=np.asarray(model.t[0:-1]).squeeze(), x=x,
-    #               u=np.asarray(model.u).squeeze(),
-    #               y=np.asarray(model.y[0:-1]).squeeze())
-    data = SimData(t=t, x=x, u=u, y=y)
+    x = np.asarray(model.x[0:-1]).squeeze()
+    x = np.insert(x, [3, 7], np.nan*np.ones((Nsim, 2)), axis=1)
+    data = SimData(t=np.asarray(model.t[0:-1]).squeeze(), x=x,
+                   u=np.asarray(model.u).squeeze(),
+                   y=np.asarray(model.y[0:-1]).squeeze())
+    #data = SimData(t=t, x=x, u=u, y=y)
     return data
 
 def get_mhe_estimator(*, parameters):
@@ -164,18 +167,18 @@ def get_mhe_estimator(*, parameters):
                                  u=u, y=y, P0inv=P0inv,
                                  Qwinv=Qwinv, Rvinv=Rvinv), Bd
 
-def get_gb_mhe_processed_training_data(*, parameters, training_data):
-    """ Process all the training data and add grey-box state estimates. """
-    #def get_state_estimates(mhe_estimator, y, uprev, Ng):
-    #    """Use the filter object to perform state estimation. """
-    #    return np.split(mhe_estimator.solve(y, uprev), [Ng])
-    # Data list.
-    Ng = parameters['Ng']
-    processed_data = []
-    for data in training_data:
-        #mhe_estimator, Bd = _get_mhe_estimator(parameters=parameters)
-        #Nsim = len(data.t)
-        (u, y) = (data.u, data.y)
+#def get_gb_mhe_processed_training_data(*, parameters, training_data):
+#    """ Process all the training data and add grey-box state estimates. """
+#    #def get_state_estimates(mhe_estimator, y, uprev, Ng):
+#    #    """Use the filter object to perform state estimation. """
+#    #    return np.split(mhe_estimator.solve(y, uprev), [Ng])
+#    # Data list.
+#    Ng = parameters['Ng']
+#    processed_data = []
+#    for data in training_data:
+#        #mhe_estimator, Bd = _get_mhe_estimator(parameters=parameters)
+#        #Nsim = len(data.t)
+#        (u, y) = (data.u, data.y)
         #xhats = [mhe_estimator.xhat[-1][:Ng]]
         #dhats = [mhe_estimator.xhat[-1][Ng:]]
         #for t in range(Nsim-1):
@@ -186,10 +189,10 @@ def get_gb_mhe_processed_training_data(*, parameters, training_data):
         #    dhats.append(dhat)
         #xhats = np.asarray(xhats)
         #dhats = np.asarray(dhats)
-        processed_data.append(SimData(t=data.t, u=data.u, y=data.y,
-                                      x=data.y))
-    # Return the processed data list.
-    return processed_data
+#        processed_data.append(SimData(t=data.t, u=data.u, y=data.y,
+#                                      x=data.y))
+#    # Return the processed data list.
+#    return processed_data
 
 def main():
     """ Get the parameters/training/validation data."""
@@ -200,24 +203,23 @@ def main():
     greybox_pars = get_greybox_parameters(plant_pars=plant_pars)
 
     # Generate training data.
-    training_data = gen_train_val_data(parameters=plant_pars, num_traj=38,
-                                        Nsim_train=4*60, Nsim_trainval=4*60,
+    training_data = gen_train_val_data(parameters=plant_pars, num_traj=14,
+                                        Nsim_train=4*60, Nsim_trainval=12*60,
                                         Nsim_val=12*60, seed=2)
 
     # Get processed data for initial state during training.
-    greybox_processed_data = get_gb_mhe_processed_training_data(parameters=
-                                                                greybox_pars,
-                                                    training_data=training_data)
+    #greybox_processed_data = get_gb_mhe_processed_training_data(parameters=
+    #                                                            greybox_pars,
+    #                                                training_data=training_data)
     
     # Get grey-box model predictions on the validation data.
     greybox_val_data = get_greybox_val_preds(parameters=greybox_pars,
-                                              training_data=training_data)
+                                             training_data=training_data)
     
     # Collect in a dict.
     cstr_flash_parameters = dict(plant_pars=plant_pars,
                                  greybox_pars=greybox_pars,
                                  training_data=training_data,
-                                 greybox_processed_data=greybox_processed_data,
                                  greybox_val_data=greybox_val_data)
 
     # Save data.

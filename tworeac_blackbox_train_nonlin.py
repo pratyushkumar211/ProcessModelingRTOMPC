@@ -12,7 +12,7 @@ import tensorflow as tf
 import time
 import numpy as np
 from hybridid import PickleTool, SimData, get_scaling
-from tworeac_nonlin_funcs import get_train_val_data
+from hybridid import get_train_val_data
 from HybridModelLayers import TwoReacModel
 
 # Set the tensorflow global and graph-level seed.
@@ -42,7 +42,7 @@ def train_model(model, train_data, trainval_data, stdout_filename, ckpt_path):
     # Call the fit method to train.
     model.fit(x=[train_data['inputs'], train_data['yz0']], 
               y=train_data['outputs'], 
-              epochs=1000, batch_size=32,
+              epochs=3000, batch_size=2,
         validation_data = ([trainval_data['inputs'], trainval_data['yz0']], 
                             trainval_data['outputs']),
             callbacks = [checkpoint_callback])

@@ -546,7 +546,7 @@ class KoopmanModel(tf.keras.Model):
         # Dense layers for the Koopman lifting NN.
         fnn_layers = []
         for dim in fnn_dims[1:-1]:
-            fnn_layers.append(tf.keras.layers.Dense(dim, activation='sigmoid'))
+            fnn_layers.append(tf.keras.layers.Dense(dim, activation='tanh'))
         fnn_layers.append(tf.keras.layers.Dense(fnn_dims[-1]))
 
         # Use the created layers to create the initial state.
@@ -554,6 +554,7 @@ class KoopmanModel(tf.keras.Model):
 
         # Custom weights for the linear dynamics in lifted space.
         A = tf.keras.layers.Dense(Nxkp, input_shape=(Nxkp, ),
+                                  kernel_initializer='zeros',
                                   use_bias=False)
         B = tf.keras.layers.Dense(Nxkp, input_shape=(Nu, ), 
                                   use_bias=False)

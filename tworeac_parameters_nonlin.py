@@ -36,15 +36,15 @@ def gen_train_val_data(*, parameters, num_traj,
         if traj == num_traj-1:
             "Get input for train val simulation."
             Nsim = Nsim_val
-            u = sample_prbs_like(num_change=24, num_steps=Nsim_val, 
+            u = sample_prbs_like(num_change=12, num_steps=Nsim_val, 
                                  lb=ulb, ub=uub,
-                                 mean_change=30, sigma_change=2, seed=seed+1)
+                                 mean_change=30, sigma_change=6, seed=seed+1)
         elif traj == num_traj-2:
             "Get input for validation simulation."
             Nsim = Nsim_trainval
-            u = sample_prbs_like(num_change=24, num_steps=Nsim_trainval, 
+            u = sample_prbs_like(num_change=12, num_steps=Nsim_trainval, 
                                  lb=ulb, ub=uub,
-                                 mean_change=30, sigma_change=2, seed=seed+2)
+                                 mean_change=30, sigma_change=6, seed=seed+2)
         else:
             "Get input for training simulation."
             Nsim = Nsim_train
@@ -71,20 +71,17 @@ def get_greybox_val_preds(*, parameters, training_data):
     """ Use the input profile to compute 
         the prediction of the grey-box model
         on the validation data. """
-    #model = get_model(parameters=parameters, plant=False)
-    #p = parameters['ps'][:, np.newaxis]
+    model = get_model(parameters=parameters, plant=False)
+    p = parameters['ps'][:, np.newaxis]
     u = training_data[-1].u
-    y = training_data[-1].y
-    x = training_data[-1].x
-    t = training_data[-1].t
-    #Nsim = u.shape[0]
+    Nsim = u.shape[0]
     # Run the open-loop simulation.
-    #for t in range(Nsim):
-    #    model.step(u[t:t+1, :], p)
-    #x = np.asarray(model.x[0:-1]).squeeze()
-    #data = SimData(t=np.asarray(model.t[0:-1]), x=x, u=u,
-    #               y=np.asarray(model.y[:-1]).squeeze())
-    data = SimData(t=t, x=x, u=u, y=y)
+    for t in range(Nsim):
+        model.step(u[t:t+1, :], p)
+    x = np.asarray(model.x[0:-1]).squeeze()
+    x = np.insert(x, [2], np.nan, axis=1)
+    data = SimData(t=np.asarray(model.t[0:-1]), x=x, u=u,
+                   y=np.asarray(model.y[:-1]).squeeze())
     # Return data.
     return data
 
@@ -97,8 +94,8 @@ def main():
     
     # Generate training data.
     training_data = gen_train_val_data(parameters=parameters,
-                                        num_traj=18, Nsim_train=360,
-                                        Nsim_trainval=720, Nsim_val=720,
+                                        num_traj=4, Nsim_train=360,
+                                        Nsim_trainval=360, Nsim_val=360,
                                         seed=100)
     greybox_val_data = get_greybox_val_preds(parameters=
                                             parameters, 
@@ -110,7 +107,7 @@ def main():
                               greybox_val_data=greybox_val_data)
     
     # Save data.
-    PickleTool.save(data_object=tworeac_parameters, 
+    PickleTool.save(data_object=tworeac_parameters,
                     filename='tworeac_parameters_nonlin.pickle')
 
 main()

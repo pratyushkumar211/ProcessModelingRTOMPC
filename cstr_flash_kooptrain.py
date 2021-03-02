@@ -12,7 +12,7 @@ import time
 import numpy as np
 from hybridid import (PickleTool, SimData)
 from HybridModelLayers import KoopmanModel
-from cstr_flash_funcs import get_train_val_data
+from hybridid import get_scaling, get_train_val_data
 
 # Set the tensorflow global and graph-level seed.
 tf.random.set_seed(2)
@@ -41,7 +41,7 @@ def train_model(model, train_data, trainval_data, stdout_filename, ckpt_path):
     # Call the fit method to train.
     model.fit(x = [train_data['inputs'], train_data['yz0']],
               y = [train_data['yz'], train_data['outputs']],
-              epochs=20000, batch_size=36,
+              epochs=10000, batch_size=12,
         validation_data = ([trainval_data['inputs'], trainval_data['yz0']], 
                            [trainval_data['yz'], trainval_data['outputs']]),
         callbacks = [checkpoint_callback])
@@ -77,20 +77,19 @@ def main():
     cstr_flash_parameters = PickleTool.load(filename=
                                             'cstr_flash_parameters.pickle',
                                             type='read')
-    (greybox_pars,
-     greybox_processed_data) = (cstr_flash_parameters['greybox_pars'],
-                                cstr_flash_parameters['greybox_processed_data'])
+    greybox_pars = cstr_flash_parameters['greybox_pars']
+    training_data = cstr_flash_parameters['training_data']
 
     # Number of samples.
-    num_train_traj = len(greybox_processed_data) - 2
+    num_train_traj = len(training_data) - 2
     num_batches = [num_train_traj]
-    Nsim_train = greybox_processed_data[0].x.shape[0]
+    Nsim_train = training_data[0].x.shape[0]
     Nsim_train -= greybox_pars['tsteps_steady']
     num_samples = [batch*Nsim_train for batch in num_batches]
 
     # Create lists.
-    Np = 3
-    fnn_dims = [102, 256, 32]
+    Np = 2
+    fnn_dims = [102, 64, 16]
     trained_weights = []
     val_metrics = []
     val_predictions = []
@@ -100,11 +99,11 @@ def main():
     stdout_filename = 'cstr_flash_kooptrain.txt'
     
     # Get the training data.
-    (train_data,
-     trainval_data,
-     val_data, xuyscales) = get_train_val_data(Np=Np,
-                                parameters=greybox_pars,
-                                greybox_processed_data=greybox_processed_data)
+    xuyscales = get_scaling(data=training_data[0])
+    (train_data, trainval_data, val_data) = get_train_val_data(Np=Np,
+                                                xuyscales=xuyscales,
+                                                parameters=greybox_pars,
+                                                data_list=training_data)
 
     # Loop over the number of samples.
     for num_batch in num_batches:

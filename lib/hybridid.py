@@ -268,6 +268,8 @@ def koopman_func(xkp, u, parameters):
     umean, ustd = xuyscales['uscale']
 
     # Scale inputs/state.
+    umean = umean[:, np.newaxis]
+    ustd = ustd[:, np.newaxis]
     u = (u - umean)/ustd
 
     # The Deep Koopman linear model.
@@ -301,8 +303,9 @@ def get_koopman_pars_check_func(*, parameters, training_data, train):
                              np.tile(ustd, (Np, ))))[:, np.newaxis]
 
     # Get steady state in the lifted space.
+    yindices = parameters['yindices']
     us = parameters['us']
-    ys = parameters['xs'][:Ny]
+    ys = parameters['xs'][yindices]
     yzs = np.concatenate((np.tile(ys, (Np+1, )), 
                           np.tile(us, (Np, ))))[:, np.newaxis]
     yzs = (yzs - yzmean)/yzstd
@@ -343,3 +346,62 @@ def get_koopman_pars_check_func(*, parameters, training_data, train):
 
     # Just return the hybrid parameters.
     return koopman_pars
+
+def get_train_val_data(*, Np, xuyscales, parameters, data_list):
+    """ Get the data for training in appropriate format. """
+
+    # Get some parameters.
+    ts = parameters['tsteps_steady']
+    Ny, Nu = parameters['Ny'], parameters['Nu']
+    umean, ustd = xuyscales['uscale']
+    ymean, ystd = xuyscales['yscale']
+
+    # Lists to store data.
+    inputs, yz0, yz, outputs = [], [], [], []
+
+    # Loop through the data list.
+    for data in data_list:
+        
+        # Scale data.
+        u = (data.u - umean)/ustd
+        y = (data.y - ymean)/ystd
+                
+        # Get input trajectory.
+        u_traj = u[ts:][np.newaxis, :]
+        
+        # Get initial states.
+        y0 = y[ts, :][np.newaxis, :]
+        yp0seq = y[ts-Np:ts, :].reshape(Np*Ny, )[np.newaxis, :]
+        up0seq = u[ts-Np:ts, :].reshape(Np*Nu, )[np.newaxis, :]
+        yz0_traj = np.concatenate((y0, yp0seq, up0seq), axis=-1)
+
+        # Get output trajectory.
+        y_traj = y[ts:, :][np.newaxis, ...]
+
+        # Get yz_traj.
+        Nt = u.shape[0]
+        z_traj = []
+        for t in range(ts, Nt):
+            ypseq = y[t-Np:t, :].reshape(Np*Ny, )[np.newaxis, :]
+            upseq = u[t-Np:t, :].reshape(Np*Nu, )[np.newaxis, :]
+            z_traj.append(np.concatenate((ypseq, upseq), axis=-1))
+        z_traj = np.concatenate(z_traj, axis=0)[np.newaxis, ...]
+        yz_traj = np.concatenate((y_traj, z_traj), axis=-1)
+
+        # Collect the trajectories in list.
+        inputs.append(u_traj)
+        yz0.append(yz0_traj)
+        yz.append(yz_traj)
+        outputs.append(y_traj)
+    
+    # Get the training and validation data for training in compact dicts.
+    train_data = dict(inputs=np.concatenate(inputs[:-2], axis=0),
+                      yz0=np.concatenate(yz0[:-2], axis=0),
+                      yz=np.concatenate(yz[:-2], axis=0),
+                      outputs=np.concatenate(outputs[:-2], axis=0))
+    trainval_data = dict(inputs=inputs[-2], yz0=yz0[-2], yz=yz[-2], 
+                          outputs=outputs[-2])
+    val_data = dict(inputs=inputs[-1], yz0=yz0[-1], 
+                    yz=yz[-1], outputs=outputs[-1])
+    # Return.
+    return (train_data, trainval_data, val_data)
