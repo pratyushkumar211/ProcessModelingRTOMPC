@@ -227,7 +227,7 @@ def get_greybox_parameters(*, plant_pars):
 
     # The C matrix for the grey-box model.
     parameters['tsteps_steady'] = plant_pars['tsteps_steady']
-    parameters['yindices'] = [0, 1, 2, 3, 4, 5, 6, 7]
+    parameters['yindices'] = [0, 1, 3, 4, 5, 7]
 
     # Get the constraints.
     parameters['ulb'] = plant_pars['ulb']

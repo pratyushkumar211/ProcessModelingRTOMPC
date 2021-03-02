@@ -50,9 +50,9 @@ def greybox_ode(x, u, p, parameters):
     return np.array([dCabydt, dCbbydt])
 
 def measurement(x, parameters):
-    Ny = parameters['Ny']
+    yindices = parameters['yindices']
     # Return the measurement.
-    return x[0:Ny]
+    return x[yindices]
 
 def get_parameters():
     """ Get the parameter values for the 
@@ -88,7 +88,8 @@ def get_parameters():
     # Number of time-steps to keep the plant at steady.
     parameters['tsteps_steady'] = 10
 
-    # Measurement noise.
+    # Measurement indices and noise.
+    parameters['yindices'] = [0, 1]
     parameters['Rv'] = 0*np.diag([1e-3, 1e-3])
 
     # Return the parameters dict.
@@ -144,71 +145,6 @@ def get_model(*, parameters, plant=True):
                                         Ny = parameters['Ny'],
                                     sample_time = parameters['Delta'], 
                                         x0 = xs)
-
-def get_train_val_data(*, Np, xuyscales, parameters, data_list):
-    """ Get the data for training in appropriate format. """
-
-    # Get some parameters.
-    ts = parameters['tsteps_steady']
-    Ny, Nu = parameters['Ny'], parameters['Nu']
-    xmean, xstd = xuyscales['xscale']
-    umean, ustd = xuyscales['uscale']
-    ymean, ystd = xuyscales['yscale']
-
-    # Lists to store data.
-    inputs, xz0, yz0, yz, outputs = [], [], [], [], []
-
-    # Loop through the data list.
-    for data in data_list:
-        
-        # Scale data.
-        x = (data.x - xmean)/xstd
-        u = (data.u - umean)/ustd
-        y = (data.y - ymean)/ystd
-                
-        # Get input trajectory.
-        u_traj = u[ts:][np.newaxis, :]
-        
-        # Get initial states.
-        x0 = x[ts, :][np.newaxis, :]
-        y0 = y[ts, :][np.newaxis, :]
-        yp0seq = y[ts-Np:ts, :].reshape(Np*Ny, )[np.newaxis, :]
-        up0seq = u[ts-Np:ts, :].reshape(Np*Nu, )[np.newaxis, :]
-        xz0_traj = np.concatenate((x0, yp0seq, up0seq), axis=-1)
-        yz0_traj = np.concatenate((y0, yp0seq, up0seq), axis=-1)
-
-        # Get output trajectory.
-        y_traj = y[ts:, :][np.newaxis, ...]
-
-        # Get yz_traj.
-        Nt = u.shape[0]
-        z_traj = []
-        for t in range(ts, Nt):
-            ypseq = y[t-Np:t, :].reshape(Np*Ny, )[np.newaxis, :]
-            upseq = u[t-Np:t, :].reshape(Np*Nu, )[np.newaxis, :]
-            z_traj.append(np.concatenate((ypseq, upseq), axis=-1))
-        z_traj = np.concatenate(z_traj, axis=0)[np.newaxis, ...]
-        yz_traj = np.concatenate((y_traj, z_traj), axis=-1)
-
-        # Collect the trajectories in list.
-        inputs.append(u_traj)
-        xz0.append(xz0_traj)
-        yz0.append(yz0_traj)
-        yz.append(yz_traj)
-        outputs.append(y_traj)
-    
-    # Get the training and validation data for training in compact dicts.
-    train_data = dict(inputs=np.concatenate(inputs[:-2], axis=0),
-                      xz0=np.concatenate(xz0[:-2], axis=0),
-                      yz0=np.concatenate(yz0[:-2], axis=0),
-                      yz=np.concatenate(yz[:-2], axis=0),
-                      outputs=np.concatenate(outputs[:-2], axis=0))
-    trainval_data = dict(inputs=inputs[-2], xz0=xz0[-2],
-                         yz0=yz0[-2], yz=yz[-2], outputs=outputs[-2])
-    val_data = dict(inputs=inputs[-1], xz0=xz0[-1],
-                    yz0=yz0[-1], yz=yz[-1], outputs=outputs[-1])
-    # Return.
-    return (train_data, trainval_data, val_data)
 
 def get_hybrid_pars(*, parameters, Npast, fnn_weights, xuscales):
     """ Get the hybrid model parameters. """
