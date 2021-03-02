@@ -544,22 +544,29 @@ class KoopmanModel(tf.keras.Model):
         yz0 = tf.keras.Input(name='yz0', shape=(Ny + Nz, ))
         
         # Dense layers for the Koopman lifting NN.
+        kernel_reg = 1e-4
         fnn_layers = []
         for dim in fnn_dims[1:-1]:
-            fnn_layers.append(tf.keras.layers.Dense(dim, activation='tanh'))
-        fnn_layers.append(tf.keras.layers.Dense(fnn_dims[-1]))
+            fnn_layers.append(tf.keras.layers.Dense(dim, 
+                            activation='tanh',
+                    kernel_regularizer=tf.keras.regularizers.l2(kernel_reg)))
+        fnn_layers.append(tf.keras.layers.Dense(fnn_dims[-1],
+                    kernel_regularizer=tf.keras.regularizers.l2(kernel_reg)))
 
         # Use the created layers to create the initial state.
         initial_state = self._fnn(yz0, fnn_layers)
 
         # Custom weights for the linear dynamics in lifted space.
         A = tf.keras.layers.Dense(Nxkp, input_shape=(Nxkp, ),
-                                  kernel_initializer='zeros',
-                                  use_bias=False)
-        B = tf.keras.layers.Dense(Nxkp, input_shape=(Nu, ), 
-                                  use_bias=False)
-        H = tf.keras.layers.Dense(Ny+Nz, input_shape=(Nxkp, ), 
-                                  use_bias=False)
+                        kernel_initializer='zeros',
+                        kernel_regularizer=tf.keras.regularizers.l2(kernel_reg),
+                        use_bias=False)
+        B = tf.keras.layers.Dense(Nxkp, input_shape=(Nu, ),
+                    kernel_regularizer=tf.keras.regularizers.l2(kernel_reg), 
+                        use_bias=False)
+        H = tf.keras.layers.Dense(Ny+Nz, input_shape=(Nxkp, ),
+                    kernel_regularizer=tf.keras.regularizers.l2(kernel_reg), 
+                        use_bias=False)
         
         # Build model depending on option.
         koopman_cell = KoopmanCell(Nxkp, Ny, A, B, H)

@@ -237,10 +237,10 @@ def quick_sim(fxu, hx, x0, u):
     xt = x0
     for t in range(Nsim):
         y.append(hx(xt))
-        xt = fxu(xt, u[t:t+1, :].T)
+        xt = fxu(xt, u[t, :])
         x.append(xt)
-    y = np.asarray(y)[..., 0]
-    x = np.asarray(x[:-1])[..., 0]
+    y = np.asarray(y)
+    x = np.asarray(x[:-1])
     # Return.
     return x, y
 
@@ -268,8 +268,6 @@ def koopman_func(xkp, u, parameters):
     umean, ustd = xuyscales['uscale']
 
     # Scale inputs/state.
-    umean = umean[:, np.newaxis]
-    ustd = ustd[:, np.newaxis]
     u = (u - umean)/ustd
 
     # The Deep Koopman linear model.
@@ -308,6 +306,7 @@ def get_koopman_pars_check_func(*, parameters, training_data, train):
     ys = parameters['xs'][yindices]
     yzs = np.concatenate((np.tile(ys, (Np+1, )), 
                           np.tile(us, (Np, ))))[:, np.newaxis]
+    breakpoint()
     yzs = (yzs - yzmean)/yzstd
     xkps = fnn_koopman(yzs, fnn_weights)[:, 0]
 
@@ -332,11 +331,11 @@ def get_koopman_pars_check_func(*, parameters, training_data, train):
     y0 = y[ts, :, np.newaxis]
     yz0 = np.concatenate((y0, yp0seq, up0seq))
     yz0 = (yz0 - yzmean)/yzstd
-    xkp0 = fnn_koopman(yz0, fnn_weights)
+    xkp0 = fnn_koopman(yz0, fnn_weights)[:, 0]
 
     # Get the functions.
     koopman_fxu = lambda x, u: koopman_func(x, u, koopman_pars)
-    koopman_hx = lambda x: ((H @ x)*yzstd + yzmean)[:Ny]
+    koopman_hx = lambda x: (H @ x)[:Ny]*ystd + ymean
 
     # Run the simulation.
     yzval, yval = quick_sim(koopman_fxu, koopman_hx, xkp0, uval)
@@ -344,6 +343,7 @@ def get_koopman_pars_check_func(*, parameters, training_data, train):
     # To compare with predictions made by the tensorflow model.
     ytfval = train['val_predictions'][-1].y
 
+    breakpoint()
     # Just return the hybrid parameters.
     return koopman_pars
 

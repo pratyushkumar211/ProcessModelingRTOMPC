@@ -79,7 +79,7 @@ def get_controller(model_func, model_pars, model_type,
     Qwx, Qwd, Rv = mhe_noise_tuning
 
     # Horizon lengths.
-    Nmpc = 60
+    Nmpc = 120
     Nmhe = 30
 
     # Return the NN controller.

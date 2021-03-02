@@ -113,7 +113,7 @@ def plot_openloop_sols(*, t, udatum, xdatum,
     """ Plot the open-loop EMPC solutions. """
     xdatum = get_openloop_xtrajs(xdatum)
     t = t[:udatum[0].shape[0]]
-    t -= -(10/60)
+    #t -= -(10/60)
     nrow = len(labels)
     (figure, axes) = plt.subplots(nrows=nrow, ncols=1,
                                   sharex=True, figsize=figure_size,
@@ -122,12 +122,12 @@ def plot_openloop_sols(*, t, udatum, xdatum,
     for (x, u, color) in zip(xdatum, udatum, legend_colors):
         # First plot the states.
         for row in range(nrow-1):
-            handle = axes[row].step(t, x[:, row], color)
+            handle = axes[row].step(t, x[:, row], color, where='post')
             axes[row].set_ylabel(labels[row])
             axes[row].get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
         # Plot the input in the last row.
         row += 1
-        axes[row].step(t, u[:, 0], color)
+        axes[row].step(t, u[:, 0], color, where='post')
         axes[row].set_ylabel(labels[row])
         axes[row].get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
         axes[row].set_xlabel('Time (hr)')
