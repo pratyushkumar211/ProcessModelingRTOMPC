@@ -17,39 +17,39 @@ from linNonlinMPC import (NonlinearPlantSimulator, NonlinearEMPCController,
                          online_simulation)
 from cstr_flash_funcs import plant_ode, greybox_ode, measurement
 from cstr_flash_funcs import get_economic_opt_pars, get_model
-from hybridid import get_koopman_pars_check_func
+from hybridid import get_koopman_pars_check_func, koopman_func
 
-def get_controller(model_func, model_pars, model_type, 
+def get_controller(model_func, model_pars, model_type,
                    cost_pars, mhe_noise_tuning, regulator_guess):
     """ Construct the controller object comprised of 
         EMPC regulator and MHE estimator. """
 
+    # Get the sizes.
+    if model_type == 'grey-box':
+        Nx = model_pars['Ng']
+    else:
+        Nx = model_pars['Nx']
+    Nu, Ny = model_pars['Nu'], model_pars['Ny']
+    Nd = Ny
+
     # Get models.
-    if model_type == 'hybrid':
+    if model_type == 'koopman':
         fxu = lambda x, u: model_func(x, u, model_pars)
+        ymean, ystd = model_pars['xuyscales']['yscale']
+        hx = lambda x: x[:Ny]*ystd + ymean
     else:
         ps = model_pars['ps']
         Delta = model_pars['Delta']
         fxu = lambda x, u: model_func(x, u, ps, model_pars)
         fxu = c2dNonlin(fxu, Delta)
-
-    # Measurement function.
-    hx = lambda x: measurement(x, model_pars)
+        hx = lambda x: measurement(x, model_pars)
 
     # Get the stage cost.
-    if model_type == 'grey-box':
-        Nx = model_pars['Ng']
-    else:
-        Nx = model_pars['Nx']
     lyup = lambda y, u, p: stage_cost(y, u, p, model_pars)
     
-    # Get the sizes/sample time.
-    (Nu, Ny) = (model_pars['Nu'], model_pars['Ny'])
-    Nd = Ny
-
     # Get the disturbance models.
     Bd = np.zeros((Nx, Nd))
-    if model_type == 'plant':
+    if model_type == 'plant' or model_type == 'koopman':
         Bd[0, 0] = 1.
         Bd[2, 1] = 1.
         Bd[4, 2] = 1.
@@ -196,20 +196,22 @@ def get_controller(model_func, model_pars, model_type,
 
 def stage_cost(y, u, p, pars):
     """ Custom stage cost for the CSTR/Flash system. """
-    CAf = pars['ps'][0]
-    Td = pars['Td']
-    pho = pars['pho']
-    Cp = pars['Cp']
-    kb = pars['kb']
+    #CAf = pars['ps'][0]
+    #Td = pars['Td']
+    #pho = pars['pho']
+    #Cp = pars['Cp']
+    #kb = pars['kb']
     
     # Get inputs, parameters, and states.
     F, Qr, D, Qb = u[0:4]
     ce, ca, cb = p[0:3]
-    Hb, CBb, Tb = y[[3, 4, 5]]
-    Fb = kb*np.sqrt(Hb)
+    CBr, Tr, Hb, CBb = y[[1, 2, 3, 4]]
+    #Fb = kb*np.sqrt(Hb)
     
     # Compute and return cost.
-    return ca*F*CAf + ce*Qr + ce*Qb + ce*D*pho*Cp*(Tb-Td) - cb*Fb*CBb
+    #return ca*F*CAf + ce*Qr + ce*Qb - 1200*Hb - 8*cb*CBb
+
+    return (Tr - 338)**2 + (CBr - 1.2)**2 + (Hb - 48)**2 + (CBr - 1.8)**2
 
 def sim_hybrid(hybrid_func, uval, hybrid_pars, greybox_processed_data):
     """ Hybrid validation simulation to make 
@@ -254,12 +256,12 @@ def get_mhe_noise_tuning(model_type, model_par):
         Qwd = 1e-6*np.eye(model_par['Ny'])
         Rv = 1e-3*np.eye(model_par['Ny'])
     elif model_type == 'grey-box':
-        Qwx = 1e-3*np.eye(model_par['Ng'])
-        Qwd = 1e-3*np.eye(model_par['Ny'])
+        Qwx = 1e-4*np.eye(model_par['Ng'])
+        Qwd = 1e-4*np.eye(model_par['Ny'])
         Rv = 1e-3*np.eye(model_par['Ny'])
     else:
-        Qwx = 1e-3*np.eye(model_par['Nx'])
-        Qwd = np.eye(model_par['Ny'])
+        Qwx = 1e-6*np.eye(model_par['Nx'])
+        Qwd = 1e-6*np.eye(model_par['Ny'])
         Rv = 1e-3*np.eye(model_par['Ny'])
     return (Qwx, Qwd, Rv)
 
@@ -270,8 +272,8 @@ def main():
                                             'cstr_flash_parameters.pickle',
                                             type='read')
     cstr_flash_kooptrain = PickleTool.load(filename=
-                                            'cstr_flash_kooptrain.pickle',
-                                            type='read')
+                                           'cstr_flash_kooptrain.pickle',
+                                           type='read')
 
     # Get parameters.
     plant_pars = cstr_flash_parameters['plant_pars']
@@ -306,9 +308,9 @@ def main():
 
     # Run simulations for different model.
     cl_data_list, avg_stage_costs_list, openloop_sols = [], [], []
-    model_odes = [plant_ode, greybox_ode]
-    model_pars = [plant_pars, greybox_pars]
-    model_types = ['plant', 'grey-box']
+    model_odes = [plant_ode, koopman_func]
+    model_pars = [plant_pars, koopman_pars]
+    model_types = ['plant', 'koopman']
     plant_lyup = lambda y, u, p: stage_cost(y, u, p, plant_pars)
     regulator_guess = None
     for (model_ode, model_par, 
@@ -321,7 +323,7 @@ def main():
         (cl_data, avg_stage_costs, 
          openloop_sol) = online_simulation(plant, controller,
                                          plant_lyup=plant_lyup,
-                                         Nsim=24*60, disturbances=disturbances,
+                                         Nsim=60, disturbances=disturbances,
                                          stdout_filename='cstr_flash_empc.txt')
         if model_type == 'plant':
             regulator_guess = dict(u=controller.regulator.useq[0],

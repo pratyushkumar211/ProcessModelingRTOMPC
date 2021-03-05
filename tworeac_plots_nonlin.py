@@ -45,7 +45,7 @@ def plot_xudata(*, t, xlist, ulist,
         legend_handles += handle
     figure.legend(handles = legend_handles,
                   labels = legend_names,
-                  loc = (0.15, 0.9), ncol=len(legend_names))
+                  loc = (0.08, 0.9), ncol=len(legend_names))
     # Return figure.
     return [figure]
 
@@ -163,15 +163,24 @@ def main():
                                     type='read')
     koopval_predictions = tworeac_kooptrain['val_predictions']
 
+    # Load data after Koopman training.
+    tworeac_encdeckooptrain = PickleTool.load(filename=
+                                    "tworeac_encdeckooptrain_nonlin.pickle",
+                                    type='read')
+    encdeckoopval_predictions = tworeac_encdeckooptrain['val_predictions']
+
+
     # Create a figures list.
     figures = []
 
     # Plot validation data.
-    legend_names = ['Plant', 'Grey-box', 'Black-box', 'Koopman']
-    legend_colors = ['b', 'g', 'dimgrey', 'm']
+    legend_names = ['Plant', 'Grey-box', 'Black-box', 
+                    'Koopman', 'Koopman-ENC-DEC']
+    legend_colors = ['b', 'g', 'dimgrey', 'm', 'tomato']
     valdata_list = [training_data[-1], greybox_val_data]
     valdata_list += blackbox_predictions
     valdata_list += koopval_predictions
+    valdata_list += encdeckoopval_predictions
     t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
                                                      valdata_list[:2],
                                                      plot_range=(10, 24*60+10))

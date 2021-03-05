@@ -281,15 +281,15 @@ def get_koopman_pars_check_func(*, parameters, training_data, train):
 
     # Get weights.
     trained_weights = train['trained_weights'][-1]
-    fnn_weights = trained_weights[:-3]
-    A = trained_weights[-3].T
-    B = trained_weights[-2].T
-    H = trained_weights[-1].T
+    fnn_weights = trained_weights[:-2]
+    A = trained_weights[-2].T
+    B = trained_weights[-1].T
+    #H = trained_weights[-1].T
 
     # Get sizes.
     Np = train['Np']
     Ny, Nu = parameters['Ny'], parameters['Nu']
-    Nx = train['fnn_dims'][-1]
+    Nx = Ny + Np*(Ny + Nu) + train['fnn_dims'][-1]
 
     # Get scaling.
     xuyscales = train['xuyscales']
@@ -306,16 +306,15 @@ def get_koopman_pars_check_func(*, parameters, training_data, train):
     ys = parameters['xs'][yindices]
     yzs = np.concatenate((np.tile(ys, (Np+1, )), 
                           np.tile(us, (Np, ))))[:, np.newaxis]
-    breakpoint()
     yzs = (yzs - yzmean)/yzstd
-    xkps = fnn_koopman(yzs, fnn_weights)[:, 0]
+    xkps = np.concatenate((yzs, fnn_koopman(yzs, fnn_weights)))[:, 0]
 
     # Constraints for MPC.
     ulb, uub = parameters['ulb'], parameters['uub']
 
     # Make the parameter dictionary.
     koopman_pars  = dict(Np=Np, Nx=Nx, Nu=Nu, Ny=Ny,
-                         A=A, B=B, H=H, xs=xkps, us=us,
+                         A=A, B=B, xs=xkps, us=us,
                          ulb=ulb, uub=uub, xuyscales=xuyscales)
 
     # Get the control input profile for the simulation.
@@ -331,11 +330,11 @@ def get_koopman_pars_check_func(*, parameters, training_data, train):
     y0 = y[ts, :, np.newaxis]
     yz0 = np.concatenate((y0, yp0seq, up0seq))
     yz0 = (yz0 - yzmean)/yzstd
-    xkp0 = fnn_koopman(yz0, fnn_weights)[:, 0]
+    xkp0 = np.concatenate((yz0, fnn_koopman(yz0, fnn_weights)))[:, 0]
 
     # Get the functions.
     koopman_fxu = lambda x, u: koopman_func(x, u, koopman_pars)
-    koopman_hx = lambda x: (H @ x)[:Ny]*ystd + ymean
+    koopman_hx = lambda x: x[:Ny]*ystd + ymean
 
     # Run the simulation.
     yzval, yval = quick_sim(koopman_fxu, koopman_hx, xkp0, uval)
@@ -343,7 +342,6 @@ def get_koopman_pars_check_func(*, parameters, training_data, train):
     # To compare with predictions made by the tensorflow model.
     ytfval = train['val_predictions'][-1].y
 
-    breakpoint()
     # Just return the hybrid parameters.
     return koopman_pars
 

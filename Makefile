@@ -40,7 +40,7 @@ TEXSUFFIXES := .pdf .aux .log .bbl .blg .nav .out .snm .toc .synctex.gz \
 # we are making the article or the talk. Note that the nomenclature is kind of
 # confusing here: in the subfolders, we split paper/presentation/poster, whereas
 # these variables are article/talk/poster, so keep that in mind.
-ARTICLE_SRC := systemID_NNs.tex
+ARTICLE_SRC := systemID_NNs.tex blackboxID.tex
 TALK_SRC := group_talk_jan19_2021.tex
 POSTER_SRC := 
 
@@ -283,7 +283,7 @@ AUTODEPENDENCIES := $(addprefix $(DEPS_DIR)/, $(addsuffix .dep, $(AUTODEPENDENCI
 ## target is "all". We also provide a "current" goal that users can edit in
 ## case they're only interested in a subset of files for the time being.
 
-.DEFAULT_GOAL := all
+.DEFAULT_GOAL := blackboxID.pdf
 
 all: $(ARTICLE_PDF) $(TALK_PDF) $(POSTER_PDF)
 .PHONY: all

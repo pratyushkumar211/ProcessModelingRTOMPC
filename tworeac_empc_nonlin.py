@@ -39,9 +39,8 @@ def get_controller(model_func, model_pars, model_type,
     # Get state space and input models.
     if model_type == 'koopman':
         fxu = lambda x, u: model_func(x, u, model_pars)
-        H = model_pars['H']
         ymean, ystd = model_pars['xuyscales']['yscale']
-        hx = lambda x: (H @ x[:Nx])[:Ny]*ystd + ymean
+        hx = lambda x: x[:Ny]*ystd + ymean
     else:
         ps = model_pars['ps']
         Delta = model_pars['Delta']
@@ -79,7 +78,7 @@ def get_controller(model_func, model_pars, model_type,
     Qwx, Qwd, Rv = mhe_noise_tuning
 
     # Horizon lengths.
-    Nmpc = 120
+    Nmpc = 60
     Nmhe = 30
 
     # Return the NN controller.
@@ -99,17 +98,18 @@ def stage_cost(y, u, p):
     ca, cb = p[0:2]
     CA, CB = y[0:2]
     # Compute and return cost.
-    return ca*CAf - cb*CB
+    return (CB - 1.2)**2
+    # return ca*CAf - cb*CB
 
 def get_mhe_noise_tuning(model_type, model_par):
     # Get MHE tuning.
     if model_type == 'plant' or model_type =='koopman':
         Qwx = 1e-6*np.eye(model_par['Nx'])
-        Qwd = 1e-6*np.eye(model_par['Ny'])
+        Qwd = 1e-2*np.eye(model_par['Ny'])
         Rv = 1e-3*np.eye(model_par['Ny'])
     if model_type == 'grey-box':
         Qwx = 1e-6*np.eye(model_par['Ng'])
-        Qwd = np.eye(model_par['Ny'])
+        Qwd = 1e-2*np.eye(model_par['Ny'])
         Rv = 1e-3*np.eye(model_par['Ny'])
     return (Qwx, Qwd, Rv)
 

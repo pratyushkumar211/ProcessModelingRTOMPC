@@ -496,12 +496,12 @@ class KoopmanCell(tf.keras.layers.AbstractRNNCell):
     x_{kp}^+  = Ax_{kp} + Bu
     #[y';z']^+ = Hx_{kp}^+
     [y;z] = H*xkp
-    y = [I, 0]*[y;z]
+    #y = [I, 0]*[y;z]
     """
-    def __init__(self, Nxkp, Ny, A, B, H, **kwargs):
+    def __init__(self, Nxkp, Ny, Nz, A, B, **kwargs):
         super(KoopmanCell, self).__init__(**kwargs)
-        self.Nxkp, self.Ny = Nxkp, Ny
-        self.A, self.B, self.H = A, B, H
+        self.Nxkp, self.Ny, self.Nz = Nxkp, Ny, Nz
+        self.A, self.B = A, B
 
     @property
     def state_size(self):
@@ -509,13 +509,13 @@ class KoopmanCell(tf.keras.layers.AbstractRNNCell):
     
     @property
     def output_size(self):
-        return self.Ny
+        return self.Ny + self.Nz
 
     def call(self, inputs, states):
         """ Call function of the hybrid RNN cell.
             Dimension of states: (None, Nxkp)
             Dimension of input: (None, Nu)
-            Dimension of output: (None, Ny)
+            Dimension of output: (None, Nz)
         """
         # Extract important variables.
         [xkp] = states
@@ -525,26 +525,25 @@ class KoopmanCell(tf.keras.layers.AbstractRNNCell):
         xkplus = self.A(xkp) + self.B(u)
         
         # Get the output at the current timestep.
-        yz = self.H(xkp)
-        y = yz
+        [yz, _] = tf.split(xkp, [self.output_size, self.Nxkp-self.output_size], 
+                           axis=-1)
 
         # Return output and states at the next time-step.
-        return (y, xkplus)
+        return (yz, xkplus)
 
 class KoopmanModel(tf.keras.Model):
     """ Custom model for the Deep Koopman operator model. """
-    def __init__(self, Np, Ny, Nu, fnn_dims):
+    def __init__(self, Np, Ny, Nu, fnn_dims, kernel_reg=1e-4):
         
         # Get a few sizes.
         Nz = Np*(Ny+Nu)
-        Nxkp = fnn_dims[-1]
+        Nxkp = Ny + Nz + fnn_dims[-1]
 
         # Create inputs to the layers.
-        layer_input = tf.keras.Input(name='u', shape=(None, Nu))
+        useq = tf.keras.Input(name='u', shape=(None, Nu))
         yz0 = tf.keras.Input(name='yz0', shape=(Ny + Nz, ))
         
         # Dense layers for the Koopman lifting NN.
-        kernel_reg = 1e-4
         fnn_layers = []
         for dim in fnn_dims[1:-1]:
             fnn_layers.append(tf.keras.layers.Dense(dim, 
@@ -554,7 +553,7 @@ class KoopmanModel(tf.keras.Model):
                     kernel_regularizer=tf.keras.regularizers.l2(kernel_reg)))
 
         # Use the created layers to create the initial state.
-        initial_state = self._fnn(yz0, fnn_layers)
+        xkp0 = tf.concat((yz0, self._fnn(yz0, fnn_layers)), axis=-1)
 
         # Custom weights for the linear dynamics in lifted space.
         A = tf.keras.layers.Dense(Nxkp, input_shape=(Nxkp, ),
@@ -564,26 +563,26 @@ class KoopmanModel(tf.keras.Model):
         B = tf.keras.layers.Dense(Nxkp, input_shape=(Nu, ),
                     kernel_regularizer=tf.keras.regularizers.l2(kernel_reg), 
                         use_bias=False)
-        H = tf.keras.layers.Dense(Ny+Nz, input_shape=(Nxkp, ),
-                    kernel_regularizer=tf.keras.regularizers.l2(kernel_reg), 
-                        use_bias=False)
+        #H = tf.keras.layers.Dense(Ny+Nz, input_shape=(Nxkp, ),
+        #            kernel_regularizer=tf.keras.regularizers.l2(kernel_reg), 
+        #                use_bias=False)
         
         # Build model depending on option.
-        koopman_cell = KoopmanCell(Nxkp, Ny, A, B, H)
+        koopman_cell = KoopmanCell(Nxkp, Ny, Nz, A, B)
 
         # Construct the RNN layer and the computation graph.
-        koopman_layer = tf.keras.layers.RNN(koopman_cell,
-                                            return_sequences=True)
-        layer_output = koopman_layer(inputs=layer_input,
-                                     initial_state=[initial_state])
+        koopman_layer = tf.keras.layers.RNN(koopman_cell, return_sequences=True)
+        yzseq = koopman_layer(inputs=useq, initial_state=[xkp0])
         
         # Get the list of outputs.
-        y, _ = tf.split(layer_output, [Ny, Nz], axis=-1)
-        outputs = [layer_output, y]
+        y, _ = tf.split(yzseq, [Ny, Nz], axis=-1)
+
+        # Get the list of inputs and outputs of the model.
+        inputs = [useq, yz0]
+        outputs = [yzseq, y]
 
         # Construct model.
-        super().__init__(inputs=[layer_input, yz0],
-                         outputs=outputs)
+        super().__init__(inputs=inputs, outputs=outputs)
 
     def _fnn(self, yz, fnn_layers):
         """ Compute the output of the feedforward network. """
@@ -591,3 +590,102 @@ class KoopmanModel(tf.keras.Model):
         for layer in fnn_layers:
             fnn_output = layer(fnn_output)
         return fnn_output
+
+def fnn(nn_input, nn_layers):
+    """ Compute the output of the feedforward network. """
+    nn_output = nn_input
+    for layer in nn_layers:
+        nn_output = layer(nn_output)
+    return nn_output
+
+class KoopmanEncDecCell(tf.keras.layers.AbstractRNNCell):
+    """
+    RNN Cell.
+    z = [y_{k-N_p:k-1}', u_{k-N_p:k-1}'];
+    x_{kp} = ENC_NN(y, z)
+    x_{kp}^+  = Ax_{kp} + Bu
+    #[y';z']^+ = Hx_{kp}^+
+    [y;z] = DEC_NN(xkp)
+    """
+    def __init__(self, Nxkp, Ny, Nz, A, B, dec_layers, **kwargs):
+        super(KoopmanEncDecCell, self).__init__(**kwargs)
+        self.Nxkp, self.Ny, self.Nz = Nxkp, Ny, Nz
+        self.A, self.B = A, B
+        self.dec_layers = dec_layers
+
+    @property
+    def state_size(self):
+        return self.Nxkp
+    
+    @property
+    def output_size(self):
+        return self.Ny + self.Nz
+
+    def call(self, inputs, states):
+        """ Call function of the hybrid RNN cell.
+            Dimension of states: (None, Nxkp)
+            Dimension of input: (None, Nu)
+            Dimension of output: (None, Nz)
+        """
+        # Extract important variables.
+        [xkp] = states
+        u = inputs
+
+        # Get the state prediction at the next time step.
+        xkplus = self.A(xkp) + self.B(u)
+        
+        # Get the output at the current timestep.
+        yz = fnn(xkp, self.dec_layers)
+
+        # Return output and states at the next time-step.
+        return (yz, xkplus)
+
+class KoopmanEncDecModel(tf.keras.Model):
+    """ Custom model for the Deep Koopman Encoder Decoder model. """
+    def __init__(self, Np, Ny, Nu, enc_dims, dec_dims):
+        
+        # Get a few sizes.
+        Nz = Np*(Ny + Nu)
+        Nxkp = enc_dims[-1]
+
+        # Create the encoder and decoder layers.
+        enc_layers = self.get_layers(enc_dims)
+        dec_layers = self.get_layers(dec_dims)
+        
+        # Create inputs to the layers.
+        useq = tf.keras.Input(name='u', shape=(None, Nu))
+        yz0 = tf.keras.Input(name='yz0', shape=(Ny + Nz, ))
+        xkp0 = fnn(yz0, enc_layers)
+
+        # Custom weights for the linear dynamics in lifted space.
+        A = tf.keras.layers.Dense(Nxkp, input_shape=(Nxkp, ),
+                                  kernel_initializer='zeros',
+                                  use_bias=False)
+        B = tf.keras.layers.Dense(Nxkp, input_shape=(Nu, ),
+                                  use_bias=False)
+        
+        # Build model depending on option.
+        koopman_cell = KoopmanEncDecCell(Nxkp, Ny, Nz, A, B, dec_layers)
+
+        # Construct the RNN layer and the computation graph.
+        koopman_layer = tf.keras.layers.RNN(koopman_cell, return_sequences=True)
+        yzseq = koopman_layer(inputs=useq, initial_state=[xkp0])
+        
+        # Get the list of outputs.
+        y, _ = tf.split(yzseq, [Ny, Nz], axis=-1)
+
+        # Get the list of inputs and outputs of the model.
+        inputs = [useq, yz0]
+        outputs = [yzseq, y]
+
+        # Construct model.
+        super().__init__(inputs=inputs, outputs=outputs)
+
+    def get_layers(self, layer_dims):
+        # Give the layer dimensions, get a list of dense layers.
+        fnn_layers = []
+        for dim in layer_dims[1:-1]:
+            fnn_layers.append(tf.keras.layers.Dense(dim, activation='tanh'))
+        fnn_layers.append(tf.keras.layers.Dense(layer_dims[-1]))
+        # Return the list of layers.
+        return fnn_layers

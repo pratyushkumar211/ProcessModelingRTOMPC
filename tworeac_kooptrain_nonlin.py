@@ -45,7 +45,7 @@ def train_model(model, train_data, trainval_data,
     # Call the fit method to train.
     model.fit(x=[train_data['inputs'], train_data['yz0']], 
               y=[train_data['yz'], train_data['outputs']], 
-              epochs=6000, batch_size=11,
+              epochs=5000, batch_size=11,
         validation_data = ([trainval_data['inputs'], trainval_data['yz0']], 
                            [trainval_data['yz'], trainval_data['outputs']]),
             callbacks = [checkpoint_callback])
