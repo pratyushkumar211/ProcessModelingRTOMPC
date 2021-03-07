@@ -371,7 +371,7 @@ class BlackBoxCell(tf.keras.layers.AbstractRNNCell):
         u = inputs
 
         # Get the current output/state and the next time step.
-        y = fnn(z)
+        y = fnn(z, self.fnn_layers)
         zplus = tf.concat((ypseq[..., self.Ny:], y, upseq[..., self.Nu:], u),
                            axis=-1)
 
@@ -380,7 +380,7 @@ class BlackBoxCell(tf.keras.layers.AbstractRNNCell):
 
 class BlackBoxModel(tf.keras.Model):
     """ Custom model for the Two reaction model. """
-    def __init__(self, Np, Ny, Nu, hN_dims, model_type):
+    def __init__(self, Np, Ny, Nu, hN_dims):
         """ Create the dense layers for the NN, and 
             construct the overall model. """
 
@@ -390,9 +390,9 @@ class BlackBoxModel(tf.keras.Model):
 
         # Dense layers for the NN.
         hN_layers = []
-        for dim in fnn_dims[1:-1]:
+        for dim in hN_dims[1:-1]:
             hN_layers += [tf.keras.layers.Dense(dim, activation='tanh')]
-        hN_layers += [tf.keras.layers.Dense(fnn_dims[-1])]
+        hN_layers += [tf.keras.layers.Dense(hN_dims[-1])]
 
         # Build model.
         bbCell = BlackBoxCell(Np, Ny, Nu, hN_layers)
@@ -400,7 +400,7 @@ class BlackBoxModel(tf.keras.Model):
         # Construct the RNN layer and the computation graph.
         bbLayer = tf.keras.layers.RNN(bbCell, return_sequences=True)
         yseq = bbLayer(inputs=useq, initial_state=[z0])
-        
+
         # Construct model.
         super().__init__(inputs=[useq, z0], outputs=yseq)
 

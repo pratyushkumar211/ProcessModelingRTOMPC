@@ -10,9 +10,9 @@ sys.path.append('lib/')
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
-from hybridid import PickleTool, PAPER_FIGSIZE, plot_profit_curve
-from hybridid import (get_plotting_array_list, plot_avg_profits, 
-                      plot_val_metrics)
+from hybridid import PickleTool
+from plotting_funcs import PAPER_FIGSIZE, plot_cost_curve
+from hybridid import get_plotting_array_list
 
 labels = [r'$C_A \ (\textnormal{mol/m}^3)$', 
           r'$C_B \ (\textnormal{mol/m}^3)$',
@@ -32,12 +32,12 @@ def plot_xudata(*, t, xlist, ulist,
     for (x, u, color) in zip(xlist, ulist, legend_colors):
         # First plot the states.
         for row in range(nrow-1):
-            handle = axes[row].step(t, x[:, row], color)
+            handle = axes[row].plot(t, x[:, row], color)
             axes[row].set_ylabel(labels[row])
             axes[row].get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
         # Plot the input in the last row.
         row += 1
-        axes[row].step(t, u[:, 0], color)
+        axes[row].step(t, u[:, 0], color, where='post')
         axes[row].set_ylabel(labels[row])
         axes[row].get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
         axes[row].set_xlabel('Time (hr)')
@@ -143,44 +143,40 @@ def main():
     """ Load the pickle files and plot. """
 
     # Load parameters.
-    tworeac_parameters = PickleTool.load(filename=
-                                         "tworeac_parameters_nonlin.pickle",
+    tworeac_parameters = PickleTool.load(filename="tworeac_parameters.pickle",
                                          type='read')
-    (parameters, training_data,
-     greybox_val_data) = (tworeac_parameters['parameters'],
-                          tworeac_parameters['training_data'],
-                          tworeac_parameters['greybox_val_data'])
+    parameters = tworeac_parameters['parameters']
+    training_data = tworeac_parameters['training_data']
+    greybox_val_data = tworeac_parameters['greybox_val_data']
     
     # Load data after NN training.
-    tworeac_blackbox_train = PickleTool.load(filename=
-                                    "tworeac_blackbox_train_nonlin.pickle",
-                                    type='read')
-    blackbox_predictions = tworeac_blackbox_train['val_predictions']
+    tworeac_bbtrain = PickleTool.load(filename="tworeac_bbtrain.pickle",
+                                      type='read')
+    bb_predictions = tworeac_bbtrain['val_predictions']
 
     # Load data after Koopman training.
-    tworeac_kooptrain = PickleTool.load(filename=
-                                    "tworeac_kooptrain_nonlin.pickle",
-                                    type='read')
-    koopval_predictions = tworeac_kooptrain['val_predictions']
+    #tworeac_kooptrain = PickleTool.load(filename=
+    #                                "tworeac_kooptrain_nonlin.pickle",
+    #                                type='read')
+    #koopval_predictions = tworeac_kooptrain['val_predictions']
 
     # Load data after Koopman training.
-    tworeac_encdeckooptrain = PickleTool.load(filename=
-                                    "tworeac_encdeckooptrain_nonlin.pickle",
-                                    type='read')
-    encdeckoopval_predictions = tworeac_encdeckooptrain['val_predictions']
+    #tworeac_encdeckooptrain = PickleTool.load(filename=
+    #                                "tworeac_encdeckooptrain_nonlin.pickle",
+    #                                type='read')
+    #encdeckoopval_predictions = tworeac_encdeckooptrain['val_predictions']
 
 
     # Create a figures list.
     figures = []
 
     # Plot validation data.
-    legend_names = ['Plant', 'Grey-box', 'Black-box', 
-                    'Koopman', 'Koopman-ENC-DEC']
-    legend_colors = ['b', 'g', 'dimgrey', 'm', 'tomato']
+    legend_names = ['Plant', 'Grey-box', 'Black-box']
+    legend_colors = ['b', 'g', 'dimgrey']
     valdata_list = [training_data[-1], greybox_val_data]
-    valdata_list += blackbox_predictions
-    valdata_list += koopval_predictions
-    valdata_list += encdeckoopval_predictions
+    valdata_list += bb_predictions
+    #valdata_list += koopval_predictions
+    #valdata_list += encdeckoopval_predictions
     t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
                                                      valdata_list[:2],
                                                      plot_range=(10, 24*60+10))
@@ -204,39 +200,39 @@ def main():
     #                            legends=['Black-box', 'Hybrid'])
 
     # Load data for the economic MPC simulation.
-    tworeac_empc = PickleTool.load(filename=
-                                    "tworeac_empc_nonlin.pickle", 
-                                    type='read')
-    cl_data_list = tworeac_empc['cl_data_list']
-    cost_pars = tworeac_empc['cost_pars']
-    avg_stage_costs=tworeac_empc['avg_stage_costs']
-    openloop_sols = tworeac_empc['openloop_sols']
+    # tworeac_empc = PickleTool.load(filename=
+    #                                 "tworeac_empc_nonlin.pickle", 
+    #                                 type='read')
+    # cl_data_list = tworeac_empc['cl_data_list']
+    # cost_pars = tworeac_empc['cost_pars']
+    # avg_stage_costs=tworeac_empc['avg_stage_costs']
+    # openloop_sols = tworeac_empc['openloop_sols']
 
-    # Plot first open-loop simulation.
-    legend_names = ['Plant', 'Grey-box', 'Koopman']
-    legend_colors = ['b', 'g', 'm']
-    udatum = [openloop_sols[0][0], openloop_sols[1][0], openloop_sols[2][0]]
-    xdatum = [openloop_sols[0][1], openloop_sols[1][1], openloop_sols[2][1]]
-    figures += plot_openloop_sols(t=t, udatum=udatum, xdatum=xdatum,
-                                  legend_names=legend_names,
-                                  legend_colors=legend_colors)
+    # # Plot first open-loop simulation.
+    # legend_names = ['Plant', 'Grey-box', 'Koopman']
+    # legend_colors = ['b', 'g', 'm']
+    # udatum = [openloop_sols[0][0], openloop_sols[1][0], openloop_sols[2][0]]
+    # xdatum = [openloop_sols[0][1], openloop_sols[1][1], openloop_sols[2][1]]
+    # figures += plot_openloop_sols(t=t, udatum=udatum, xdatum=xdatum,
+    #                               legend_names=legend_names,
+    #                               legend_colors=legend_colors)
 
-    # Plot closed-loop simulation data.
-    t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
-                                                     cl_data_list,
-                                                     plot_range=(0, 8*60))
-    figures += plot_xudata(t=t, xlist=xlist, ulist=ulist,
-                           legend_names=legend_names,
-                           legend_colors=legend_colors)
+    # # Plot closed-loop simulation data.
+    # t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
+    #                                                  cl_data_list,
+    #                                                  plot_range=(0, 8*60))
+    # figures += plot_xudata(t=t, xlist=xlist, ulist=ulist,
+    #                        legend_names=legend_names,
+    #                        legend_colors=legend_colors)
 
-    # Plot empc pars.
-    figures += plot_cost_pars(t=t, cost_pars=cost_pars)
+    # # Plot empc pars.
+    # figures += plot_cost_pars(t=t, cost_pars=cost_pars)
 
-    # Plot profit curve.
-    figures += plot_avg_profits(t=t,
-                                avg_stage_costs=avg_stage_costs, 
-                                legend_colors=legend_colors,
-                                legend_names=legend_names)
+    # # Plot profit curve.
+    # figures += plot_avg_profits(t=t,
+    #                             avg_stage_costs=avg_stage_costs, 
+    #                             legend_colors=legend_colors,
+    #                             legend_names=legend_names)
     
     # Plot the RTO simulation data.
     #cl_data_list = tworeac_rto['cl_data_list']
@@ -288,7 +284,7 @@ def main():
     #                         colors=['dimgray', 'tomato'], 
     #                         legends=['Black-box', 'Hybrid'])
 
-    with PdfPages('tworeac_plots_nonlin.pdf', 'w') as pdf_file:
+    with PdfPages('tworeac_plots.pdf', 'w') as pdf_file:
         for fig in figures:
             pdf_file.savefig(fig)
 

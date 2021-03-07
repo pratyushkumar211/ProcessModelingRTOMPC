@@ -10,8 +10,9 @@ sys.path.append('lib/')
 import mpctools as mpc
 import numpy as np
 import scipy.linalg
-from hybridid import PickleTool, c2d, sample_prbs_like, SimData
-from tworeac_nonlin_funcs import get_parameters, get_model, get_rectified_xs
+from hybridid import PickleTool, sample_prbs_like, SimData
+from hybridid import get_rectified_xs, get_model
+from tworeac_funcs import get_parameters, plant_ode, greybox_ode
 
 def gen_train_val_data(*, parameters, num_traj, 
                            Nsim_train, Nsim_trainval, 
@@ -29,7 +30,7 @@ def gen_train_val_data(*, parameters, num_traj,
     for traj in range(num_traj):
         
         # Get the plant and initial steady input.
-        plant = get_model(parameters=parameters, plant=True)
+        plant = get_model(ode=plant_ode, parameters=parameters, plant=True)
         us_init = np.tile(np.random.uniform(ulb, uub), (tsteps_steady, 1))
         
         # Get input trajectories for different simulatios.
@@ -53,8 +54,6 @@ def gen_train_val_data(*, parameters, num_traj,
                                  mean_change=30, sigma_change=6, seed=seed+3)
 
         seed += 1
-        umid = 0.5*(ulb + uub)[0]
-        u = np.where(u<umid, ulb, uub)
 
         # Complete input profile and run open-loop simulation.
         u = np.concatenate((us_init, u), axis=0)
@@ -71,7 +70,7 @@ def get_greybox_val_preds(*, parameters, training_data):
     """ Use the input profile to compute 
         the prediction of the grey-box model
         on the validation data. """
-    model = get_model(parameters=parameters, plant=False)
+    model = get_model(ode=greybox_ode, parameters=parameters, plant=False)
     p = parameters['ps'][:, np.newaxis]
     u = training_data[-1].u
     Nsim = u.shape[0]
@@ -90,11 +89,11 @@ def main():
     
     # Get parameters.
     parameters = get_parameters()
-    parameters['xs'] = get_rectified_xs(parameters=parameters)
+    parameters['xs'] = get_rectified_xs(ode=plant_ode, parameters=parameters)
     
     # Generate training data.
     training_data = gen_train_val_data(parameters=parameters,
-                                        num_traj=4, Nsim_train=360,
+                                        num_traj=5, Nsim_train=360,
                                         Nsim_trainval=360, Nsim_val=360,
                                         seed=100)
     greybox_val_data = get_greybox_val_preds(parameters=
@@ -108,6 +107,6 @@ def main():
     
     # Save data.
     PickleTool.save(data_object=tworeac_parameters,
-                    filename='tworeac_parameters_nonlin.pickle')
+                    filename='tworeac_parameters.pickle')
 
 main()
