@@ -59,6 +59,24 @@ def fnn(nn_input, nn_weights):
     # Return.
     return nn_output
 
+def get_bbpars_fxu_hx(*, train, parameters):
+    """ Get the black-box parameter dict and function handles. """
+
+    # Get black-box model parameters.
+    Np = train['Np']
+    hN_weights = train['trained_weights'][-1]
+    xuyscales = train['xuyscales']
+    bb_pars = get_bb_parameters(Np=Np, xuyscales=xuyscales, 
+                                hN_weights=hN_weights, 
+                                parameters=parameters)
+    
+    # Get function handles.
+    fxu = lambda x, u: bb_fxu(x, u, bb_pars)
+    hx = lambda x: bb_hx(x, bb_pars)
+
+    # Return.
+    return bb_pars, fxu, hx
+
 def get_bb_parameters(*, Np, xuyscales, hN_weights, parameters):
     """ Collect the black-box neural network parameters in 
         a dictionary. """
