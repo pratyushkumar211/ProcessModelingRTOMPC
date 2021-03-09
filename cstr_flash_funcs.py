@@ -7,13 +7,7 @@
 
 import sys
 sys.path.append('lib/')
-import mpctools as mpc
-import copy
 import numpy as np
-import scipy.linalg
-from hybridid import (PickleTool, c2d, sample_prbs_like, SimData,
-                      get_scaling, interpolate_yseq, _resample_fast)
-from linNonlinMPC import NonlinearPlantSimulator, NonlinearMHEEstimator
 
 def plant_ode(x, u, p, parameters):
     """ ODEs describing the 10-D system. """
@@ -35,11 +29,13 @@ def plant_ode(x, u, p, parameters):
     k1star = parameters['k1star']
     k2star = parameters['k2star']
     Td = parameters['Td']
+    Qb = parameters['Qb']
+    Qr = parameters['Qr']
 
     # Extract the plant states into meaningful names.
     (Hr, CAr, CBr, CCr, Tr) = x[0:5]
     (Hb, CAb, CBb, CCb, Tb) = x[5:10]
-    (F, Qr, D, Qb) = u[0:4]
+    (F, D) = u[0:2]
     (CAf, Tf) = p[0:2]
 
     # The flash vapor phase mass fractions.
@@ -96,11 +92,13 @@ def greybox_ode(x, u, p, parameters):
     E1byR = parameters['E1byR']
     k1star = parameters['k1star']
     Td = parameters['Td']
+    Qb = parameters['Qb']
+    Qr = parameters['Qr']
 
     # Extract the plant states into meaningful names.
     (Hr, CAr, CBr, Tr) = x[0:4]
     (Hb, CAb, CBb, Tb) = x[4:8]
-    (F, Qr, D, Qb) = u[0:4]
+    (F, D) = u[0:2]
     (CAf, Tf) = p[0:2]
 
     # The flash vapor phase mass fractions.
@@ -134,36 +132,33 @@ def greybox_ode(x, u, p, parameters):
     return np.array([dHrbydt, dCArbydt, dCBrbydt, dTrbydt,
                      dHbbydt, dCAbbydt, dCBbbydt, dTbbydt])
 
-def measurement(x, parameters):
-    yindices = parameters['yindices']
-    # Return the measurement.
-    return x[yindices]
-
-def get_plant_parameters():
+def get_plant_pars():
     """ Get the parameter values for the
         CSTRs with flash example. """
 
     # Parameters.
     parameters = {}
-    parameters['alphaA'] = 6.
+    parameters['alphaA'] = 10.
     parameters['alphaB'] = 1.
     parameters['alphaC'] = 1.
     parameters['pho'] = 6. # Kg/m^3
-    parameters['Cp'] = 3. # KJ/(Kg-K)
-    parameters['Ar'] = 2. # m^2
-    parameters['Ab'] = 2. # m^2
-    parameters['kr'] = 2. # m^2
+    parameters['Cp'] = 1. # KJ/(Kg-K)
+    parameters['Ar'] = 3. # m^2
+    parameters['Ab'] = 3. # m^2
+    parameters['kr'] = 4. # m^2
     parameters['kb'] = 1.5 # m^2
-    parameters['delH1'] = 140. # kJ/mol
-    parameters['delH2'] = 130. # kJ/mol
-    parameters['E1byR'] = 200. # K
-    parameters['E2byR'] = 300. # K
-    parameters['k1star'] = 0.7 # 1/min
-    parameters['k2star'] = 0.1 # 1/min
-    parameters['Td'] = 300 # K
+    parameters['delH1'] = 50. # kJ/mol
+    parameters['delH2'] = 60. # kJ/mol
+    parameters['E1byR'] = 300. # K
+    parameters['E2byR'] = 100. # K
+    parameters['k1star'] = 0.6 # 1/min
+    parameters['k2star'] = 2. # 1/min
+    parameters['Td'] = 320 # K
+    parameters['Qb'] = 200 # kJ/min
+    parameters['Qr'] = 200 # kJ/min
 
     # Store the dimensions.
-    Nx, Nu, Np, Ny = 10, 4, 2, 6
+    Nx, Nu, Np, Ny = 10, 2, 2, 6
     parameters['Nx'] = Nx
     parameters['Nu'] = Nu
     parameters['Ny'] = Ny
@@ -175,23 +170,23 @@ def get_plant_parameters():
     # Get the steady states.
     parameters['xs'] = np.array([50., 1., 0., 0., 313.,
                                  50., 1., 0., 0., 313.])
-    parameters['us'] = np.array([10., 200., 5., 300.])
+    parameters['us'] = np.array([5., 5.])
     parameters['ps'] = np.array([6., 320.])
 
     # Get the constraints.
-    parameters['ulb'] = np.array([5., 0., 2., 200.])
-    parameters['uub'] = np.array([15., 400., 8., 400.])
+    parameters['ulb'] = np.array([2., 2.])
+    parameters['uub'] = np.array([8., 8.])
 
     # The C matrix for the plant.
     parameters['yindices'] = [0, 2, 4, 5, 7, 9]
-    parameters['tsteps_steady'] = 120
+    parameters['tthrow'] = 120
     parameters['Rv'] = 0*np.diag([0.8, 1e-3, 1., 
                                   0.8, 1e-3, 1.])
     
     # Return the parameters dict.
     return parameters
 
-def get_greybox_parameters(*, plant_pars):
+def get_gb_pars(*, plant_pars):
     """ Get the parameter values for the
         CSTRs with flash example. """
 
@@ -209,6 +204,8 @@ def get_greybox_parameters(*, plant_pars):
     parameters['E1byR'] = 200 # K
     parameters['k1star'] = 0.3 # 1/min
     parameters['Td'] = 300 # K
+    parameters['Qb'] = 200 # kJ/min
+    parameters['Qr'] = 200 # kJ/min
 
     # Store the dimensions.
     parameters['Ng'] = 8
@@ -226,7 +223,8 @@ def get_greybox_parameters(*, plant_pars):
     parameters['ps'] = np.array([5., 320.])
 
     # The C matrix for the grey-box model.
-    parameters['tsteps_steady'] = plant_pars['tsteps_steady']
+    parameters['tthrow'] = plant_pars['tthrow']
+    parameters['gb_indices'] = [0, 1, 2, 3, 4, 5, 6, 7]
     parameters['yindices'] = [0, 2, 3, 4, 6, 7]
 
     # Get the constraints.
@@ -239,159 +237,109 @@ def get_greybox_parameters(*, plant_pars):
     # Return the parameters dict.
     return parameters
 
-def get_rectified_xs(*, parameters):
-    """ Get the steady state of the plant. """
-    # (xs, us, ps)
-    xs = parameters['xs']
-    us = parameters['us']
-    ps = parameters['ps']
-    cstr_flash_plant_ode = lambda x, u, p: plant_ode(x, u, p, parameters)
-    # Construct the casadi class.
-    model = mpc.DiscreteSimulator(cstr_flash_plant_ode,
-                                  parameters['Delta'],
-                                  [parameters['Nx'], parameters['Nu'], 
-                                   parameters['Np']], 
-                                  ["x", "u", "p"])
-    # Steady state of the plant.
-    for _ in range(360):
-        xs = model.sim(xs, us, ps)
-    # Return the disturbances.
-    return xs
+# def get_hybrid_pars(*, greybox_pars, Npast, fnn_weights, xuyscales):
+#     """ Get the hybrid model parameters. """
 
-def get_model(*, parameters, plant=True):
-    """ Return a nonlinear plant simulator object."""
-    cstr_flash_measurement = lambda x: measurement(x, parameters)
-    if plant:
-        # Construct and return the plant.
-        cstr_flash_plant_ode = lambda x, u, p: plant_ode(x, u, p, parameters)
-        xs = parameters['xs'][:, np.newaxis]
-        return NonlinearPlantSimulator(fxup = cstr_flash_plant_ode,
-                                        hx = cstr_flash_measurement,
-                                        Rv = parameters['Rv'], 
-                                        Nx = parameters['Nx'], 
-                                        Nu = parameters['Nu'], 
-                                        Np = parameters['Np'], 
-                                        Ny = parameters['Ny'],
-                                        sample_time = parameters['Delta'], 
-                                        x0 = xs)
-    else:
-        # Construct and return the grey-box model.
-        cstr_flash_greybox_ode = lambda x, u, p: greybox_ode(x, u, 
-                                                             p, parameters)
-        xs = parameters['xs'][:, np.newaxis]
-        return NonlinearPlantSimulator(fxup = cstr_flash_greybox_ode,
-                                        hx = cstr_flash_measurement,
-                                        Rv = 0*parameters['Rv'],
-                                        Nx = parameters['Ng'], 
-                                        Nu = parameters['Nu'], 
-                                        Np = parameters['Np'], 
-                                        Ny = parameters['Ny'],
-                                        sample_time = parameters['Delta'], 
-                                        x0 = xs)
+#     hybrid_pars = copy.deepcopy(greybox_pars)
+#     # Update sizes.
+#     Nu, Ny = greybox_pars['Nu'], greybox_pars['Ny']
+#     hybrid_pars['Nx'] = greybox_pars['Ng'] + Npast*(Nu + Ny)
 
-def get_hybrid_pars(*, greybox_pars, Npast, fnn_weights, xuyscales):
-    """ Get the hybrid model parameters. """
-
-    hybrid_pars = copy.deepcopy(greybox_pars)
-    # Update sizes.
-    Nu, Ny = greybox_pars['Nu'], greybox_pars['Ny']
-    hybrid_pars['Nx'] = greybox_pars['Ng'] + Npast*(Nu + Ny)
-
-    # Update steady state.
-    ys = measurement(greybox_pars['xs'], greybox_pars)
-    yspseq = np.tile(ys, (Npast, ))
-    us = greybox_pars['us']
-    uspseq = np.tile(us, (Npast, ))
-    xs = greybox_pars['xs']
-    hybrid_pars['xs'] = np.concatenate((xs, yspseq, uspseq))
+#     # Update steady state.
+#     ys = measurement(greybox_pars['xs'], greybox_pars)
+#     yspseq = np.tile(ys, (Npast, ))
+#     us = greybox_pars['us']
+#     uspseq = np.tile(us, (Npast, ))
+#     xs = greybox_pars['xs']
+#     hybrid_pars['xs'] = np.concatenate((xs, yspseq, uspseq))
     
-    # NN pars.
-    hybrid_pars['Npast'] = Npast
-    hybrid_pars['fnn_weights'] = fnn_weights
+#     # NN pars.
+#     hybrid_pars['Npast'] = Npast
+#     hybrid_pars['fnn_weights'] = fnn_weights
 
-    # Scaling.
-    hybrid_pars['xuyscales'] = xuyscales
+#     # Scaling.
+#     hybrid_pars['xuyscales'] = xuyscales
 
-    # Return.
-    return hybrid_pars
+#     # Return.
+#     return hybrid_pars
 
-def fnn(xG, z, u, Npast, xuyscales, fnn_weights):
-    """ Compute the NN output. """
-    nn_output = np.concatenate((xG, z, u))
-    nn_output = nn_output[:, np.newaxis]
-    for i in range(0, len(fnn_weights)-2, 2):
-        (W, b) = fnn_weights[i:i+2]
-        nn_output = W.T @ nn_output + b[:, np.newaxis]
-        nn_output = 1./(1. + np.exp(-nn_output))
-    (Wf, bf) = fnn_weights[-2:]
-    nn_output = (Wf.T @ nn_output + bf[:, np.newaxis])[:, 0]
-    # Return.
-    return nn_output
+# def fnn(xG, z, u, Npast, xuyscales, fnn_weights):
+#     """ Compute the NN output. """
+#     nn_output = np.concatenate((xG, z, u))
+#     nn_output = nn_output[:, np.newaxis]
+#     for i in range(0, len(fnn_weights)-2, 2):
+#         (W, b) = fnn_weights[i:i+2]
+#         nn_output = W.T @ nn_output + b[:, np.newaxis]
+#         nn_output = 1./(1. + np.exp(-nn_output))
+#     (Wf, bf) = fnn_weights[-2:]
+#     nn_output = (Wf.T @ nn_output + bf[:, np.newaxis])[:, 0]
+#     # Return.
+#     return nn_output
 
-def hybrid_func(xGz, u, parameters):
-    """ The augmented continuous time model. """
+# def hybrid_func(xGz, u, parameters):
+#     """ The augmented continuous time model. """
 
-    # Extract a few parameters.
-    Ng = parameters['Ng']
-    Ny = parameters['Ny']
-    Nu = parameters['Nu']
-    ps = parameters['ps']
-    Npast = parameters['Npast']
-    Delta = parameters['Delta']
-    fnn_weights = parameters['fnn_weights']
-    xuyscales = parameters['xuyscales']
-    xmean, xstd = xuyscales['xscale']
-    umean, ustd = xuyscales['uscale']
-    ymean, ystd = xuyscales['yscale']
-    xGzmean = np.concatenate((xmean,
-                               np.tile(ymean, (Npast, )), 
-                               np.tile(umean, (Npast, ))))
-    xGzstd = np.concatenate((xstd,
-                             np.tile(ystd, (Npast, )), 
-                             np.tile(ustd, (Npast, ))))
+#     # Extract a few parameters.
+#     Ng = parameters['Ng']
+#     Ny = parameters['Ny']
+#     Nu = parameters['Nu']
+#     ps = parameters['ps']
+#     Npast = parameters['Npast']
+#     Delta = parameters['Delta']
+#     fnn_weights = parameters['fnn_weights']
+#     xuyscales = parameters['xuyscales']
+#     xmean, xstd = xuyscales['xscale']
+#     umean, ustd = xuyscales['uscale']
+#     ymean, ystd = xuyscales['yscale']
+#     xGzmean = np.concatenate((xmean,
+#                                np.tile(ymean, (Npast, )), 
+#                                np.tile(umean, (Npast, ))))
+#     xGzstd = np.concatenate((xstd,
+#                              np.tile(ystd, (Npast, )), 
+#                              np.tile(ustd, (Npast, ))))
 
-    # Get some vectors.
-    xGz = (xGz - xGzmean)/xGzstd
-    u = (u-umean)/ustd
-    xG, ypseq, upseq = xGz[:Ng], xGz[Ng:Ng+Npast*Ny], xGz[-Npast*Nu:]
-    z = xGz[Ng:]
-    hxG = measurement(xG, parameters)
+#     # Get some vectors.
+#     xGz = (xGz - xGzmean)/xGzstd
+#     u = (u-umean)/ustd
+#     xG, ypseq, upseq = xGz[:Ng], xGz[Ng:Ng+Npast*Ny], xGz[-Npast*Nu:]
+#     z = xGz[Ng:]
+#     hxG = measurement(xG, parameters)
     
-    # Get k1.
-    k1 = greybox_ode(xG*xstd + xmean, u*ustd + umean, ps, parameters)/xstd
-    k1 +=  fnn(xG, z, u, Npast, xuyscales, fnn_weights)
+#     # Get k1.
+#     k1 = greybox_ode(xG*xstd + xmean, u*ustd + umean, ps, parameters)/xstd
+#     k1 +=  fnn(xG, z, u, Npast, xuyscales, fnn_weights)
 
-    # Interpolate for k2 and k3.
-    ypseq_interp = interpolate_yseq(np.concatenate((ypseq, hxG)), Npast, Ny)
-    z = np.concatenate((ypseq_interp, upseq))
+#     # Interpolate for k2 and k3.
+#     ypseq_interp = interpolate_yseq(np.concatenate((ypseq, hxG)), Npast, Ny)
+#     z = np.concatenate((ypseq_interp, upseq))
     
-    # Get k2.
-    k2 = greybox_ode((xG + Delta*(k1/2))*xstd + xmean, u*ustd + umean, 
-                       ps, parameters)/xstd
-    k2 += fnn(xG + Delta*(k1/2), z, u, Npast, xuyscales, fnn_weights)
+#     # Get k2.
+#     k2 = greybox_ode((xG + Delta*(k1/2))*xstd + xmean, u*ustd + umean, 
+#                        ps, parameters)/xstd
+#     k2 += fnn(xG + Delta*(k1/2), z, u, Npast, xuyscales, fnn_weights)
 
-    # Get k3.
-    k3 = greybox_ode((xG + Delta*(k2/2))*xstd + xmean, u*ustd + umean, 
-                       ps, parameters)/xstd
-    k3 += fnn(xG + Delta*(k2/2), z, u, Npast, xuyscales, fnn_weights)
+#     # Get k3.
+#     k3 = greybox_ode((xG + Delta*(k2/2))*xstd + xmean, u*ustd + umean, 
+#                        ps, parameters)/xstd
+#     k3 += fnn(xG + Delta*(k2/2), z, u, Npast, xuyscales, fnn_weights)
 
-    # Get k4.
-    ypseq_shifted = np.concatenate((ypseq[Ny:], hxG))
-    z = np.concatenate((ypseq_shifted, upseq))
-    k4 = greybox_ode((xG + Delta*k3)*xstd + xmean, u*ustd + umean, 
-                       ps, parameters)/xstd
-    k4 += fnn(xG + Delta*k3, z, u, Npast, xuyscales, fnn_weights)
+#     # Get k4.
+#     ypseq_shifted = np.concatenate((ypseq[Ny:], hxG))
+#     z = np.concatenate((ypseq_shifted, upseq))
+#     k4 = greybox_ode((xG + Delta*k3)*xstd + xmean, u*ustd + umean, 
+#                        ps, parameters)/xstd
+#     k4 += fnn(xG + Delta*k3, z, u, Npast, xuyscales, fnn_weights)
     
-    # Get the current output/state and the next time step.
-    xGplus = xG + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
-    zplus = np.concatenate((ypseq_shifted, upseq[Nu:], u))
-    xGzplus = np.concatenate((xGplus, zplus))
-    xGzplus = xGzplus*xGzstd + xGzmean
+#     # Get the current output/state and the next time step.
+#     xGplus = xG + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
+#     zplus = np.concatenate((ypseq_shifted, upseq[Nu:], u))
+#     xGzplus = np.concatenate((xGplus, zplus))
+#     xGzplus = xGzplus*xGzstd + xGzmean
 
-    # Return the sum.
-    return xGzplus
+#     # Return the sum.
+#     return xGzplus
 
-def stage_cost(y, u, p, pars, yindices):
+def cost_yup(y, u, p, pars):
     """ Custom stage cost for the CSTR/Flash system. """
     CAf = pars['ps'][0]
     Td = pars['Td']
@@ -400,113 +348,113 @@ def stage_cost(y, u, p, pars, yindices):
     kb = pars['kb']
     
     # Get inputs, parameters, and states.
-    F, Qr, D, Qb = u[0:4]
+    F, D = u[0:2]
     ce, ca, cb = p[0:3]
-    Hb, CBb, Tb = y[yindices]
+    Hb, CBb, Tb = y[[3, 4, 5]]
     Fb = kb*np.sqrt(Hb)
     
     # Compute and return cost.
-    return ca*F*CAf + ce*Qr + ce*Qb + ce*D*pho*Cp*(Tb-Td) - cb*Fb*CBb
+    return ca*F*CAf + ce*D*pho*Cp*(Tb-Td) - cb*Fb*CBb
 
-def sim_hybrid(hybrid_func, uval, hybrid_pars, greybox_processed_data):
-    """ Hybrid validation simulation to make 
-        sure the above programmed function is 
-        the same is what tensorflow is training. """
+# def sim_hybrid(hybrid_func, uval, hybrid_pars, greybox_processed_data):
+#     """ Hybrid validation simulation to make 
+#         sure the above programmed function is 
+#         the same is what tensorflow is training. """
     
-    # Get initial state.
-    t = hybrid_pars['tsteps_steady']
-    Np = hybrid_pars['Npast']
-    Ny = hybrid_pars['Ny']
-    Nu = hybrid_pars['Nu']
-    Ng = hybrid_pars['Ng']
-    y = greybox_processed_data.y
-    u = greybox_processed_data.u
-    x = greybox_processed_data.x
-    yp0seq = y[t-Np:t, :].reshape(Np*Ny, )[:, np.newaxis]
-    up0seq = u[t-Np:t:, ].reshape(Np*Nu, )[:, np.newaxis]
-    z0 = np.concatenate((yp0seq, up0seq))
-    xG0 = x[t, :][:, np.newaxis]
-    xGz0 = np.concatenate((xG0, z0))
+#     # Get initial state.
+#     t = hybrid_pars['tsteps_steady']
+#     Np = hybrid_pars['Npast']
+#     Ny = hybrid_pars['Ny']
+#     Nu = hybrid_pars['Nu']
+#     Ng = hybrid_pars['Ng']
+#     y = greybox_processed_data.y
+#     u = greybox_processed_data.u
+#     x = greybox_processed_data.x
+#     yp0seq = y[t-Np:t, :].reshape(Np*Ny, )[:, np.newaxis]
+#     up0seq = u[t-Np:t:, ].reshape(Np*Nu, )[:, np.newaxis]
+#     z0 = np.concatenate((yp0seq, up0seq))
+#     xG0 = x[t, :][:, np.newaxis]
+#     xGz0 = np.concatenate((xG0, z0))
 
-    # Start the validation simulation.
-    uval = uval[t:, :]
-    Nval = uval.shape[0]
-    hx = lambda x: measurement(x, hybrid_pars)
-    fxu = lambda x, u: hybrid_func(x, u, hybrid_pars)
-    x = xGz0[:, 0]
-    yval, xGval = [], []
-    xGval.append(x)
-    for t in range(Nval):
-        yval.append(hx(x))
-        x = fxu(x, uval[t, :].T)
-        xGval.append(x)
-    yval = np.asarray(yval)
-    xGval = np.asarray(xGval)[:-1, :Ng]
-    # Return.
-    return yval, xGval
+#     # Start the validation simulation.
+#     uval = uval[t:, :]
+#     Nval = uval.shape[0]
+#     hx = lambda x: measurement(x, hybrid_pars)
+#     fxu = lambda x, u: hybrid_func(x, u, hybrid_pars)
+#     x = xGz0[:, 0]
+#     yval, xGval = [], []
+#     xGval.append(x)
+#     for t in range(Nval):
+#         yval.append(hx(x))
+#         x = fxu(x, uval[t, :].T)
+#         xGval.append(x)
+#     yval = np.asarray(yval)
+#     xGval = np.asarray(xGval)[:-1, :Ng]
+#     # Return.
+#     return yval, xGval
 
-def get_hybrid_pars_check_func(*, greybox_pars, train, 
-                                  greybox_processed_data):
-    """ Get the hybrid parameters and check the hybrid function
-        to be used for optimization. """
+# def get_hybrid_pars_check_func(*, greybox_pars, train, 
+#                                   greybox_processed_data):
+#     """ Get the hybrid parameters and check the hybrid function
+#         to be used for optimization. """
 
-    # Get NN weights and the hybrid ODE.
-    Np = train['Nps'][0] # To change.
-    fnn_weights = train['trained_weights'][0][-1] # To change.
-    xuyscales = train['xuyscales']
-    hybrid_pars = get_hybrid_pars(greybox_pars=greybox_pars,
-                                  Npast=Np,
-                                  fnn_weights=fnn_weights,
-                                  xuyscales=xuyscales)
+#     # Get NN weights and the hybrid ODE.
+#     Np = train['Nps'][0] # To change.
+#     fnn_weights = train['trained_weights'][0][-1] # To change.
+#     xuyscales = train['xuyscales']
+#     hybrid_pars = get_hybrid_pars(greybox_pars=greybox_pars,
+#                                   Npast=Np,
+#                                   fnn_weights=fnn_weights,
+#                                   xuyscales=xuyscales)
 
-    # Check the hybrid function.
-    uval = greybox_processed_data[-1].u
-    ytfval = train['val_predictions'][0].y
-    xGtfval = train['val_predictions'][0].x
-    greybox_processed_data = greybox_processed_data[-1]
-    yval, xGval = sim_hybrid(hybrid_func, uval, 
-                             hybrid_pars, greybox_processed_data)
+#     # Check the hybrid function.
+#     uval = greybox_processed_data[-1].u
+#     ytfval = train['val_predictions'][0].y
+#     xGtfval = train['val_predictions'][0].x
+#     greybox_processed_data = greybox_processed_data[-1]
+#     yval, xGval = sim_hybrid(hybrid_func, uval, 
+#                              hybrid_pars, greybox_processed_data)
 
-    # Just return the hybrid parameters.
-    return hybrid_pars
+#     # Just return the hybrid parameters.
+#     return hybrid_pars
 
-def get_energy_price(*, num_days, sample_time):
-    """ Get a two day heat disturbance profile. """
-    energy_price = np.zeros((24, 1))
-    energy_price[0:8, :] = 10*np.ones((8, 1))
-    energy_price[8:16, :] = 70*np.ones((8, 1))
-    energy_price[16:24, :] = 10*np.ones((8, 1))
-    energy_price = 1e-2*np.tile(energy_price, (num_days, 1))
-    return _resample_fast(x=energy_price,
-                          xDelta=60,
-                          newDelta=sample_time,
-                          resample_type='zoh')
+# def get_energy_price(*, num_days, sample_time):
+#     """ Get a two day heat disturbance profile. """
+#     energy_price = np.zeros((24, 1))
+#     energy_price[0:8, :] = 10*np.ones((8, 1))
+#     energy_price[8:16, :] = 70*np.ones((8, 1))
+#     energy_price[16:24, :] = 10*np.ones((8, 1))
+#     energy_price = 1e-2*np.tile(energy_price, (num_days, 1))
+#     return _resample_fast(x=energy_price,
+#                           xDelta=60,
+#                           newDelta=sample_time,
+#                           resample_type='zoh')
 
-def get_economic_opt_pars(*, num_days, sample_time, plant_pars):
-    """ Get the parameters for Empc and RTO simulations. """
+# def get_economic_opt_pars(*, num_days, sample_time, plant_pars):
+#     """ Get the parameters for Empc and RTO simulations. """
 
-    # Get the cost parameters.
-    energy_price = get_energy_price(num_days=num_days, sample_time=sample_time)
-    raw_mat_price = _resample_fast(x = np.array([[1000.], [1000.], 
-                                                 [1000.], [1000.], 
-                                                 [1000.], [1000.], 
-                                                 [1000.], [1000.]]), 
-                                   xDelta=6*60,
-                                   newDelta=sample_time,
-                                   resample_type='zoh')
-    product_price = _resample_fast(x = np.array([[8000.], [7000.], 
-                                                 [5000.], [4000.], 
-                                                 [4000.], [4000.], 
-                                                 [4000.], [4000.]]),
-                                   xDelta=6*60,
-                                   newDelta=sample_time,
-                                   resample_type='zoh')
-    cost_pars = np.concatenate((energy_price,
-                                raw_mat_price, product_price), axis=1)
+#     # Get the cost parameters.
+#     energy_price = get_energy_price(num_days=num_days, sample_time=sample_time)
+#     raw_mat_price = _resample_fast(x = np.array([[1000.], [1000.], 
+#                                                  [1000.], [1000.], 
+#                                                  [1000.], [1000.], 
+#                                                  [1000.], [1000.]]), 
+#                                    xDelta=6*60,
+#                                    newDelta=sample_time,
+#                                    resample_type='zoh')
+#     product_price = _resample_fast(x = np.array([[8000.], [7000.], 
+#                                                  [5000.], [4000.], 
+#                                                  [4000.], [4000.], 
+#                                                  [4000.], [4000.]]),
+#                                    xDelta=6*60,
+#                                    newDelta=sample_time,
+#                                    resample_type='zoh')
+#     cost_pars = np.concatenate((energy_price,
+#                                 raw_mat_price, product_price), axis=1)
     
-    # Get the plant disturbances.
-    ps = plant_pars['ps'][np.newaxis, :]
-    disturbances = np.repeat(ps, num_days*24*60, axis=0)
+#     # Get the plant disturbances.
+#     ps = plant_pars['ps'][np.newaxis, :]
+#     disturbances = np.repeat(ps, num_days*24*60, axis=0)
 
-    # Return as a concatenated vector.
-    return cost_pars, disturbances
+#     # Return as a concatenated vector.
+#     return cost_pars, disturbances
