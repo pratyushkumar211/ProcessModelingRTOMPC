@@ -53,7 +53,8 @@ def fnn(nn_input, nn_weights):
     for i in range(0, len(nn_weights)-2, 2):
         (W, b) = nn_weights[i:i+2]
         nn_output = W.T @ nn_output + b[:, np.newaxis]
-        nn_output = np.tanh(nn_output)
+        #nn_output = np.tanh(nn_output)
+        nn_output = 1./(1. + np.exp(-0.5*nn_output))
     (Wf, bf) = nn_weights[-2:]
     nn_output = (Wf.T @ nn_output + bf[:, np.newaxis])[:, 0]
     # Return.
@@ -66,9 +67,11 @@ def get_bbpars_fxu_hx(*, train, parameters):
     Np = train['Np']
     hN_weights = train['trained_weights'][-1]
     xuyscales = train['xuyscales']
-    bb_pars = get_bb_parameters(Np=Np, xuyscales=xuyscales, 
-                                hN_weights=hN_weights, 
-                                parameters=parameters)
+    Ny, Nu = parameters['Ny'], parameters['Nu']
+    Nx = Np*(Ny + Nu)
+    ulb, uub = parameters['ulb'], parameters['uub']
+    bb_pars = dict(Nx=Nx, Ny=Ny, Nu=Nu, Np=Np, xuyscales=xuyscales,
+                   hN_weights=hN_weights, ulb=ulb, uub=uub)
     
     # Get function handles.
     fxu = lambda x, u: bb_fxu(x, u, bb_pars)
@@ -76,17 +79,6 @@ def get_bbpars_fxu_hx(*, train, parameters):
 
     # Return.
     return bb_pars, fxu, hx
-
-def get_bb_parameters(*, Np, xuyscales, hN_weights, parameters):
-    """ Collect the black-box neural network parameters in 
-        a dictionary. """
-    
-    Ny, Nu = parameters['Ny'], parameters['Nu']
-    Nx = Np*(Ny + Nu)
-    ulb, uub = parameters['ulb'], parameters['uub']
-    # Return dict.
-    return dict(Nx=Nx, Ny=Ny, Nu=Nu, Np=Np, xuyscales=xuyscales,
-                hN_weights=hN_weights, ulb=ulb, uub=uub)
 
 def bb_fxu(z, u, parameters):
     """ Function describing the dynamics 
@@ -183,6 +175,28 @@ def get_ss_optimum(*, fxu, hx, lyu, parameters, guess):
 
     # Return the steady state solution.
     return xs, us, ys
+
+def get_sscost(*, fxu, hx, lyu, us, parameters):
+    """ Setup and solve the steady state optimization. """
+
+    # Get the sizes and actuator bounds.
+    Nx, Nu = parameters['Nx'], parameters['Nu']
+    ulb, uub = parameters['ulb'], parameters['uub']
+
+    # Get resf casadi function.
+    xs = casadi.SX.sym('xs', Nx)
+    resfx = mpc.getCasadiFunc(lambda x: -x + fxu(x, us), [Nx], ["x"])
+
+    # Use rootfinder to get the SS.
+    rootfinder = casadi.rootfinder('resfx', 'newton', resfx)
+    xguess = np.zeros((Nx, 1))
+    xs = np.asarray(rootfinder(xguess))[:, 0]
+
+    # Setup NLP.
+    sscost = lyu(hx(xs), us)[0]
+
+    # Return the steady state cost.
+    return sscost
 
 def get_xuguess(*, model_type, plant_pars, Np=None):
     """ Get x, u guess depending on model type. """
