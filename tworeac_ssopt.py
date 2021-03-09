@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import mpctools as mpc
 from matplotlib.backends.backend_pdf import PdfPages
 from hybridid import PickleTool, measurement
-from economicopt import get_bb_parameters, bb_fxu, bb_hx
+from economicopt import get_bbpars_fxu_hx
 from economicopt import get_ss_optimum, get_xuguess, c2dNonlin
 from tworeac_funcs import cost_yup, plant_ode, greybox_ode
 
@@ -280,24 +280,6 @@ from tworeac_funcs import cost_yup, plant_ode, greybox_ode
 #         cost_mses.append(model_cost_mse)
 #     return cost_mses
 
-def get_bbpars_fxu_hx(*, train, parameters):
-    """ Get the black-box parameter dict and function handles. """
-
-    # Get black-box model parameters.
-    Np = train['Np']
-    hN_weights = train['trained_weights'][-1]
-    xuyscales = train['xuyscales']
-    bb_pars = get_bb_parameters(Np=Np, xuyscales=xuyscales, 
-                                hN_weights=hN_weights, 
-                                parameters=parameters)
-    
-    # Get function handles.
-    fxu = lambda x, u: bb_fxu(x, u, bb_pars)
-    hx = lambda x: bb_hx(x, bb_pars)
-
-    # Return.
-    return bb_pars, fxu, hx
-
 def main():
     """ Main function to be executed. """
     # Load data.
@@ -308,7 +290,7 @@ def main():
                                       type='read')
 
     # Get cost function handle.
-    p = [105, 160]
+    p = [100, 180]
     lyu = lambda y, u: cost_yup(y, u, p)
 
     # Get the black-box model parameters and function handles.
@@ -328,15 +310,18 @@ def main():
     gb_pars = copy.deepcopy(parameters)
     gb_pars['Nx'] = len(parameters['gb_indices'])
 
+    # Lists to loop over for different models.
     model_types = ['plant', 'grey-box', 'black-box']
     fxu_list = [plant_fxu, gb_fxu, blackb_fxu]
     hx_list = [plant_hx, plant_hx, blackb_hx]
     par_list = [parameters, gb_pars, bb_pars]
     Nps = [None, None, bb_pars['Np']]
+
+    # Loop over the different models, and obtain SS optimums.
     for (model_type, fxu, hx, model_pars, Np) in zip(model_types, fxu_list, 
                                                      hx_list, par_list, Nps):
 
-        # Get guess. 
+        # Get guess.
         xuguess = get_xuguess(model_type=model_type, 
                               plant_pars=parameters, Np=Np)
 
@@ -348,6 +333,30 @@ def main():
         print("Model type: " + model_type)
         print('us: ' + str(us))
         print('ys: ' + str(ys))
+
+    # Get a linspace of steady-state u values.
+    ulb, uub = parameters['ulb'], parameters['uub']
+    us_list = list(np.linspace(ulb, uub, 100))
+
+    # Lists to store Steady-state cost.
+    ss_cost_list = []
+
+    # Loop over all the models.
+    for (model_type, model_pars) in zip(model_types, par_list):
+
+        # List to store SS costs for one model.
+        model_sscost = []
+
+        # Compute SS cost.
+        for us in us_list:
+
+            sscost = get_sscost(fxu=fxu, hx=hx, lyu=lyu, 
+                                us=us, parameters=model_pars)
+            model_sscost += [sscost]
+        
+        model_sscost = np.asarray(model_sscost)
+        ss_cost_list += [model_sscost]
+
 
     # Create cost curves.
     # costss = []
