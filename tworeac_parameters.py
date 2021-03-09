@@ -93,7 +93,7 @@ def main():
     
     # Generate training data.
     training_data = gen_train_val_data(parameters=parameters,
-                                        num_traj=5, Nsim_train=360,
+                                        num_traj=4, Nsim_train=360,
                                         Nsim_trainval=360, Nsim_val=360,
                                         seed=100)
     greybox_val_data = get_greybox_val_preds(parameters=

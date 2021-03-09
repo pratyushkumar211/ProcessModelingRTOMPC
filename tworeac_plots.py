@@ -11,43 +11,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from hybridid import PickleTool
-from plotting_funcs import PAPER_FIGSIZE, plot_cost_curve
+from plotting_funcs import PAPER_FIGSIZE, TwoReacPlots
 from hybridid import get_plotting_array_list
 
-labels = [r'$C_A \ (\textnormal{mol/m}^3)$', 
-          r'$C_B \ (\textnormal{mol/m}^3)$',
-          r'$C_C \ (\textnormal{mol/m}^3)$',
-          r'$C_{Af} \ (\textnormal{mol/m}^3)$']
-
-def plot_xudata(*, t, xlist, ulist,
-                   legend_names, legend_colors,
-                   figure_size=PAPER_FIGSIZE,
-                   ylabel_xcoordinate=-0.1):
-    """ Plot the performance loss economic MPC parameters."""
-    nrow = len(labels)
-    (figure, axes) = plt.subplots(nrows=nrow, ncols=1,
-                                  sharex=True, figsize=figure_size,
-                                  gridspec_kw=dict(wspace=0.4))
-    legend_handles = []
-    for (x, u, color) in zip(xlist, ulist, legend_colors):
-        # First plot the states.
-        for row in range(nrow-1):
-            handle = axes[row].plot(t, x[:, row], color)
-            axes[row].set_ylabel(labels[row])
-            axes[row].get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
-        # Plot the input in the last row.
-        row += 1
-        axes[row].step(t, u[:, 0], color, where='post')
-        axes[row].set_ylabel(labels[row])
-        axes[row].get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
-        axes[row].set_xlabel('Time (hr)')
-        axes[row].set_xlim([np.min(t), np.max(t)])
-        legend_handles += handle
-    figure.legend(handles = legend_handles,
-                  labels = legend_names,
-                  loc = (0.08, 0.9), ncol=len(legend_names))
-    # Return figure.
-    return [figure]
 
 #def plot_sub_gaps(*, num_samples, sub_gaps, colors, legends, 
 #                  figure_size=PAPER_FIGSIZE,
@@ -90,53 +56,6 @@ def plot_cost_pars(t, cost_pars,
         axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
     axes.set_xlabel(xlabel)
     axes.set_xlim([np.min(t), np.max(t)])
-    return [figure]
-
-def get_openloop_xtrajs(xdatum):
-    """ Clean up the x trajectories for plotting. """
-    x_trajs = []
-    for (i, x_traj) in enumerate(xdatum):
-        if i==0:
-            x_trajs.append(x_traj[:-1, :])
-        else:
-            x_traj = x_traj[:-1, :2]
-            x_traj = np.insert(x_traj, [2], 
-                               np.nan*np.ones((x_traj.shape[0], 1)), axis=1)
-            x_trajs.append(x_traj)
-    # Return.
-    return x_trajs
-
-def plot_openloop_sols(*, t, udatum, xdatum,
-                          legend_names, legend_colors,
-                          ylabel_xcoordinate=-0.1, 
-                          figure_size=PAPER_FIGSIZE):
-    """ Plot the open-loop EMPC solutions. """
-    xdatum = get_openloop_xtrajs(xdatum)
-    t = t[:udatum[0].shape[0]]
-    #t -= -(10/60)
-    nrow = len(labels)
-    (figure, axes) = plt.subplots(nrows=nrow, ncols=1,
-                                  sharex=True, figsize=figure_size,
-                                  gridspec_kw=dict(wspace=0.4))
-    legend_handles = []
-    for (x, u, color) in zip(xdatum, udatum, legend_colors):
-        # First plot the states.
-        for row in range(nrow-1):
-            handle = axes[row].step(t, x[:, row], color, where='post')
-            axes[row].set_ylabel(labels[row])
-            axes[row].get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
-        # Plot the input in the last row.
-        row += 1
-        axes[row].step(t, u[:, 0], color, where='post')
-        axes[row].set_ylabel(labels[row])
-        axes[row].get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
-        axes[row].set_xlabel('Time (hr)')
-        axes[row].set_xlim([np.min(t), np.max(t)])
-        legend_handles += handle
-    figure.legend(handles = legend_handles,
-                  labels = legend_names,
-                  loc = (0.15, 0.9), ncol=len(legend_names))
-    # Return the figure object.
     return [figure]
 
 def main():
@@ -187,9 +106,10 @@ def main():
     ulist += ulist_train
     ylist += ylist_train
     xlist += xlist_train
-    figures += plot_xudata(t=t, xlist=xlist, ulist=ulist,
-                           legend_names=legend_names,
-                           legend_colors=legend_colors)
+    figures += TwoReacPlots.plot_xudata(t=t, xlist=xlist, ulist=ulist,
+                                        legend_names=legend_names,
+                                        legend_colors=legend_colors, 
+                                        figure_size=PAPER_FIGSIZE)
 
     # Plot validation metrics to show data requirements.
     #num_samples = tworeac_train['num_samples']

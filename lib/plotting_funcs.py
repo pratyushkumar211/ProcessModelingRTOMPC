@@ -36,30 +36,65 @@ def get_plotting_array_list(*, simdata_list, plot_range):
     # Return lists.
     return (t, ulist, ylist, xlist)
 
-def plot_cost_curve(*, us, costs, colors, legends, 
-                         figure_size=PAPER_FIGSIZE,
-                         ylabel_xcoordinate=-0.12, 
-                         left_label_frac=0.15):
-    """ Plot the profit curves. """
-    (figure, axes) = plt.subplots(nrows=1, ncols=1, 
-                                  sharex=True, 
-                                  figsize=figure_size, 
-                                  gridspec_kw=dict(left=left_label_frac))
-    xlabel = r'$C_{Af} \ (\textnormal{mol/m}^3)$'
-    ylabel = r'Cost ($\$ $)'
-    for (cost, color) in zip(costs, colors):
-        # Plot the corresponding data.
-        axes.plot(us, cost, color)
-    axes.legend(legends)
-    axes.set_xlabel(xlabel)
-    axes.set_ylabel(ylabel, rotation=False)
-    axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5) 
-    axes.set_xlim([np.min(us), np.max(us)])
-    #figlabel = r'$\ell(y, u), \ \textnormal{subject to} \ f(x, u)=0, y=h(x)$'
-    #figure.suptitle(figlabel,
-    #                x=0.55, y=0.94)
-    # Return the figure object.
-    return [figure]
+class TwoReacPlots:
+    """ Single class containing functions for the two reaction
+        example system. """
+
+    labels = [r'$C_A \ (\textnormal{mol/m}^3)$', 
+              r'$C_B \ (\textnormal{mol/m}^3)$',
+              r'$C_C \ (\textnormal{mol/m}^3)$',
+              r'$C_{Af} \ (\textnormal{mol/m}^3)$']
+
+    @staticmethod
+    def plot_xudata(*, t, xlist, ulist, legend_names, 
+                       legend_colors, figure_size,
+                       ylabel_xcoordinate, title_loc):
+        """ Plot the performance loss economic MPC parameters."""
+        nrow = len(TwoReacPlots.labels)
+        (figure, axes) = plt.subplots(nrows=nrow, ncols=1,
+                                      sharex=True, figsize=figure_size,
+                                      gridspec_kw=dict(wspace=0.4))
+        legend_handles = []
+        for (x, u, color) in zip(xlist, ulist, legend_colors):
+            # First plot the states.
+            for row in range(nrow-1):
+                handle = axes[row].plot(t, x[:, row], color)
+                axes[row].set_ylabel(TwoReacPlots.labels[row])
+                axes[row].get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
+            # Plot the input in the last row.
+            row += 1
+            axes[row].step(t, u[:, 0], color, where='post')
+            axes[row].set_ylabel(TwoReacPlots.labels[row])
+            axes[row].get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
+            axes[row].set_xlabel('Time (hr)')
+            axes[row].set_xlim([np.min(t), np.max(t)])
+            legend_handles += handle
+        figure.legend(handles = legend_handles,
+                      labels = legend_names,
+                      loc = title_loc, ncol=len(legend_names))
+        # Return figure.
+        return [figure]
+
+    @staticmethod
+    def plot_sscosts(*, us, sscosts, legend_colors, 
+                        legend_names, figure_size, 
+                        ylabel_xcoordinate, left_label_frac):
+        """ Plot the profit curves. """
+        (figure, axes) = plt.subplots(nrows=1, ncols=1, 
+                                      sharex=True, 
+                                      figsize=figure_size, 
+                                      gridspec_kw=dict(left=left_label_frac))
+        xlabel = r'$C_{Af} \ (\textnormal{mol/m}^3)$'
+        ylabel = r'Cost ($\$ $)'
+        for (cost, color) in zip(sscosts, legend_colors):
+            # Plot the corresponding data.
+            axes.plot(us, cost, color)
+        axes.legend(legend_names)
+        axes.set_xlabel(xlabel)
+        axes.set_ylabel(ylabel, rotation=False)
+        axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5) 
+        axes.set_xlim([np.min(us), np.max(us)])
+        return [figure]
 
 # def plot_avg_profits(*, t, avg_stage_costs,
 #                     legend_colors, legend_names, 

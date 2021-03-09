@@ -34,8 +34,8 @@ def main():
     # Create some parameters.
     xinsert_indices = [2]
     tthrow = 10
-    Np = 3
-    hN_dims = [Np*(Ny+Nu), 2, 2]
+    Np = 2
+    hN_dims = [Np*(Ny+Nu), 32, 2]
 
     # Create lists to store data.
     trained_weights = []
@@ -49,13 +49,12 @@ def main():
     # Get scaling and the training data.
     xuyscales = get_scaling(data=training_data[0])
     (train_data, trainval_data, val_data) = get_train_val_data(tthrow=tthrow, 
-                                            Np=Np, Ny=Ny, Nu=Nu, 
-                                            xuyscales=xuyscales, 
+                                            Np=Np, xuyscales=xuyscales, 
                                             data_list=training_data)
 
     # Loop over the number of samples.
     for num_sample in num_samples:
-            
+        
         # Create model.
         model = create_bbmodel(Np=Np, Ny=Ny, Nu=Nu, hN_dims=hN_dims)
         
@@ -70,7 +69,7 @@ def main():
                       stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 
         # Validate.
-        (val_prediction, val_metric) = get_bbval_predictions(model= model, 
+        (val_prediction, val_metric) = get_bbval_predictions(model=model,
                                     val_data=val_data, xuyscales=xuyscales, 
                                     xinsert_indices=xinsert_indices, 
                                     ckpt_path=ckpt_path)

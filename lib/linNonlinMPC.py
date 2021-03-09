@@ -9,7 +9,6 @@ import collections
 import pickle
 import plottools
 import time
-from hybridid import SimData
     
 class NonlinearPlantSimulator:
     """Custom class for simulating non-linear plants."""
@@ -51,123 +50,94 @@ class NonlinearPlantSimulator:
         self.y.append(y)
         self.t.append(self.t[-1]+self.sample_time)
 
-class PIController:
-    """ PI controller class."""
-    def __init__(self, *, K, tau, us, sample_time, 
-                 ulb, uub, pitype, taus=None):
-        (self.K, self.tau) = (K, tau)
-        (self.ulb, self.uub, self.us) = (ulb, uub, us)
-        self.sample_time = sample_time
-        self.i = [np.array([[0.]])]
-        if pitype == "ideal":
-            self.control_law = self.idealpi_control_law
-        elif pitype == "antiwindup":
-            self.control_law = self.piaw_control_law
+# class RTOController:
 
-    def idealpi_control_law(self, y, ysp):
-        e = ysp - y
-        u = self.us + self.K*e + (self.K/self.tau)*self.i[-1]
-        self.i.append(self.i[-1] + e*self.sample_time)
-        return np.clip(u, self.ulb, self.uub)
-
-    def piaw_control_law(self, y, ysp):
-        e = ysp - y
-        u = self.us + self.K*e + (self.K/self.tau)*self.i[-1]
-        if u > self.ulb and u < self.uub:
-            self.i.append(self.i[-1] + e*self.sample_time)
-            return u
-        else:
-            self.i.append(self.i[-1])
-            return np.clip(u, self.ulb, self.uub)
-
-class RTOController:
-
-    def __init__(self, *, fxu, hx, lyup, Nx, Nu, Np, 
-                 ulb, uub, init_guess, opt_pars, Ntstep_solve):
-        """ Class to construct and solve steady state optimization
-            problems.
+#     def __init__(self, *, fxu, hx, lyup, Nx, Nu, Np, 
+#                  ulb, uub, init_guess, opt_pars, Ntstep_solve):
+#         """ Class to construct and solve steady state optimization
+#             problems.
                 
-        Optimization problem:
-        min_{xs, us} l(ys, us, p)
-        subject to:
-        xs = f(xs, us), ys = h(xs), ulb <= us <= uub
-        """
+#         Optimization problem:
+#         min_{xs, us} l(ys, us, p)
+#         subject to:
+#         xs = f(xs, us), ys = h(xs), ulb <= us <= uub
+#         """
 
-        # Model.
-        self.fxu = fxu
-        self.hx = hx
-        self.lyup = lyup
+#         # Model.
+#         self.fxu = fxu
+#         self.hx = hx
+#         self.lyup = lyup
 
-        # Sizes.
-        self.Nx = Nx
-        self.Nu = Nu
-        self.Np = Np
+#         # Sizes.
+#         self.Nx = Nx
+#         self.Nu = Nu
+#         self.Np = Np
 
-        # Input constraints.
-        self.ulb = ulb
-        self.uub = uub
+#         # Input constraints.
+#         self.ulb = ulb
+#         self.uub = uub
 
-        # Inital guess/parameters.
-        self.init_guess = init_guess
-        self.opt_pars = opt_pars
-        self.Ntstep_solve = Ntstep_solve
+#         # Inital guess/parameters.
+#         self.init_guess = init_guess
+#         self.opt_pars = opt_pars
+#         self.Ntstep_solve = Ntstep_solve
 
-        # Setup the optimization problem.
-        self._setup_ss_optimization()
+#         # Setup the optimization problem.
+#         self._setup_ss_optimization()
 
-        # Lists to save data.
-        self.xs = []
-        self.us = []
-        self.computation_times = []
+#         # Lists to save data.
+#         self.xs = []
+#         self.us = []
+#         self.computation_times = []
 
-    def _setup_ss_optimization(self):
-        """ Setup the steady state optimization. """
-        # Construct NLP and solve.
-        xs = casadi.SX.sym('xs', self.Nx)
-        us = casadi.SX.sym('us', self.Nu)
-        p = casadi.SX.sym('p', self.Np)
-        lyup = lambda x, u, p: self.lyup(self.hx(x), u, p)
-        lyup = mpc.getCasadiFunc(lyup,
-                          [self.Nx, self.Nu, self.Np],
-                          ["x", "u", "p"])
-        fxu = mpc.getCasadiFunc(self.fxu,
-                          [self.Nx, self.Nu],
-                          ["x", "u"])
-        nlp = dict(x=casadi.vertcat(xs, us), 
-                   f=lyup(xs, us, p),
-                   g=casadi.vertcat(xs -  fxu(xs, us), us), 
-                   p=p)
-        self.nlp = casadi.nlpsol('nlp', 'ipopt', nlp)
-        xuguess = np.concatenate((self.init_guess['x'], 
-                                  self.init_guess['u']))[:, np.newaxis]
-        self.lbg = np.concatenate((np.zeros((self.Nx,)), 
-                                   self.ulb))[:, np.newaxis]
-        self.ubg = np.concatenate((np.zeros((self.Nx,)), 
-                                   self.uub))[:, np.newaxis]
-        nlp_soln = self.nlp(x0=xuguess, lbg=self.lbg, ubg=self.ubg, 
-                            p=self.opt_pars[0:1, :])
-        self.xuguess = np.asarray(nlp_soln['x'])        
+#     def _setup_ss_optimization(self):
+#         """ Setup the steady state optimization. """
+#         # Construct NLP and solve.
+#         xs = casadi.SX.sym('xs', self.Nx)
+#         us = casadi.SX.sym('us', self.Nu)
+#         p = casadi.SX.sym('p', self.Np)
+#         lyup = lambda x, u, p: self.lyup(self.hx(x), u, p)
+#         lyup = mpc.getCasadiFunc(lyup,
+#                           [self.Nx, self.Nu, self.Np],
+#                           ["x", "u", "p"])
+#         fxu = mpc.getCasadiFunc(self.fxu,
+#                           [self.Nx, self.Nu],
+#                           ["x", "u"])
+#         nlp = dict(x=casadi.vertcat(xs, us), 
+#                    f=lyup(xs, us, p),
+#                    g=casadi.vertcat(xs -  fxu(xs, us), us), 
+#                    p=p)
+#         self.nlp = casadi.nlpsol('nlp', 'ipopt', nlp)
+#         xuguess = np.concatenate((self.init_guess['x'], 
+#                                   self.init_guess['u']))[:, np.newaxis]
+#         self.lbg = np.concatenate((np.zeros((self.Nx,)), 
+#                                    self.ulb))[:, np.newaxis]
+#         self.ubg = np.concatenate((np.zeros((self.Nx,)), 
+#                                    self.uub))[:, np.newaxis]
+#         nlp_soln = self.nlp(x0=xuguess, lbg=self.lbg, ubg=self.ubg, 
+#                             p=self.opt_pars[0:1, :])
+#         self.xuguess = np.asarray(nlp_soln['x'])        
 
-    def control_law(self, simt, y):
-        """ RTO Controller, no use of feedback. 
-            Only solve every certain interval. """
+#     def control_law(self, simt, y):
+#         """ RTO Controller, no use of feedback. 
+#             Only solve every certain interval. """
 
-        tstart = time.time()
-        if simt%self.Ntstep_solve == 0:
-            nlp_soln = self.nlp(x0=self.xuguess, lbg=self.lbg, ubg=self.ubg, 
-                                p=self.opt_pars[simt:simt+1, :])
-            self.xuguess = np.asarray(nlp_soln['x'])
-        xs, us = np.split(self.xuguess, [self.Nx,], axis=0)
-        tend = time.time()
-        self._append_data(xs, us)
-        self.computation_times.append(tend-tstart)
-        # Return the steady input.
-        return us
+#         tstart = time.time()
+#         if simt%self.Ntstep_solve == 0:
+#             nlp_soln = self.nlp(x0=self.xuguess, lbg=self.lbg, ubg=self.ubg, 
+#                                 p=self.opt_pars[simt:simt+1, :])
+#             self.xuguess = np.asarray(nlp_soln['x'])
+#         xs, us = np.split(self.xuguess, [self.Nx,], axis=0)
+#         tend = time.time()
+#         self._append_data(xs, us)
+#         self.computation_times.append(tend-tstart)
+#         # Return the steady input.
+#         return us
 
-    def _append_data(self, xs, us):
-        " Append data. "
-        self.xs.append(xs)
-        self.us.append(us)
+#     def _append_data(self, xs, us):
+#         " Append data. "
+#         self.xs.append(xs)
+#         self.us.append(us)
 
 class NonlinearEMPCRegulator:
 
@@ -220,10 +190,10 @@ class NonlinearEMPCRegulator:
         # Some parameters for the regulator.
         empc_pars = self.init_empc_pars
         guess = self.init_guess
-        if len(guess['x'].shape) == 2:
-            x0 = guess['x'][0, :]
-        else:
-            x0 = guess['x']
+        #if len(guess['x'].shape) == 2:
+        #    x0 = guess['x'][0, :]
+        #else:
+        x0 = guess['x']
         lb = dict(u=self.ulb)
         ub = dict(u=self.uub)
         self.regulator = mpc.nmpc(f=self.fxu, l=lxup, N=N, funcargs=funcargs,
@@ -495,127 +465,3 @@ class NonlinearEMPCController:
         tend = time.time()
         self.computation_times.append(tend - tstart)
         return self.uprev
-
-def online_simulation(plant, controller, *, plant_lyup, Nsim=None,
-                      disturbances=None, stdout_filename=None):
-    """ Online simulation with either the RTO controller
-        or the nonlinear economic MPC controller. """
-
-    sys.stdout = open(stdout_filename, 'w')
-    measurement = plant.y[0] # Get the latest plant measurement.
-    disturbances = disturbances[..., np.newaxis]
-    avg_stage_costs = [0.]
-
-    # Start simulation loop.
-    for (simt, disturbance) in zip(range(Nsim), disturbances):
-
-        # Compute the control and the current stage cost.
-        print("Simulation Step:" + f"{simt}")
-        control_input = controller.control_law(simt, measurement)
-        print("Computation time:" + str(controller.computation_times[-1]))
-        stage_cost = plant_lyup(plant.y[-1], control_input,
-                                controller.opt_pars[simt:simt+1, :].T)[0]
-        avg_stage_costs += [(avg_stage_costs[-1]*simt + stage_cost)/(simt+1)]
-
-        # Inject control/disturbance to the plant.
-        measurement = plant.step(control_input, disturbance)
-
-    # Create a sim data/stage cost array.
-    cl_data = SimData(t=np.asarray(plant.t[0:-1]).squeeze(),
-                x=np.asarray(plant.x[0:-1]).squeeze(),
-                u=np.asarray(plant.u),
-                y=np.asarray(plant.y[0:-1]).squeeze())
-    avg_stage_costs = np.array(avg_stage_costs[1:])
-    openloop_sol = [np.asarray(controller.regulator.useq[0]), 
-                    np.asarray(controller.regulator.xseq[0])]
-    # Return.
-    return cl_data, avg_stage_costs, openloop_sol
-
-def _eigval_eigvec_test(X,Y):
-    """Return True if an eigenvector of X corresponding to 
-    an eigenvalue of magnitude greater than or equal to 1
-    is not in the nullspace of Y.
-    Else Return False."""
-    (eigvals, eigvecs) = np.linalg.eig(X)
-    eigvecs = eigvecs[:, np.absolute(eigvals)>=1.]
-    for eigvec in eigvecs.T:
-        if np.linalg.norm(Y @ eigvec)<=1e-8:
-            return False
-    else:
-        return True
-
-def assert_detectable(A, C):
-    """Assert if the provided (A, C) pair is detectable."""
-    assert _eigval_eigvec_test(A, C)
-
-def get_augmented_matrices_for_filter(A, B, C, Bd, Cd, Qwx, Qwd):
-    """ Get the Augmented A, B, C, and the noise covariance matrix."""
-    Nx = A.shape[0]
-    Nu = B.shape[1]
-    Nd = Bd.shape[1]
-    # Augmented A.
-    Aaug1 = np.concatenate((A, Bd), axis=1)
-    Aaug2 = np.concatenate((np.zeros((Nd, Nx)), np.eye(Nd)), axis=1)
-    Aaug = np.concatenate((Aaug1, Aaug2), axis=0)
-    # Augmented B.
-    Baug = np.concatenate((B, np.zeros((Nd, Nu))), axis=0)
-    # Augmented C.
-    Caug = np.concatenate((C, Cd), axis=1)
-    # Augmented Noise Covariance.
-    Qwaug = scipy.linalg.block_diag(Qwx, Qwd)
-    # Check that the augmented model is detectable.
-    assert_detectable(Aaug, Caug)
-    return (Aaug, Baug, Caug, Qwaug)
-
-def dlqe(A,C,Q,R):
-    """
-    Get the discrete-time Kalman filter for the given system.
-    """
-    P = scipy.linalg.solve_discrete_are(A.T,C.T,Q,R)
-    L = scipy.linalg.solve(C.dot(P).dot(C.T) + R, C.dot(P)).T
-    return (L, P)
-    
-class KalmanFilter:
-
-    def __init__(self, *, A, B, C, Qw, Rv, xprior):
-        """ Class to construct and perform state estimation
-        using Kalman Filtering.
-        """
-
-        # Store the matrices.
-        self.A = A
-        self.B = B 
-        self.C = C
-        self.Qw = Qw
-        self.Rv = Rv
-        
-        # Compute the kalman filter gain.
-        self._computeFilter()
-        
-        # Create lists for saving data. 
-        self.xhat = [xprior]
-        self.xhat_pred = []
-        self.y = []
-        self.uprev = []
-
-    def _computeFilter(self):
-        "Solve the DARE to compute the optimal L."
-        (self.L, _) = dlqe(self.A, self.C, self.Qw, self.Rv) 
-
-    def solve(self, y, uprev):
-        """ Take a new measurement and do 
-            the prediction and filtering steps."""
-        xhat = self.xhat[-1]
-        xhat_pred = self.A @ xhat + self.B @ uprev
-        xhat = xhat_pred + self.L @ (y - self.C @ xhat_pred)
-        # Save data.
-        self._save_data(xhat, xhat_pred, y, uprev)
-        return xhat
-        
-    def _save_data(self, xhat, xhat_pred, y, uprev):
-        """ Save the state estimates,
-            Can be used for plotting later."""
-        self.xhat.append(xhat)
-        self.xhat_pred.append(xhat_pred)
-        self.y.append(y)
-        self.uprev.append(uprev)

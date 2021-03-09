@@ -182,20 +182,20 @@ def get_scaling(*, data):
 #    # Return the figure object.
 #     return [figure]
 
-# def quick_sim(fxu, hx, x0, u):
-#     """ Do a quick open-loop simulation. """
-#     Nsim = u.shape[0]
-#     y, x = [], []
-#     x.append(x0)
-#     xt = x0
-#     for t in range(Nsim):
-#         y.append(hx(xt))
-#         xt = fxu(xt, u[t, :])
-#         x.append(xt)
-#     y = np.asarray(y)
-#     x = np.asarray(x[:-1])
-#     # Return.
-#     return x, y
+def quick_sim(fxu, hx, x0, u):
+    """ Do a quick open-loop simulation. """
+    Nsim = u.shape[0]
+    y, x = [], []
+    x.append(x0)
+    xt = x0
+    for t in range(Nsim):
+        y.append(hx(xt))
+        xt = fxu(xt, u[t, :])
+        x.append(xt)
+    y = np.asarray(y)
+    x = np.asarray(x[:-1])
+    # Return.
+    return x, y
 
 # def fnn_koopman(yz, fnn_weights):
 #     """ Compute the NN output. """
@@ -298,13 +298,14 @@ def get_scaling(*, data):
 #     # Just return the hybrid parameters.
 #     return koopman_pars
 
-def get_train_val_data(*, tthrow, Np, Ny, Nu, xuyscales, data_list):
+def get_train_val_data(*, tthrow, Np, xuyscales, data_list):
     """ Get the data for training/validation in appropriate format after 
         scaling. """
 
     # Get scaling pars.
     umean, ustd = xuyscales['uscale']
     ymean, ystd = xuyscales['yscale']
+    Ny, Nu = len(ymean), len(umean)
 
     # Lists to store data.
     inputs, z0, z, outputs = [], [], [], []

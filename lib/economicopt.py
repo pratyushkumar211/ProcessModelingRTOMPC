@@ -54,7 +54,7 @@ def fnn(nn_input, nn_weights):
         (W, b) = nn_weights[i:i+2]
         nn_output = W.T @ nn_output + b[:, np.newaxis]
         #nn_output = np.tanh(nn_output)
-        nn_output = 1./(1. + np.exp(-0.5*nn_output))
+        nn_output = 1./(1. + np.exp(-0.4*nn_output))
     (Wf, bf) = nn_weights[-2:]
     nn_output = (Wf.T @ nn_output + bf[:, np.newaxis])[:, 0]
     # Return.
