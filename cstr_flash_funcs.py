@@ -138,22 +138,22 @@ def get_plant_pars():
 
     # Parameters.
     parameters = {}
-    parameters['alphaA'] = 10.
+    parameters['alphaA'] = 8.
     parameters['alphaB'] = 1.
     parameters['alphaC'] = 1.
     parameters['pho'] = 6. # Kg/m^3
-    parameters['Cp'] = 1. # KJ/(Kg-K)
+    parameters['Cp'] = 3. # KJ/(Kg-K)
     parameters['Ar'] = 3. # m^2
     parameters['Ab'] = 3. # m^2
     parameters['kr'] = 4. # m^2
-    parameters['kb'] = 1.5 # m^2
-    parameters['delH1'] = 50. # kJ/mol
-    parameters['delH2'] = 60. # kJ/mol
-    parameters['E1byR'] = 300. # K
-    parameters['E2byR'] = 100. # K
-    parameters['k1star'] = 0.6 # 1/min
-    parameters['k2star'] = 2. # 1/min
-    parameters['Td'] = 320 # K
+    parameters['kb'] = 2. # m^2
+    parameters['delH1'] = 100. # kJ/mol
+    parameters['delH2'] = 120. # kJ/mol
+    parameters['E1byR'] = 200. # K
+    parameters['E2byR'] = 300. # K
+    parameters['k1star'] = 0.3 # 1/min
+    parameters['k2star'] = 0.5 # 1/min
+    parameters['Td'] = 310 # K
     parameters['Qb'] = 200 # kJ/min
     parameters['Qr'] = 200 # kJ/min
 
@@ -170,12 +170,12 @@ def get_plant_pars():
     # Get the steady states.
     parameters['xs'] = np.array([50., 1., 0., 0., 313.,
                                  50., 1., 0., 0., 313.])
-    parameters['us'] = np.array([5., 5.])
+    parameters['us'] = np.array([10., 5.])
     parameters['ps'] = np.array([6., 320.])
 
     # Get the constraints.
-    parameters['ulb'] = np.array([2., 2.])
-    parameters['uub'] = np.array([8., 8.])
+    parameters['ulb'] = np.array([5., 2.])
+    parameters['uub'] = np.array([15., 8.])
 
     # The C matrix for the plant.
     parameters['yindices'] = [0, 2, 4, 5, 7, 9]

@@ -35,8 +35,7 @@ def gen_train_val_data(*, parameters, num_traj,
         
         # Get the plant and initial steady input.
         plant = get_model(ode=plant_ode, parameters=parameters, plant=True)
-        #us_init = np.tile(np.random.uniform(ulb, uub), (tthrow, 1))
-        us_init = np.tile(us, (tthrow, 1))
+        us_init = np.tile(np.random.uniform(ulb, uub), (tthrow, 1))
 
         # Get input trajectories for different simulatios.
         if traj == num_traj-1:
@@ -47,13 +46,13 @@ def gen_train_val_data(*, parameters, num_traj,
                                  mean_change=60, sigma_change=2, seed=seed)
 
             # Custom uval for step-test.
-            u = resample_fast(x = np.array([[8., us[1]], 
-                                            us,
-                                            [us[0], 2.],
-                                            us]), 
-                                   xDelta=3*60,
-                                   newDelta=1,
-                                   resample_type='zoh')
+            #u = resample_fast(x = np.array([[8., us[1]], 
+            #                                us,
+            #                                [us[0], 2.],
+            #                                us]), 
+            #                       xDelta=3*60,
+            #                       newDelta=1,
+            #                       resample_type='zoh')
 
         elif traj == num_traj-2:
             "Get input for validation simulation."
@@ -211,7 +210,7 @@ def main():
     gb_pars = get_gb_pars(plant_pars=plant_pars)
 
     # Generate training data.
-    training_data = gen_train_val_data(parameters=plant_pars, num_traj=16,
+    training_data = gen_train_val_data(parameters=plant_pars, num_traj=98,
                                         Nsim_train=4*60, Nsim_trainval=12*60,
                                         Nsim_val=12*60, seed=2)
 
