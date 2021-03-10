@@ -41,7 +41,7 @@ def train_model(model, train_data, trainval_data, stdout_filename, ckpt_path):
     # Call the fit method to train.
     model.fit(x = [train_data['inputs'], train_data['yz0']],
               y = [train_data['yz'], train_data['outputs']],
-              epochs=10000, batch_size=12,
+              epochs=10000, batch_size=54,
         validation_data = ([trainval_data['inputs'], trainval_data['yz0']], 
                            [trainval_data['yz'], trainval_data['outputs']]),
         callbacks = [checkpoint_callback])
@@ -88,8 +88,8 @@ def main():
     num_samples = [batch*Nsim_train for batch in num_batches]
 
     # Create lists.
-    Np = 2
-    fnn_dims = [102, 64, 16]
+    Np = 6
+    fnn_dims = [102, 128, 32]
     trained_weights = []
     val_metrics = []
     val_predictions = []

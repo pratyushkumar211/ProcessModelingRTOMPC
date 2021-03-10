@@ -49,12 +49,18 @@ def fnn(nn_input, nn_weights):
         Assume that the input is a vector with shape size 
         1, and return output with shape size 1.
         """
+    def scaledtanh(x, a=3e-2):
+        num = np.exp(a*x) - np.exp(-a*x)
+        den = np.exp(a*x) + np.exp(-a*x)
+        return num/den
+
     nn_output = nn_input[:, np.newaxis]
     for i in range(0, len(nn_weights)-2, 2):
         (W, b) = nn_weights[i:i+2]
         nn_output = W.T @ nn_output + b[:, np.newaxis]
         #nn_output = np.tanh(nn_output)
-        nn_output = 1./(1. + np.exp(-0.4*nn_output))
+        #nn_output = 1./(1. + np.exp(-0.4*nn_output))
+        nn_output = scaledtanh(nn_output)
     (Wf, bf) = nn_weights[-2:]
     nn_output = (Wf.T @ nn_output + bf[:, np.newaxis])[:, 0]
     # Return.

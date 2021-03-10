@@ -99,15 +99,15 @@ def get_plotting_array_list(*, simdata_list, plot_range):
     # Return lists.
     return (t, ulist, ylist, xlist)
 
-# def _resample_fast(*, x, xDelta, newDelta, resample_type):
-#     """ Resample with either first of zero-order hold. """
-#     Delta_ratio = int(xDelta/newDelta)
-#     if resample_type == 'zoh':
-#         return np.repeat(x, Delta_ratio, axis=0)
-#     else:
-#         x = np.concatenate((x, x[-1, np.newaxis, :]), axis=0)
-#         return np.concatenate([np.linspace(x[t, :], x[t+1, :], Delta_ratio)
-#                                for t in range(x.shape[0]-1)], axis=0)
+def resample_fast(*, x, xDelta, newDelta, resample_type):
+    """ Resample with either first of zero-order hold. """
+    Delta_ratio = int(xDelta/newDelta)
+    if resample_type == 'zoh':
+        return np.repeat(x, Delta_ratio, axis=0)
+    else:
+        x = np.concatenate((x, x[-1, np.newaxis, :]), axis=0)
+        return np.concatenate([np.linspace(x[t, :], x[t+1, :], Delta_ratio)
+                               for t in range(x.shape[0]-1)], axis=0)
 
 # def interpolate_yseq(yseq, Npast, Ny):
 #     """ y is of dimension: (None, (Npast+1)*p)

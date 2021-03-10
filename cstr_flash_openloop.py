@@ -33,10 +33,10 @@ def get_openloop_sol(fxu, hx, model_pars, xuguess):
     # Some sizes. 
     Np = 3
     Nx, Nu = model_pars['Nx'], model_pars['Nu']
-    Nmpc = 120
+    Nmpc = 60
 
     # Initial parameters. 
-    init_empc_pars = np.tile(np.array([[1, 1000, 10000]]), (Nmpc, 1))
+    init_empc_pars = np.tile(np.array([[1, 2000, 12000]]), (Nmpc, 1))
 
     # Get upper and lower bounds.
     ulb = model_pars['ulb']
@@ -70,12 +70,19 @@ def main():
                                          'cstr_flash_parameters.pickle',
                                          type='read')
     plant_pars = cstr_flash_parameters['plant_pars']
-    #tworeac_bbtrain = PickleTool.load(filename='tworeac_bbtrain.pickle',
-    #                                 type='read')
+    cstr_flash_bbtrain = PickleTool.load(filename='cstr_flash_bbtrain.pickle',
+                                     type='read')
 
     # Get the black-box model parameters and function handles.
-    #bb_pars, blackb_fxu, blackb_hx = get_bbpars_fxu_hx(train=tworeac_bbtrain, 
-    #                                                   parameters=parameters) 
+    bb_pars, blackb_fxu, blackb_hx = get_bbpars_fxu_hx(train=
+                                                       cstr_flash_bbtrain, 
+                                                       parameters=plant_pars)
+    # Add some more parameters to bb_pars.
+    bb_pars['ps'] = plant_pars['ps']
+    bb_pars['Td'] = plant_pars['Td']
+    bb_pars['pho'] = plant_pars['pho']
+    bb_pars['Cp'] = plant_pars['Cp']
+    bb_pars['kb'] = plant_pars['kb']
 
     # Get the plant function handle.
     Delta = plant_pars['Delta']
@@ -91,11 +98,11 @@ def main():
     #gb_pars['Nx'] = len(parameters['gb_indices'])
 
     # Lists to loop over for the three problems.  
-    model_types = ['plant']#, 'grey-box', 'black-box']
-    fxu_list = [plant_fxu]#, gb_fxu, blackb_fxu]
-    hx_list = [plant_hx]#, plant_hx, blackb_hx]
-    par_list = [plant_pars]#, gb_pars, bb_pars]
-    Nps = [None]#, None, bb_pars['Np']]
+    model_types = ['plant', 'black-box']
+    fxu_list = [plant_fxu, blackb_fxu]
+    hx_list = [plant_hx, blackb_hx]
+    par_list = [plant_pars, bb_pars]
+    Nps = [None, bb_pars['Np']]
     
     # Lists to store solutions.
     ulist, xlist = [], []
@@ -112,15 +119,15 @@ def main():
 
         # Store. 
         ulist += [useq]
-        #if model_type != 'plant':
-        #    xseq = np.insert(yseq, [2], 
-        #                     np.nan*np.ones((yseq.shape[0], 1)), axis=1)
+        if model_type != 'plant':
+            xseq = np.insert(yseq, [1, 2, 4, 5], 
+                             np.nan*np.ones((yseq.shape[0], 1)), axis=1)
         xlist += [xseq]
 
     # Get figure.
     t = t*Delta
-    legend_names = ['Plant']#, 'Grey-box', 'Black-box']
-    legend_colors = ['b']#, 'g', 'dimgrey']
+    legend_names = ['Plant', 'Black-box']
+    legend_colors = ['b', 'dimgrey']
     figures = CstrFlashPlots.plot_data(t=t, ulist=ulist, 
                                 ylist=None, xlist=xlist, 
                                 figure_size=PAPER_FIGSIZE, 

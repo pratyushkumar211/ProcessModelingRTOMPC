@@ -91,16 +91,6 @@ def get_controller(model_func, model_pars, model_type,
                                    Qwx=Qwx, Qwd=Qwd, Rv=Rv, Nmhe=Nmhe,
                                    guess=regulator_guess), hx
 
-def stage_cost(y, u, p):
-    """ Custom stage cost for the tworeac system. """
-    # Get inputs, parameters, and states.
-    CAf = u[0:1]
-    ca, cb = p[0:2]
-    CA, CB = y[0:2]
-    # Compute and return cost.
-    return (CB - 1.2)**2
-    # return ca*CAf - cb*CB
-
 def get_mhe_noise_tuning(model_type, model_par):
     # Get MHE tuning.
     if model_type == 'plant' or model_type =='koopman':

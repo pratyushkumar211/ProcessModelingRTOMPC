@@ -15,34 +15,6 @@ from hybridid import PickleTool
 from plotting_funcs import (PAPER_FIGSIZE, get_plotting_array_list, 
                             CstrFlashPlots)
 
-def get_openloop_xtrajs(xdatum):
-    """ Clean up open-loop data for plotting. """
-    x_trajs = []
-    for (i, x_traj) in enumerate(xdatum):
-        if i==0:
-            x_trajs.append(x_traj[:-1, :])
-        else:
-            #x_traj = x_traj[:-1, :8]
-            x_traj = np.insert(x_traj, [1, 2, 4, 5], 
-                               np.nan*np.ones((x_traj.shape[0], 4)), axis=1)
-            x_trajs.append(x_traj[:-1, :])
-    # Return.
-    return x_trajs
-
-def plot_openloop_sols(*, t, udatum, xdatum,
-                          legend_names, legend_colors,
-                          figure_size=PAPER_FIGSIZE):
-    """ Plot the open-loop EMPC solutions. """
-    xdatum = get_openloop_xtrajs(xdatum)
-    figures = []
-    t = t[:udatum[0].shape[0]]
-    figures += plot_inputs(t, udatum, figure_size, -0.1,
-                           'closed_loop', legend_names, legend_colors)
-    figures += plot_states(t, xdatum, figure_size, -0.25, 
-                           legend_names, legend_colors)
-    # Return the figure object.
-    return figures
-
 def plot_cost_pars(t, cost_pars,
                    figure_size=PAPER_FIGSIZE,
                    ylabel_xcoordinate=-0.15):
@@ -73,9 +45,8 @@ def main():
     cstr_flash_parameters = PickleTool.load(filename=
                                             "cstr_flash_parameters.pickle",
                                             type='read')
-    # cstr_flash_blackbox_train = PickleTool.load(filename=
-    #                                         "cstr_flash_blackbox_train.pickle",
-    #                                         type='read')
+    cstr_flash_bbtrain = PickleTool.load(filename="cstr_flash_bbtrain.pickle",
+                                         type='read')
     # cstr_flash_kooptrain = PickleTool.load(filename=
     #                                         "cstr_flash_kooptrain.pickle",
     #                                         type='read')
@@ -88,26 +59,26 @@ def main():
     #                                   type='read')
 
     # Collect data to plot open-loop predictions.
-    # blackbox_val_predictions = cstr_flash_blackbox_train['val_predictions']
+    bv_val_predictions = cstr_flash_bbtrain['val_predictions']
     # koopman_val_predictions = cstr_flash_kooptrain['val_predictions']
     # edkoopman_val_predictions = cstr_flash_encdeckooptrain['val_predictions']
     valdata_list = [cstr_flash_parameters['training_data'][-1]]
     #valdata_list += [cstr_flash_parameters['greybox_val_data']]
-    # valdata_list += blackbox_val_predictions
+    valdata_list += bv_val_predictions
     # valdata_list += koopman_val_predictions
     # valdata_list += edkoopman_val_predictions
     (t, ulist, ylist, xlist) = get_plotting_array_list(simdata_list=
-                                                    valdata_list[:2],
-                                                plot_range = (0, 12*60+120))
-    # (t, ulist_train, 
-    #  ylist_train, xlist_train) = get_plotting_array_list(simdata_list=
-    #                                                  valdata_list[1:],
-    #                                                  plot_range=(0, 12*60))
-    # ulist += ulist_train
-    # ylist += ylist_train
-    # xlist += xlist_train
-    legend_names = ['Plant', 'grey-box']#'Black-box', 'Koopman', 'Koopman-ENC-DEC']
-    legend_colors = ['b', 'g']#'dimgrey', 'm', 'tomato']
+                                                    valdata_list[:1],
+                                                plot_range = (120, 12*60+120))
+    (t, ulist_train, 
+     ylist_train, xlist_train) = get_plotting_array_list(simdata_list=
+                                                     valdata_list[1:],
+                                                     plot_range=(0, 12*60))
+    ulist += ulist_train
+    ylist += ylist_train
+    xlist += xlist_train
+    legend_names = ['Plant']#, 'Black-box']#'Black-box', 'Koopman', 'Koopman-ENC-DEC']
+    legend_colors = ['b', 'dimgrey']#'dimgrey', 'm', 'tomato']
     figures = []
     figures += CstrFlashPlots.plot_data(t=t, ulist=ulist, 
                                 ylist=ylist, xlist=xlist, 

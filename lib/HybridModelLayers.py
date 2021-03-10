@@ -388,13 +388,15 @@ class BlackBoxModel(tf.keras.Model):
         useq = tf.keras.Input(name='u', shape=(None, Nu))
         z0 = tf.keras.Input(name='z0', shape=(Np*(Ny+Nu), ))
 
-        def simplesig(x):
-            return 1./(1. + tf.math.exp(-0.4*x))
+        def scaledtanh(x, a=0.1):
+            num = tf.math.exp(a*x) - tf.math.exp(-a*x)
+            den = tf.math.exp(a*x) + tf.math.exp(-a*x)
+            return num/den
 
         # Dense layers for the NN.
         hN_layers = []
         for dim in hN_dims[1:-1]:
-            hN_layers += [tf.keras.layers.Dense(dim, activation=simplesig)]
+            hN_layers += [tf.keras.layers.Dense(dim, activation=scaledtanh)]
         hN_layers += [tf.keras.layers.Dense(hN_dims[-1])]
 
         # Build model.
