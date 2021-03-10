@@ -210,7 +210,7 @@ def main():
     gb_pars = get_gb_pars(plant_pars=plant_pars)
 
     # Generate training data.
-    training_data = gen_train_val_data(parameters=plant_pars, num_traj=98,
+    training_data = gen_train_val_data(parameters=plant_pars, num_traj=14,
                                         Nsim_train=4*60, Nsim_trainval=12*60,
                                         Nsim_val=12*60, seed=2)
 
