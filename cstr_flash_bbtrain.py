@@ -34,6 +34,7 @@ def main():
 
     # Create some parameters.
     xinsert_indices = [1, 2, 4, 5]
+    tanhScale = 0.1
     tthrow = 120
     Np = 3
     hN_dims = [Np*(Ny+Nu), 32, 6]
@@ -57,7 +58,8 @@ def main():
     for num_sample in num_samples:
         
         # Create model.
-        model = create_bbmodel(Np=Np, Ny=Ny, Nu=Nu, hN_dims=hN_dims)
+        model = create_bbmodel(Np=Np, Ny=Ny, Nu=Nu, hN_dims=hN_dims, 
+                               tanhScale=tanhScale)
 
         # Use num samples to adjust here the num training samples.
         train_samples = dict(z0=train_data['z0'],
@@ -93,7 +95,8 @@ def main():
                                  val_predictions=val_predictions,
                                  val_metrics=val_metrics,
                                  num_samples=num_samples,
-                                 xuyscales=xuyscales)
+                                 xuyscales=xuyscales, 
+                                 tanhScale=tanhScale)
     
     # Save data.
     PickleTool.save(data_object=cstr_flash_training_data,
