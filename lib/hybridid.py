@@ -308,7 +308,7 @@ def get_train_val_data(*, tthrow, Np, xuyscales, data_list):
     Ny, Nu = len(ymean), len(umean)
 
     # Lists to store data.
-    inputs, z0, z, outputs = [], [], [], []
+    inputs, yz0, z0, yz, z, outputs = [], [], [], [], [], []
 
     # Loop through the data list.
     for data in data_list:
@@ -325,6 +325,7 @@ def get_train_val_data(*, tthrow, Np, xuyscales, data_list):
         yp0seq = y[tthrow-Np:tthrow, :].reshape(Np*Ny, )[np.newaxis, :]
         up0seq = u[tthrow-Np:tthrow, :].reshape(Np*Nu, )[np.newaxis, :]
         z0_traj = np.concatenate((yp0seq, up0seq), axis=-1)
+        yz0_traj = np.concatenate((y[tthrow, np.newaxis, :], z0_traj), axis=-1)
 
         # Get z_traj.
         Nt = u.shape[0]
@@ -334,22 +335,27 @@ def get_train_val_data(*, tthrow, Np, xuyscales, data_list):
             upseq = u[t-Np:t, :].reshape(Np*Nu, )[np.newaxis, :]
             z_traj += [np.concatenate((ypseq, upseq), axis=-1)]
         z_traj = np.concatenate(z_traj, axis=0)[np.newaxis, ...]
+        yz_traj = np.concatenate((y_traj, z_traj), axis=-1)
 
         # Collect the trajectories in list.
         inputs += [u_traj]
+        yz0 += [yz0_traj]
         z0 += [z0_traj]
+        yz += [yz_traj]
         z += [z_traj]
         outputs += [y_traj]
     
     # Get the training and validation data for training in compact dicts.
     train_data = dict(inputs=np.concatenate(inputs[:-2], axis=0),
+                      yz0=np.concatenate(yz0[:-2], axis=0),
                       z0=np.concatenate(z0[:-2], axis=0),
+                      yz=np.concatenate(yz[:-2], axis=0),
                       z=np.concatenate(z[:-2], axis=0),
                       outputs=np.concatenate(outputs[:-2], axis=0))
-    trainval_data = dict(inputs=inputs[-2], z0=z0[-2], z=z[-2], 
-                          outputs=outputs[-2])
-    val_data = dict(inputs=inputs[-1], z0=z0[-1], 
-                    z=z[-1], outputs=outputs[-1])
+    trainval_data = dict(inputs=inputs[-2], yz0=yz0[-2], z0=z0[-2], 
+                          yz=yz[-2], z=z[-2], outputs=outputs[-2])
+    val_data = dict(inputs=inputs[-1], yz0=yz0[-1], z0=z0[-1], 
+                    yz=yz[-1], z=z[-1], outputs=outputs[-1])
     # Return.
     return (train_data, trainval_data, val_data)
 

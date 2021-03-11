@@ -19,6 +19,7 @@ from linNonlinMPC import NonlinearEMPCRegulator
 from tworeac_funcs import plant_ode, greybox_ode, get_parameters
 from tworeac_funcs import cost_yup
 from economicopt import get_bbpars_fxu_hx, c2dNonlin, get_xuguess
+from economicopt import get_kooppars_fxu_hx, fnn
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from plotting_funcs import PAPER_FIGSIZE, TwoReacPlots
@@ -36,7 +37,7 @@ def get_openloop_sol(fxu, hx, model_pars, xuguess):
     Nmpc = 60
 
     # Initial parameters. 
-    init_empc_pars = np.tile(np.array([[100, 180]]), (Nmpc, 1))
+    init_empc_pars = np.tile(np.array([[100, 200]]), (Nmpc, 1))
 
     # Get upper and lower bounds.
     ulb = model_pars['ulb']
@@ -63,6 +64,31 @@ def get_openloop_sol(fxu, hx, model_pars, xuguess):
     # Return the open-loop sol.
     return (t, useq, xseq, yseq)
 
+def get_koopman_xkp0(train, parameters):
+
+    # Get initial state.
+    Np = train['Np']
+    us = parameters['us']
+    yindices = parameters['yindices']
+    ys = parameters['xs'][yindices]
+    yz0 = np.concatenate((np.tile(ys, (Np+1, )), 
+                          np.tile(us, (Np, ))))
+
+    # Scale initial state and get the lifted state.
+    fN_weights = train['trained_weights'][-1][:-2]
+    xuyscales = train['xuyscales']
+    ymean, ystd = xuyscales['yscale']
+    umean, ustd = xuyscales['uscale']
+    yzmean = np.concatenate((np.tile(ymean, (Np+1, )), 
+                            np.tile(umean, (Np, ))))
+    yzstd = np.concatenate((np.tile(ystd, (Np+1, )), 
+                            np.tile(ustd, (Np, ))))
+    yz0 = (yz0 - yzmean)/yzstd
+    xkp0 = np.concatenate((yz0, fnn(yz0, fN_weights, 1.)))
+
+    # Return.
+    return xkp0
+
 def main():
     """ Main function to be executed. """
     # Load data.
@@ -71,10 +97,17 @@ def main():
     parameters = tworeac_parameters['parameters']
     tworeac_bbtrain = PickleTool.load(filename='tworeac_bbtrain.pickle',
                                       type='read')
+    tworeac_kooptrain = PickleTool.load(filename='tworeac_kooptrain.pickle',
+                                      type='read')
 
     # Get the black-box model parameters and function handles.
     bb_pars, blackb_fxu, blackb_hx = get_bbpars_fxu_hx(train=tworeac_bbtrain, 
                                                        parameters=parameters) 
+
+    # Get the Koopman model parameters and function handles.
+    koop_pars, koop_fxu, koop_hx = get_kooppars_fxu_hx(train=tworeac_kooptrain, 
+                                                       parameters=parameters)
+    xkp0 = get_koopman_xkp0(tworeac_kooptrain, parameters)
 
     # Get the plant function handle.
     Delta = parameters['Delta']
@@ -90,22 +123,26 @@ def main():
     gb_pars['Nx'] = len(parameters['gb_indices'])
 
     # Lists to loop over for the three problems.  
-    model_types = ['plant', 'grey-box', 'black-box']
-    fxu_list = [plant_fxu, gb_fxu, blackb_fxu]
-    hx_list = [plant_hx, plant_hx, blackb_hx]
-    par_list = [parameters, gb_pars, bb_pars]
-    Nps = [None, None, bb_pars['Np']]
+    model_types = ['plant', 'grey-box', 'black-box', 'Koopman']
+    fxu_list = [plant_fxu, gb_fxu, blackb_fxu, koop_fxu]
+    hx_list = [plant_hx, plant_hx, blackb_hx, koop_hx]
+    par_list = [parameters, gb_pars, bb_pars, koop_pars]
+    Nps = [None, None, bb_pars['Np'], koop_pars['Np']]
     
     # Lists to store solutions.
     ulist, xlist = [], []
 
-
+    # Loop over the models.
     for (model_type, fxu, hx, model_pars, Np) in zip(model_types, fxu_list, 
                                                      hx_list, par_list, Nps):
 
         # Get guess. 
         xuguess = get_xuguess(model_type=model_type, 
-                              plant_pars=parameters, Np=Np)
+                              plant_pars=parameters, Np=Np, Nx=model_pars['Nx'])
+
+        # Update guess for the Koopman model.
+        if model_type == 'Koopman':
+            xuguess['x'] = xkp0
 
         # Get the steady state optimum.
         t, useq, xseq, yseq = get_openloop_sol(fxu, hx, model_pars, xuguess)
@@ -119,8 +156,8 @@ def main():
 
     # Get figure.
     t = t*Delta
-    legend_names = ['Plant', 'Grey-box', 'Black-box']
-    legend_colors = ['b', 'g', 'dimgrey']
+    legend_names = ['Plant', 'Grey-box', 'Black-box', 'Koopman']
+    legend_colors = ['b', 'g', 'dimgrey', 'm']
     figures = TwoReacPlots.plot_xudata(t=t, xlist=xlist, ulist=ulist,
                                         legend_names=legend_names,
                                         legend_colors=legend_colors, 

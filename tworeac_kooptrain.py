@@ -36,7 +36,7 @@ def main():
     xinsert_indices = [2]
     tthrow = 10
     Np = 2
-    fN_dims = [Np*(Ny+Nu), 16, 2]
+    fN_dims = [Np*(Ny+Nu), 16, 32]
 
     # Create lists to store data.
     trained_weights = []
@@ -66,7 +66,7 @@ def main():
                              outputs=train_data['outputs'])
 
         # Train.
-        train_koopmodel(model=model, epochs=100, batch_size=3, 
+        train_koopmodel(model=model, epochs=10000, batch_size=2, 
                       train_data=train_samples, trainval_data=trainval_data, 
                       stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 

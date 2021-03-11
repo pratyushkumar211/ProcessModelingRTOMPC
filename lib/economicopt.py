@@ -44,12 +44,12 @@ def online_simulation(plant, controller, *, plant_lyup, Nsim=None,
     # Return.
     return cl_data, avg_stage_costs, openloop_sol
 
-def fnn(nn_input, nn_weights):
+def fnn(nn_input, nn_weights, tanh_scale):
     """ Compute the NN output. 
         Assume that the input is a vector with shape size 
         1, and return output with shape size 1.
         """
-    def scaledtanh(x, a=3e-2):
+    def scaledtanh(x, a):
         num = np.exp(a*x) - np.exp(-a*x)
         den = np.exp(a*x) + np.exp(-a*x)
         return num/den
@@ -58,9 +58,7 @@ def fnn(nn_input, nn_weights):
     for i in range(0, len(nn_weights)-2, 2):
         (W, b) = nn_weights[i:i+2]
         nn_output = W.T @ nn_output + b[:, np.newaxis]
-        #nn_output = np.tanh(nn_output)
-        #nn_output = 1./(1. + np.exp(-0.4*nn_output))
-        nn_output = scaledtanh(nn_output)
+        nn_output = scaledtanh(nn_output, tanh_scale)
     (Wf, bf) = nn_weights[-2:]
     nn_output = (Wf.T @ nn_output + bf[:, np.newaxis])[:, 0]
     # Return.
@@ -76,8 +74,10 @@ def get_bbpars_fxu_hx(*, train, parameters):
     Ny, Nu = parameters['Ny'], parameters['Nu']
     Nx = Np*(Ny + Nu)
     ulb, uub = parameters['ulb'], parameters['uub']
+    tanh_scale = train['tanh_scale']
     bb_pars = dict(Nx=Nx, Ny=Ny, Nu=Nu, Np=Np, xuyscales=xuyscales,
-                   hN_weights=hN_weights, ulb=ulb, uub=uub)
+                   hN_weights=hN_weights, ulb=ulb, uub=uub, 
+                   tanh_scale=tanh_scale)
     
     # Get function handles.
     fxu = lambda x, u: bb_fxu(x, u, bb_pars)
@@ -96,6 +96,7 @@ def bb_fxu(z, u, parameters):
     Ny = parameters['Ny']
     Nu = parameters['Nu']
     hN_weights = parameters['hN_weights']
+    tanh_scale = parameters['tanh_scale']
     xuyscales = parameters['xuyscales']
     ymean, ystd = xuyscales['yscale']
     umean, ustd = xuyscales['uscale']
@@ -109,7 +110,7 @@ def bb_fxu(z, u, parameters):
     u = (u - umean)/ustd
 
     # Get current output.
-    y = fnn(z, hN_weights)
+    y = fnn(z, hN_weights, tanh_scale)
     
     # Concatenate.
     zplus = np.concatenate((z[Ny:Np*Ny], y, z[-(Np-1)*Nu:], u))
@@ -127,6 +128,7 @@ def bb_hx(z, parameters):
     Np = parameters['Np']
     Ny = parameters['Ny']
     Nu = parameters['Nu']
+    tanh_scale = parameters['tanh_scale']
     hN_weights = parameters['hN_weights']
     xuyscales = parameters['xuyscales']
     ymean, ystd = xuyscales['yscale']
@@ -140,12 +142,72 @@ def bb_hx(z, parameters):
     z = (z - zmean)/zstd
 
     # Get current output.
-    y = fnn(z, hN_weights)
+    y = fnn(z, hN_weights, tanh_scale)
 
     # Scale measurement back.
     y = y*ystd + ymean
 
     # Return the measurement.
+    return y
+
+def get_kooppars_fxu_hx(*, train, parameters):
+    """ Get the black-box parameter dict and function handles. """
+
+    # Get black-box model parameters.
+    Np = train['Np']
+    fN_weights = train['trained_weights'][-1][:-2]
+    A = train['trained_weights'][-1][-2].T
+    B = train['trained_weights'][-1][-1].T
+    xuyscales = train['xuyscales']
+    Ny, Nu = parameters['Ny'], parameters['Nu']
+    Nx = Ny + Np*(Ny + Nu) + train['fN_dims'][-1]
+    ulb, uub = parameters['ulb'], parameters['uub']
+    koop_pars = dict(Nx=Nx, Ny=Ny, Nu=Nu, Np=Np, xuyscales=xuyscales,
+                     fN_weights=fN_weights, ulb=ulb, uub=uub, A=A, B=B)
+    
+    # Get function handles.
+    fxu = lambda x, u: koop_fxu(x, u, koop_pars)
+    hx = lambda x: koop_hx(x, koop_pars)
+
+    # Return.
+    return koop_pars, fxu, hx
+
+def koop_fxu(xkp, u, parameters):
+    """ Function describing the dynamics 
+        of the black-box neural network. 
+        xkp^+ = A*xkp + Bu """
+    
+    # Get A, B matrices.
+    A, B = parameters['A'], parameters['B']
+    umean, ustd = parameters['xuyscales']['uscale']
+
+    # Scale control input.
+    u = (u - umean)/ustd
+
+    # Add extra axis.
+    xkp, u = xkp[:, np.newaxis], u[:, np.newaxis]
+
+    # Get current output.
+    xkplus = A @ xkp + B @ u
+
+    # Remove an axis.
+    xkplus = xkplus[:, 0]
+
+    # Return the sum.
+    return xkplus
+
+def koop_hx(xkp, parameters):
+    """ Measurement function. """
+    
+    # Extract a few parameters.
+    Ny = parameters['Ny']
+    xuyscales = parameters['xuyscales']
+    ymean, ystd = xuyscales['yscale']
+    
+    # Add extra axis.
+    y = xkp[:Ny]*ystd + ymean
+
+    # Return the sum.
     return y
 
 def get_ss_optimum(*, fxu, hx, lyu, parameters, guess):
@@ -204,7 +266,7 @@ def get_sscost(*, fxu, hx, lyu, us, parameters):
     # Return the steady state cost.
     return sscost
 
-def get_xuguess(*, model_type, plant_pars, Np=None):
+def get_xuguess(*, model_type, plant_pars, Np=None, Nx=None):
     """ Get x, u guess depending on model type. """
     us = plant_pars['us']
     if model_type == 'plant':
@@ -217,6 +279,8 @@ def get_xuguess(*, model_type, plant_pars, Np=None):
         ys = plant_pars['xs'][yindices]
         xs = np.concatenate((np.tile(ys, (Np, )), 
                              np.tile(us, (Np, ))))
+    elif model_type == 'Koopman':
+        xs = np.zeros((Nx, ))
     else:
         pass
     # Return as dict.

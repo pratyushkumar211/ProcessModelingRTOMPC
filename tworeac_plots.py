@@ -14,7 +14,6 @@ from hybridid import PickleTool
 from plotting_funcs import PAPER_FIGSIZE, TwoReacPlots
 from hybridid import get_plotting_array_list
 
-
 #def plot_sub_gaps(*, num_samples, sub_gaps, colors, legends, 
 #                  figure_size=PAPER_FIGSIZE,
 #                  ylabel_xcoordinate=-0.11, 
@@ -68,10 +67,16 @@ def main():
     training_data = tworeac_parameters['training_data']
     greybox_val_data = tworeac_parameters['greybox_val_data']
     
-    # Load data after NN training.
+    # Load Black-box data after training.
     tworeac_bbtrain = PickleTool.load(filename="tworeac_bbtrain.pickle",
                                       type='read')
     bb_predictions = tworeac_bbtrain['val_predictions']
+
+    # Load Koopman data after NN training.
+    tworeac_kooptrain = PickleTool.load(filename="tworeac_kooptrain.pickle",
+                                      type='read')
+    koop_predictions = tworeac_kooptrain['val_predictions']
+
 
     # Load data after Koopman training.
     #tworeac_kooptrain = PickleTool.load(filename=
@@ -90,11 +95,11 @@ def main():
     figures = []
 
     # Plot validation data.
-    legend_names = ['Plant', 'Grey-box', 'Black-box']
-    legend_colors = ['b', 'g', 'dimgrey']
+    legend_names = ['Plant', 'Grey-box', 'Black-box', 'Koopman']
+    legend_colors = ['b', 'g', 'dimgrey', 'm']
     valdata_list = [training_data[-1], greybox_val_data]
     valdata_list += bb_predictions
-    #valdata_list += koopval_predictions
+    valdata_list += koop_predictions
     #valdata_list += encdeckoopval_predictions
     t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
                                                      valdata_list[:2],

@@ -31,7 +31,7 @@ def main():
                                       type='read')
 
     # Get cost function handle.
-    p = [100, 180]
+    p = [100, 200]
     lyu = lambda y, u: cost_yup(y, u, p)
 
     # Get the black-box model parameters and function handles.
