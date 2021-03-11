@@ -64,7 +64,7 @@ def main():
                              outputs=train_data['outputs'])
 
         # Train.
-        train_bbmodel(model=model, epochs=10, batch_size=3, 
+        train_bbmodel(model=model, epochs=100, batch_size=3, 
                       train_data=train_samples, trainval_data=trainval_data, 
                       stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 
@@ -92,7 +92,8 @@ def main():
                                  val_predictions=val_predictions,
                                  val_metrics=val_metrics,
                                  num_samples=num_samples,
-                                 xuyscales=xuyscales)
+                                 xuyscales=xuyscales, 
+                                 tanh_scale=0.1)
     
     # Save data.
     PickleTool.save(data_object=tworeac_training_data,

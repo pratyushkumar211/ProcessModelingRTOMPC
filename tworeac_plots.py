@@ -109,7 +109,9 @@ def main():
     figures += TwoReacPlots.plot_xudata(t=t, xlist=xlist, ulist=ulist,
                                         legend_names=legend_names,
                                         legend_colors=legend_colors, 
-                                        figure_size=PAPER_FIGSIZE)
+                                        figure_size=PAPER_FIGSIZE, 
+                                        ylabel_xcoordinate=-0.1, 
+                                        title_loc=(0.25, 0.9))
 
     # Plot validation metrics to show data requirements.
     #num_samples = tworeac_train['num_samples']
