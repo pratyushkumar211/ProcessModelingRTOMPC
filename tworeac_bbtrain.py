@@ -1,6 +1,5 @@
-# [depends] %LIB%/hybridid.py %LIB%/HybridModelLayers.py
-# [depends] %LIB%/../tworeac_nonlin_funcs.py
-# [depends] tworeac_parameters_nonlin.pickle
+# [depends] %LIB%/hybridid.py %LIB%/training_funcs.py
+# [depends] tworeac_parameters.pickle
 # [makes] pickle
 """ Script to train the hybrid model for the 
     three reaction system. 
@@ -35,6 +34,7 @@ def main():
     xinsert_indices = [2]
     tthrow = 10
     Np = 2
+    tanhScale = 0.1
     hN_dims = [Np*(Ny+Nu), 16, 2]
 
     # Create lists to store data.
@@ -56,7 +56,8 @@ def main():
     for num_sample in num_samples:
         
         # Create model.
-        model = create_bbmodel(Np=Np, Ny=Ny, Nu=Nu, hN_dims=hN_dims)
+        model = create_bbmodel(Np=Np, Ny=Ny, Nu=Nu, hN_dims=hN_dims, 
+                               tanhScale=tanhScale)
         
         # Use num samples to adjust here the num training samples.
         train_samples = dict(z0=train_data['z0'],
@@ -93,7 +94,7 @@ def main():
                                  val_metrics=val_metrics,
                                  num_samples=num_samples,
                                  xuyscales=xuyscales, 
-                                 tanh_scale=0.1)
+                                 tanhScale=tanhScale)
     
     # Save data.
     PickleTool.save(data_object=tworeac_training_data,

@@ -1,6 +1,7 @@
-# [depends] tworeac_parameters_nonlin.pickle tworeac_train_nonlin.pickle
-# [depends] tworeac_empc_nonlin.pickle
-# [depends] %LIB%/hybridid.py
+# [depends] %LIB%/hybridid.py %LIB%/plotting_funcs.py
+# [depends] tworeac_parameters.pickle
+# [depends] tworeac_bbtrain.pickle
+# [depends] tworeac_kooptrain.pickle
 """ Script to plot the training data
     and grey-box + NN model predictions on validation data.
     Pratyush Kumar, pratyushkumar@ucsb.edu """

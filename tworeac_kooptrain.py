@@ -1,6 +1,5 @@
-# [depends] %LIB%/hybridid.py %LIB%/HybridModelLayers.py
-# [depends] %LIB%/../tworeac_nonlin_funcs.py
-# [depends] tworeac_parameters_nonlin.pickle
+# [depends] %LIB%/hybridid.py %LIB%/training_funcs.py
+# [depends] tworeac_parameters.pickle
 # [makes] pickle
 """ Script to train the deep Koopman model for the
     three reaction system.

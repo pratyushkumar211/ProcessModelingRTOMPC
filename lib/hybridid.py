@@ -1,4 +1,4 @@
-# Pratyush Kumar, pratyushkumar@ucsb.edu
+# [depends] linNonlinMPC.py
 
 import sys
 import numpy as np

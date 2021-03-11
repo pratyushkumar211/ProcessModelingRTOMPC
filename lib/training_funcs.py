@@ -1,3 +1,4 @@
+# [depends] HybridModelLayers.py hybridid.py
 """
 Custom neural network layers for the 
 data-based completion of grey-box models 
@@ -10,9 +11,9 @@ import tensorflow as tf
 from HybridModelLayers import BlackBoxModel, KoopmanModel
 from hybridid import SimData
 
-def create_bbmodel(*, Np, Ny, Nu, hN_dims):
+def create_bbmodel(*, Np, Ny, Nu, hN_dims, tanhScale):
     """ Create/compile the two reaction model for training. """
-    model = BlackBoxModel(Np, Ny, Nu, hN_dims)
+    model = BlackBoxModel(Np, Ny, Nu, hN_dims, tanhScale)
     # Compile the nn model.
     model.compile(optimizer='adam', loss='mean_squared_error')
     # Return the compiled model.

@@ -1,7 +1,7 @@
-# [depends] %LIB%/hybridid.py %LIB%/linNonlinMPC.py
-# [depends] %LIB%/../tworeac_nonlin.py
+# [depends] %LIB%/hybridid.py %LIB%/economicopt.py
 # [depends] tworeac_parameters.pickle
-# [depends] tworeac_train.pickle
+# [depends] tworeac_bbtrain.pickle
+# [depends] tworeac_kooptrain.pickle
 # [makes] pickle
 """ Script to perform closed-loop simulations
     with the trained models.
@@ -94,7 +94,6 @@ def main():
         # CHeck black-box model validation.
         koop_yval = tworeac_kooptrain['val_predictions'][-1].y
         koop_xpred, koop_ypred = quick_sim(koop_fxu, koop_hx, xkp0, uval)
-        breakpoint()
         # Return 
         return 
 

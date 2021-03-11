@@ -380,7 +380,7 @@ class BlackBoxCell(tf.keras.layers.AbstractRNNCell):
 
 class BlackBoxModel(tf.keras.Model):
     """ Custom model for the Two reaction model. """
-    def __init__(self, Np, Ny, Nu, hN_dims):
+    def __init__(self, Np, Ny, Nu, hN_dims, tanhScale):
         """ Create the dense layers for the NN, and 
             construct the overall model. """
 
@@ -388,7 +388,7 @@ class BlackBoxModel(tf.keras.Model):
         useq = tf.keras.Input(name='u', shape=(None, Nu))
         z0 = tf.keras.Input(name='z0', shape=(Np*(Ny+Nu), ))
 
-        def scaledtanh(x, a=0.1):
+        def scaledtanh(x, a=tanhScale):
             num = tf.math.exp(a*x) - tf.math.exp(-a*x)
             den = tf.math.exp(a*x) + tf.math.exp(-a*x)
             return num/den

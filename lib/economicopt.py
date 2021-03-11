@@ -1,3 +1,4 @@
+# [depends] hybridid.py
 """
 Custom neural network layers for the 
 data-based completion of grey-box models 
@@ -74,10 +75,10 @@ def get_bbpars_fxu_hx(*, train, parameters):
     Ny, Nu = parameters['Ny'], parameters['Nu']
     Nx = Np*(Ny + Nu)
     ulb, uub = parameters['ulb'], parameters['uub']
-    tanh_scale = train['tanh_scale']
+    tanhScale = train['tanhScale']
     bb_pars = dict(Nx=Nx, Ny=Ny, Nu=Nu, Np=Np, xuyscales=xuyscales,
                    hN_weights=hN_weights, ulb=ulb, uub=uub, 
-                   tanh_scale=tanh_scale)
+                   tanhScale=tanhScale)
     
     # Get function handles.
     fxu = lambda x, u: bb_fxu(x, u, bb_pars)
@@ -96,7 +97,7 @@ def bb_fxu(z, u, parameters):
     Ny = parameters['Ny']
     Nu = parameters['Nu']
     hN_weights = parameters['hN_weights']
-    tanh_scale = parameters['tanh_scale']
+    tanhScale = parameters['tanhScale']
     xuyscales = parameters['xuyscales']
     ymean, ystd = xuyscales['yscale']
     umean, ustd = xuyscales['uscale']
@@ -110,7 +111,7 @@ def bb_fxu(z, u, parameters):
     u = (u - umean)/ustd
 
     # Get current output.
-    y = fnn(z, hN_weights, tanh_scale)
+    y = fnn(z, hN_weights, tanhScale)
     
     # Concatenate.
     zplus = np.concatenate((z[Ny:Np*Ny], y, z[-(Np-1)*Nu:], u))
@@ -128,7 +129,7 @@ def bb_hx(z, parameters):
     Np = parameters['Np']
     Ny = parameters['Ny']
     Nu = parameters['Nu']
-    tanh_scale = parameters['tanh_scale']
+    tanhScale = parameters['tanhScale']
     hN_weights = parameters['hN_weights']
     xuyscales = parameters['xuyscales']
     ymean, ystd = xuyscales['yscale']
@@ -142,7 +143,7 @@ def bb_hx(z, parameters):
     z = (z - zmean)/zstd
 
     # Get current output.
-    y = fnn(z, hN_weights, tanh_scale)
+    y = fnn(z, hN_weights, tanhScale)
 
     # Scale measurement back.
     y = y*ystd + ymean
