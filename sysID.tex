@@ -48,7 +48,7 @@
 \maketitle
 
 \section{Process modeling}
-We consider the problem of system identification of the following nonlinear plant.
+We consider the problem of system identification of the following nonlinear plant:
 \begin{align*}
   x_p^+ &= f_p(x_p, u, w) \\
   y &= h_p(x_p) + v
@@ -77,11 +77,11 @@ The following nonlinear program (NLP) is solved to identify the parameters $\the
    \tilde{y}^i &= h_g(x_g^i, \theta_g) \nonumber
 \end{align}
 
-in which $\theta_g$ and $x_g^i(0)$ are the decision variables in the optimization problem, which are parameters in the grey-box model and initial state used for forecasting the predicted measurements. We assume that multiple trajectories can be used in the training data, and the superscript $i$ is used to denote the trajectory number. We use $N_{tr}$ to denote the total number of trajectories in training data and $N_t$ to denote the number of samples in each trajectory. The function $f_{g}(\cdot)$ is discretized at the measurement sample time to obtain the function $f_{gd}(\cdot)$ that is used to make forecasts in the above optimization.
+in which $\theta_g$ and $x_g^i(0)$ are the decision variables in the optimization problem, which are parameters in the grey-box model and initial state used for forecasting the predicted measurements respectively. We assume that multiple trajectories can be used in the training data, and the superscript $i$ is used to denote the trajectory number. We use $N_{tr}$ to denote the total number of trajectories in training data and $N_t$ to denote the number of samples in each trajectory. The function $f_{g}(\cdot)$ is discretized at the measurement sample time to obtain the function $f_{gd}(\cdot)$ that is used to make forecasts in the above optimization.
 
 \subsection{Hybrid model}
 
-Often in industrial applications, first-principle knowledge about the plant is incomplete. Hence, grey-box system identification and subsequent use of the grey-box model in real-time optimization can lead to suboptimal economic performance. We propose to augment the grey-box model using a neural network (NN) such that the overall hybrid model can capture any unknown process dynamics in the plant, therefore leading to improved economic performance. We define this hybrid model as follows:
+Often in industrial applications, first-principle knowledge about the plant is incomplete. Hence, grey-box system identification and subsequent use of the grey-box model in real-time optimization can lead to suboptimal economic performance. We propose to augment the grey-box model using a neural network (NN) such that the overall hybrid model can capture any unknown process dynamics in the plant, therefore leading to improved economic performance when used subsequently in real-time optimization. We define this hybrid model as follows:
 
 \begin{align*}
   x_g^+ &= f_{gd}(x_g, u, \theta_g) + f_N(z, u, \theta_N) \\
@@ -116,7 +116,7 @@ We assume that the parameters in the grey-box model are first estimated by solvi
   z^{i+} &= f_z(x_g^i, z^i, u^i) \nonumber \\
    \tilde{y}^i &= h_g(x_g^i, \theta_g) \nonumber
 \end{align}
-The stochastic gradient descent algorithm Adam is used to solve the above optimization using the software tensorflow. Note that we do not estimate the initial state for each trajectory, and fix those states heuristically to make forecasts during the optimization process. The control inputs and measurements are scaled as $u := (u - u_{\textnormal{MEAN}})/u_{\textnormal{STD}}$ and 
+The stochastic gradient descent algorithm Adam is used to solve the above optimization using the software tensorflow. Note that we do not estimate the initial grey-box state for each trajectory in the optimization problem, and fix those states heuristically to make forecasts during the optimization process. The control inputs and measurements are scaled as $u := (u - u_{\textnormal{MEAN}})/u_{\textnormal{STD}}$ and 
 $y := (y - y_{\textnormal{MEAN}})/y_{\textnormal{STD}}$, in which $u_{\textnormal{MEAN}}$ and $y_{\textnormal{MEAN}}$ are the respective means computed on training data. Similarly, $u_{\textnormal{STD}}$ and $y_{\textnormal{STD}}$ are the respective standard deviations. Due to this scaling, we do not consider the penalty $R_v^{-1}$ in the training objective.
 
 \subsection{Black-box models}
@@ -124,10 +124,10 @@ Next, we consider black-box system identification strategies which do not impose
 
 \subsubsection{Neural network}
 The black-box NN uses the vector of past measurements and control inputs $z$ \eqref{eq:pastyu} as the state in the dynamic model and is structured as follows
-\begin{align*}
+\begin{align} \label{eq:bbnn_model}
   z^+ &= f_z(z, u) \\ 
-  y &= h_N(z, \theta_N)
-\end{align*}
+  y &= h_N(z, \theta_N) \nonumber
+\end{align}
 in which $h_N(\cdot)$ is a NN and $\theta_N$ are the parameters in the network. The function $f_z(\cdot)$ denotes the dynamics of the state $z$ and is defined as 
 
 \begin{align*}
@@ -145,23 +145,110 @@ in which $h_N(\cdot)$ is a NN and $\theta_N$ are the parameters in the network. 
 
 \subsubsection{Koopman operator model}
 
-\subsubsection{Training}
-The training problem is to find the parameters in the neural network
-$f_N$ and the linear model matrices $A$ and $B$ by minimizing the following mean squared error:
+The Koopman model represents the dynamics as a linear system in a high-dimensional state-space that is a nonlinear transformation of the original state-space. This transformation is chosen such that the input-output behavior is linear. The overall dynamic model is represented as:
 
+\begin{align} \label{eq:koop_model}
+  x_{kp} &= [y', z', f_N(y, z, \theta_N)']' \\
+  x_{kp}^+ &= Ax_{kp} + Bu \nonumber \\
+  y &= [I, \ 0] x_{kp} \nonumber
+\end{align}
+in which $x_{kp} \in \bbR^N$ is the state in a high-dimensional state-space, $f_N(\cdot)$ is a NN used for the nonlinear transformation, and $\theta_N$ denotes the parameters in the network.
+
+\subsubsection{Training}
+The training optimization problem for both the black-box NN and the Koopman operator model is to minimize the mean-squared-error (MSE) similar to the nonlinear program \eqref{eq:hybrid_training}. The model equality constraints are replaced with the equations \eqref{eq:bbnn_model} and \eqref{eq:koop_model} for the black-box and Koopman operator model respectively. The measurements and control inputs are scaled using the mean and standard deviation computed from the training data. The initial state to make model predictions in the optimization process is set based on a window of past measurements and control inputs in the training data.
+
+\section{Two reaction system example}
+
+We next study the performance of the modeling frameworks on a simple two reaction system example in three steps. First, we examine the predictive capability of the developed models on open-loop validation data. Second, we analyze the steady-state optimum with an economic stage cost. Finally, we analyze the optimal control input profiles on a dynamic economic optimization problem. These three steps shed light on the predictive abilities of the models and their usefulness for real-time optimization in the operation of chemical processes.
+
+The following plant model with two reactions $A \rightarrow B$ and $3B \rightleftharpoons C$ is considered:
 \begin{align*}
-  \underset{A, B, W_i, b_i}{\textnormal{min}} \sum_{k=0}^{N_t-1} 
-  \dfrac{1}{N_t}(\hat{x}(k) - x(k))^2
+  \dfrac{dC_A}{dt} &= \dfrac{C_{Af} - C_A}{\tau} - k_1C_A\\
+  \dfrac{dC_B}{dt} &= k_1C_A - 3k_2C^3_B + 3k_3C_C- \dfrac{C_B}{\tau}\\
+  \dfrac{dC_C}{dt} &= k_2C^3_B - k_3C_C - \dfrac{C_C}{\tau}
 \end{align*}
 
-\section{Two reaction system plant model}
+in which, $C_A$, $C_B$, and $C_C$ are the concentrations of the three species $A$, $B$, and $C$. The parameters $k_1$, $k_2$, and $k_3$ are the rate constants and the $\tau$ is the residence time.
 
-\section{Model validation}
+The grey-box model is built as follows based on an assumption that the knowledge of the second side reaction ($3B \rightleftharpoons C $) is not available:
+\begin{align*}
+  \dfrac{dC_A}{dt} &= \dfrac{C_{Af} - C_A}{\tau} - k_1C_A\\
+  \dfrac{dC_B}{dt} &= k_1C_A - \dfrac{C_B}{\tau}
+\end{align*}
 
-\section{Steady state optimization}
+The rate constants and residence time in both the models are set to 
+$k_1 = 1 \ \textnormal{m}^3/\textnormal{min}$, $k_2 = 0.01 \ \textnormal{m}^3/\textnormal{min}$, $k_3 = 0.05 \ \textnormal{m}^3/\textnormal{min}$, and $\tau = 5 \ \textnormal{min}$. The sample time for the measurements is $1 \ \textnormal{min}$, and we assume that only the concentrations of the species $A$ and $B$ are measured in real-time.
+
+\subsection{Model validation}
+In the simulations for this example, we fix the grey-box model parameters heuristically and only train the two black-box models: NN and Koopman operator model. We generate 1 day (1440 samples) of data by simulating the plant model with a Pseudo-random-binary-signal (PRBS) control input profile. The generated data is split into 12 hours of training data, 6 hours of buffer data, and 6 hours of validation data. The MSE metric is monitored on the buffer data during the training process, and model weights are updated only when MSE decreases on the buffer dataset. After the training step, the black-box NN and Koopman operator models are used to make predictions on the validation data shown in Figure \ref{fig:tworeac_validation}. We observe good quality measurement predictions with both types of dynamic black-box models.
+
+\begin{figure}[!h]
+  \centering
+  \includegraphics[page=1, height=0.5\textheight, 
+                   width=0.7\textwidth]{tworeac_plots.pdf}
+  \caption{Model validation on open-loop data with the black-box NN and Koopman operator model.}
+  \label{fig:tworeac_validation}
+\end{figure}
+
+\subsection{Steady state optimization}
+The two trained black-box NN and Koopman operator model are used in a steady-state optimization problem to determine the economically optimal
+steady state of the system. In a typical chemical plant, this type of optimization is solved periodically every few hours based on changes in raw material costs and product selling prices. The obtained steady state is sent to lower-level control layers such as model predictive control (MPC) or the proportional-integral-derivative (PID) controller. The optimization problem solved is:
+\begin{align} \label{eq:ss_opt}
+  \underset{u_s}{\textnormal{min}} & \quad \ell(y_s, u_s) \\
+  x_s &= f(x_s, u_s) \nonumber \\ 
+  y_s &= h(x_s) \nonumber \\
+  \underline{u} \leq &u_s \leq \overline{u} \nonumber
+\end{align}
+in which the steady-state control input ($u_s$) is the decision variable,  and the model is required to satisfy steady-state constraints. The stage cost for the two reaction system is chosen as:
+\begin{equation*}
+  \ell(y_s, u_s) = p_1C_{Afs} - p_2C_{Bs}
+\end{equation*}
+in which $p_1$ and $p_2$ are the parameters chosen to represent the raw material (species $A$) cost and the product (species $B$) selling price respectively. 
+
+First, we plot the economic objective ($\ell(y_s, u_s)$) as a function of the 
+steady-state control input to examine the cost structure obtained with the different models. This plot is shown in Figure \ref{fig:tworeac_sscost}.
+
+\begin{figure}[!h]
+  \centering
+  \includegraphics[page=1, height=0.4\textheight, 
+                   width=0.6\textwidth]{tworeac_ssopt.pdf}
+  \caption{Steady-state cost curve $\ell(y_s, u_s)$ as a function of the control input for the plant, grey-box, black-box NN, and Koopman operator models.}
+  \label{fig:tworeac_sscost}
+\end{figure}
+
+We observe that the black-box NN model correctly captures the true plant cost curve after training, and the grey-box and Koopman operator models do not. This behavior by the latter two models is due to the linear structure in the dynamic models. Upon solving the optimization problem \eqref{eq:ss_opt}, the optimum steady-state control input ($C_{Afs}^0$) values are $1.63$, $2.5$, $1.60$, and $2.5$ in mol/m$^3$ for the plant, grey-box, black-box NN, and Koopman operator models respectively. The use of grey-box and Koopman operator models subsequently in real-time optimization of chemical processes can therefore result in suboptimal economic performance.
+
+\subsection{Dynamic economic optimization}
+The performance of the models is now studied with a dynamic economic optimization problem. In contrast to the steady-state optimization problem \eqref{eq:ss_opt}, operational strategies based on solving a dynamic optimization problem aim to maximize plant profit during the transients as well as opposed to just steady states. The economic optimization problem is:
+
+\begin{align} \label{eq:dyn_opt}
+  \underset{\useq}{\textnormal{min}} & \quad \sum_{k=0}^{N-1} \ell(y(i), u(i)) \\
+  x^+ &= f(x, u) \nonumber \\ 
+  y &= h(x) \nonumber \\
+  x(0) &= x_0 \nonumber \\ 
+  \underline{u} \leq &u \leq \overline{u} \nonumber
+\end{align}
+
+The above optimization problem is similar to the optimization solved in MPC, and the difference is the choice of the economic stage cost $\ell(\cdot)$, which is a setpoint tracking stage cost in a traditional MPC controller. This optimization problem can also be solved directly at the regulatory control layers and is often referred to as the economic MPC controller.
+
+\begin{figure}[!h]
+  \centering
+  \includegraphics[page=1, height=0.5\textheight, 
+                   width=0.7\textwidth]{tworeac_openloop.pdf}
+  \caption{Optimal open-loop control input and state profiles after solving the dynamic economic MPC problem \eqref{eq:dyn_opt} with the plant, grey-box, black-box NN, and Koopman operator models.}
+  \label{fig:tworeac_openloop}
+\end{figure}
+
+Before analyzing a full closed-loop simulation with the economic MPC controllers based on the different dynamic models, we first examine the open-loop solutions of the optimization problem \eqref{eq:dyn_opt} given one initial state. Figure \ref{fig:tworeac_openloop} shows the open-loop measurement and control input profiles for the plant, grey-box, black-box NN, and Koopman operator model. We notice that the black-box NN has an optimal control input profile qualitatively similar to that of the plant model.
+Whereas, the optimal profiles for the grey-box and Koopman operator model
+are different than the plant model. This simple analysis shows that the use of the grey-box and Koopman operator models in MPC can result in suboptimal performance.
+
+\section{Large, CSTR and Flash system example}
+
+\subsection{Model validation}
 
 
-\section{Dynamic economic optimization}
+\subsection{Dynamic economic optimization}
 
 
 \section{Future work}
