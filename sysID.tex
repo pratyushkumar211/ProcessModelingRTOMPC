@@ -372,17 +372,33 @@ that the use of the grey-box and Koopman operator models in MPC can result in
 suboptimal economic performance.
 
 \section{Large, CSTR and flash system example}
-We next study the performance of the black-box NN modeling framework on a large chemical process that consists of a chemical reactor and flash separator in series. The process is depicted in Figure \ref{fig:cstr_flash}, and the ordinary differential equations (ODEs) with parameter values describing the plant model are shown in Appendix \ref{app:cstr_flash}.
+We next study the performance of the black-box NN modeling framework on a large chemical process that consists of a chemical reactor and flash separator in series. The process is depicted in Figure \ref{fig:cstr_flash}, and the ordinary differential equations (ODEs) with parameter values describing the plant model are shown in Appendix \ref{app:cstr_flash}. The model consists of 12 states ($H_r$, $C_{Ar}$, $C_{Br}$, $C_{Cr}$, $T_r$, $H_b$, $C_{Ab}$, $C_{Bb}$, $C_{Cb}$, $T_b$), 6 measurements ($H_r$, $C_{Br}$, $T_r$, $H_b$, $C_{Bb}$, $T_b$), and 2 control inputs ($F$, $D$). The sample time for the measurements is 1 min.
 
 \begin{figure}[!h]
   \centering
-  \includegraphics[page=1, height=0.3\textheight,
-                   width=0.6\textwidth]{cstr_flash.pdf}
+  \includegraphics[page=1, height=0.5\textheight,
+                   width=0.7\textwidth]{cstr_flash.pdf}
   \caption{Schematic of the CSTR and flash chemical process.}
   \label{fig:cstr_flash}
 \end{figure}
 
 \subsection{Model validation}
+
+% \begin{figure}[!h]
+%   \centering
+%   \includegraphics[page=1, height=0.5\textheight,
+%                    width=0.7\textwidth]{cstr_flash_plots.pdf}
+%   \caption{Schematic of the CSTR and flash chemical process.}
+%   \label{fig:cstr_flash_uvalidation}
+% \end{figure}
+
+% \begin{figure}[!h]
+%   \centering
+%   \includegraphics[page=2, height=0.5\textheight,
+%                    width=0.7\textwidth]{cstr_flash_plots.pdf}
+%   \caption{Schematic of the CSTR and flash chemical process.}
+%   \label{fig:cstr_flash_yvalidation}
+% \end{figure}
 
 \subsection{Steady state optimization}
 
@@ -408,9 +424,6 @@ We next study the performance of the black-box NN modeling framework on a large 
   \dfrac{dT_r}{dt} &= \dfrac{F(T_f - T_r) + D(T_d -T_r)}{A_rH_r} + 
                       \dfrac{r_1\Delta H_1 + r_2\Delta H_2}{\rho C_p} - 
                       \dfrac{Q_r}{\rho A_r C_p H_r}\\
-\end{align*}
-
-\begin{align*}
   \dfrac{dH_b}{dt} &= \dfrac{F_r - F_b - D}{A_b} \\
   \dfrac{dC_{Ab}}{dt} &= \dfrac{F_r(C_{Ar} -C_{Ab}) + 
                           D(C_{Ab} -C_{Ad})}{A_bH_b} \\
@@ -437,7 +450,9 @@ The concentrations of the species in the recycle stream are computed using the f
   C_{Ad} = \dfrac{\alpha_A C_{Ab}}{\sum_{i \in \{ A, B, C\}} \alpha_iC_{ib}} , \quad, C_{Bd} = \dfrac{\alpha_B C_{Bb}}{\sum_{i \in \{ A, B, C\}} \alpha_iC_{ib}}, \quad C_{Cd} = \dfrac{\alpha_C C_{Cb}}{\sum_{i \in \{ A, B, C\}} \alpha_iC_{ib}}
 \end{align*}
 
-The parameters in this model and the control input constraints used for the optimization problems are summarized in Table \ref{table:cstr_flash_pars}.
+The parameters used to simulate the model and the control input constraints used for the optimization problems are summarized in Table \ref{table:cstr_flash_pars}.
+
+\newpage
 
 \begin{table}[!h]
   \centering

@@ -116,7 +116,8 @@ def main():
                                         legend_names=legend_names, 
                                         figure_size=PAPER_FIGSIZE, 
                                         ylabel_xcoordinate=-0.1, 
-                                        left_label_frac=0.15)
+                                        left_label_frac=0.15, 
+                                        font_size=12)
 
     # Finally plot.
     with PdfPages('tworeac_ssopt.pdf', 'w') as pdf_file:

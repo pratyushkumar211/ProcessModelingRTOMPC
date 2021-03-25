@@ -24,7 +24,7 @@ def create_koopmodel(*, Np, Ny, Nu, fN_dims):
     model = KoopmanModel(Np, Ny, Nu, fN_dims)
     # Compile the nn model.
     model.compile(optimizer='adam', loss='mean_squared_error', 
-                  loss_weights=[1., 0.])
+                  loss_weights=[0., 1.])
     # Return the compiled model.
     return model
 

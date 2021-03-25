@@ -49,8 +49,10 @@ class TwoReacPlots:
     @staticmethod
     def plot_xudata(*, t, xlist, ulist, legend_names, 
                        legend_colors, figure_size,
-                       ylabel_xcoordinate, title_loc):
+                       ylabel_xcoordinate, title_loc, 
+                       font_size):
         """ Plot the performance loss economic MPC parameters."""
+        plt.rcParams.update({'font.size': font_size})
         nrow = len(TwoReacPlots.labels)
         (figure, axes) = plt.subplots(nrows=nrow, ncols=1,
                                       sharex=True, figsize=figure_size,
@@ -79,13 +81,15 @@ class TwoReacPlots:
     @staticmethod
     def plot_sscosts(*, us, sscosts, legend_colors, 
                         legend_names, figure_size, 
-                        ylabel_xcoordinate, left_label_frac):
+                        ylabel_xcoordinate, left_label_frac, 
+                        font_size):
         """ Plot the profit curves. """
+        plt.rcParams.update({'font.size': font_size})
         (figure, axes) = plt.subplots(nrows=1, ncols=1, 
                                       sharex=True, 
                                       figsize=figure_size, 
                                       gridspec_kw=dict(left=left_label_frac))
-        xlabel = r'$C_{Af} \ (\textnormal{mol/m}^3)$'
+        xlabel = r'$C_{Afs} \ (\textnormal{mol/m}^3)$'
         ylabel = r'Cost ($\$ $)'
         for (cost, color) in zip(sscosts, legend_colors):
             # Plot the corresponding data.
@@ -121,7 +125,7 @@ class CstrFlashPlots:
                r'$D \ (\textnormal{m}^3/\textnormal{min})$']
 
     def plot_inputs(t, ulist, figure_size, ylabel_xcoordinate, 
-                    data_type, legend_names, legend_colors, 
+                    plot_ulabel, legend_names, legend_colors, 
                     title_loc):
         """ Plot the training input data. """
         nrow = len(CstrFlashPlots.ulabels)
@@ -137,7 +141,7 @@ class CstrFlashPlots:
             axes[row].set_xlabel('Time (hr)')
             axes[row].set_xlim([np.min(t), np.max(t)])
             legend_handles += handle
-        if data_type == 'closed_loop':
+        if plot_ulabel:
             figure.legend(handles = legend_handles,
                         labels = legend_names,
                         loc = title_loc, ncol=len(legend_names))
@@ -190,19 +194,21 @@ class CstrFlashPlots:
         return [figure]
 
     def plot_data(*, t, ulist, ylist, xlist,
-                     figure_size, ylabel_xcoordinate, data_type,
-                     legend_names, legend_colors, title_loc, plot_y=True):
+                     figure_size, u_ylabel_xcoordinate, 
+                     x_ylabel_xcoordinate, legend_names, 
+                     legend_colors, title_loc, y_ylabel_xcoordinate=None, 
+                     plot_y=True, plot_ulabel=True):
         figures = []
         figures += CstrFlashPlots.plot_inputs(t, ulist, figure_size, 
-                               ylabel_xcoordinate,
-                               data_type, legend_names, legend_colors, 
+                               u_ylabel_xcoordinate,
+                               plot_ulabel, legend_names, legend_colors, 
                                title_loc)
         if plot_y:
             figures += CstrFlashPlots.plot_outputs(t, ylist, figure_size, 
-                                   ylabel_xcoordinate, legend_names, 
+                                   y_ylabel_xcoordinate, legend_names, 
                                    legend_colors, title_loc)
         figures += CstrFlashPlots.plot_states(t, xlist, figure_size, 
-                               ylabel_xcoordinate, legend_names, 
+                               x_ylabel_xcoordinate, legend_names, 
                                legend_colors, title_loc)
 
         # Return the figure object.

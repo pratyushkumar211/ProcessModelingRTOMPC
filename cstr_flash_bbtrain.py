@@ -1,6 +1,5 @@
-# [depends] %LIB%/hybridid.py %LIB%/HybridModelLayers.py
-# [depends] %LIB%/../tworeac_nonlin_funcs.py
-# [depends] tworeac_parameters_nonlin.pickle
+# [depends] %LIB%/hybridid.py %LIB%/training_funcs.py
+# [depends] cstr_flash_parameters.pickle
 # [makes] pickle
 """ Script to train the hybrid model for the 
     three reaction system. 
@@ -67,7 +66,7 @@ def main():
                              outputs=train_data['outputs'])
 
         # Train.
-        train_bbmodel(model=model, epochs=30000, batch_size=12, 
+        train_bbmodel(model=model, epochs=30000, batch_size=18, 
                       train_data=train_samples, trainval_data=trainval_data, 
                       stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 

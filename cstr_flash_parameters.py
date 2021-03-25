@@ -1,4 +1,4 @@
-# [depends] %LIB%/hybridid.py %LIB%/linNonlinMPC.py
+# [depends] %LIB%/hybridid.py %LIB%/cstr_flash_funcs.py
 # [makes] pickle
 """ Script to generate the necessary
     parameters and training data for the 
@@ -11,10 +11,9 @@ import mpctools as mpc
 import numpy as np
 import scipy.linalg
 from hybridid import (PickleTool, sample_prbs_like, SimData)
-from linNonlinMPC import NonlinearPlantSimulator, NonlinearMHEEstimator
 from cstr_flash_funcs import plant_ode, greybox_ode
 from cstr_flash_funcs import get_plant_pars, get_gb_pars
-from hybridid import get_rectified_xs, get_model, measurement, resample_fast
+from hybridid import get_rectified_xs, get_model
 
 def gen_train_val_data(*, parameters, num_traj,
                           Nsim_train, Nsim_trainval, 
@@ -210,7 +209,7 @@ def main():
     gb_pars = get_gb_pars(plant_pars=plant_pars)
 
     # Generate training data.
-    training_data = gen_train_val_data(parameters=plant_pars, num_traj=14,
+    training_data = gen_train_val_data(parameters=plant_pars, num_traj=20,
                                         Nsim_train=4*60, Nsim_trainval=12*60,
                                         Nsim_val=12*60, seed=2)
 

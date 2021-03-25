@@ -1,8 +1,8 @@
 # [depends] %LIB%/hybridid.py %LIB%/linNonlinMPC.py
-# [depends] %LIB%/../tworeac_nonlin.py
-# [depends] tworeac_parameters.pickle
-# [depends] tworeac_train.pickle
-# [makes] pickle
+# [depends] %LIB%/cstr_flash_funcs.py %LIB%/economicopt.py
+# [depends] %LIB%/plotting_funcs.py
+# [depends] cstr_flash_parameters.pickle
+# [depends] cstr_flash_bbtrain.pickle
 """ Script to perform closed-loop simulations
     with the trained models.
     Pratyush Kumar, pratyushkumar@ucsb.edu """
@@ -36,7 +36,7 @@ def get_openloop_sol(fxu, hx, model_pars, xuguess):
     Nmpc = 60
 
     # Initial parameters. 
-    init_empc_pars = np.tile(np.array([[1, 2000, 12000]]), (Nmpc, 1))
+    init_empc_pars = np.tile(np.array([[1, 2000, 5000]]), (Nmpc, 1))
 
     # Get upper and lower bounds.
     ulb = model_pars['ulb']
@@ -131,8 +131,10 @@ def main():
     figures = CstrFlashPlots.plot_data(t=t, ulist=ulist, 
                                 ylist=None, xlist=xlist, 
                                 figure_size=PAPER_FIGSIZE, 
-                                ylabel_xcoordinate=-0.1, 
-                                data_type='closed-loop',
+                                u_ylabel_xcoordinate=-0.1, 
+                                y_ylabel_xcoordinate=-0.1, 
+                                x_ylabel_xcoordinate=-0.2, 
+                                plot_ulabel=True,
                                 legend_names=legend_names, 
                                 legend_colors=legend_colors, 
                                 title_loc=(0.25, 0.9), 

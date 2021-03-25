@@ -156,7 +156,7 @@ def main():
         xlist += [xseq]
 
     # Get figure.
-    t = t*Delta
+    t = t*Delta/60
     legend_names = ['Plant', 'Grey-box', 'Black-box', 'Koopman']
     legend_colors = ['b', 'g', 'dimgrey', 'm']
     figures = TwoReacPlots.plot_xudata(t=t, xlist=xlist, ulist=ulist,
@@ -164,7 +164,8 @@ def main():
                                         legend_colors=legend_colors, 
                                         figure_size=PAPER_FIGSIZE, 
                                         ylabel_xcoordinate=-0.1, 
-                                        title_loc=(0.15, 0.9))
+                                        title_loc=(0.05, 0.9), 
+                                        font_size=12)
 
     # Finally plot.
     with PdfPages('tworeac_openloop.pdf', 'w') as pdf_file:

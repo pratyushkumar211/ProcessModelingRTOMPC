@@ -104,11 +104,11 @@ def main():
     #valdata_list += encdeckoopval_predictions
     t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
                                                      valdata_list[:2],
-                                                     plot_range=(10, 24*60+10))
+                                                     plot_range=(10, 6*60+10))
     (t, ulist_train, 
      ylist_train, xlist_train) = get_plotting_array_list(simdata_list=
                                                      valdata_list[2:],
-                                                     plot_range=(0, 24*60))
+                                                     plot_range=(0, 6*60))
     ulist += ulist_train
     ylist += ylist_train
     xlist += xlist_train
@@ -117,7 +117,8 @@ def main():
                                         legend_colors=legend_colors, 
                                         figure_size=PAPER_FIGSIZE, 
                                         ylabel_xcoordinate=-0.1, 
-                                        title_loc=(0.25, 0.9))
+                                        title_loc=(0.05, 0.9),
+                                        font_size=12)
 
     # Plot validation metrics to show data requirements.
     #num_samples = tworeac_train['num_samples']

@@ -157,7 +157,7 @@ def get_plant_pars():
     parameters['Qb'] = 200 # kJ/min
     parameters['Qr'] = 200 # kJ/min
 
-    # Store the dimensions.
+    # Store the dimensions. 
     Nx, Nu, Np, Ny = 10, 2, 2, 6
     parameters['Nx'] = Nx
     parameters['Nu'] = Nu

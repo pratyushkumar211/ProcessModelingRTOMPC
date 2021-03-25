@@ -1,6 +1,5 @@
-# [depends] cstr_flash_parameters.pickle cstr_flash_train.pickle
-# [depends] cstr_flash_empc.pickle
-# [depends] %LIB%/hybridid.py
+# [depends] %LIB%/hybridid.py %LIB%/plotting_funcs.py
+# [depends] cstr_flash_parameters.pickle cstr_flash_bbtrain.pickle
 """ Script to plot the training data
     and grey-box + NN model predictions on validation data.
     Pratyush Kumar, pratyushkumar@ucsb.edu """
@@ -77,13 +76,16 @@ def main():
     ulist += ulist_train
     ylist += ylist_train
     xlist += xlist_train
-    legend_names = ['Plant']#, 'Black-box']#'Black-box', 'Koopman', 'Koopman-ENC-DEC']
+    legend_names = ['Plant', 'Black-box']#'Black-box', 'Koopman', 'Koopman-ENC-DEC']
     legend_colors = ['b', 'dimgrey']#'dimgrey', 'm', 'tomato']
     figures = []
     figures += CstrFlashPlots.plot_data(t=t, ulist=ulist, 
                                 ylist=ylist, xlist=xlist, 
                                 figure_size=PAPER_FIGSIZE, 
-                                ylabel_xcoordinate=-0.1, data_type='open_loop',
+                                u_ylabel_xcoordinate=-0.1, 
+                                y_ylabel_xcoordinate=-0.1, 
+                                x_ylabel_xcoordinate=-0.2, 
+                                plot_ulabel=False,
                                 legend_names=legend_names, 
                                 legend_colors=legend_colors, 
                                 title_loc=(0.25, 0.9))
