@@ -231,7 +231,7 @@ class NonlinearEMPCRegulator:
 class NonlinearMHEEstimator:
 
     def __init__(self, *, fxu, hx, Nmhe, Nx, Nu, Ny,
-                 xprior, u, y, P0inv, Qwinv, Rvinv):
+                 xhatPast, uPast, yPast, P0inv, Qwinv, Rvinv):
         """ Class to construct and perform state estimation
             using moving horizon estimation.
         
@@ -244,7 +244,7 @@ class NonlinearMHEEstimator:
                         sum{t=T-N to t=N-1} |x(k+1)-x(k)|_{Qwinv} + 
                         sum{t=T-N to t=T} |y(k)-h(x(k))|_{Rvinv}
 
-        subject to: x(k+1) = f(x(k), u(k), w(k)), 
+        subject to: x(k+1) = f(x(k), u(k), w(k)),
                     y(k) = h(x) + v(k), k=T-N to T-1
         x is the augmented state.
 
@@ -268,40 +268,49 @@ class NonlinearMHEEstimator:
         self.N = Nmhe
 
         # Create lists for saving data.
-        self.xhat = list(xprior)
-        self.y = list(y)
-        self.u = list(u)
+        self.xhat = list(xhatPast)
+        self.u = list(uPast)
+        self.y = list(yPast)
         
         # Build the estimator.
-        self._setup_mhe_estimator()
-
-    def _setup_mhe_estimator(self):
+        self._setupMheEstimator()
+        
+    def _setupMheEstimator(self):
         """ Construct a MHE solver. """
+
         N = dict(x=self.Nx, u=self.Nu, y=self.Ny, t=self.N)
         funcargs = dict(f=["x", "u"], h=["x"], l=["w", "v"], lx=["x", "x0bar"])
-        l = mpc.getCasadiFunc(self._stage_cost, [N["x"], N["y"]],
+        
+        # Setup stage costs.
+        l = mpc.getCasadiFunc(self._stageCost, [N["x"], N["y"]],
                               funcargs["l"])
-        lx = mpc.getCasadiFunc(self._prior_cost, [N["x"], N["x"]],
+        lx = mpc.getCasadiFunc(self._priorCost, [N["x"], N["x"]],
                                funcargs["lx"])
+
+        # Get Guess for the NLP.
         guess = dict(x=self.xhat[-1], w=np.zeros((self.Nx,)),
                      v=np.zeros((self.Ny,)))
-        self.mhe_estimator = mpc.nmhe(f=self.fxu,
-                                      h=self.hx, wAdditive=True,
-                                      N=N, l=l, lx=lx, u=self.u, y=self.y,
-                                      funcargs=funcargs,
-                                      guess=guess,
-                                      x0bar=self.xhat[0],
-                                      verbosity=0)
+
+        # Setup the MHE estimator.        
+        self.mheEstimator = mpc.nmhe(f=self.fxu,
+                                     h=self.hx, wAdditive=True,
+                                     N=N, l=l, lx=lx, u=self.u, y=self.y,
+                                     funcargs=funcargs,
+                                     guess=guess,
+                                     x0bar=self.xhat[0],
+                                     verbosity=0)
         self.mhe_estimator.solve()
         self.mhe_estimator.saveguess()
+
+        # Get estimated state sequence.
         xhat = np.asarray(self.mhe_estimator.var["x"][-1]).squeeze(axis=-1)
         self.xhat.append(xhat)
 
-    def _stage_cost(self, w, v):
+    def _stageCost(self, w, v):
         """ Stage cost in moving horizon estimation. """
         return mpc.mtimes(w.T, self.Qwinv, w) + mpc.mtimes(v.T, self.Rvinv, v)
 
-    def _prior_cost(self, x, xprior):
+    def _priorCost(self, x, xprior):
         """Prior cost in moving horizon estimation."""
         dx = x - xprior
         return mpc.mtimes(dx.T, self.P0inv, dx)
@@ -313,17 +322,21 @@ class NonlinearMHEEstimator:
             y: list of length T+1
             uprev: list of length T
         """
+
+        # Assemble data and solve NLP.
         N = self.N
         self.mhe_estimator.par["x0bar"] = [self.xhat[-N]]
         self.mhe_estimator.par["y"] = self.y[-N:] + [y]
         self.mhe_estimator.par["u"] = self.u[-N+1:] + [uprev]
         self.mhe_estimator.solve()
         self.mhe_estimator.saveguess()
+
+        # Get estimated state sequence and save data.
         xhat = np.asarray(self.mhe_estimator.var["x"][-1]).squeeze(axis=-1)
-        self._append_data(xhat, y, uprev)
+        self._appendData(xhat, y, uprev)
         return xhat
 
-    def _append_data(self, xhat, y, uprev):
+    def _appendData(self, xhat, y, uprev):
         """ Append the data to the lists. """
         self.xhat.append(xhat)
         self.y.append(y)
