@@ -9,19 +9,19 @@ import collections
 import pickle
 import plottools
 import time
-    
+
 class NonlinearPlantSimulator:
     """Custom class for simulating non-linear plants."""
     def __init__(self, *, fxup, hx, Rv, Nx, Nu, Np, Ny,
                  sample_time, x0):
         
         # Set attributes.
-        (self.Nx, self.Nu, self.Ny, self.Np) = (Nx, Nu, Ny, Np)
+        self.Nx, self.Nu, self.Ny, self.Np = Nx, Nu, Ny, Np
         self.fxup = mpc.getCasadiFunc(fxup, [Nx, Nu, Np], 
                                       ['x', 'u', 'p'], 'fxup', 
                                       rk4=True, Delta=sample_time, M=1)
         self.hx = mpc.getCasadiFunc(hx, [Nx], ["x"], funcname="hx")
-        self.measurement_noise_std = np.sqrt(np.diag(Rv)[:, np.newaxis])
+        self.ynoise_std = np.sqrt(np.diag(Rv)[:, np.newaxis])
         self.sample_time = sample_time
 
         # Create lists to save data.
@@ -29,18 +29,18 @@ class NonlinearPlantSimulator:
         self.u = []
         self.p = []
         self.y = [np.asarray(self.hx(x0)) + 
-                 self.measurement_noise_std*np.random.randn(self.Ny, 1)]
+                  self.ynoise_std*np.random.randn(self.Ny, 1)]
         self.t = [0.]
 
     def step(self, u, p):
         """ Inject the control input into the plant."""
         x = np.asarray(self.fxup(self.x[-1], u, p))
         y = np.asarray(self.hx(x))
-        y = y + self.measurement_noise_std*np.random.randn(self.Ny, 1)
-        self._append_data(x, u, p, y)
+        y = y + self.ynoise_std*np.random.randn(self.Ny, 1)
+        self._appendData(x, u, p, y)
         return y
 
-    def _append_data(self, x, u, p, y):
+    def _appendData(self, x, u, p, y):
         """ Append the data into the lists.
             Used for plotting in the specific subclasses.
         """
@@ -142,8 +142,8 @@ class NonlinearPlantSimulator:
 class NonlinearEMPCRegulator:
 
     def __init__(self, *, fxu, lxup, Nx, Nu, Np,
-                 Nmpc, ulb, uub, init_guess, init_empc_pars):
-        """ Class to construct and solve nonlinear MPC -- Regulation. 
+                 Nmpc, ulb, uub, t0Guess, t0EmpPars):
+        """ Class to construct and solve nonlinear MPC -- Regulation.
         
         Problem setup:
         The current time is T, we have x.
@@ -169,58 +169,60 @@ class NonlinearEMPCRegulator:
         self.xseq = []
 
         # Initial guess and parameters.
-        self.init_guess = init_guess
-        self.init_empc_pars = init_empc_pars
+        self.t0guess = t0Guess
+        self.t0EmpcPars = t0EmpcPars
 
         # Get the hard constraints on inputs and the soft constraints.
         self.ulb = ulb
         self.uub = uub
 
         # Build the nonlinear MPC regulator.
-        self._setup_regulator()
+        self._setupRegulator()
 
-    def _setup_regulator(self):
+    def _setupRegulator(self):
         """ Construct a Nonlinear economic MPC regulator. """
+
         N = dict(x=self.Nx, u=self.Nu, p=self.Np, t=self.Nmpc)
-        funcargs = dict(f=["x", "u"], 
-                        l=["x", "u", "p"])
-        lxup = mpc.getCasadiFunc(self.lxup,
-                                 [self.Nx, self.Nu, self.Np],
-                                 funcargs["l"])
+        
+        funcargs = dict(f=["x", "u"], l=["x", "u", "p"])
+        
         # Some parameters for the regulator.
-        empc_pars = self.init_empc_pars
-        guess = self.init_guess
-        #if len(guess['x'].shape) == 2:
-        #    x0 = guess['x'][0, :]
-        #else:
+        empcPars = self.t0EmpcPars
+        guess = self.t0Guess
         x0 = guess['x']
         lb = dict(u=self.ulb)
         ub = dict(u=self.uub)
-        self.regulator = mpc.nmpc(f=self.fxu, l=lxup, N=N, funcargs=funcargs,
-                                  x0=x0, p=empc_pars, lb=lb, ub=ub,
-                                  guess=guess)
+        
+        # Construct the EMPC regulator.
+        self.regulator = mpc.nmpc(f=self.fxu, l=self.lxup, N=N, 
+                                  funcargs=funcargs, x0=x0, p=empcPars, lb=lb, 
+                                  ub=ub, guess=guess)
         self.regulator.solve()
         self.regulator.saveguess()
+
+        # Get the x and u sequences and save data.
         useq = np.asarray(casadi.horzcat(*self.regulator.var['u'])).T
         xseq = np.asarray(casadi.horzcat(*self.regulator.var['x'])).T
         self._append_data(x0, useq, xseq)
     
-    def solve(self, x0, empc_pars):
+    def solve(self, x0, empcPars):
         """Setup and the solve the dense QP, output is
         the first element of the sequence.
         If the problem is reparametrized, go back to original
         input variable.
         """
-        self.regulator.par["p"] = list(empc_pars)
+        self.regulator.par["p"] = list(empcPars)
         self.regulator.fixvar("x", 0, x0)
         self.regulator.solve()
         self.regulator.saveguess()
+
+        # Get the x and u sequences and save data.
         useq = np.asarray(casadi.horzcat(*self.regulator.var['u'])).T
         xseq = np.asarray(casadi.horzcat(*self.regulator.var['x'])).T
-        self._append_data(x0, useq, xseq)
+        self._appendData(x0, useq, xseq)
         return useq
 
-    def _append_data(self, x0, useq, xseq):
+    def _appendData(self, x0, useq, xseq):
         " Append data. "
         self.x0.append(x0)
         self.useq.append(useq)
@@ -328,9 +330,10 @@ class NonlinearMHEEstimator:
         self.u.append(uprev)
 
 class NonlinearEMPCController:
-    """ Class that instantiates the NonlinearMHE, 
-        NonlinearEMPCRegulator classes
-        into one and solves nonlinear economic MPC problems.
+    """ Class that instantiates a Kalman Filter, 
+        Target-selector, Tracking MPC regulator, and 
+        a steady-state nonlinear optimizer classes
+        into one and runs in real-time.
 
         fxu is a continous time model.
         hx is same in both the continous and discrete time.
