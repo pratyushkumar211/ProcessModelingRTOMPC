@@ -158,7 +158,7 @@ class NonlinearEMPCRegulator:
         self.lxup = lxup
 
         # Sizes.
-        self.Nmpc = Nmpc
+        self.N = Nmpc
         self.Nx = Nx
         self.Nu = Nu
         self.Np = Np
@@ -182,7 +182,7 @@ class NonlinearEMPCRegulator:
     def _setupRegulator(self):
         """ Construct a Nonlinear economic MPC regulator. """
 
-        N = dict(x=self.Nx, u=self.Nu, p=self.Np, t=self.Nmpc)
+        N = dict(x=self.Nx, u=self.Nu, p=self.Np, t=self.N)
         
         funcargs = dict(f=["x", "u"], l=["x", "u", "p"])
         
@@ -274,7 +274,7 @@ class NonlinearMHEEstimator:
         
         # Build the estimator.
         self._setupMheEstimator()
-        
+
     def _setupMheEstimator(self):
         """ Construct a MHE solver. """
 
@@ -353,16 +353,17 @@ class NonlinearEMPCController:
         Bd is in continuous time.
     """
     def __init__(self, *, fxu, hx, lyup, Bd, Cd,
-                     Nx, Nu, Ny, Nd,
-                     xs, us, ds, ys,
-                     empc_pars, ulb, uub, Nmpc,
-                     Qwx, Qwd, Rv, Nmhe, 
-                     guess = None):
+                          Nx, Nu, Ny, Nd,
+                          xs, us, ds, ys,
+                          empcPars, ulb, uub, Nmpc,
+                          Qwx, Qwd, Rv, Nmhe):
         
         # Model and stage cost.
         self.fxu = fxu
         self.hx = hx
         self.lyup = lyup
+
+        # Disturbance model.
         self.Bd = Bd
         self.Cd = Cd
 
@@ -371,9 +372,10 @@ class NonlinearEMPCController:
         self.Nu = Nu
         self.Ny = Ny
         self.Nd = Nd
-        self.Np = empc_pars.shape[1]
+        self.Np = empcPars.shape[1]
 
         # Steady states of the system.
+        # Used for initial Guess/Filling MHE past window.
         self.xs = xs
         self.us = us
         self.ds = ds
@@ -381,91 +383,97 @@ class NonlinearEMPCController:
         self.uprev = us
 
         # MPC Regulator parameters.
-        self.opt_pars = empc_pars
+        self.empcPars = empcPars
         self.ulb = ulb
         self.uub = uub
         self.Nmpc = Nmpc
-        self.guess = guess
-        self._setup_regulator()
+        self._setupRegulator()
 
         # MHE Parameters.
         self.Qwx = Qwx
         self.Qwd = Qwd
         self.Rv = Rv
         self.Nmhe = Nmhe
-        self._setup_estimator()
+        self._setupEstimator()
 
         # Parameters to save.
-        self.computation_times = []
+        self.computationTimes = []
         
-    def _aug_ss_model(self):
+    def _augFxudModel(self):
         """Augmented state-space model for moving horizon estimation."""
-        return lambda x, u: np.concatenate((self.fxu(x[0:self.Nx],
-                                                u) + self.Bd @ x[-self.Nd:],
-                                             x[-self.Nd:]))
-    
-    def _mhe_hx_model(self):
-        """ Augmented measurement model for moving horizon estimation. """
-        return lambda x : self.hx(x[0:self.Nx]) + self.Cd @ x[-self.Nd:]
 
-    def _get_mhe_models_and_matrices(self):
-        """ Get the models, proir estimates and data, and the penalty matrices to setup an MHE solver."""
+        Nx, Nd = self.Nx, self.Nd
+        fxu, Bd = self.fxu, self.Bd
+        
+        # Return the Augmented function.
+        return lambda x, u: np.concatenate((fxu(x[:Nx], u) + Bd @ x[-Nd:],
+                                             x[-Nd:]))
+    
+    def _augHxdModel(self):
+        """ Augmented measurement model for moving horizon estimation. """
+
+        Nx, Nd = self.Nx, self.Nd
+        hx, Cd = self.hx, self.Cd
+
+        # Return the augmented measurement function.
+        return lambda x : hx(x[:Nx]) + Cd @ x[-Nd:]
+
+    def _setupEstimator(self):
+        """ Setup MHE. """
+
+        # Get some numbers. 
+        xs, ds, us, ys = self.xs, self.ds, self.us, self.ys
+        Nx, Nu, Nd, Nmhe = self.Nx, self.Nu, self.Nd, self.Nmhe
+        Qwx, Qwd, Rv = self.Qwx, self.Qwd, self.Rv
 
         # Prior estimates and data.
-        xprior = np.concatenate((self.xs, self.ds), axis=0)[:, np.newaxis]
-        xprior = np.repeat(xprior.T, self.Nmhe, axis=0)
-        u = np.repeat(self.us[np.newaxis, :], self.Nmhe, axis=0)
-        y = np.repeat(self.ys[np.newaxis, :], self.Nmhe+1, axis=0)
+        xhatPast = np.concatenate((xs, ds), axis=0)[:, np.newaxis]
+        xhatPast = np.repeat(xhatPast.T, Nmhe, axis=0)
+        uPast = np.repeat(us[np.newaxis, :], Nmhe, axis=0)
+        yPast = np.repeat(ys[np.newaxis, :], Nmhe+1, axis=0)
 
         # Penalty matrices.
-        Qwxinv = np.linalg.inv(self.Qwx)
-        Qwdinv = np.linalg.inv(self.Qwd)
+        Qwxinv = np.linalg.inv(Qwx)
+        Qwdinv = np.linalg.inv(Qwd)
         Qwinv = scipy.linalg.block_diag(Qwxinv, Qwdinv)
         P0inv = Qwinv
-        Rvinv = np.linalg.inv(self.Rv)
+        Rvinv = np.linalg.inv(Rv)
 
         # Get the augmented models.
-        fxud = mpc.getCasadiFunc(self._aug_ss_model(),
-                                [self.Nx + self.Nd, self.Nu], ["x", "u"])
-        hx = mpc.getCasadiFunc(self._mhe_hx_model(),
-                                [self.Nx + self.Nd], ["x"])
-        # Return the required quantities for MHE.
-        return (fxud, hx, P0inv, Qwinv, Rvinv, xprior, u, y)
+        fxud = mpc.getCasadiFunc(self._augFxudModel(), [Nx + Nd, Nu], 
+                                 ["x", "u"])
+        hx = mpc.getCasadiFunc(self._augHxdModel(), [Nx + Nd], ["x"])
 
-    def _setup_estimator(self):
-        """ Setup MHE. """
-        (fxud, hx, P0inv,
-         Qwinv, Rvinv,
-         xprior, u, y) = self._get_mhe_models_and_matrices()
-        self.estimator = NonlinearMHEEstimator(fxu=fxud, hx=hx, 
-                                     Nmhe=self.Nmhe, 
-                                     Nx=self.Nx+self.Nd, Nu=self.Nu, Ny=self.Ny,
-                                     xprior=xprior, u=u, y=y, P0inv=P0inv, Qwinv=Qwinv, Rvinv=Rvinv)
+        # Construct the MHE estimator.
+        self.estimator = NonlinearMHEEstimator(fxu=fxud, hx=hx,
+                                     Nmhe=Nmhe, Nx=Nx+Nd, Nu=Nu, Ny=Ny,
+                                     xhatPast=xhatPast, uPast=uPast, 
+                                     yPast=yPast, P0inv=P0inv, Qwinv=Qwinv, Rvinv=Rvinv)
 
-    def _setup_regulator(self):
+    def _setupRegulator(self):
         """ Augment the system for rate of change penalty and 
         build the regulator. """
-        fxud = mpc.getCasadiFunc(self._aug_ss_model(),
-                                [self.Nx + self.Nd, self.Nu], ["x", "u"])
-        if self.guess is None:
-            init_guess = dict(x=np.concatenate((self.xs, self.ds)), u=self.us)
-        else:
-            xguess = [np.concatenate((self.xs, self.ds))]
-            uguess = self.guess['u']
-            for t in range(uguess.shape[0]):
-                xguess_tplus = np.asarray(fxud(xguess[-1], uguess[t, :]))[:, 0]
-                xguess.append(xguess_tplus)
-            xguess = np.asarray(xguess)
-            init_guess = dict(x=xguess, u=uguess)
-        init_empc_pars = self.opt_pars[0:self.Nmpc, :]
+
+        # Get some numbers.
+        xs, ds, us, ys = self.xs, self.ds, self.us, self.ys
+        Nx, Nu, Nd, Np, Nmpc = self.Nx, self.Nu, self.Nd, self.Np, self.Nmpc
+
+        # Get casadi funcs for the model and stage cost.
+        fxud = mpc.getCasadiFunc(self._augFxudModel(), [Nx + Nd, Nu], 
+                                 ["x", "u"])
         lxup = lambda x, u, p: self.lyup(self.hx(x), u, p)
+        lxup = mpc.getCasadiFunc(lxup, [Nx, Nu, Np], ["x", "u", "p"])
+
+        # Get initial guess.
+        t0Guess = dict(x=np.concatenate((xs, ds)), u=us)
+        t0EmpcPars = self.empcPars[:Nmpc, :]
+        
+        # Construct the EMPC regulator.
         self.regulator  = NonlinearEMPCRegulator(fxu=fxud, lxup=lxup,
-                                                 Nx=self.Nx + self.Nd,
-                                                 Nu=self.Nu, Np=self.Np,
-                                                 Nmpc=self.Nmpc,
-                                                 ulb=self.ulb, uub=self.uub,
-                                                 init_guess=init_guess,
-                                                 init_empc_pars=init_empc_pars)
+                                                 Nx=Nx+Nd, Nu=Nu, Np=Np,
+                                                 Nmpc=Nmpc, ulb=self.ulb, 
+                                                 uub=self.uub, t0Guess=t0guess,
+                                                 t0EmpPars=t0EmpcPars)
 
     def control_law(self, simt, y):
         """
@@ -473,13 +481,23 @@ class NonlinearEMPCController:
         and compute the current control input.
         """
         tstart = time.time()
+
+        # Get state estimate.
         xdhat =  self.estimator.solve(y, self.uprev)
+
+        # Get EMPC pars.
         mpc_N = slice(simt, simt + self.Nmpc, 1)
         empc_pars = self.opt_pars[mpc_N, :]
+
+        # Solve nonlinear regulator.
         useq = self.regulator.solve(xdhat, empc_pars)
         self.uprev = useq[:1, :].T
+
+        # Get compuatation time and save.
         tend = time.time()
-        self.computation_times.append(tend - tstart)
+        self.computationTimes.append(tend - tstart)
+        
+        # Return control input.
         return self.uprev
 
 class TwoTierRTOMPController:
