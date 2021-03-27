@@ -757,149 +757,188 @@ class KalmanFilter:
         self.xhatPred.append(xhatPred)
         self.y.append(y)
         self.uprev.append(uprev)
-        
+
 class TargetSelector:
 
-    def __init__(self, *, A, B, C, H, Bd, Cd, usp, 
-                 Rs, Qs, ulb, uub, ylb=None, yub=None):
-        """Class to construct and solve the following 
-        target selector problem.
-        min_(xs, us) |us - usp|^2_Rs + |C*xs + Cd*dhats - ysp|^2_Qs
-        s.t [I-A, -B;HC, 0][xs;us] = [Bd*dhats;H*(ysp-Cd*dhats)]
-            F*C*xs <= f - F*Cd*dhats
-            E*us <= e
+    def __init__(self, *, A, B, C, H, Bd, Cd,
+                          Rs, Qs, ulb, uub, ylb=None, yub=None):
+        """ Class to construct and solve the following 
+            target selector problem.
 
-        Construct the class and use the method "solve" 
+        min_(xs, us) 1/2*(|us - usp|^2_Rs + |C*xs + Cd*dhats - ysp|^2_Qs)
+
+        s.t [I-A, -B;HC, 0][xs;us] = [Bd*dhats;H*(ysp-Cd*dhats)]
+            ylb - Cd*dhat <= C*xs <= yub - Cd*dhat
+            ulb <= us <= uub
+
+        Construct the class and use the method "solve"
         for obtaining the solution.
         
         An instance of this class will also
-        store the history of the solutions obtained.  
+        store the history of the solutions obtained.
         """
         
-        # Store the matrices.
+        # Model matrices.
         self.A = A
         self.B = B
         self.C = C
-        self.H = H
+
+        # Disturbance model.
         self.Bd = Bd
         self.Cd = Cd
-        self.Rs = Rs
+
+        # QP matrices.
+        self.H = H
         self.Qs = Qs
+        self.Rs = Rs
 
         # Get the store the sizes.
-        self.Nx = A.shape[0]
-        self.Nu = B.shape[1]
-        self.Ny = C.shape[0]
-        self.Nd = Bd.shape[1]
-        self.Nz = H.shape[0]
+        self.Nx, self.Nu = B.shape
+        self.Ny, self.Nd = Cd.shape
+        self.Nrsp = H.shape[0]
 
-        # Data for the class.
-        self.usp = usp
-        self.ysp = []
-        self.dhats = []
-        self.xs = []
-        self.us = []
+        # Setup lists to store data
+        self.usp, self.ysp, self.dhat = [], [], []
+        self.xs, self.us = [], []
 
         # Get the input and output constraints.
-        self.ulb = ulb
-        self.uub = uub
-        self.ylb = ylb
-        self.yub = yub
+        self.ulb, self.uub = ulb, uub
+        self.ylb, self.yub = ylb, yub
 
         # Setup the fixed matrices.
-        self._setup_fixed_matrices()
+        self._setupFixedMatrices()
     
-    def _setup_fixed_matrices(self):
-        """ Setup the matrices which don't change in 
+    def _setupFixedMatrices(self):
+        """ Setup the matrices which don't change in
             an on-line simulation.
-            """
-        Nx = self.Nx
-        Nu = self.Nu
-        Ny = self.Ny
-        Nz = self.Nz
 
-        # Get the (e, E, f, F, G) matrices.
-        # Also get the h matrix if we have only input constraints.
-        E = np.concatenate((np.eye(Nu), -np.eye(Nu)), axis=0)
-        self.F = np.concatenate((np.eye(Ny), -np.eye(Ny)), axis=0)
-        if self.ylb is not None and self.yub is not None:
-            G1 = np.concatenate((self.F @ self.C, np.zeros((2*Ny, Nu))), axis=1)
-            G2 = np.concatenate((np.zeros((2*Nu, Nx)), E), axis=1)
-            self.G = np.concatenate((G1, G2), axis=0)
-            self.f = np.concatenate((self.yub, -self.ylb), axis=0)
-            self.e = np.concatenate((self.uub, -self.ulb), axis=0)
-            self.h = None
-        else:
-            self.G = np.concatenate((np.zeros((2*Nu, Nx)), E), axis=1)
-            self.h = np.concatenate((self.uub, -self.ulb), axis=0)
+            1. Equality constraints.
+                Aeq = [I-A, -B;HC, 0], Beq = [0, Bd;H, -H*Cd]
+                Aeq = Beq*[ysp;dhat]
+
+            2. Inequality constraints.
+                Aineq = [C, 0;-C, 0;0, I_u;0, -I_u]*[xs;us]
+                Bineq = [yub;-ylb;uub;-ulb] + [-Cd;Cd;0;0]*dhat
+                Aineq <= Bineq
+
+            3. Penalty matrices.
+                P = [C'QsC, 0;0, Rs]
+                q = [0, -C'Qs, C'*Qs*Cd;-Rs, 0, 0][usp;ysp;dhat]
+              Objective: (1/2)[xs;us]'P[xs;us] + q'*[xs;us]
+
+            """
+        
+        # Get sizes.
+        Nx, Nu, Ny, Nd, Nrsp = self.Nx, self.Nu, self.Ny, self.Nd, self.Nrsp
+
+        # Get matrices.
+        A, B, C, Bd, Cd = self.A, self.B, self.C, self.Bd, self.Cd
+        H, Qs, Rs = self.H, self.Qs, self.Rs
+
+        # Get constraints.
+        ulb, uub = self.ulb, self.uub
+        ylb, yub = self.ylb, self.yub
 
         # Get the equality constraint matrices.
-        A11 = np.eye(Nx) - self.A
-        A12 = -self.B
-        A21 = self.H @ self.C 
-        A22 = np.zeros((Nz, Nu))
-        tA1 = np.concatenate((A11, A12), axis=1)
-        tA2 = np.concatenate((A21, A22), axis=1)
-        self.tA = np.concatenate((tA1, tA2), axis=0)
-        b11 = np.zeros((Nx, Ny))
-        b12 = self.Bd
-        b21 = self.H
-        b22 = -(self.H @ self.Cd)
-        tb1 = np.concatenate((b11, b12), axis=1)
-        tb2 = np.concatenate((b21, b22), axis=1)
-        self.tb = np.concatenate((tb1, tb2), axis=0)
+        # Get Aeq.
+        Aeq11, Aeq12 = np.eye(Nx) - A, -B
+        Aeq21, Aeq22 = H @ C, np.zeros((Nrsp, Nu))
+        Aeq1 = np.concatenate((Aeq11, Aeq12), axis=1)
+        Aeq2 = np.concatenate((Aeq21, Aeq22), axis=1)
+        Aeq = np.concatenate((Aeq1, Aeq2), axis=0)
 
-        # Get the penalty matrix P.
-        P11 = self.C.T @ (self.Qs @ self.C)
-        P22 = self.Rs
-        P1 = np.concatenate((P11, np.zeros((self.Nx, self.Nu))), axis=1)
-        P2 = np.concatenate((np.zeros((self.Nu, self.Nx)), P22), axis=1)
-        self.P = np.concatenate((P1, P2), axis=0)
+        # Get Beq.
+        Beq11, Beq12 = np.zeros((Nx, Ny)), Bd
+        Beq21, Beq22 = H, -(H @ Cd)
+        Beq1 = np.concatenate((Beq11, Beq12), axis=1)
+        Beq2 = np.concatenate((Beq21, Beq22), axis=1)
+        Beq = np.concatenate((Beq1, Beq2))
+
+        # Get the inequality constraints.
+        Auineq = np.concatenate((np.eye(Nu), -np.eye(Nu)))
+        Ayineq = np.concatenate((C, -C))
+
+        # If both input/output constraints.
+        if ylb is not None and yub is not None:
+            
+            # Get Aineq.
+            Aineq1 = np.concatenate((Ayineq, np.zeros((2*Ny, Nu))), axis=1)
+            Aineq2 = np.concatenate((np.zeros((2*Nu, Nx)), Auineq), axis=1)
+            Aineq = np.concatenate((Aineq1, Aineq2))
+
+            # Get Bineq1 and Bineq2.
+            Bineq1 = np.concatenate((yub, -ylb, uub, -ulb))
+            Bineq2 = np.concatenate((-Cd, Cd, np.zeros((2*Nu, Nd))))
+
+        else: # If only input constraints.
+            
+            # Get Aineq.
+            Aineq = np.concatenate((np.zeros((2*Nu, Nx)), Auineq), axis=1)
+
+            # Get Bineq1 and Bineq2.
+            Bineq1 = np.concatenate((uub, -ulb), axis=0)
+            Bineq2 = np.zeros((2*Nu, Nd))
+
+        # Get the penalty matrices.
+        # Get P.
+        P11, P22 = C.T @ (Qs @ C), Rs
+        P = scipy.linalg.block_diag(P11, P22)
         
-    def _setup_changing_matrices(self, ysp, dhats):
+        # Get q.
+        q11, q12, q13 = np.zeros((Nx, Ny)), -(C.T @ Qs), C.T @ (Qs @ Cd)
+        q21, q22, q23 = -Rs, np.zeros((Nu, Ny)), np.zeros((Nu, Nd))
+        q1 = np.concatenate((q11, q12, q13), axis=1)
+        q2 = np.concatenate((q21, q22, q23), axis=1)
+        q = np.concatenate((q1, q2))
+
+        # Save all matrices.
+        self.Aeq, self.Beq, self.Aineq = Aeq, Beq, Aineq
+        self.Bineq1, self.Bineq2 = Bineq1, Bineq2
+        self.P, self.q = P, q
+
+    def _getQPMatrices(self, usp, ysp, dhat):
         """ Get the matrices which change in real-time."""
-        # Get the q
-        q1 = self.C.T @ (self.Qs @ (ysp - self.Cd @ dhats))
-        q2 = self.Rs @ self.usp
-        q = np.concatenate((-q1, -q2), axis=0)
 
-        # Get the h.
-        if self.h is None: 
-            h1 = np.concatenate((self.yub, -self.ylb), axis=0)
-            h1 = h1 - self.F @ (self.Cd @ dhats)
-            h2 = np.concatenate((self.uub, -self.ulb), axis=0)
-            h = np.concatenate((h1, h2), axis=0)
-        else:
-            h = self.h
+        # Get Equality constraint.
+        Aeq = self.Aeq
+        Beq = self.Beq @ np.concatenate((ysp, dhat), axis=0)
 
-        # Get the b.
-        b = self.tb @ np.concatenate((ysp, dhats), axis=0)
+        # Get Inequality constraint.
+        Aineq = self.Aineq
+        Bineq = self.Bineq1 + self.Bineq2 @ dhat
+        
+        # Get penalty matrices.
+        P = self.P
+        q = self.q @ np.concatenate((usp, ysp, dhat), axis=0)
 
-        # Return.
-        return (q, h, b)
+        # Return (P, q, Aeq, Beq, Aineq, Bineq)
+        return (P, q, Aineq, Bineq, Aeq, Beq)
 
-    def solve(self, ysp, dhats):
+    def solve(self, usp, ysp, dhat):
         "Solve the target selector QP, output is the tuple (xs, us)."
 
         # Get the matrices for the QP which depend of ysp and dhat
-        (q, h, b) = self._setup_changing_matrices(ysp, dhats)
+        qpMatrices = self._getQPMatrices(usp, ysp, dhat)
+
         # Solve and save data.
-        solution = cvx.solvers.qp(*array_to_matrix(self.P, q, self.G, 
-                                                   h, self.tA, b))
+        solution = cvx.solvers.qp(*array_to_matrix(qpMatrices))
+
+        # Split solution.
         (xs, us) = np.split(np.asarray(solution['x']), [self.Nx])
+        
         # Save Data.
-        self._save_data(xs, us, ysp, dhats)
+        self._saveData(xs, us, ysp, dhat)
 
         # Return the solution.
         return (xs, us)
 
-    def _save_data(self, xs, us, ysp, dhats):
+    def _saveData(self, xs, us, ysp, dhat):
         """ Save the state estimates,
             Can be used for plotting later."""
         self.xs.append(xs)
         self.us.append(us)
         self.ysp.append(ysp)
-        self.dhats.append(dhats)
+        self.dhat.append(dhat)
 
 class DenseQPRegulator:
     """ Class to construct and solve the regulator QP
