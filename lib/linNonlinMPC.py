@@ -921,69 +921,68 @@ class TargetSelector:
         qpMatrices = self._getQPMatrices(usp, ysp, dhat)
 
         # Solve and save data.
-        solution = cvx.solvers.qp(*array_to_matrix(qpMatrices))
+        solution = cvx.solvers.qp(*array_to_matrix(*qpMatrices))
 
         # Split solution.
         (xs, us) = np.split(np.asarray(solution['x']), [self.Nx])
         
         # Save Data.
-        self._saveData(xs, us, ysp, dhat)
+        self._saveData(xs, us, usp, ysp, dhat)
 
         # Return the solution.
         return (xs, us)
 
-    def _saveData(self, xs, us, ysp, dhat):
+    def _saveData(self, xs, us, usp, ysp, dhat):
         """ Save the state estimates,
             Can be used for plotting later."""
         self.xs.append(xs)
         self.us.append(us)
+        self.usp.append(usp)
         self.ysp.append(ysp)
         self.dhat.append(dhat)
 
 class DenseQPRegulator:
-    """ Class to construct and solve the regulator QP
-        using the dense formulation. 
+    """ Class to construct and solve the linear MPC regulator QP
+        using a dense QP formulation.
 
         The problem:
-        V(x0, \mathbf{u}) = (1/2) \sum_{k=0}^{N-1} (x(k)'Qx(k) + u(k)'Ru(k) + 2x(k)'Mu(k)) + (1/2)x(N)'Pfx(N)
+
+        V(x0, \mathbf{u}) = (1/2) \sum_{k=0}^{N-1} [x(k)'Qx(k) + u(k)'Ru(k) + 2x(k)'Mu(k)] + (1/2)x(N)'Pfx(N)
+        
         subject to:
             x(k+1) = Ax(k) + Bu(k)
             ulb <= u(k) <= uub
-            Su'x(N) == 0
 
         This class eliminates all the states
         from the set of decision variables and 
         solves a dense formulation of the QP. 
-        This formulation takes polynomial complexity 
-        in the state, input, and horizon length dimensions 
-        to solve the QP in real-time.
     """
     def __init__(self, *, A, B, Q, R, M, N, ulb, uub):
 
-        # Set attributes.
-        self.A = A
-        self.B = B
-        self.Q = Q
-        self.R = R
-        self.M = M
+        # Model.
+        self.A, self.B = A, B
+
+        # Penalty matrices.
+        self.Q, self.R, self.M = Q, R, M
+
+        # Horizon length.
         self.N = N
-        self.ulb = ulb
-        self.uub = uub
+
+        # Input constraints.
+        self.ulb, self.uub = ulb, uub
 
         # Set sizes.
-        self.Nx = A.shape[0]
-        self.Nu = B.shape[1]
+        self.Nx, self.Nu = B.shape
 
         # Get the LQR gain, only used for reparameterization for the dense QP.
-        (self.Krep, self.Pf) = dlqr(A, B, Q, R, M)
+        self.Krep, self.Pf = dlqr(A, B, Q, R, M)
 
-        # First get the terminal equality constraint, and the cost-to-go.
+        # Reparametrie QP if needed and then setup QP matrices.
         self._reparameterize()
-        self._setup_fixed_matrices()
+        self._setupFixedMatrices()
 
         # Create lists to save data.
-        self.x0 = []
-        self.useq = []
+        self.x0, self.useq = [], []
 
     def _reparameterize(self):
         """
@@ -993,36 +992,48 @@ class DenseQPRegulator:
         Pf is the solution of the Riccati Eqn using the 
         new parametrized matrices. 
         """
-        (eigvals, _) = np.linalg.eig(self.A)
+        A, B, Q, R, M, Krep = self.A, self.B, self.Q, self.R, self.M, self.Krep
+        (eigvals, _) = np.linalg.eig(A)
         if any(np.absolute(eigvals)>=1.):
-            self.A = self.A + self.B @ self.Krep
-            self.Q = self.Q + self.Krep.T @ (self.R @ self.Krep)
-            self.Q = self.Q + self.M @ self.Krep + self.Krep.T @ self.M.T
-            self.M = self.Krep.T @ self.R + self.M
-            self.reparameterize = True
+            self.A = A + B @ Krep
+            self.Q = Q + Krep.T @ (R @ Krep) + M @ Krep + Krep.T @ M.T
+            self.M = Krep.T @ R + M
+            self.reParamet = True
         else:
-            self.reparameterize = False 
+            self.reParamet = False
 
-    def _setup_fixed_matrices(self):
+    def _setupFixedMatrices(self):
         """" Setup the fixed matrices which don't change in 
              real-time.
+            
              Finally the QP should be in this format.
-             min_x  (1/2)x'Px + q'x 
-             s.t     Gx <= h
-                     Ax = b
+             min_x  (1/2)x'*P*x + q'*x
+             s.t     Aineq*x <= Bineq
+                     Aeq*x = beq
+             
+             in which, x = [u(0), u(1), ..., u(N-1)]
         """
-        (self.tA, self.tB) = self._get_tA_tB()
-        (tQ, tR, tM, self.tE, self.tK) = self._get_tQ_tR_tM_tE_tK()
-        (self.P, self.tq) = self._get_P_tq(self.tA, self.tB, tQ, tR, tM)
-        self.G = self._getG(self.tB, self.tE, self.tK)
+
+        # Get penalty matrices.
+        tA, tB = self._get_tA_tB()
+        tQ, tR, tM, tK = self._get_tQ_tR_tM_tK()
+        P, q = self._getPq(tA, tB, tQ, tR, tM)
+
+        # Get inequality matrices.
+        Aineq, Bineq1, Bineq2 = self._getAineqBineq(tA, tB, tK)
+
+        # Assign computed matrices to attributes.
+        self.P, self.q = P, q
+        self.Aineq, self.Bineq1, self.Bineq2 = Aineq, Bineq1, Bineq2
+        self.tA, self.tB, self.tK = tA, tB, tK
 
     def _get_tA_tB(self):
         """ Get the Atilde and Btilde.
-        N is the number of state outputs is asked for. 
+            N is the number of state outputs is asked for. 
         
-        x = tA*x0 + tB*u
-        x = (N+1)n, u=Nm
-        tA = (N+1)n*n, tB = (N+1)n*Nm
+        xseq = tA*x0 + tB*useq
+        xseq = (N+1)*Nx, useq = N*Nu
+        tA = [(N+1)*Nx]*Nx, tB = [(N+1)*Nx]*[N*Nu]
 
         tA = [I;
               A;
@@ -1031,88 +1042,157 @@ class DenseQPRegulator:
               A^N]
         tB = [0, 0, 0, ..;
               B, 0, 0, ...;
-              AB, B, 0, ...; 
+              AB, B, 0, ...;
               ...;
               A^(N-1)B, A^(N-2)B, ..., B]
         """
-        tA = np.concatenate([np.linalg.matrix_power(self.A, i) 
-                            for i in range(self.N+1)])
-        tB = np.concatenate([self._get_tB_row(i) for i in range(self.N+1)])
+
+        # Extract attributes.
+        A, N = self.A, self.N
+
+        # Get tA.
+        tA = np.concatenate([np.linalg.matrix_power(A, i) for i in range(N+1)])
+
+        # Get tB.
+        tB = np.concatenate([self._get_tBRow(i) for i in range(N+1)])
+
+        # Return.
         return (tA, tB)
     
-    def _get_tB_row(self, i):
-        """ Returns the ith row of tB."""
-        (Nx, Nu) = self.B.shape
-        tBi = [np.linalg.matrix_power(self.A, i-j-1) @ self.B 
-                if j<i 
-                else np.zeros((Nx, Nu)) 
-                for j in range(self.N)]
-        return np.concatenate(tBi, axis=1)
+    def _get_tBRow(self, i):
+        """ Returns the ith row of tB. """
 
-    def _get_tQ_tR_tM_tE_tK(self):
+        # Extract attributes.
+        A, B, N = self.A, self.B, self.N
+        (Nx, Nu) = B.shape
+        
+        # Get tBi.
+        tBi = [np.linalg.matrix_power(A, i-j-1) @ B 
+                if j<i 
+                else np.zeros((Nx, Nu))
+                for j in range(N)]
+        tBi = np.concatenate(tBi, axis=1)
+        
+        # Return.
+        return tBi
+
+    def _get_tQ_tR_tM_tK(self):
         """ Get the block diagonal matrices for dense QP. 
+
         tQ = [Q, 0, 0, ...
               0, Q, 0, ...
               0, 0, Q, ...
               ...
               0, 0, 0, ..., Pf]
+
         tR = [R, 0, 0, ...
               0, R, 0, ...
               0, 0, R, ...
               ...
               0, 0, 0, ... R]
+
         tM = [M, 0, 0, ...
               0, M, 0, ...
               0, 0, M, ...
               ...
               0, 0, 0, ..., M
               0, 0, 0, ......]
+
         tK = [K, 0, 0, ......,
               0, K, 0, ......,
               0, 0, K, 0, ...,
               ...............,
               0, 0, 0, ......K]
-        """
-        tQ = scipy.linalg.block_diag(*[self.Q if i<self.N else self.Pf
-                                    for i in range(self.N+1)])
-        tR = scipy.linalg.block_diag(*[self.R for _ in range(self.N)])
-        tM = scipy.linalg.block_diag(*[self.M for _ in range(self.N)])
-        tM = np.concatenate((tM, np.zeros((self.Nx, self.N*self.Nu))), axis=0)
-        E = np.concatenate((np.eye(self.Nu), -np.eye(self.Nu)), axis=0)
-        tE = scipy.linalg.block_diag(*[E for _ in range(self.N)])
-        if self.reparameterize:
-            tK = scipy.linalg.block_diag(*[self.Krep for _ in range(self.N)])
-        else:
-            tK = None
-        return (tQ, tR, tM, tE, tK) 
 
-    def _get_P_tq(self, tA, tB, tQ, tR, tM):
+        Convert 
+
+        V = (1/2) \sum_{k=0}^{N-1} [x(k)'Qx(k) + u(k)'Ru(k) + 2x(k)'Mu(k)] 
+        V += (1/2)x(N)'Pfx(N)
+        
+
+        to 
+
+        V = (1/2)*[\xseq'*tQ*\xseq + \useq'*tR*\useq + 2*\xseq'*tM*\useq]
+
+        in which, \xseq = [x(0), x(1), x(2), ...., x(N)]
+                  \useq = [u(0), u(1), u(2), ...., u(N-1)]
+
+        """
+
+        # Extract attributes.
+        Q, R, M, Krep, Pf = self.Q, self.R, self.M, self.Krep, self.Pf
+        Nx, Nu, N = self.Nx, self.Nu, self.N
+
+        # Construct matrices.
+        # tQ
+        tQ = scipy.linalg.block_diag(*[Q if i<N else Pf for i in range(N+1)])
+
+        # tR
+        tR = scipy.linalg.block_diag(*[R for _ in range(N)])
+
+        # tM
+        tM = scipy.linalg.block_diag(*[M for _ in range(N)])
+        tM = np.concatenate((tM, np.zeros((Nx, N*Nu))), axis=0)
+
+        # tK.
+        tK = scipy.linalg.block_diag(*[Krep for _ in range(N)])
+
+        # Return.
+        return (tQ, tR, tM, tK)
+
+    def _getPq(self, tA, tB, tQ, tR, tM):
         """ Get the penalites for solving the QP.
             P = tB'*tQ*tB + tR + tB'*tM + tM'*tB 
             tq = (tB'*Q + M)*tA
         """
+
+        # Get P and q matrices. 
         P = tB.T @ (tQ @ tB) + tR + tB.T @ tM + tM.T @ tB
-        tq = (tB.T @ tQ  + tM.T) @ tA
-        return (P, tq) 
+        q = (tB.T @ tQ  + tM.T) @ tA
 
-    def _getG(self, tB, tE, tK):
-        """ Get the inequality matrix for the dense QP."""
-        if self.reparameterize:
-            G = tE @ (tK @ tB[0:self.N*self.Nx, :]) + tE
+        # Return.
+        return (P, q)
+
+    def _getAineqBineq(self, tA, tB, tK):
+        """ Get the inequality matrices. """
+
+        # Extract some parameters.
+        Nx, Nu, N = self.Nx, self.Nu, self.N
+        ulb, uub = self.ulb, self.uub
+        Krep = self.Krep
+
+        # Aineq.
+        Auineq = np.concatenate((np.eye(Nu), -np.eye(Nu)), axis=0)
+        Auineq = scipy.linalg.block_diag(*[Auineq for _ in range(N)])
+        if self.reParamet:
+            Aineq = Auineq @ (tK @ tB[:N*Nx, :]) + Auineq
+
+        # Get Bineq1 and Bineq2.
+        Bineq1 = np.concatenate((uub, -ulb), axis=0)
+        Bineq1 = np.concatenate([Bineq1 for _ in range(N)])
+
+        # If the QP is a reparametrized QP, get concatenations of K as well.
+        if self.reParamet:
+            Bineq2 = -Auineq @ (tK @ tA[:N*Nx, :])
         else:
-            G = tE
-        return G
+            Bineq2 = np.zeros((2*Nu*N, Nx))
 
-    def _get_h(self, x0):
+        # Return inequality matrices. 
+        return (Aineq, Bineq1, Bineq2)
+
+    def _getQPMatrices(self, x0):
         """ Get the RHS of the equality constraint."""
-        # Get te.
-        e = np.concatenate((self.uub, -self.ulb), axis=0)
-        te = np.concatenate([e for _ in range(self.N)])
-        if self.reparameterize:
-            h = te - self.tE @ (self.tK @ (self.tA[0:self.N*self.Nx, :] @ x0)) 
-        else:
-            h = te 
-        return h
+
+        # Get Inequality constraints.
+        Aineq = self.Aineq
+        Bineq = self.Bineq1 + self.Bineq2 @ x0
+
+        # Get penalty matrices.
+        P = self.P
+        q = self.q @ x0
+
+        # Return QP matrices.
+        return (P, q, Aineq, Bineq)
 
     def solve(self, x0):
         """Setup and the solve the dense QP, output is 
@@ -1120,21 +1200,31 @@ class DenseQPRegulator:
         If the problem is reparametrized, go back to original 
         input variable. 
         """
-        # Update the RHS of the constraint, becuase they change.
-        h = self._get_h(x0)
-        solution = cvx.solvers.qp(*array_to_matrix(self.P, self.tq @ x0, 
-                                                   self.G, h))
-        # Extract the inputs.
+        # Get QP matrices.
+        qpMatrices = self._getQPMatrices(x0)
+
+        # Solve.
+        solution = cvx.solvers.qp(*array_to_matrix(qpMatrices))
+        
+        # Extract input sequence.
         useq = np.asarray(solution['x'])
-        if self.reparameterize:
-            useq = self.tK @ ((self.tA[:self.N*self.Nx, :] @ x0) + 
-                              (self.tB[:self.N*self.Nx, :] @ useq)) + useq
-        self._save_data(x0, useq)
-        # Return the optimized input sequence.
+        if self.reParamet:
+            
+            # Extract attributes.
+            tA, tB, tK = self.tA, self.tB, self.tK
+            N, Nx = self.N, self.Nx
+
+            # Get useq in original space.
+            useq = useq + tK @ (tA[:N*Nx, :] @ x0 + tB[:N*Nx, :] @ useq)
+
+        # Save data.
+        self._saveData(x0, useq)
+
+        # Return optimal input sequence.
         return useq
 
-    def _save_data(self, x0, useq):
-        # Save data. 
+    def _saveData(self, x0, useq):
+        # Save data.
         self.x0.append(x0)
         self.useq.append(useq)
 
