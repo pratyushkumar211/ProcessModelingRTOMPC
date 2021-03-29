@@ -758,6 +758,51 @@ class KalmanFilter:
         self.y.append(y)
         self.uprev.append(uprev)
 
+class ExtendedKalmanFilter:
+
+    def __init__(self, *, A, B, C, Qw, Rv, xPrior):
+        """ Class to construct and perform state estimation
+            using Kalman Filtering.
+        """
+
+        # Store the matrices.
+        self.A = A
+        self.B = B
+        self.C = C
+        self.Qw = Qw
+        self.Rv = Rv
+        
+        # Compute the kalman filter gain.
+        self._computeFilter()
+        
+        # Create lists for saving data. 
+        self.xhat = [xPrior]
+        self.xhatPred = []
+        self.y = []
+        self.uprev = []
+
+    def _computeFilter(self):
+        "Solve the DARE to compute the optimal L. "
+        (self.L, _) = dlqe(self.A, self.C, self.Qw, self.Rv)
+
+    def solve(self, y, uprev):
+        """ Take a new measurement and do 
+            the prediction and filtering steps."""
+        xhat = self.xhat[-1]
+        xhatPred = self.A @ xhat + self.B @ uprev
+        xhat = xhatPred + self.L @ (y - self.C @ xhatPred)
+        # Save data.
+        self._saveData(xhat, xhatPred, y, uprev)
+        return xhat
+        
+    def _saveData(self, xhat, xhatPred, y, uprev):
+        """ Save the state estimates,
+            Can be used for plotting later."""
+        self.xhat.append(xhat)
+        self.xhatPred.append(xhatPred)
+        self.y.append(y)
+        self.uprev.append(uprev)
+
 class TargetSelector:
 
     def __init__(self, *, A, B, C, H, Bd, Cd,
@@ -991,7 +1036,7 @@ class DenseQPRegulator:
 
     def _updateModel(self, A, B):
         """ Update linear model. """
-        
+
         self.A, self.B = A, B
         Q, R, M = self.Q, self.R, self.M
         self.Krep, self.Pf = dlqr(A, B, Q, R, M)
