@@ -808,6 +808,11 @@ class TargetSelector:
         # Setup the fixed matrices.
         self._setupFixedMatrices()
     
+    def _updateModel(self, A, B, C):
+        """ Update linear model. """
+        self.A, self.B, self.C = A, B, C
+        self._setupFixedMatrices()
+
     def _setupFixedMatrices(self):
         """ Setup the matrices which don't change in
             an on-line simulation.
@@ -983,6 +988,15 @@ class DenseQPRegulator:
 
         # Create lists to save data.
         self.x0, self.useq = [], []
+
+    def _updateModel(self, A, B):
+        """ Update linear model. """
+        
+        self.A, self.B = A, B
+        Q, R, M = self.Q, self.R, self.M
+        self.Krep, self.Pf = dlqr(A, B, Q, R, M)
+        self._reparameterize()
+        self._setupFixedMatrices()
 
     def _reparameterize(self):
         """
