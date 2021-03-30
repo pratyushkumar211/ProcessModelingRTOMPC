@@ -106,67 +106,83 @@ def get_mhe_noise_tuning(model_type, model_par):
 def main():
     """ Main function to be executed. """
     # Load data.
-    tworeac_parameters_nonlin = PickleTool.load(filename=
-                                            'tworeac_parameters_nonlin.pickle',
-                                            type='read')
-    tworeac_kooptrain_nonlin = PickleTool.load(filename=
-                                            'tworeac_kooptrain_nonlin.pickle',
-                                            type='read')
+    tworeac_parameters = PickleTool.load(filename='tworeac_parameters.pickle',
+                                         type='read')
+    parameters = tworeac_parameters['parameters']
+    tworeac_bbtrain = PickleTool.load(filename='tworeac_bbtrain.pickle',
+                                      type='read')
+    tworeac_kooptrain = PickleTool.load(filename='tworeac_kooptrain.pickle',
+                                      type='read')
 
-    # Get EMPC simulation parameters.
-    parameters = tworeac_parameters_nonlin['parameters']
-    cost_pars = get_economic_opt_pars(Delta=parameters['Delta'])
-    Nsim = cost_pars.shape[0]
-    disturbances = np.repeat(parameters['ps'][np.newaxis, :], Nsim)
+    # Get the black-box model parameters and function handles.
+    bb_pars, blackb_fxu, blackb_hx = get_bbpars_fxu_hx(train=tworeac_bbtrain, 
+                                                       parameters=parameters) 
+
+    # Get the Koopman model parameters and function handles.
+    koop_pars, koop_fxu, koop_hx = get_kooppars_fxu_hx(train=tworeac_kooptrain, 
+                                                       parameters=parameters)
+    xkp0 = get_koopman_xkp0(tworeac_kooptrain, parameters)
+
+    # Get the plant function handle.
+    Delta = parameters['Delta']
+    ps = parameters['ps']
+    plant_fxu = lambda x, u: plant_ode(x, u, ps, parameters)
+    plant_fxu = c2dNonlin(plant_fxu, Delta)
+    plant_hx = lambda x: measurement(x, parameters)
+
+    # Get the grey-box function handle.
+    gb_fxu = lambda x, u: greybox_ode(x, u, ps, parameters)
+    gb_fxu = c2dNonlin(gb_fxu, Delta)
+    gb_pars = copy.deepcopy(parameters)
+    gb_pars['Nx'] = len(parameters['gb_indices'])
+
+    # Lists to loop over for the three problems.  
+    model_types = ['plant', 'grey-box', 'black-box', 'Koopman']
+    fxu_list = [plant_fxu, gb_fxu, blackb_fxu, koop_fxu]
+    hx_list = [plant_hx, plant_hx, blackb_hx, koop_hx]
+    par_list = [parameters, gb_pars, bb_pars, koop_pars]
+    Nps = [None, None, bb_pars['Np'], koop_pars['Np']]
     
-    # Get parameters for the hybrid function and check.
-    #hybrid_pars = get_hybrid_pars_check_func(parameters=parameters,
-    #                training_data=tworeac_parameters_nonlin['training_data'],
-    #                train=tworeac_train_nonlin)
+    # Lists to store solutions.
+    ulist, xlist = [], []
 
-    # Get parameters for the EMPC nonlin function and check.
-    koopman_pars = get_koopman_pars_check_func(parameters=parameters,
-                    training_data=tworeac_parameters_nonlin['training_data'],
-                    train=tworeac_kooptrain_nonlin)
+    # Loop over the models.
+    for (model_type, fxu, hx, model_pars, Np) in zip(model_types, fxu_list, 
+                                                     hx_list, par_list, Nps):
 
-    # Run simulations for different model.
-    cl_data_list, avg_stage_costs_list, openloop_sols = [], [], []
-    model_odes = [plant_ode, greybox_ode, koopman_func]
-    model_pars = [parameters, parameters, koopman_pars]
-    model_types = ['plant', 'grey-box', 'koopman']
-    regulator_guess = None
-    # Do different simulations for the different plant models.
-    for (model_ode,
-         model_par, model_type) in zip(model_odes, model_pars, model_types):
-        mhe_noise_tuning = get_mhe_noise_tuning(model_type, model_par)
-        plant = get_model(parameters=parameters, plant=True)
-        controller, hx = get_controller(model_ode, model_par, model_type,
-                                    cost_pars, mhe_noise_tuning,
-                                    regulator_guess)
-        cl_data, avg_stage_costs, openloop_sol = online_simulation(plant,
-                                         controller,
-                                         plant_lyup=controller.lyup,
-                                         Nsim=8*60, disturbances=disturbances,
-                                         stdout_filename='tworeac_empc.txt')
-        cl_data_list += [cl_data]
-        avg_stage_costs_list += [avg_stage_costs]
-        if model_type == 'koopman':
-            xseq = []
-            xkpseq = openloop_sol[1]
-            for t in range(controller.Nmpc+1):
-                xseq.append(hx(xkpseq[t, :]))
-            openloop_sol[1] = np.asarray(xseq)
-        openloop_sols += [openloop_sol]
-        if model_type == 'plant':
-            regulator_guess = dict(u=controller.regulator.useq[0],
-                                   x=controller.regulator.xseq[0])
+        # Get guess. 
+        xuguess = get_xuguess(model_type=model_type, 
+                              plant_pars=parameters, Np=Np, Nx=model_pars['Nx'])
 
-    # Save data.
-    PickleTool.save(data_object=dict(cl_data_list=cl_data_list,
-                                     cost_pars=cost_pars,
-                                     disturbances=disturbances,
-                                     avg_stage_costs=avg_stage_costs_list,
-                                     openloop_sols=openloop_sols),
-                    filename='tworeac_empc_nonlin.pickle')
+        # Update guess for the Koopman model.
+        if model_type == 'Koopman':
+            xuguess['x'] = xkp0
+
+        # Get the steady state optimum.
+        t, useq, xseq, yseq = get_openloop_sol(fxu, hx, model_pars, xuguess)
+
+        # Store. 
+        ulist += [useq]
+        if model_type != 'plant':
+            xseq = np.insert(yseq, [2], 
+                             np.nan*np.ones((yseq.shape[0], 1)), axis=1)
+        xlist += [xseq]
+
+    # Get figure.
+    t = t*Delta/60
+    legend_names = ['Plant', 'Grey-box', 'Black-box', 'Koopman']
+    legend_colors = ['b', 'g', 'dimgrey', 'm']
+    figures = TwoReacPlots.plot_xudata(t=t, xlist=xlist, ulist=ulist,
+                                        legend_names=legend_names,
+                                        legend_colors=legend_colors, 
+                                        figure_size=PAPER_FIGSIZE, 
+                                        ylabel_xcoordinate=-0.1, 
+                                        title_loc=(0.05, 0.9), 
+                                        font_size=12)
+
+    # Finally plot.
+    with PdfPages('tworeac_openloop.pdf', 'w') as pdf_file:
+        for fig in figures:
+            pdf_file.savefig(fig)
 
 main()
