@@ -760,45 +760,82 @@ class KalmanFilter:
 
 class ExtendedKalmanFilter:
 
-    def __init__(self, *, A, B, C, Qw, Rv, xPrior):
+    def __init__(self, *, fxu, hx, Qw, Rv, xPrior, PPrior):
         """ Class to construct and perform state estimation
             using Kalman Filtering.
         """
 
-        # Store the matrices.
-        self.A = A
-        self.B = B
-        self.C = C
+        # Model.
+        self.fxu, self.hx = fxu, hx
+
+        # Noise variances.
         self.Qw = Qw
         self.Rv = Rv
         
-        # Compute the kalman filter gain.
-        self._computeFilter()
-        
-        # Create lists for saving data. 
+        # Create lists for saving data.
         self.xhat = [xPrior]
+        self.covxhat = [PPrior]
         self.xhatPred = []
         self.y = []
         self.uprev = []
 
-    def _computeFilter(self):
-        "Solve the DARE to compute the optimal L. "
-        (self.L, _) = dlqe(self.A, self.C, self.Qw, self.Rv)
+    def _getA(self, xhat, uprev):
+        """ Get the dynamic model A. """
+
+        # Get the linearized model A.
+        fxu, Nx, Nu = self.fxu, self.Nx, self.Nu
+        fxu = mpc.getCasadiFunc(fxu, [Nx, Nu], ["x", "u"])
+        linModel = mpc.util.getLinearizedModel(fxu, [xhat, uprev], 
+                                               ["A", "B"])
+        A = linModel["A"]
+
+        # Return linearized A matrix.
+        return A
+
+    def _getC(self, xhatPred):
+        """ Get the dynamic model A. """
+
+        # Get the linearized model C.
+        hx, Nx = self.hx, self.Nx
+        hx = mpc.getCasadiFunc(hx, [Nx], ["x"])
+        linModel = mpc.util.getLinearizedModel(hx, [xhatPred], ["C"])
+        C = linModel["C"]
+
+        # Return linearized A matrix.
+        return C
 
     def solve(self, y, uprev):
         """ Take a new measurement and do 
             the prediction and filtering steps."""
+
+        # Get current state estimate.
         xhat = self.xhat[-1]
-        xhatPred = self.A @ xhat + self.B @ uprev
-        xhat = xhatPred + self.L @ (y - self.C @ xhatPred)
+        P, Qw, Rv = self.covxhat[-1], self.Qw, self.Rv
+
+        # Prediction step and get linear model.
+        A = self._getA(xhat, uprev)
+        xhatPred = self.fxu(xhat, uprev)
+        PPred = A @ (P @ A.T) + Qw
+
+        # Filtering step.
+        C = self._getC(xhatPred)
+        L = PPred @ (C.T @ np.linalg.inv(Rv + C @ (PPred @ C.T)))
+        xhat = xhatPred + L @ (y - self.hx(xhatPred))
+
+        # Update covariance.
+        P = PPred - L @ (C @ PPred)
+
         # Save data.
-        self._saveData(xhat, xhatPred, y, uprev)
+        self._saveData(xhat, P, xhatPred, y, uprev)
+        
+        # Return state estimate.
         return xhat
         
-    def _saveData(self, xhat, xhatPred, y, uprev):
+    def _saveData(self, xhat, P, xhatPred, y, uprev):
         """ Save the state estimates,
             Can be used for plotting later."""
         self.xhat.append(xhat)
+        self.covxhat.append(P)
         self.xhatPred.append(xhatPred)
         self.y.append(y)
         self.uprev.append(uprev)
