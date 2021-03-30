@@ -173,6 +173,4 @@ def main():
         for fig in figures:
             pdf_file.savefig(fig)
 
-
-
 main()

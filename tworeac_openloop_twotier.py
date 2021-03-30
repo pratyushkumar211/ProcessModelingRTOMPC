@@ -16,11 +16,10 @@ import casadi
 import copy
 import numpy as np
 from hybridid import PickleTool, SimData, measurement
-from linNonlinMPC import NonlinearEMPCRegulator
+from linNonlinMPC import TwoTierMPController
 from tworeac_funcs import plant_ode, greybox_ode, get_parameters
 from tworeac_funcs import cost_yup
 from economicopt import get_bbpars_fxu_hx, c2dNonlin, get_xuguess
-from economicopt import get_kooppars_fxu_hx, fnn
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from plotting_funcs import PAPER_FIGSIZE, TwoReacPlots
@@ -29,67 +28,54 @@ def get_openloop_sol(fxu, hx, model_pars, xuguess):
     """ Construct the controller object comprised of 
         EMPC regulator and MHE estimator. """
 
-    # Some sizes. 
+    # Some sizes.
     Np = 2
-    Nx, Nu = model_pars['Nx'], model_pars['Nu']
+    Nx, Nu, Ny = model_pars['Nx'], model_pars['Nu'], model_pars['Ny']
+    tSsOptFreq = 120
+    
+    # Steady state values.
+    xs = xuguess['x'] #np.array([0.01, 2, 0.01])
+    us = xuguess['u']
+    
+    # MPC Regulator parameters.
     Nmpc = 60
-
-    # Get the stage cost.
-    lxup = lambda x, u, p: cost_yup(hx(x), u, p)
-    lxup = mpc.getCasadiFunc(lxup, [Nx, Nu, Np], ["x", "u", "p"])
-
-    # Initial parameters. 
-    t0EmpcPars = np.tile(np.array([[100, 200]]), (Nmpc, 1))
-
-    # Get upper and lower bounds.
     ulb = model_pars['ulb']
     uub = model_pars['uub']
+    Q = np.eye(Nx)
+    R = 1e-2*np.eye(Nu)
+    S = 1e-2*np.eye(Nu)
 
-    # Convert fxu to casadi func.
-    fxu = mpc.getCasadiFunc(fxu, [Nx, Nu], ["x", "u"])
+    # SS Opt parameters.
+    empcPars = np.tile(np.array([[100, 200]]), (Nmpc, 1))
 
-    # Return the NN controller.
-    regulator = NonlinearEMPCRegulator(fxu=fxu, lxup=lxup, Nx=Nx, Nu=Nu, Np=Np, 
-                                       Nmpc=Nmpc, ulb=ulb, uub=uub, 
-                                       t0Guess=xuguess, 
-                                       t0EmpcPars=t0EmpcPars)
+    # Extened Kalman Filter parameters. 
+    xhatPrior = xs
+    Qw = 1e-4*np.eye(Nx)
+    Rv = 1e-4*np.eye(Ny)
+    covxPrior = Qw
+
+    # Return the Two Tier controller.
+    controller = TwoTierMPController(fxu=fxu, hx=hx, lyup=cost_yup, 
+                                     empcPars=empcPars, tSsOptFreq=tSsOptFreq,
+                                     Nx=Nx, Nu=Nu, Ny=Ny, 
+                                     xs=xs, us=us, Q=Q, R=R, S=S, ulb=ulb, 
+                                     uub=uub, Nmpc=Nmpc, xhatPrior=xhatPrior, 
+                                     covxPrior=covxPrior, Qw=Qw, Rv=Rv)
     
     # Get the open-loop solution.
-    useq = regulator.useq[0]
-    xseq = regulator.xseq[0][:-1, :]
-    yseq = []
+    useq = controller.useq[0]
+    xseq, yseq = [], []
+    xt = controller.x0[0]
     for t in range(Nmpc):
-        yseq += [hx(xseq[t, :])]
+        yseq += [hx(xt)]
+        xseq += [xt]
+        xt = fxu(xt, useq[t, :])
+    xseq = np.array(xseq)
     yseq = np.array(yseq)
     t = np.arange(0, Nmpc, 1)
 
     # Return the open-loop sol.
     return (t, useq, xseq, yseq)
-
-def get_koopman_xkp0(train, parameters):
-
-    # Get initial state.
-    Np = train['Np']
-    us = parameters['us']
-    yindices = parameters['yindices']
-    ys = parameters['xs'][yindices]
-    yz0 = np.concatenate((np.tile(ys, (Np+1, )), 
-                          np.tile(us, (Np, ))))
-
-    # Scale initial state and get the lifted state.
-    fN_weights = train['trained_weights'][-1][:-2]
-    xuyscales = train['xuyscales']
-    ymean, ystd = xuyscales['yscale']
-    umean, ustd = xuyscales['uscale']
-    yzmean = np.concatenate((np.tile(ymean, (Np+1, )), 
-                            np.tile(umean, (Np, ))))
-    yzstd = np.concatenate((np.tile(ystd, (Np+1, )), 
-                            np.tile(ustd, (Np, ))))
-    yz0 = (yz0 - yzmean)/yzstd
-    xkp0 = np.concatenate((yz0, fnn(yz0, fN_weights, 1.)))
-
-    # Return.
-    return xkp0
 
 def main():
     """ Main function to be executed. """
@@ -99,17 +85,10 @@ def main():
     parameters = tworeac_parameters['parameters']
     tworeac_bbtrain = PickleTool.load(filename='tworeac_bbtrain.pickle',
                                       type='read')
-    tworeac_kooptrain = PickleTool.load(filename='tworeac_kooptrain.pickle',
-                                      type='read')
 
     # Get the black-box model parameters and function handles.
     bb_pars, blackb_fxu, blackb_hx = get_bbpars_fxu_hx(train=tworeac_bbtrain, 
-                                                       parameters=parameters) 
-
-    # Get the Koopman model parameters and function handles.
-    koop_pars, koop_fxu, koop_hx = get_kooppars_fxu_hx(train=tworeac_kooptrain, 
                                                        parameters=parameters)
-    xkp0 = get_koopman_xkp0(tworeac_kooptrain, parameters)
 
     # Get the plant function handle.
     Delta = parameters['Delta']
@@ -118,18 +97,12 @@ def main():
     plant_fxu = c2dNonlin(plant_fxu, Delta)
     plant_hx = lambda x: measurement(x, parameters)
 
-    # Get the grey-box function handle.
-    gb_fxu = lambda x, u: greybox_ode(x, u, ps, parameters)
-    gb_fxu = c2dNonlin(gb_fxu, Delta)
-    gb_pars = copy.deepcopy(parameters)
-    gb_pars['Nx'] = len(parameters['gb_indices'])
-
     # Lists to loop over for the three problems.  
-    model_types = ['plant', 'grey-box', 'black-box', 'Koopman']
-    fxu_list = [plant_fxu, gb_fxu, blackb_fxu, koop_fxu]
-    hx_list = [plant_hx, plant_hx, blackb_hx, koop_hx]
-    par_list = [parameters, gb_pars, bb_pars, koop_pars]
-    Nps = [None, None, bb_pars['Np'], koop_pars['Np']]
+    model_types = ['plant', 'black-box']
+    fxu_list = [plant_fxu, blackb_fxu]
+    hx_list = [plant_hx, blackb_hx]
+    par_list = [parameters, bb_pars]
+    Nps = [None, bb_pars['Np']]
     
     # Lists to store solutions.
     ulist, xlist = [], []
@@ -141,10 +114,6 @@ def main():
         # Get guess. 
         xuguess = get_xuguess(model_type=model_type, 
                               plant_pars=parameters, Np=Np, Nx=model_pars['Nx'])
-
-        # Update guess for the Koopman model.
-        if model_type == 'Koopman':
-            xuguess['x'] = xkp0
 
         # Get the steady state optimum.
         t, useq, xseq, yseq = get_openloop_sol(fxu, hx, model_pars, xuguess)
@@ -158,8 +127,8 @@ def main():
 
     # Get figure.
     t = t*Delta/60
-    legend_names = ['Plant', 'Grey-box', 'Black-box', 'Koopman']
-    legend_colors = ['b', 'g', 'dimgrey', 'm']
+    legend_names = ['Plant', 'Black-box']
+    legend_colors = ['b', 'dimgrey']
     figures = TwoReacPlots.plot_xudata(t=t, xlist=xlist, ulist=ulist,
                                         legend_names=legend_names,
                                         legend_colors=legend_colors, 
@@ -169,7 +138,7 @@ def main():
                                         font_size=12)
 
     # Finally plot.
-    with PdfPages('tworeac_openloop.pdf', 'w') as pdf_file:
+    with PdfPages('tworeac_openloop_twotier.pdf', 'w') as pdf_file:
         for fig in figures:
             pdf_file.savefig(fig)
 

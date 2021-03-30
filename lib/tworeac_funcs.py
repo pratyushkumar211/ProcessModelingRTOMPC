@@ -19,8 +19,8 @@ def plant_ode(x, u, p, parameters):
     
     # Extract the plant states into meaningful names.
     (Ca, Cb, Cc) = x[0:3]
-    Caf = u[0:1]
-    tau = p[0:1]
+    Caf = u[0]
+    tau = p[0]
 
     # Write the ODEs.
     dCabydt = (Caf-Ca)/tau - k1*Ca

@@ -522,18 +522,22 @@ class TwoTierMPController:
         self.Ny = Ny
         self.Np = empcPars.shape[1]
 
+        # Setup lists to save data.
+        self.xs, self.us = [], []
+        self.x0, self.useq = [xs], []
+
         # Setup steady state optimizer.
         self.ssOptXuguess = np.concatenate((xs, us))[:, np.newaxis]
         self.empcPars = empcPars
         self.tSsOptFreq = tSsOptFreq
+        self.ulb = ulb
+        self.uub = uub
         self._setupSSOptimizer()
 
         # MPC Regulator parameters.
         self.Q = Q
         self.R = R
         self.S = S
-        self.ulb = ulb
-        self.uub = uub
         self.Nmpc = Nmpc
         self.uprev = us
         self._setupRegulator()
@@ -542,10 +546,6 @@ class TwoTierMPController:
         self.estimator = ExtendedKalmanFilter(fxu=fxu, hx=hx,
                                               Qw=Qw, Rv=Rv, xPrior=xhatPrior, 
                                               PPrior=covxPrior)
-
-        # Setup lists to save data.
-        self.xs, self.us = [], []
-        self.x0, self.useq = [xs], []
 
         # Parameters to save.
         self.computationTimes = []
@@ -564,7 +564,6 @@ class TwoTierMPController:
         p = casadi.SX.sym('p', Np)
 
         # Setup casadi functions.
-        lyup = lambda x, u, p: lyup(hx(x), u, p)
         lyup = mpc.getCasadiFunc(lyup, [Nx, Nu, Np], ["x", "u", "p"])
         fxu = mpc.getCasadiFunc(fxu, [Nx, Nu], ["x", "u"])
 
@@ -583,7 +582,7 @@ class TwoTierMPController:
 
         # Get solution.
         xopt = np.asarray(nlpSoln['x'])
-        xs, us = xopt[:Nx], xopt[Nx:]
+        xs, us = xopt[:Nx, 0], xopt[Nx:, 0]
         self.xs += [xs]
         self.us += [us]
 
@@ -596,8 +595,7 @@ class TwoTierMPController:
         # Get the linearized model matrices A, B.
         fxu, Nx, Nu = self.fxu, self.Nx, self.Nu
         fxu = mpc.getCasadiFunc(fxu, [Nx, Nu], ["x", "u"])
-        linModel = mpc.util.getLinearizedModel(fxu, [xhat, uprev], 
-                                               ["A", "B"])
+        linModel = mpc.util.getLinearizedModel(fxu, [xs, us], ["A", "B"])
         A, B = linModel["A"], linModel["B"]
 
         # Return.
@@ -609,12 +607,16 @@ class TwoTierMPController:
         # First get the linear model.
         xs, us = self.xs[-1], self.us[-1]
         x0, uprev, Nmpc = self.x0[-1], self.uprev, self.Nmpc
-        Nx, Nu = self.Nx, self.Nu
-        A, B, C = self._getLinearizedModel(xs, us)
+        Nx, Nu, Nmpc = self.Nx, self.Nu, self.Nmpc
+        A, B = self._getLinearizedModel(xs, us)
+
+        # Get a few more parameters to setup the Dense QP.
+        Q, R, S = self.Q, self.R, self.S
         A, B, Q, R, M = getAugMatricesForROCPenalty(A, B, Q, R, S)
+        ulb, uub = self.ulb - us, self.uub - us
 
         # Setup the regulator.
-        self.regulator  = DenseQPRegulator(A=A, B=B, Q=Q, R=R, M=M, N=N, 
+        self.regulator  = DenseQPRegulator(A=A, B=B, Q=Q, R=R, M=M, N=Nmpc, 
                                            ulb=ulb, uub=uub)
 
         # Solve for the initial steady state.
@@ -638,11 +640,13 @@ class TwoTierMPController:
                                ubg=self.SsOptubg, 
                                p=self.empcPars[simt:simt+1, :])
             xopt = np.asarray(nlpSoln['x'])
-            xs, us = xopt[:Nx], xopt[Nx:]
+            xs, us = xopt[:Nx, 0], xopt[Nx:, 0]
             self.ssOptXuguess = xopt
 
             # Update linear model.
             A, B = self._getLinearizedModel(xs, us)
+            self.regulator.ulb = self.ulb - us
+            self.regulator.uub = self.uub - us
             self.regulator._updateModel(A, B)
         else:
             xs, us = self.xs[-1], self.us[-1]
@@ -1067,7 +1071,7 @@ class TargetSelector:
         qpMatrices = self._getQPMatrices(usp, ysp, dhat)
 
         # Solve and save data.
-        solution = cvx.solvers.qp(*array_to_matrix(*qpMatrices))
+        solution = cvx.solvers.qp(*arrayToMatrix(*qpMatrices))
 
         # Split solution.
         (xs, us) = np.split(np.asarray(solution['x']), [self.Nx])
@@ -1319,6 +1323,8 @@ class DenseQPRegulator:
         Auineq = scipy.linalg.block_diag(*[Auineq for _ in range(N)])
         if self.reParamet:
             Aineq = Auineq @ (tK @ tB[:N*Nx, :]) + Auineq
+        else:
+            Aineq = Auineq
 
         # Get Bineq1 and Bineq2.
         Bineq1 = np.concatenate((uub, -ulb), axis=0)
@@ -1357,7 +1363,7 @@ class DenseQPRegulator:
         qpMatrices = self._getQPMatrices(x0)
 
         # Solve.
-        solution = cvx.solvers.qp(*array_to_matrix(qpMatrices))
+        solution = cvx.solvers.qp(*arrayToMatrix(*qpMatrices))
         
         # Extract input sequence.
         useq = np.asarray(solution['x'])
