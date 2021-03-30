@@ -45,6 +45,7 @@ def get_openloop_sol(fxu, hx, model_pars, xuguess):
     uub = model_pars['uub']
 
     # Convert fxu to casadi func.
+    breakpoint()
     fxu = mpc.getCasadiFunc(fxu, [Nx, Nu], ["x", "u"])
 
     # Return the NN controller.

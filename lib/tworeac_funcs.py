@@ -19,11 +19,11 @@ def plant_ode(x, u, p, parameters):
     
     # Extract the plant states into meaningful names.
     (Ca, Cb, Cc) = x[0:3]
-    Ca0 = u[0:1]
+    Caf = u[0:1]
     tau = p[0:1]
 
     # Write the ODEs.
-    dCabydt = (Ca0-Ca)/tau - k1*Ca
+    dCabydt = (Caf-Ca)/tau - k1*Ca
     dCbbydt = k1*Ca - 3*k2*(Cb**3) + 3*k3*Cc - Cb/tau
     dCcbydt = k2*(Cb**3) - k3*Cc - Cc/tau
 
@@ -34,18 +34,21 @@ def greybox_ode(x, u, p, parameters):
     """ Simple ODE describing the grey-box plant. """
     # Extract the parameters.
     k1 = parameters['k1']
+    k2 = parameters['k2']
+    k3 = parameters['k3']
 
     # Extract the plant states into meaningful names.
-    (Ca, Cb) = x[0:2]
-    Ca0 = u[0]
+    (Ca, Cb, Cc) = x[0:3]
+    Caf = u[0]
     tau = p[0]
 
     # Write the ODEs.
-    dCabydt = (Ca0-Ca)/tau - k1*Ca
-    dCbbydt = k1*Ca - Cb/tau
+    dCabydt = (Caf-Ca)/tau - k1*Ca
+    dCbbydt = k1*Ca - 3*k2*(Cb**3) + 3*k3*Cc - Cb/tau
+    dCcbydt = k2*(Cb**3) - k3*Cc - Cc/tau
 
     # Return the derivative.
-    return np.array([dCabydt, dCbbydt])
+    return np.array([dCabydt, dCbbydt, dCcbydt])
 
 def get_parameters():
     """ Get the parameter values for the 
@@ -59,7 +62,7 @@ def get_parameters():
 
     # Store the dimensions.
     parameters['Nx'] = 3
-    parameters['Ng'] = 2
+    parameters['Ng'] = 3
     parameters['Nu'] = 1
     parameters['Ny'] = 2
     parameters['Np'] = 1
@@ -82,7 +85,7 @@ def get_parameters():
     parameters['tsteps_steady'] = 10
 
     # Measurement indices and noise.
-    parameters['gb_indices'] = [0, 1]
+    parameters['gb_indices'] = [0, 1, 2]
     parameters['yindices'] = [0, 1]
     parameters['Rv'] = 0*np.diag([1e-3, 1e-3])
 
