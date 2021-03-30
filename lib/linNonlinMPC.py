@@ -143,7 +143,7 @@ class NonlinearPlantSimulator:
 class NonlinearEMPCRegulator:
 
     def __init__(self, *, fxu, lxup, Nx, Nu, Np,
-                 Nmpc, ulb, uub, t0Guess, t0EmpPars):
+                 Nmpc, ulb, uub, t0Guess, t0EmpcPars):
         """ Class to construct and solve nonlinear MPC -- Regulation.
         
         Problem setup:
@@ -170,7 +170,7 @@ class NonlinearEMPCRegulator:
         self.xseq = []
 
         # Initial guess and parameters.
-        self.t0guess = t0Guess
+        self.t0Guess = t0Guess
         self.t0EmpcPars = t0EmpcPars
 
         # Get the hard constraints on inputs and the soft constraints.
@@ -204,7 +204,7 @@ class NonlinearEMPCRegulator:
         # Get the x and u sequences and save data.
         useq = np.asarray(casadi.horzcat(*self.regulator.var['u'])).T
         xseq = np.asarray(casadi.horzcat(*self.regulator.var['x'])).T
-        self._append_data(x0, useq, xseq)
+        self._saveData(x0, useq, xseq)
     
     def solve(self, x0, empcPars):
         """Setup and the solve the dense QP, output is
@@ -220,10 +220,10 @@ class NonlinearEMPCRegulator:
         # Get the x and u sequences and save data.
         useq = np.asarray(casadi.horzcat(*self.regulator.var['u'])).T
         xseq = np.asarray(casadi.horzcat(*self.regulator.var['x'])).T
-        self._appendData(x0, useq, xseq)
+        self._saveData(x0, useq, xseq)
         return useq
 
-    def _appendData(self, x0, useq, xseq):
+    def _saveData(self, x0, useq, xseq):
         " Append data. "
         self.x0.append(x0)
         self.useq.append(useq)
@@ -458,6 +458,7 @@ class NonlinearEMPCController:
         # Get some numbers.
         xs, ds, us, ys = self.xs, self.ds, self.us, self.ys
         Nx, Nu, Nd, Np, Nmpc = self.Nx, self.Nu, self.Nd, self.Np, self.Nmpc
+        ulb, uub = self.ulb, self.uub
 
         # Get casadi funcs for the model and stage cost.
         fxud = mpc.getCasadiFunc(self._augFxudModel(), [Nx + Nd, Nu], 
@@ -472,8 +473,8 @@ class NonlinearEMPCController:
         # Construct the EMPC regulator.
         self.regulator  = NonlinearEMPCRegulator(fxu=fxud, lxup=lxup,
                                                  Nx=Nx+Nd, Nu=Nu, Np=Np,
-                                                 Nmpc=Nmpc, ulb=self.ulb, 
-                                                 uub=self.uub, t0Guess=t0guess,
+                                                 Nmpc=Nmpc, ulb=ulb, 
+                                                 uub=uub, t0Guess=t0guess,
                                                  t0EmpPars=t0EmpcPars)
 
     def control_law(self, simt, y):
@@ -506,9 +507,8 @@ class TwoTierMPController:
         Linear MPC Regulator, and updates linear model/targets
         based on steady state optimums.
     """
-    def __init__(self, *, fxu, hx, lyup, empcPars,
-                          Nx, Nu, Ny, tLinModelUpdateFreq,
-                          xs, us, Q, R, S, ulb, uub, Nmpc,
+    def __init__(self, *, fxu, hx, lyup, empcPars, tSsOptFreq,
+                          Nx, Nu, Ny, xs, us, Q, R, S, ulb, uub, Nmpc,
                           xhatPrior, covxPrior, Qw, Rv):
         
         # Model and stage cost.
@@ -523,9 +523,9 @@ class TwoTierMPController:
         self.Np = empcPars.shape[1]
 
         # Setup steady state optimizer.
-        self.xuguess = np.concatenate((xs, us))[:, np.newaxis]
+        self.ssOptXuguess = np.concatenate((xs, us))[:, np.newaxis]
         self.empcPars = empcPars
-        self.tLinModelUpdateFreq = tLinModelUpdateFreq
+        self.tSsOptFreq = tSsOptFreq
         self._setupSSOptimizer()
 
         # MPC Regulator parameters.
@@ -535,6 +535,7 @@ class TwoTierMPController:
         self.ulb = ulb
         self.uub = uub
         self.Nmpc = Nmpc
+        self.uprev = us
         self._setupRegulator()
 
         # Setup extended Kalman filter.
@@ -544,6 +545,7 @@ class TwoTierMPController:
 
         # Setup lists to save data.
         self.xs, self.us = [], []
+        self.x0, self.useq = [xs], []
 
         # Parameters to save.
         self.computationTimes = []
@@ -572,12 +574,12 @@ class TwoTierMPController:
         self.ssOptimizer = casadi.nlpsol('nlp', 'ipopt', nlp)
 
         # Get constraints. 
-        self.lbg = np.concatenate((np.zeros((Nx,)), ulb))[:, np.newaxis]
-        self.ubg = np.concatenate((np.zeros((Nx,)), uub))[:, np.newaxis]
+        self.SsOptlbg = np.concatenate((np.zeros((Nx,)), ulb))[:, np.newaxis]
+        self.SsOptubg = np.concatenate((np.zeros((Nx,)), uub))[:, np.newaxis]
 
         # Solve NLP.
-        nlpSoln = self.ssOptimizer(x0=self.xuguess, lbg=self.lbg, 
-                                   ubg=self.ubg, p=self.empcPars[:1, :])
+        nlpSoln = self.ssOptimizer(x0=self.ssOptXuguess, lbg=self.SsOptlbg, 
+                                   ubg=self.SsOptubg, p=self.empcPars[:1, :])
 
         # Get solution.
         xopt = np.asarray(nlpSoln['x'])
@@ -585,20 +587,29 @@ class TwoTierMPController:
         self.xs += [xs]
         self.us += [us]
 
-        # Set Guess for next time. 
-        self.xuguess = xopt
+        # Set Guess for next time.
+        self.ssOptXuguess = xopt
 
     def _getLinearizedModel(self, xs, us):
+        """ Get the linearized model matrices. """
 
+        # Get the linearized model matrices A, B.
+        fxu, Nx, Nu = self.fxu, self.Nx, self.Nu
+        fxu = mpc.getCasadiFunc(fxu, [Nx, Nu], ["x", "u"])
+        linModel = mpc.util.getLinearizedModel(fxu, [xhat, uprev], 
+                                               ["A", "B"])
+        A, B = linModel["A"], linModel["B"]
 
         # Return.
-        return (A, B, C)
+        return (A, B)
 
     def _setupRegulator(self):
         """ Setup the Dense QP regulator. """
 
         # First get the linear model.
         xs, us = self.xs[-1], self.us[-1]
+        x0, uprev, Nmpc = self.x0[-1], self.uprev, self.Nmpc
+        Nx, Nu = self.Nx, self.Nu
         A, B, C = self._getLinearizedModel(xs, us)
         A, B, Q, R, M = getAugMatricesForROCPenalty(A, B, Q, R, S)
 
@@ -606,20 +617,62 @@ class TwoTierMPController:
         self.regulator  = DenseQPRegulator(A=A, B=B, Q=Q, R=R, M=M, N=N, 
                                            ulb=ulb, uub=uub)
 
+        # Solve for the initial steady state.
+        x0 = np.concatenate((x0-xs, uprev - us))
+        useq = self.regulator.solve(x0)
+        useq += np.tile(us, (Nmpc, 1))
+        self.useq += [useq]
+
     def control_law(self, simt, y):
         """
         Takes the measurement and the previous control input
         and compute the current control input.
         """
         tstart = time.time()
-        xdhat =  self.estimator.solve(y, self.uprev)
-        mpc_N = slice(simt, simt + self.Nmpc, 1)
-        empc_pars = self.opt_pars[mpc_N, :]
-        useq = self.regulator.solve(xdhat, empc_pars)
+        tSsOptFreq = self.tSsOptFreq
+        Nx, Nu = self.Nx, self.Nu
+
+        # Solve steady-state optimization if needed.
+        if simt % tSsOptFreq == 0:
+            nlpSoln = self.nlp(x0=self.ssOptXuguess, lbg=self.SsOptlbg, 
+                               ubg=self.SsOptubg, 
+                               p=self.empcPars[simt:simt+1, :])
+            xopt = np.asarray(nlpSoln['x'])
+            xs, us = xopt[:Nx], xopt[Nx:]
+            self.ssOptXuguess = xopt
+
+            # Update linear model.
+            A, B = self._getLinearizedModel(xs, us)
+            self.regulator._updateModel(A, B)
+        else:
+            xs, us = self.xs[-1], self.us[-1]
+
+        # State estimation.
+        xhat =  self.estimator.solve(y, self.uprev)
+
+        # Regulation.
+        x0 = np.concatenate((xhat-xs, uprev - us))
+        useq = self.regulator.solve(x0)
+
+        # Save Uprev.
         self.uprev = useq[:1, :].T
+
+        # Get computation times.
         tend = time.time()
-        self.computation_times.append(tend - tstart)
+        self.computationTimes.append(tend - tstart)
+
+        # Save data. 
+        self._saveData(xs, us, xhat, useq)
+
+        # Return.
         return self.uprev
+
+    def _saveData(self, xs, us, xhat, useq):
+        """ Save data to lists. """
+        self.xs.append(xs)
+        self.us.append(us)
+        self.x0.append(xhat)
+        self.useq.append(useq)
 
 def arrayToMatrix(*arrays):
     """Convert nummpy arrays to cvxopt matrices."""
@@ -1214,12 +1267,10 @@ class DenseQPRegulator:
 
         to 
 
-        V = (1/2)*[\xseq'*tQ*\xseq + \useq'*tR*\useq + 2*\xseq'*tM*\useq]
+        V = (1/2)*[xseq'*tQ*xseq + useq'*tR*useq + 2*xseq'*tM*useq]
 
-        in which, \xseq = [x(0), x(1), x(2), ...., x(N)]
-                  \useq = [u(0), u(1), u(2), ...., u(N-1)]
-
-        """
+        in which, xseq = [x(0), x(1), x(2), ...., x(N)]
+                  useq = [u(0), u(1), u(2), ...., u(N-1)] """
 
         # Extract attributes.
         Q, R, M, Krep, Pf = self.Q, self.R, self.M, self.Krep, self.Pf

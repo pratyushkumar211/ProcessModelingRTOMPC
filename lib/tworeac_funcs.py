@@ -44,8 +44,8 @@ def greybox_ode(x, u, p, parameters):
 
     # Write the ODEs.
     dCabydt = (Caf-Ca)/tau - k1*Ca
-    dCbbydt = k1*Ca - 3*k2*(Cb**3) + 3*k3*Cc - Cb/tau
-    dCcbydt = k2*(Cb**3) - k3*Cc - Cc/tau
+    dCbbydt = k1*Ca - k2*Cb + k3*Cc - Cb/tau
+    dCcbydt = k2*Cb - k3*Cc - Cc/tau
 
     # Return the derivative.
     return np.array([dCabydt, dCbbydt, dCcbydt])

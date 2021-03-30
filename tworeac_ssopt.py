@@ -115,7 +115,7 @@ def main():
                                         legend_colors=legend_colors, 
                                         legend_names=legend_names, 
                                         figure_size=PAPER_FIGSIZE, 
-                                        ylabel_xcoordinate=-0.1, 
+                                        ylabel_xcoordinate=-0.12, 
                                         left_label_frac=0.15, 
                                         font_size=12)
 
