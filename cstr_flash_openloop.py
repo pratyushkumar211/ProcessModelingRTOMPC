@@ -26,17 +26,18 @@ from plotting_funcs import PAPER_FIGSIZE, CstrFlashPlots
 def get_openloop_sol(fxu, hx, model_pars, xuguess):
     """ Construct the controller object comprised of 
         EMPC regulator and MHE estimator. """
-
-    # Get the stage cost.
-    lxup = lambda x, u, p: cost_yup(hx(x), u, p, model_pars)
     
     # Some sizes. 
     Np = 3
     Nx, Nu = model_pars['Nx'], model_pars['Nu']
     Nmpc = 60
 
+    # Get the stage cost.
+    lxup = lambda x, u, p: cost_yup(hx(x), u, p, model_pars)
+    lxup = mpc.getCasadiFunc(lxup, [Nx, Nu, Np], ["x", "u", "p"])
+
     # Initial parameters. 
-    init_empc_pars = np.tile(np.array([[1, 2000, 5000]]), (Nmpc, 1))
+    t0EmpcPars = np.tile(np.array([[1, 2000, 11000]]), (Nmpc, 1))
 
     # Get upper and lower bounds.
     ulb = model_pars['ulb']
@@ -48,8 +49,8 @@ def get_openloop_sol(fxu, hx, model_pars, xuguess):
     # Return the NN controller.
     regulator = NonlinearEMPCRegulator(fxu=fxu, lxup=lxup, Nx=Nx, Nu=Nu, Np=Np, 
                                        Nmpc=Nmpc, ulb=ulb, uub=uub, 
-                                       init_guess=xuguess, 
-                                       init_empc_pars=init_empc_pars)
+                                       t0Guess=xuguess, 
+                                       t0EmpcPars=t0EmpcPars)
 
     # Get the open-loop solution.
     useq = regulator.useq[0]
