@@ -134,24 +134,34 @@ def main():
     clDataList = tworeac_empc['clDataList']
     stageCostList = tworeac_empc['stageCostList']
 
+    # Load data for the economic MPC simulation.
+    tworeac_empc_twotier = PickleTool.load(filename=
+                                    "tworeac_empc_twotier.pickle", 
+                                    type='read')
+    clDataListTwoTier = tworeac_empc_twotier['clDataList']
+    stageCostListTwoTier = tworeac_empc_twotier['stageCostList']
+
+
     # Plot closed-loop simulation data.
-    legend_names = ['Plant', 'Grey-box', 'Koopman']
-    legend_colors = ['b', 'g', 'm']
-    t, ulist, ylist, xlist = get_plotting_array_list(simdata_list = clDataList,
-                                                     plot_range = (0, 8*60))
+    legend_names = ['Plant', 'Grey-box', 'Koopman', 'Plant-TT', 'Black-box-TT']
+    legend_colors = ['b', 'g', 'm', 'orange', 'dimgrey']
+    t, ulist, ylist, xlist = get_plotting_array_list(simdata_list = 
+                                                clDataList + clDataListTwoTier,
+                                                plot_range = (0, 8*60))
     figures += TwoReacPlots.plot_xudata(t=t, xlist=xlist, ulist=ulist,
                                         legend_names=legend_names,
                                         legend_colors=legend_colors, 
                                         figure_size=PAPER_FIGSIZE, 
                                         ylabel_xcoordinate=-0.1, 
-                                        title_loc=(0.05, 0.9),
-                                        font_size=12)
+                                        title_loc=(0.04, 0.9),
+                                        font_size=9)
 
     # # Plot empc pars.
     # figures += plot_cost_pars(t=t, cost_pars=cost_pars)
 
     # Plot profit curve.
-    figures += plotAvgProfits(t=t, stageCostList=stageCostList, 
+    figures += plotAvgProfits(t=t, stageCostList=
+                              stageCostList + stageCostListTwoTier, 
                               legend_colors=legend_colors,
                               legend_names=legend_names)
     

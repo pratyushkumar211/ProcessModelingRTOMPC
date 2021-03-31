@@ -34,8 +34,7 @@ def get_openloop_sol(fxu, hx, model_pars, xuguess):
     tSsOptFreq = 120
     
     # Steady state values.
-    xs = xuguess['x'] #np.array([0.01, 2, 0.01])
-    us = xuguess['u']
+    xs, us = xuguess['x'], xuguess['u']
     
     # MPC Regulator parameters.
     Nmpc = 60
@@ -49,7 +48,7 @@ def get_openloop_sol(fxu, hx, model_pars, xuguess):
     empcPars = np.tile(np.array([[100, 200]]), (Nmpc, 1))
 
     # Extened Kalman Filter parameters. 
-    xhatPrior = xs
+    xhatPrior = xs[:, np.newaxis]
     Qw = 1e-4*np.eye(Nx)
     Rv = 1e-4*np.eye(Ny)
     covxPrior = Qw
@@ -65,7 +64,7 @@ def get_openloop_sol(fxu, hx, model_pars, xuguess):
     # Get the open-loop solution.
     useq = controller.useq[0]
     xseq, yseq = [], []
-    xt = controller.x0[0]
+    xt = controller.x0[0][:, 0]
     for t in range(Nmpc):
         yseq += [hx(xt)]
         xseq += [xt]

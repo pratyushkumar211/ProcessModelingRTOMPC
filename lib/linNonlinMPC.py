@@ -524,7 +524,7 @@ class TwoTierMPController:
 
         # Setup lists to save data.
         self.xs, self.us = [], []
-        self.x0, self.useq = [xs], []
+        self.x0, self.useq = [xs[:, np.newaxis]], []
 
         # Setup steady state optimizer.
         self.ssOptXuguess = np.concatenate((xs, us))[:, np.newaxis]
@@ -539,13 +539,13 @@ class TwoTierMPController:
         self.R = R
         self.S = S
         self.Nmpc = Nmpc
-        self.uprev = us
+        self.uprev = us[:, np.newaxis]
         self._setupRegulator()
 
         # Setup extended Kalman filter.
-        self.estimator = ExtendedKalmanFilter(fxu=fxu, hx=hx,
-                                              Qw=Qw, Rv=Rv, xPrior=xhatPrior, 
-                                              PPrior=covxPrior)
+        self.estimator = ExtendedKalmanFilter(fxu=fxu, hx=hx, Nx=Nx, Nu=Nu, 
+                                              Ny=Ny, Qw=Qw, Rv=Rv, 
+                                            xPrior=xhatPrior, PPrior=covxPrior)
 
         # Parameters to save.
         self.computationTimes = []
@@ -582,7 +582,7 @@ class TwoTierMPController:
 
         # Get solution.
         xopt = np.asarray(nlpSoln['x'])
-        xs, us = xopt[:Nx, 0], xopt[Nx:, 0]
+        xs, us = xopt[:Nx, :], xopt[Nx:, :]
         self.xs += [xs]
         self.us += [us]
 
@@ -632,21 +632,23 @@ class TwoTierMPController:
         """
         tstart = time.time()
         tSsOptFreq = self.tSsOptFreq
-        Nx, Nu = self.Nx, self.Nu
+        Nx, Nu, Nmpc = self.Nx, self.Nu, self.Nmpc
 
         # Solve steady-state optimization if needed.
         if simt % tSsOptFreq == 0:
-            nlpSoln = self.nlp(x0=self.ssOptXuguess, lbg=self.SsOptlbg, 
+            nlpSoln = self.ssOptimizer(x0=self.ssOptXuguess, lbg=self.SsOptlbg, 
                                ubg=self.SsOptubg, 
                                p=self.empcPars[simt:simt+1, :])
             xopt = np.asarray(nlpSoln['x'])
-            xs, us = xopt[:Nx, 0], xopt[Nx:, 0]
+            xs, us = xopt[:Nx, :], xopt[Nx:, :]
             self.ssOptXuguess = xopt
 
             # Update linear model.
             A, B = self._getLinearizedModel(xs, us)
             self.regulator.ulb = self.ulb - us
             self.regulator.uub = self.uub - us
+            Q, R, S = self.Q, self.R, self.S
+            A, B, Q, R, M = getAugMatricesForROCPenalty(A, B, Q, R, S)
             self.regulator._updateModel(A, B)
         else:
             xs, us = self.xs[-1], self.us[-1]
@@ -655,9 +657,10 @@ class TwoTierMPController:
         xhat =  self.estimator.solve(y, self.uprev)
 
         # Regulation.
-        x0 = np.concatenate((xhat-xs, uprev - us))
+        x0 = np.concatenate((xhat-xs, self.uprev - us))
         useq = self.regulator.solve(x0)
-
+        useq += np.tile(us, (Nmpc, 1))
+        
         # Save Uprev.
         self.uprev = useq[:1, :].T
 
@@ -823,13 +826,16 @@ class KalmanFilter:
 
 class ExtendedKalmanFilter:
 
-    def __init__(self, *, fxu, hx, Qw, Rv, xPrior, PPrior):
+    def __init__(self, *, fxu, hx, Nx, Nu, Ny, Qw, Rv, xPrior, PPrior):
         """ Class to construct and perform state estimation
             using Kalman Filtering.
         """
 
         # Model.
         self.fxu, self.hx = fxu, hx
+
+        # Sizes. 
+        self.Nx, self.Nu, self.Ny = Nx, Nu, Ny
 
         # Noise variances.
         self.Qw = Qw
@@ -877,13 +883,13 @@ class ExtendedKalmanFilter:
 
         # Prediction step and get linear model.
         A = self._getA(xhat, uprev)
-        xhatPred = self.fxu(xhat, uprev)
+        xhatPred = self.fxu(xhat[:, 0], uprev[:, 0])[:, np.newaxis]
         PPred = A @ (P @ A.T) + Qw
 
         # Filtering step.
         C = self._getC(xhatPred)
         L = PPred @ (C.T @ np.linalg.inv(Rv + C @ (PPred @ C.T)))
-        xhat = xhatPred + L @ (y - self.hx(xhatPred))
+        xhat = xhatPred + L @ (y - self.hx(xhatPred[:, 0])[:, np.newaxis])
 
         # Update covariance.
         P = PPred - L @ (C @ PPred)
