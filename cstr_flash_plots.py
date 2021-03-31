@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from hybridid import PickleTool 
 from plotting_funcs import (PAPER_FIGSIZE, get_plotting_array_list, 
-                            CstrFlashPlots)
+                            CstrFlashPlots, plotAvgProfits)
 
 def plot_cost_pars(t, cost_pars,
                    figure_size=PAPER_FIGSIZE,
@@ -49,8 +49,8 @@ def main():
     # cstr_flash_kooptrain = PickleTool.load(filename=
     #                                         "cstr_flash_kooptrain.pickle",
     #                                         type='read')
-    # cstr_flash_empc = PickleTool.load(filename="cstr_flash_empc.pickle",
-    #                                    type='read')
+    cstr_flash_empc = PickleTool.load(filename="cstr_flash_empc.pickle",
+                                       type='read')
     # cstr_flash_encdeckooptrain = PickleTool.load(filename=
     #                                         "cstr_flash_encdeckooptrain.pickle",
     #                                         type='read')
@@ -97,38 +97,36 @@ def main():
     #                            val_metrics=val_metrics, 
     #                            colors=['dimgray', 'm'], 
     #                            legends=['Black-box', 'Hybrid'])
-
-    # Plot the open-loop solutions.
-    # legend_names = ['Plant', 'Koopman']
-    # legend_colors = ['b', 'm']
-    # openloop_sols = cstr_flash_empc['openloop_sols']
-    # udatum = [openloop_sols[0][0], openloop_sols[1][0]]#, openloop_sols[2][0]]
-    # xdatum = [openloop_sols[0][1], openloop_sols[1][1]]#, openloop_sols[2][1]]
-    # figures += plot_openloop_sols(t=t, udatum=udatum, xdatum=xdatum,
-    #                           legend_names=legend_names,
-    #                           legend_colors=legend_colors)
     
     # # Plot the closed-loop simulation.
-    # #legend_names = ['Plant', 'Grey-box', 'Hybrid']
-    # #legend_colors = ['b', 'g', 'm']
-    # cl_data_list = cstr_flash_empc['cl_data_list']
-    # (t, udatum, ydatum, xdatum) = get_plotting_array_list(simdata_list=
-    #                                    cl_data_list[:2],
-    #                                    plot_range = (0, 24*60))
-    # figures += plot_data(t=t, udatum=udatum, ydatum=ydatum,
-    #                           xdatum=xdatum, data_type='closed_loop',
-    #                           legend_names=legend_names,
-    #                           legend_colors=legend_colors)
+    legend_names = ['Plant']
+    legend_colors = ['b']
+    clDataList = cstr_flash_empc['clDataList']
+    (t, ulist, ylist, xlist) = get_plotting_array_list(simdata_list=
+                                       clDataList[:1],
+                                       plot_range = (0, 24*60))
+    figures += CstrFlashPlots.plot_data(t=t, ulist=ulist, 
+                                ylist=ylist, xlist=xlist, 
+                                figure_size=PAPER_FIGSIZE, 
+                                u_ylabel_xcoordinate=-0.1, 
+                                y_ylabel_xcoordinate=-0.1, 
+                                x_ylabel_xcoordinate=-0.2, 
+                                plot_ulabel=True,
+                                legend_names=legend_names, 
+                                legend_colors=legend_colors, 
+                                title_loc=(0.25, 0.9), 
+                                plot_y=True)
     
     # # Plot the empc costs.
     # figures += plot_cost_pars(t=t, 
     #                           cost_pars=cstr_flash_empc['cost_pars'][:24*60, :])
 
-    # # Plot the plant profit in time.
-    # figures += plot_avg_profits(t=t,
-    #                     avg_stage_costs=cstr_flash_empc['avg_stage_costs'][:3], 
-    #                     legend_colors=legend_colors,
-    #                     legend_names=legend_names)
+    # Plot the plant profit in time.
+    stageCostList = cstr_flash_empc['stageCostList']
+    figures += plotAvgProfits(t=t,
+                        stageCostList=stageCostList[:3], 
+                        legend_colors=legend_colors,
+                        legend_names=legend_names)
 
     # Save PDF.
     with PdfPages('cstr_flash_plots.pdf', 'w') as pdf_file:

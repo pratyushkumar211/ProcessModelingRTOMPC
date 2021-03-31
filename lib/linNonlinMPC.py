@@ -580,7 +580,7 @@ class TwoTierMPController:
         # Solve NLP.
         nlpSoln = self.ssOptimizer(x0=self.ssOptXuguess, lbg=self.SsOptlbg, 
                                    ubg=self.SsOptubg, p=self.empcPars[:1, :])
-        
+
         # Get solution.
         xopt = np.asarray(nlpSoln['x'])
         xs, us = xopt[:Nx, :], xopt[Nx:, :]

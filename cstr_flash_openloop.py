@@ -37,7 +37,7 @@ def get_openloop_sol(fxu, hx, model_pars, xuguess):
     lxup = mpc.getCasadiFunc(lxup, [Nx, Nu, Np], ["x", "u", "p"])
 
     # Initial parameters. 
-    t0EmpcPars = np.tile(np.array([[1, 2000, 11000]]), (Nmpc, 1))
+    t0EmpcPars = np.tile(np.array([[10, 2000, 13000]]), (Nmpc, 1))
 
     # Get upper and lower bounds.
     ulb = model_pars['ulb']
