@@ -530,8 +530,8 @@ class TwoTierMPController:
         self.ssOptXuguess = np.concatenate((xs, us))[:, np.newaxis]
         self.empcPars = empcPars
         self.tSsOptFreq = tSsOptFreq
-        self.ulb = ulb
-        self.uub = uub
+        self.ulb = ulb[:, np.newaxis]
+        self.uub = uub[:, np.newaxis]
         self._setupSSOptimizer()
 
         # MPC Regulator parameters.
@@ -564,22 +564,23 @@ class TwoTierMPController:
         p = casadi.SX.sym('p', Np)
 
         # Setup casadi functions.
-        lyup = mpc.getCasadiFunc(lyup, [Nx, Nu, Np], ["x", "u", "p"])
+        lxup = lambda x, u, p: lyup(hx(x), u, p)
+        lxup = mpc.getCasadiFunc(lxup, [Nx, Nu, Np], ["x", "u", "p"])
         fxu = mpc.getCasadiFunc(fxu, [Nx, Nu], ["x", "u"])
 
         # Setup the NLP.
-        nlp = dict(x=casadi.vertcat(xs, us), f=lyup(xs, us, p),
+        nlp = dict(x=casadi.vertcat(xs, us), f=lxup(xs, us, p),
                    g=casadi.vertcat(xs -  fxu(xs, us), us), p=p)
         self.ssOptimizer = casadi.nlpsol('nlp', 'ipopt', nlp)
 
         # Get constraints. 
-        self.SsOptlbg = np.concatenate((np.zeros((Nx,)), ulb))[:, np.newaxis]
-        self.SsOptubg = np.concatenate((np.zeros((Nx,)), uub))[:, np.newaxis]
+        self.SsOptlbg = np.concatenate((np.zeros((Nx, 1)), ulb))
+        self.SsOptubg = np.concatenate((np.zeros((Nx, 1)), uub))
 
         # Solve NLP.
         nlpSoln = self.ssOptimizer(x0=self.ssOptXuguess, lbg=self.SsOptlbg, 
                                    ubg=self.SsOptubg, p=self.empcPars[:1, :])
-
+        
         # Get solution.
         xopt = np.asarray(nlpSoln['x'])
         xs, us = xopt[:Nx, :], xopt[Nx:, :]
@@ -623,6 +624,7 @@ class TwoTierMPController:
         x0 = np.concatenate((x0-xs, uprev - us))
         useq = self.regulator.solve(x0)
         useq += np.tile(us, (Nmpc, 1))
+        useq = np.reshape(useq, (Nmpc, Nu))
         self.useq += [useq]
 
     def control_law(self, simt, y):
@@ -660,6 +662,7 @@ class TwoTierMPController:
         x0 = np.concatenate((xhat-xs, self.uprev - us))
         useq = self.regulator.solve(x0)
         useq += np.tile(us, (Nmpc, 1))
+        useq = np.reshape(useq, (Nmpc, Nu))
         
         # Save Uprev.
         self.uprev = useq[:1, :].T
@@ -1351,7 +1354,7 @@ class DenseQPRegulator:
         # Get Inequality constraints.
         Aineq = self.Aineq
         Bineq = self.Bineq1 + self.Bineq2 @ x0
-
+        
         # Get penalty matrices.
         P = self.P
         q = self.q @ x0
