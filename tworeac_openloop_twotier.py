@@ -42,8 +42,8 @@ def get_openloop_sol(fxu, hx, model_pars, xuguess):
     ulb = model_pars['ulb']
     uub = model_pars['uub']
     Q = np.eye(Nx)
-    R = 1e-2*np.eye(Nu)
-    S = 1e-2*np.eye(Nu)
+    R = 1e-3*np.eye(Nu)
+    S = np.eye(Nu)
 
     # SS Opt parameters.
     empcPars = np.tile(np.array([[100, 200]]), (Nmpc, 1))
@@ -141,7 +141,5 @@ def main():
     with PdfPages('tworeac_openloop_twotier.pdf', 'w') as pdf_file:
         for fig in figures:
             pdf_file.savefig(fig)
-
-
 
 main()

@@ -214,28 +214,28 @@ class CstrFlashPlots:
         # Return the figure object.
         return figures
 
-# def plot_avg_profits(*, t, avg_stage_costs,
-#                     legend_colors, legend_names, 
-#                     figure_size=PAPER_FIGSIZE, 
-#                     ylabel_xcoordinate=-0.15):
-#     """ Plot the profit. """
-#     (figure, axes) = plt.subplots(nrows=1, ncols=1,
-#                                   sharex=True,
-#                                   figsize=figure_size,
-#                                   gridspec_kw=dict(left=0.15))
-#     xlabel = 'Time (hr)'
-#     ylabel = '$\Lambda_k$'
-#     for (cost, color) in zip(avg_stage_costs, legend_colors):
-#         # Plot the corresponding data.
-#         profit = -cost
-#         axes.plot(t, profit, color)
-#     axes.legend(legend_names)
-#     axes.set_xlabel(xlabel)
-#     axes.set_ylabel(ylabel, rotation=True)
-#     axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
-#     axes.set_xlim([np.min(t), np.max(t)])
-#     # Return.
-#     return [figure]
+def plotAvgProfits(*, t, stageCostList,
+                      legend_colors, legend_names, 
+                      figure_size=PAPER_FIGSIZE, 
+                      ylabel_xcoordinate=-0.15):
+    """ Plot the profit. """
+    (figure, axes) = plt.subplots(nrows=1, ncols=1,
+                                  sharex=True,
+                                  figsize=figure_size,
+                                  gridspec_kw=dict(left=0.15))
+    xlabel = 'Time (hr)'
+    ylabel = '$\Lambda_k$'
+    for (cost, color) in zip(stageCostList, legend_colors):
+        # Plot the corresponding data.
+        profit = -cost
+        axes.plot(t, profit, color)
+    axes.legend(legend_names)
+    axes.set_xlabel(xlabel)
+    axes.set_ylabel(ylabel, rotation=True)
+    axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
+    axes.set_xlim([np.min(t), np.max(t)])
+    # Return.
+    return [figure]
 
 # def plot_val_metrics(*, num_samples, val_metrics, colors, legends, 
 #                      figure_size=PAPER_FIGSIZE,

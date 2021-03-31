@@ -10,98 +10,109 @@
 import sys
 sys.path.append('lib/')
 import time
+import mpctools as mpc
 import casadi
+import copy
 import numpy as np
-from hybridid import (PickleTool, SimData, _resample_fast, c2dNonlin,
-                     interpolate_yseq, koopman_func, 
-                     get_koopman_pars_check_func)
-from linNonlinMPC import (NonlinearPlantSimulator, NonlinearEMPCController, 
-                         online_simulation)
-from tworeac_nonlin_funcs import plant_ode, greybox_ode, measurement
-from tworeac_nonlin_funcs import get_model, get_hybrid_pars, hybrid_func
-from tworeac_nonlin_funcs import get_economic_opt_pars
-from tworeac_nonlin_funcs import get_hybrid_pars_check_func
+from hybridid import PickleTool, SimData, measurement, get_model
+from linNonlinMPC import NonlinearEMPCController
+from tworeac_funcs import plant_ode, greybox_ode, get_parameters
+from tworeac_funcs import cost_yup
+from economicopt import get_bbpars_fxu_hx, c2dNonlin, get_xuguess
+from economicopt import get_kooppars_fxu_hx, fnn, get_koopman_ss_xkp0
+from economicopt import online_simulation
 
-def get_controller(model_func, model_pars, model_type,
-                   cost_pars, mhe_noise_tuning, 
-                   regulator_guess):
+def getController(fxu, hx, model_pars, mheTuning, distModel, xuguess):
     """ Construct the controller object comprised of 
         EMPC regulator and MHE estimator. """
 
-    # Get the sizes.
-    if model_type == 'grey-box':
-        Nx = model_pars['Ng']
-    else:
-        Nx = model_pars['Nx']
-    Nu, Ny = model_pars['Nu'], model_pars['Ny']
-    Nd = Ny
+    # Some sizes.
+    Np, Nx, Nu, Ny = 2, model_pars['Nx'], model_pars['Nu'], model_pars['Ny']
+    Nmhe, Nmpc = 15, 60
 
-    # Get state space and input models.
-    if model_type == 'koopman':
-        fxu = lambda x, u: model_func(x, u, model_pars)
-        ymean, ystd = model_pars['xuyscales']['yscale']
-        hx = lambda x: x[:Ny]*ystd + ymean
-    else:
-        ps = model_pars['ps']
-        Delta = model_pars['Delta']
-        fxu = lambda x, u: model_func(x, u, ps, model_pars)
-        fxu = c2dNonlin(fxu, Delta)
-        hx = lambda x: measurement(x, model_pars)
+    # MHE tuning.
+    Qwx, Qwd, Rv = mheTuning
 
-    # Get the stage cost.
-    lyup = lambda y, u, p: stage_cost(y, u, p)
-    
-    # Get the disturbance models.
-    Bd = np.zeros((Nx, Nd))
-    if model_type == 'plant' or model_type == 'koopman':
-        Bd[0, 0] = 1.
-        Bd[1, 1] = 1.
-    else:
-        Ng = model_pars['Ng']
-        Bd[:Ng, :Nd] = np.eye(Nd)
-    Cd = np.zeros((Ny, Nd))
+    # Disturbance model.
+    Bd, Cd = distModel
 
-    # Get steady states.
-    if model_type == 'grey-box':
-        xs = model_pars['xs'][:2]
-    else:
-        xs = model_pars['xs']
-    us = model_pars['us']
-    ds = np.zeros((Nd,))
-    ys = hx(xs)
+    # Initial parameters. 
+    empcPars = np.repeat(np.array([[100, 180], 
+                                   [100, 150], 
+                                   [100, 120], 
+                                   [100, 250], 
+                                   [100, 250]]), 120, axis=0)
 
     # Get upper and lower bounds.
-    ulb = model_pars['ulb']
-    uub = model_pars['uub']
+    ulb, uub = model_pars['ulb'], model_pars['uub']
 
-    # Fictitious noise covariances for MHE.
-    Qwx, Qwd, Rv = mhe_noise_tuning
-
-    # Horizon lengths.
-    Nmpc = 60
-    Nmhe = 30
+    # Steady states/guess.
+    xs, us = xuguess['x'], xuguess['u']
+    ds = np.zeros((Ny, ))
 
     # Return the NN controller.
-    return NonlinearEMPCController(fxu=fxu, hx=hx,
-                                   lyup=lyup, Bd=Bd, Cd=Cd,
-                                   Nx=Nx, Nu=Nu, Ny=Ny, Nd=Nd,
-                                   xs=xs, us=us, ds=ds, ys=ys,
-                                   empc_pars=cost_pars,
-                                   ulb=ulb, uub=uub, Nmpc=Nmpc,
-                                   Qwx=Qwx, Qwd=Qwd, Rv=Rv, Nmhe=Nmhe,
-                                   guess=regulator_guess), hx
+    controller = NonlinearEMPCController(fxu=fxu, hx=hx, lyup=cost_yup, 
+                                         Bd=Bd, Cd=Cd, Nx=Nx, Nu=Nu, Ny=Ny,
+                                         Nd=Ny, xs=xs, us=us, ds=ds, 
+                                         empcPars=empcPars, ulb=ulb, uub=uub,
+                                         Nmpc=Nmpc, Qwx=Qwx, Qwd=Qwd, Rv=Rv,
+                                         Nmhe=Nmhe)
+    
+    # Return Controller.
+    return controller
 
-def get_mhe_noise_tuning(model_type, model_par):
+def getEstimatorTuning(model_type, model_pars):
+    """ Function to get estimation tuning. """
+
+    # Get sizes.
+    Nx, Ny = model_pars['Nx'], model_pars['Ny'] 
+
     # Get MHE tuning.
-    if model_type == 'plant' or model_type =='koopman':
-        Qwx = 1e-6*np.eye(model_par['Nx'])
-        Qwd = 1e-2*np.eye(model_par['Ny'])
-        Rv = 1e-3*np.eye(model_par['Ny'])
+    if model_type == 'plant':
+        
+        Qwx, Qwd, Rv = 1e-6*np.eye(Nx), 1e-2*np.eye(Ny), 1e-3*np.eye(Ny)
+
+    if model_type =='Koopman':
+
+        Qwx, Qwd, Rv = 1e-6*np.eye(Nx), 1e-2*np.eye(Ny), 1e-3*np.eye(Ny)
+
     if model_type == 'grey-box':
-        Qwx = 1e-6*np.eye(model_par['Ng'])
-        Qwd = 1e-2*np.eye(model_par['Ny'])
-        Rv = 1e-3*np.eye(model_par['Ny'])
+
+        Qwx, Qwd, Rv = 1e-6*np.eye(Nx), 1e-2*np.eye(Ny), 1e-3*np.eye(Ny)
+
+    # Return variances. 
     return (Qwx, Qwd, Rv)
+
+def getDistModel(model_type, model_pars):
+    """ Get the disturbance model. """
+
+    # Get sizes.
+    Nx, Ny = model_pars['Nx'], model_pars['Ny'] 
+
+    # Same Cd matrix for the three models.
+    Cd = np.zeros((Ny, Ny))
+    
+    # Get disturbance model.
+    if model_type == 'plant':
+        
+        Bd = np.array([[0, 0], 
+                       [1, 0],
+                       [0, 1]])
+
+    if model_type == 'Koopman':
+        
+        Bd = np.zeros((Nx, Ny))
+        Bd[1, 0] = 1
+        Bd[2, 1] = 1
+
+    if model_type == 'grey-box':
+        
+        Bd = np.array([[0, 0], 
+                       [1, 0],
+                       [0, 1]])
+
+    # Disturbance model.
+    return Bd, Cd
 
 def main():
     """ Main function to be executed. """
@@ -109,19 +120,13 @@ def main():
     tworeac_parameters = PickleTool.load(filename='tworeac_parameters.pickle',
                                          type='read')
     parameters = tworeac_parameters['parameters']
-    tworeac_bbtrain = PickleTool.load(filename='tworeac_bbtrain.pickle',
-                                      type='read')
     tworeac_kooptrain = PickleTool.load(filename='tworeac_kooptrain.pickle',
                                       type='read')
-
-    # Get the black-box model parameters and function handles.
-    bb_pars, blackb_fxu, blackb_hx = get_bbpars_fxu_hx(train=tworeac_bbtrain, 
-                                                       parameters=parameters) 
 
     # Get the Koopman model parameters and function handles.
     koop_pars, koop_fxu, koop_hx = get_kooppars_fxu_hx(train=tworeac_kooptrain, 
                                                        parameters=parameters)
-    xkp0 = get_koopman_xkp0(tworeac_kooptrain, parameters)
+    xkp0 = get_koopman_ss_xkp0(tworeac_kooptrain, parameters)
 
     # Get the plant function handle.
     Delta = parameters['Delta']
@@ -137,14 +142,17 @@ def main():
     gb_pars['Nx'] = len(parameters['gb_indices'])
 
     # Lists to loop over for the three problems.  
-    model_types = ['plant', 'grey-box', 'black-box', 'Koopman']
-    fxu_list = [plant_fxu, gb_fxu, blackb_fxu, koop_fxu]
-    hx_list = [plant_hx, plant_hx, blackb_hx, koop_hx]
-    par_list = [parameters, gb_pars, bb_pars, koop_pars]
-    Nps = [None, None, bb_pars['Np'], koop_pars['Np']]
+    model_types = ['plant', 'grey-box', 'Koopman']
+    fxu_list = [plant_fxu, gb_fxu, koop_fxu]
+    hx_list = [plant_hx, plant_hx, koop_hx]
+    par_list = [parameters, gb_pars, koop_pars]
+    Nps = [None, None, koop_pars['Np']]
     
+    # Get disturbances.
+    disturbances = np.repeat(parameters['ps'], 8*60, axis=0)[:, np.newaxis]
+
     # Lists to store solutions.
-    ulist, xlist = [], []
+    clDataList, stageCostList = [], []
 
     # Loop over the models.
     for (model_type, fxu, hx, model_pars, Np) in zip(model_types, fxu_list, 
@@ -154,35 +162,36 @@ def main():
         xuguess = get_xuguess(model_type=model_type, 
                               plant_pars=parameters, Np=Np, Nx=model_pars['Nx'])
 
+        # Get MHE tuning.
+        mheTuning = getEstimatorTuning(model_type, model_pars)
+
+        # Get Disturbance model.
+        distModel = getDistModel(model_type, model_pars)
+
         # Update guess for the Koopman model.
         if model_type == 'Koopman':
             xuguess['x'] = xkp0
 
-        # Get the steady state optimum.
-        t, useq, xseq, yseq = get_openloop_sol(fxu, hx, model_pars, xuguess)
+        # Get controller.
+        controller = getController(fxu, hx, model_pars,
+                                   mheTuning, distModel, xuguess)
 
-        # Store. 
-        ulist += [useq]
-        if model_type != 'plant':
-            xseq = np.insert(yseq, [2], 
-                             np.nan*np.ones((yseq.shape[0], 1)), axis=1)
-        xlist += [xseq]
+        # Get plant.
+        plant = get_model(ode=plant_ode, parameters=parameters)
 
-    # Get figure.
-    t = t*Delta/60
-    legend_names = ['Plant', 'Grey-box', 'Black-box', 'Koopman']
-    legend_colors = ['b', 'g', 'dimgrey', 'm']
-    figures = TwoReacPlots.plot_xudata(t=t, xlist=xlist, ulist=ulist,
-                                        legend_names=legend_names,
-                                        legend_colors=legend_colors, 
-                                        figure_size=PAPER_FIGSIZE, 
-                                        ylabel_xcoordinate=-0.1, 
-                                        title_loc=(0.05, 0.9), 
-                                        font_size=12)
+        # Run closed-loop simulation.
+        clData, avgStageCosts = online_simulation(plant, controller,
+                                         plant_lyup=controller.lyup,
+                                         Nsim=8*60, disturbances=disturbances,
+                                         stdout_filename='tworeac_empc.txt')
 
-    # Finally plot.
-    with PdfPages('tworeac_openloop.pdf', 'w') as pdf_file:
-        for fig in figures:
-            pdf_file.savefig(fig)
+        # Store data. 
+        clDataList += [clData]
+        stageCostList += [avgStageCosts]
+
+    # Save data.
+    PickleTool.save(data_object=dict(clDataList=clDataList,
+                                     stageCostList=stageCostList),
+                    filename='tworeac_empc.pickle')
 
 main()

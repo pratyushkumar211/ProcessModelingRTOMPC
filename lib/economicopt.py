@@ -5,6 +5,7 @@ data-based completion of grey-box models
 using neural networks.
 Pratyush Kumar, pratyushkumar@ucsb.edu
 """
+import sys
 import numpy as np
 import casadi
 import mpctools as mpc
@@ -18,7 +19,7 @@ def online_simulation(plant, controller, *, plant_lyup, Nsim=None,
     sys.stdout = open(stdout_filename, 'w')
     measurement = plant.y[0] # Get the latest plant measurement.
     disturbances = disturbances[..., np.newaxis]
-    avg_stage_costs = [0.]
+    avgStageCosts = [0.]
 
     # Start simulation loop.
     for (simt, disturbance) in zip(range(Nsim), disturbances):
@@ -26,24 +27,24 @@ def online_simulation(plant, controller, *, plant_lyup, Nsim=None,
         # Compute the control and the current stage cost.
         print("Simulation Step:" + f"{simt}")
         control_input = controller.control_law(simt, measurement)
-        print("Computation time:" + str(controller.computation_times[-1]))
-        stage_cost = plant_lyup(plant.y[-1], control_input,
-                                controller.opt_pars[simt:simt+1, :].T)[0]
-        avg_stage_costs += [(avg_stage_costs[-1]*simt + stage_cost)/(simt+1)]
+        print("Computation time:" + str(controller.computationTimes[-1]))
+
+        stageCost = plant_lyup(plant.y[-1], control_input, 
+                                controller.empcPars[simt:simt+1, :].T)[0]
+        avgStageCosts += [(avgStageCosts[-1]*simt + stageCost)/(simt+1)]
 
         # Inject control/disturbance to the plant.
         measurement = plant.step(control_input, disturbance)
 
     # Create a sim data/stage cost array.
-    cl_data = SimData(t=np.asarray(plant.t[0:-1]).squeeze(),
+    clData = SimData(t=np.asarray(plant.t[0:-1]).squeeze(),
                 x=np.asarray(plant.x[0:-1]).squeeze(),
                 u=np.asarray(plant.u),
                 y=np.asarray(plant.y[0:-1]).squeeze())
-    avg_stage_costs = np.array(avg_stage_costs[1:])
-    openloop_sol = [np.asarray(controller.regulator.useq[0]), 
-                    np.asarray(controller.regulator.xseq[0])]
+    avgStageCosts = np.array(avgStageCosts[1:])
+
     # Return.
-    return cl_data, avg_stage_costs, openloop_sol
+    return clData, avgStageCosts
 
 def fnn(nn_input, nn_weights, tanh_scale):
     """ Compute the NN output. 
@@ -210,6 +211,31 @@ def koop_hx(xkp, parameters):
 
     # Return the sum.
     return y
+
+def get_koopman_ss_xkp0(train, parameters):
+
+    # Get initial state.
+    Np = train['Np']
+    us = parameters['us']
+    yindices = parameters['yindices']
+    ys = parameters['xs'][yindices]
+    yz0 = np.concatenate((np.tile(ys, (Np+1, )), 
+                          np.tile(us, (Np, ))))
+
+    # Scale initial state and get the lifted state.
+    fN_weights = train['trained_weights'][-1][:-2]
+    xuyscales = train['xuyscales']
+    ymean, ystd = xuyscales['yscale']
+    umean, ustd = xuyscales['uscale']
+    yzmean = np.concatenate((np.tile(ymean, (Np+1, )), 
+                            np.tile(umean, (Np, ))))
+    yzstd = np.concatenate((np.tile(ystd, (Np+1, )), 
+                            np.tile(ustd, (Np, ))))
+    yz0 = (yz0 - yzmean)/yzstd
+    xkp0 = np.concatenate((yz0, fnn(yz0, fN_weights, 1.)))
+
+    # Return.
+    return xkp0
 
 def get_ss_optimum(*, fxu, hx, lyu, parameters, guess):
     """ Setup and solve the steady state optimization. """

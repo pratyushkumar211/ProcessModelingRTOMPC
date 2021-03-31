@@ -300,11 +300,11 @@ class NonlinearMHEEstimator:
                                      guess=guess,
                                      x0bar=self.xhat[0],
                                      verbosity=0)
-        self.mhe_estimator.solve()
-        self.mhe_estimator.saveguess()
+        self.mheEstimator.solve()
+        self.mheEstimator.saveguess()
 
         # Get estimated state sequence.
-        xhat = np.asarray(self.mhe_estimator.var["x"][-1]).squeeze(axis=-1)
+        xhat = np.asarray(self.mheEstimator.var["x"][-1]).squeeze(axis=-1)
         self.xhat.append(xhat)
 
     def _stageCost(self, w, v):
@@ -326,18 +326,18 @@ class NonlinearMHEEstimator:
 
         # Assemble data and solve NLP.
         N = self.N
-        self.mhe_estimator.par["x0bar"] = [self.xhat[-N]]
-        self.mhe_estimator.par["y"] = self.y[-N:] + [y]
-        self.mhe_estimator.par["u"] = self.u[-N+1:] + [uprev]
-        self.mhe_estimator.solve()
-        self.mhe_estimator.saveguess()
+        self.mheEstimator.par["x0bar"] = [self.xhat[-N]]
+        self.mheEstimator.par["y"] = self.y[-N:] + [y]
+        self.mheEstimator.par["u"] = self.u[-N+1:] + [uprev]
+        self.mheEstimator.solve()
+        self.mheEstimator.saveguess()
 
         # Get estimated state sequence and save data.
-        xhat = np.asarray(self.mhe_estimator.var["x"][-1]).squeeze(axis=-1)
-        self._appendData(xhat, y, uprev)
+        xhat = np.asarray(self.mheEstimator.var["x"][-1]).squeeze(axis=-1)
+        self._saveData(xhat, y, uprev)
         return xhat
 
-    def _appendData(self, xhat, y, uprev):
+    def _saveData(self, xhat, y, uprev):
         """ Append the data to the lists. """
         self.xhat.append(xhat)
         self.y.append(y)
@@ -354,8 +354,7 @@ class NonlinearEMPCController:
         Bd is in continuous time.
     """
     def __init__(self, *, fxu, hx, lyup, Bd, Cd,
-                          Nx, Nu, Ny, Nd,
-                          xs, us, ds, ys,
+                          Nx, Nu, Ny, Nd, xs, us, ds,
                           empcPars, ulb, uub, Nmpc,
                           Qwx, Qwd, Rv, Nmhe):
         
@@ -380,7 +379,7 @@ class NonlinearEMPCController:
         self.xs = xs
         self.us = us
         self.ds = ds
-        self.ys = ys
+        self.ys = hx(xs)
         self.uprev = us
 
         # MPC Regulator parameters.
@@ -424,7 +423,7 @@ class NonlinearEMPCController:
 
         # Get some numbers. 
         xs, ds, us, ys = self.xs, self.ds, self.us, self.ys
-        Nx, Nu, Nd, Nmhe = self.Nx, self.Nu, self.Nd, self.Nmhe
+        Nx, Nu, Nd, Ny, Nmhe = self.Nx, self.Nu, self.Nd, self.Ny, self.Nmhe
         Qwx, Qwd, Rv = self.Qwx, self.Qwd, self.Rv
 
         # Prior estimates and data.
@@ -463,8 +462,9 @@ class NonlinearEMPCController:
         # Get casadi funcs for the model and stage cost.
         fxud = mpc.getCasadiFunc(self._augFxudModel(), [Nx + Nd, Nu], 
                                  ["x", "u"])
-        lxup = lambda x, u, p: self.lyup(self.hx(x), u, p)
-        lxup = mpc.getCasadiFunc(lxup, [Nx, Nu, Np], ["x", "u", "p"])
+
+        lxup = lambda x, u, p: self.lyup(self._augHxdModel()(x), u, p)
+        lxup = mpc.getCasadiFunc(lxup, [Nx + Nd, Nu, Np], ["x", "u", "p"])
 
         # Get initial guess.
         t0Guess = dict(x=np.concatenate((xs, ds)), u=us)
@@ -474,8 +474,8 @@ class NonlinearEMPCController:
         self.regulator  = NonlinearEMPCRegulator(fxu=fxud, lxup=lxup,
                                                  Nx=Nx+Nd, Nu=Nu, Np=Np,
                                                  Nmpc=Nmpc, ulb=ulb, 
-                                                 uub=uub, t0Guess=t0guess,
-                                                 t0EmpPars=t0EmpcPars)
+                                                 uub=uub, t0Guess=t0Guess,
+                                                 t0EmpcPars=t0EmpcPars)
 
     def control_law(self, simt, y):
         """
@@ -489,10 +489,10 @@ class NonlinearEMPCController:
 
         # Get EMPC pars.
         mpc_N = slice(simt, simt + self.Nmpc, 1)
-        empc_pars = self.opt_pars[mpc_N, :]
+        empcPars = self.empcPars[mpc_N, :]
 
         # Solve nonlinear regulator.
-        useq = self.regulator.solve(xdhat, empc_pars)
+        useq = self.regulator.solve(xdhat, empcPars)
         self.uprev = useq[:1, :].T
 
         # Get compuatation time and save.
@@ -606,7 +606,7 @@ class TwoTierMPController:
 
         # First get the linear model.
         xs, us = self.xs[-1], self.us[-1]
-        x0, uprev, Nmpc = self.x0[-1], self.uprev, self.Nmpc
+        x0, uprev = self.x0[-1], self.uprev
         Nx, Nu, Nmpc = self.Nx, self.Nu, self.Nmpc
         A, B = self._getLinearizedModel(xs, us)
 

@@ -34,7 +34,7 @@ def main():
     xinsert_indices = [2]
     tthrow = 10
     Np = 2
-    tanhScale = 0.1
+    tanhScale = 0.2
     hN_dims = [Np*(Ny+Nu), 16, 2]
 
     # Create lists to store data.

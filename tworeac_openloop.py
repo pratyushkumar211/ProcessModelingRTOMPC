@@ -20,7 +20,7 @@ from linNonlinMPC import NonlinearEMPCRegulator
 from tworeac_funcs import plant_ode, greybox_ode, get_parameters
 from tworeac_funcs import cost_yup
 from economicopt import get_bbpars_fxu_hx, c2dNonlin, get_xuguess
-from economicopt import get_kooppars_fxu_hx, fnn
+from economicopt import get_kooppars_fxu_hx, fnn, get_koopman_ss_xkp0
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from plotting_funcs import PAPER_FIGSIZE, TwoReacPlots
@@ -66,31 +66,6 @@ def get_openloop_sol(fxu, hx, model_pars, xuguess):
     # Return the open-loop sol.
     return (t, useq, xseq, yseq)
 
-def get_koopman_xkp0(train, parameters):
-
-    # Get initial state.
-    Np = train['Np']
-    us = parameters['us']
-    yindices = parameters['yindices']
-    ys = parameters['xs'][yindices]
-    yz0 = np.concatenate((np.tile(ys, (Np+1, )), 
-                          np.tile(us, (Np, ))))
-
-    # Scale initial state and get the lifted state.
-    fN_weights = train['trained_weights'][-1][:-2]
-    xuyscales = train['xuyscales']
-    ymean, ystd = xuyscales['yscale']
-    umean, ustd = xuyscales['uscale']
-    yzmean = np.concatenate((np.tile(ymean, (Np+1, )), 
-                            np.tile(umean, (Np, ))))
-    yzstd = np.concatenate((np.tile(ystd, (Np+1, )), 
-                            np.tile(ustd, (Np, ))))
-    yz0 = (yz0 - yzmean)/yzstd
-    xkp0 = np.concatenate((yz0, fnn(yz0, fN_weights, 1.)))
-
-    # Return.
-    return xkp0
-
 def main():
     """ Main function to be executed. """
     # Load data.
@@ -109,7 +84,7 @@ def main():
     # Get the Koopman model parameters and function handles.
     koop_pars, koop_fxu, koop_hx = get_kooppars_fxu_hx(train=tworeac_kooptrain, 
                                                        parameters=parameters)
-    xkp0 = get_koopman_xkp0(tworeac_kooptrain, parameters)
+    xkp0 = get_koopman_ss_xkp0(tworeac_kooptrain, parameters)
 
     # Get the plant function handle.
     Delta = parameters['Delta']

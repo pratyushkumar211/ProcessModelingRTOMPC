@@ -12,7 +12,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from hybridid import PickleTool
-from plotting_funcs import PAPER_FIGSIZE, TwoReacPlots
+from plotting_funcs import PAPER_FIGSIZE, TwoReacPlots, plotAvgProfits
 from hybridid import get_plotting_array_list
 
 #def plot_sub_gaps(*, num_samples, sub_gaps, colors, legends, 
@@ -129,39 +129,31 @@ def main():
     #                            legends=['Black-box', 'Hybrid'])
 
     # Load data for the economic MPC simulation.
-    # tworeac_empc = PickleTool.load(filename=
-    #                                 "tworeac_empc_nonlin.pickle", 
-    #                                 type='read')
-    # cl_data_list = tworeac_empc['cl_data_list']
-    # cost_pars = tworeac_empc['cost_pars']
-    # avg_stage_costs=tworeac_empc['avg_stage_costs']
-    # openloop_sols = tworeac_empc['openloop_sols']
+    tworeac_empc = PickleTool.load(filename="tworeac_empc.pickle", 
+                                    type='read')
+    clDataList = tworeac_empc['clDataList']
+    stageCostList = tworeac_empc['stageCostList']
 
-    # # Plot first open-loop simulation.
-    # legend_names = ['Plant', 'Grey-box', 'Koopman']
-    # legend_colors = ['b', 'g', 'm']
-    # udatum = [openloop_sols[0][0], openloop_sols[1][0], openloop_sols[2][0]]
-    # xdatum = [openloop_sols[0][1], openloop_sols[1][1], openloop_sols[2][1]]
-    # figures += plot_openloop_sols(t=t, udatum=udatum, xdatum=xdatum,
-    #                               legend_names=legend_names,
-    #                               legend_colors=legend_colors)
-
-    # # Plot closed-loop simulation data.
-    # t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
-    #                                                  cl_data_list,
-    #                                                  plot_range=(0, 8*60))
-    # figures += plot_xudata(t=t, xlist=xlist, ulist=ulist,
-    #                        legend_names=legend_names,
-    #                        legend_colors=legend_colors)
+    # Plot closed-loop simulation data.
+    legend_names = ['Plant', 'Grey-box', 'Koopman']
+    legend_colors = ['b', 'g', 'm']
+    t, ulist, ylist, xlist = get_plotting_array_list(simdata_list = clDataList,
+                                                     plot_range = (0, 8*60))
+    figures += TwoReacPlots.plot_xudata(t=t, xlist=xlist, ulist=ulist,
+                                        legend_names=legend_names,
+                                        legend_colors=legend_colors, 
+                                        figure_size=PAPER_FIGSIZE, 
+                                        ylabel_xcoordinate=-0.1, 
+                                        title_loc=(0.05, 0.9),
+                                        font_size=12)
 
     # # Plot empc pars.
     # figures += plot_cost_pars(t=t, cost_pars=cost_pars)
 
-    # # Plot profit curve.
-    # figures += plot_avg_profits(t=t,
-    #                             avg_stage_costs=avg_stage_costs, 
-    #                             legend_colors=legend_colors,
-    #                             legend_names=legend_names)
+    # Plot profit curve.
+    figures += plotAvgProfits(t=t, stageCostList=stageCostList, 
+                              legend_colors=legend_colors,
+                              legend_names=legend_names)
     
     # Plot the RTO simulation data.
     #cl_data_list = tworeac_rto['cl_data_list']
