@@ -36,10 +36,10 @@ def getController(fxu, hx, model_pars, mheTuning, distModel, xuguess):
 
     # Initial parameters. 
     empcPars = np.repeat(np.array([[10, 2000, 13000], 
-                                   [10, 2000, 15000], 
+                                   [10, 2000, 14000], 
                                    [10, 2000, 20000],
-                                   [10, 2000, 14000],
-                                   [10, 2000, 14000]]), 360, axis=0)
+                                   [10, 2000, 12000],
+                                   [10, 2000, 12000]]), 360, axis=0)
 
     # Get the stage cost.
     lyup = lambda y, u, p: cost_yup(y, u, p, model_pars)
@@ -126,7 +126,7 @@ def main():
     Nps = [None]
     
     # Get disturbances.
-    disturbances = np.repeat(plant_pars['ps'][:, np.newaxis], 24*60, axis=0)
+    disturbances = np.repeat(plant_pars['ps'][np.newaxis, :], 24*60, axis=0)
 
     # Lists to store solutions.
     clDataList, stageCostList = [], []

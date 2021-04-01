@@ -657,7 +657,7 @@ class TwoTierMPController:
 
         # State estimation.
         xhat =  self.estimator.solve(y, self.uprev)
-
+        
         # Regulation.
         x0 = np.concatenate((xhat-xs, self.uprev - us))
         useq = self.regulator.solve(x0)

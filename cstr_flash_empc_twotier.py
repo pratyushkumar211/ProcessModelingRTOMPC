@@ -27,17 +27,17 @@ def getController(fxu, hx, model_pars, xuguess):
 
     # Some sizes.
     Np, Nx, Nu, Ny = 3, model_pars['Nx'], model_pars['Nu'], model_pars['Ny']
-    tSsOptFreq = 30
+    tSsOptFreq = 360
 
     # Get cost as a function of yup.
     lyup = lambda y, u, p: cost_yup(y, u, p, model_pars)
 
     # Initial parameters. 
-    empcPars = np.repeat(np.array([[1, 2000, 13000], 
-                                   [1, 2000, 15000], 
-                                   [1, 2000, 20000],
-                                   [1, 2000, 14000],
-                                   [1, 2000, 14000]]), 360, axis=0)
+    empcPars = np.repeat(np.array([[10, 2000, 13000], 
+                                   [10, 2000, 14000], 
+                                   [10, 2000, 20000],
+                                   [10, 2000, 12000],
+                                   [10, 2000, 12000]]), 360, axis=0)
 
     # Steady states/guess.
     xs, us = xuguess['x'], xuguess['u']
@@ -47,12 +47,12 @@ def getController(fxu, hx, model_pars, xuguess):
     ulb, uub = model_pars['ulb'], model_pars['uub']
     Q = np.eye(Nx)*np.diag(1/xs**2)
     R = np.eye(Nu)*np.diag(1/us**2)
-    S = 1e-4*np.eye(Nu)*np.diag(1/us**2)
+    S = 1e-3*np.eye(Nu)*np.diag(1/us**2)
 
     # Extened Kalman Filter parameters. 
     xhatPrior = xs[:, np.newaxis]
     Qw = 1e-8*np.eye(Nx)
-    Rv = 1e-2*np.eye(Ny)
+    Rv = np.eye(Ny)
     covxPrior = Qw
 
     # Return the Two Tier controller.
@@ -104,7 +104,7 @@ def main():
     Nps = [None, bb_pars['Np']]
         
     # Get disturbances.
-    disturbances = np.repeat(plant_pars['ps'][:, np.newaxis], 24*60, axis=0)
+    disturbances = np.repeat(plant_pars['ps'][np.newaxis, :], 24*60, axis=0)
 
     # Lists to store solutions.
     clDataList, stageCostList = [], []
@@ -126,7 +126,7 @@ def main():
         # Run closed-loop simulation.
         clData, avgStageCosts = online_simulation(plant, controller,
                                          plant_lyup=controller.lyup,
-                                         Nsim=12*60, disturbances=disturbances,
+                                         Nsim=24*60, disturbances=disturbances,
                                 stdout_filename='cstr_flash_empc_twotier.txt')
 
         # Store data. 

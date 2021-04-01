@@ -51,6 +51,10 @@ def main():
     #                                         type='read')
     cstr_flash_empc = PickleTool.load(filename="cstr_flash_empc.pickle",
                                        type='read')
+    cstr_flash_empc_twotier = PickleTool.load(filename=
+                                       "cstr_flash_empc_twotier.pickle",
+                                       type='read')
+
     # cstr_flash_encdeckooptrain = PickleTool.load(filename=
     #                                         "cstr_flash_encdeckooptrain.pickle",
     #                                         type='read')
@@ -99,11 +103,12 @@ def main():
     #                            legends=['Black-box', 'Hybrid'])
     
     # # Plot the closed-loop simulation.
-    legend_names = ['Plant']
-    legend_colors = ['b']
+    legend_names = ['Plant', 'Plant-TT', 'Black-box-TT']
+    legend_colors = ['b', 'orange', 'dimgrey']
     clDataList = cstr_flash_empc['clDataList']
+    clDataList += cstr_flash_empc_twotier['clDataList']
     (t, ulist, ylist, xlist) = get_plotting_array_list(simdata_list=
-                                       clDataList[:1],
+                                       clDataList,
                                        plot_range = (0, 24*60))
     figures += CstrFlashPlots.plot_data(t=t, ulist=ulist, 
                                 ylist=ylist, xlist=xlist, 
@@ -123,10 +128,11 @@ def main():
 
     # Plot the plant profit in time.
     stageCostList = cstr_flash_empc['stageCostList']
+    stageCostList += cstr_flash_empc_twotier['stageCostList']
     figures += plotAvgProfits(t=t,
-                        stageCostList=stageCostList[:3], 
-                        legend_colors=legend_colors,
-                        legend_names=legend_names)
+                       stageCostList=stageCostList, 
+                       legend_colors=legend_colors,
+                       legend_names=legend_names)
 
     # Save PDF.
     with PdfPages('cstr_flash_plots.pdf', 'w') as pdf_file:
