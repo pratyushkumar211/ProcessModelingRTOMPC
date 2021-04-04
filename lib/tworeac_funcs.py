@@ -1,17 +1,12 @@
-# [depends] %LIB%/hybridid.py %LIB%/linNonlinMPC.py
 """ Script to generate the necessary 
     parameters and training data for the 
     three reaction example.
     Pratyush Kumar, pratyushkumar@ucsb.edu """
 
-import sys
-sys.path.append('lib/')
-import mpctools as mpc
 import numpy as np
-import copy
 
 def plant_ode(x, u, p, parameters):
-    """ Simple ODE describing a 2D system. """
+    """ Simple ODE describing a 3D system. """
     # Extract the parameters.
     k1 = parameters['k1']
     k2 = parameters['k2']
@@ -50,13 +45,13 @@ def greybox_ode(x, u, p, parameters):
     # Return the derivative.
     return np.array([dCabydt, dCbbydt, dCcbydt])
 
-def get_parameters():
+def get_plant_pars():
     """ Get the parameter values for the 
         three reaction example. """
     
     # Parameters.
     parameters = {}
-    parameters['k1'] = 1. # m^3/min.
+    parameters['k1'] = 0.2 # m^3/min.
     parameters['k2'] = 0.01 # m^3/min.
     parameters['k3'] = 0.05 # m^3/min.
 
@@ -73,7 +68,7 @@ def get_parameters():
     # Get the steady states.
     parameters['xs'] = np.array([1., 0.5, 0.5]) # to be updated.
     parameters['us'] = np.array([1.5]) # Ca0s
-    parameters['ps'] = np.array([10.]) # tau (min)
+    parameters['ps'] = np.array([20.]) # tau (min)
 
     # Get the constraints. 
     ulb = np.array([0.5])

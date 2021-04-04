@@ -51,18 +51,18 @@ def main():
     plant_fxu = c2dNonlin(plant_fxu, Delta)
     plant_hx = lambda x: measurement(x, parameters)
 
-    # Get the grey-box function handle.
-    gb_fxu = lambda x, u: greybox_ode(x, u, ps, parameters)
-    gb_fxu = c2dNonlin(gb_fxu, Delta)
-    gb_pars = copy.deepcopy(parameters)
-    gb_pars['Nx'] = len(parameters['gb_indices'])
+    # # Get the grey-box function handle.
+    # gb_fxu = lambda x, u: greybox_ode(x, u, ps, parameters)
+    # gb_fxu = c2dNonlin(gb_fxu, Delta)
+    # gb_pars = copy.deepcopy(parameters)
+    # gb_pars['Nx'] = len(parameters['gb_indices'])
 
     # Lists to loop over for different models.
-    model_types = ['plant', 'grey-box', 'black-box', 'Koopman']
-    fxu_list = [plant_fxu, gb_fxu, blackb_fxu, koop_fxu]
-    hx_list = [plant_hx, plant_hx, blackb_hx, koop_hx]
-    par_list = [parameters, gb_pars, bb_pars, koop_pars]
-    Nps = [None, None, bb_pars['Np'], koop_pars['Np']]
+    model_types = ['plant', 'black-box']
+    fxu_list = [plant_fxu, blackb_fxu]
+    hx_list = [plant_hx, blackb_hx]
+    par_list = [parameters, bb_pars]
+    Nps = [None, bb_pars['Np']]
 
     # Loop over the different models, and obtain SS optimums.
     for (model_type, fxu, hx, model_pars, Np) in zip(model_types, fxu_list, 
@@ -109,8 +109,8 @@ def main():
     # Get us as rank 1 array.
     us = np.asarray(us_list)[:, 0]
 
-    legend_names = ['Plant', 'Grey-box', 'Black-box', 'Koopman']
-    legend_colors = ['b', 'g', 'dimgrey', 'm']
+    legend_names = ['Plant', 'Black-box']
+    legend_colors = ['b', 'dimgrey']
     figures = TwoReacPlots.plot_sscosts(us=us, sscosts=sscosts, 
                                         legend_colors=legend_colors, 
                                         legend_names=legend_names, 
