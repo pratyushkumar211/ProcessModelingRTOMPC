@@ -27,23 +27,21 @@ def plant_ode(x, u, p, parameters):
 
 def greybox_ode(x, u, p, parameters):
     """ Simple ODE describing the grey-box plant. """
+
     # Extract the parameters.
     k1 = parameters['k1']
-    k2 = parameters['k2']
-    k3 = parameters['k3']
 
     # Extract the plant states into meaningful names.
-    (Ca, Cb, Cc) = x[0:3]
+    (Ca, Cb) = x[0:2]
     Caf = u[0]
     tau = p[0]
 
     # Write the ODEs.
     dCabydt = (Caf-Ca)/tau - k1*Ca
-    dCbbydt = k1*Ca - k2*Cb + k3*Cc - Cb/tau
-    dCcbydt = k2*Cb - k3*Cc - Cc/tau
+    dCbbydt = k1*Ca - Cb/tau
 
     # Return the derivative.
-    return np.array([dCabydt, dCbbydt, dCcbydt])
+    return np.array([dCabydt, dCbbydt])
 
 def get_plant_pars():
     """ Get the parameter values for the 
@@ -59,7 +57,7 @@ def get_plant_pars():
     parameters['Nx'] = 3
     parameters['Ng'] = 3
     parameters['Nu'] = 1
-    parameters['Ny'] = 2
+    parameters['Ny'] = 3
     parameters['Np'] = 1
 
     # Sample time.
@@ -80,9 +78,45 @@ def get_plant_pars():
     parameters['tsteps_steady'] = 10
 
     # Measurement indices and noise.
-    parameters['gb_indices'] = [0, 1, 2]
+    parameters['yindices'] = [0, 1, 2]
+    parameters['Rv'] = 0*np.diag([1e-3, 1e-3, 1e-3])
+
+    # Return the parameters dict.
+    return parameters
+
+def get_greybox_pars(*, plant_pars):
+    """ Get the parameter values for the 
+        three reaction example. """
+    
+    # Parameters.
+    parameters = {}
+    parameters['k1'] = 0.2 # m^3/min.
+
+    # Store the dimensions.
+    parameters['Nx'] = 2
+    parameters['Nu'] = plant_pars['Nu']
+    parameters['Ny'] = plant_pars['Ny']
+    parameters['Np'] = plant_pars['Np']
+
+    # Sample time.
+    parameters['Delta'] = plant_pars['Delta'] # min.
+
+    # Get the steady states.
+    gb_indices = [0, 1]
+    parameters['xs'] = plant_pars['xs'][gb_indices] # to be updated.
+    parameters['us'] = plant_pars['us'] # Ca0s
+    parameters['ps'] = plant_pars['ps'] # tau (min)
+
+    # Get the constraints.
+    parameters['ulb'] = plant_pars['ulb']
+    parameters['uub'] = plant_pars['uub']
+
+    # Number of time-steps to keep the plant at steady.
+    parameters['tsteps_steady'] = plant_pars['tsteps_steady']
+
+    # Measurement indices and noise.
     parameters['yindices'] = [0, 1]
-    parameters['Rv'] = 0*np.diag([1e-3, 1e-3])
+    parameters['Rv'] = 0*np.eye(parameters['Ny'])
 
     # Return the parameters dict.
     return parameters

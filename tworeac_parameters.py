@@ -85,17 +85,17 @@ def main():
     """ Get the parameters/training/validation data."""
     
     # Get parameters.
-    parameters = get_plant_pars()
-    parameters['xs'] = get_rectified_xs(ode=plant_ode, parameters=parameters)
+    plant_pars = get_plant_pars()
+    plant_pars['xs'] = get_rectified_xs(ode=plant_ode, parameters=plant_pars)
     
     # Generate training data.
-    training_data = gen_train_val_data(parameters=parameters,
+    training_data = gen_train_val_data(parameters=plant_pars,
                                         num_traj=6, Nsim_train=360,
                                         Nsim_trainval=360, Nsim_val=360,
                                         seed=100)
     
     # Create a dict and save.
-    tworeac_parameters = dict(parameters=parameters, 
+    tworeac_parameters = dict(plant_pars=plant_pars, 
                               training_data=training_data)
     
     # Save data.

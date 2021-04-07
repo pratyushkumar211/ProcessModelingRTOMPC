@@ -7,6 +7,7 @@ Pratyush Kumar, pratyushkumar@ucsb.edu
 import sys
 import numpy as np
 import tensorflow as tf
+from hybridid import SimData
 
 def fnnTF(nnInput, nnLayers):
     """ Compute the output of the feedforward network. """
@@ -100,7 +101,7 @@ class BlackBoxModel(tf.keras.Model):
         # Construct model.
         super().__init__(inputs=[useq, yz0], outputs=yseq)
 
-def create_bbmodel(*, Np, Ny, Nu, fNDims, tanhScale):
+def create_bbNNmodel(*, Np, Ny, Nu, fNDims, tanhScale):
     """ Create/compile the two reaction model for training. """
     model = BlackBoxModel(Np, Ny, Nu, fNDims, tanhScale)
     # Compile the nn model.
@@ -108,7 +109,7 @@ def create_bbmodel(*, Np, Ny, Nu, fNDims, tanhScale):
     # Return the compiled model.
     return model
 
-def train_bbmodel(*, model, epochs, batch_size, train_data, trainval_data, 
+def train_bbNNmodel(*, model, epochs, batch_size, train_data, trainval_data, 
                      stdout_filename, ckpt_path):
     """ Function to train the NN controller. """
     # Std out.
@@ -127,7 +128,7 @@ def train_bbmodel(*, model, epochs, batch_size, train_data, trainval_data,
                             trainval_data['outputs']),
             callbacks = [checkpoint_callback])
 
-def get_bbval_predictions(*, model, val_data, xuyscales, 
+def get_bbNNval_predictions(*, model, val_data, xuyscales, 
                              xinsert_indices, ckpt_path):
     """ Get the validation predictions. """
 
