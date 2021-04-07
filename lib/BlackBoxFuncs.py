@@ -186,84 +186,85 @@ def fnn(nnInput, nnWeights, tanhScale):
     # Return.
     return nnOutput
 
-def get_bbNN_pars(*, train, parameters):
+def get_bbNN_pars(*, train, plant_pars):
     """ Get the black-box parameter dict and function handles. """
 
     # Get black-box model parameters.
-    Np = train['Np']
-    hN_weights = train['trained_weights'][-1]
-    xuyscales = train['xuyscales']
-    Ny, Nu = parameters['Ny'], parameters['Nu']
-    Nx = Np*(Ny + Nu)
-    ulb, uub = parameters['ulb'], parameters['uub']
-    tanhScale = train['tanhScale']
-    bb_pars = dict(Nx=Nx, Ny=Ny, Nu=Nu, Np=Np, xuyscales=xuyscales,
-                   hN_weights=hN_weights, ulb=ulb, uub=uub, 
-                   tanhScale=tanhScale)
+    parameters = {}
+    parameters['Np'] = train['Np']
+    parameters['fNWeights'] = train['trained_weights'][-1]
+    parameters['xuyscales'] = train['xuyscales']
+
+    # Sizes.
+    Ny, Nu = plant_pars['Ny'], plant_pars['Nu']
+    parameters['Ny'], parameters['Nu'] = Ny, Nu
+    parameters['Nx'] = Ny + parameters['Np']*(Ny + Nu)
+
+    # Constraints.
+    parameters['ulb'] = plant_pars['ulb']
+    parameters['uub'] = plant_pars['uub']
+
+    # Scaling for activation function.
+    parameters['tanhScale'] = train['tanhScale']
     
     # Return.
-    return bb_pars
+    return parameters
 
-def bbNN_fxu(z, u, parameters):
+def bbNN_fxu(yz, u, parameters):
     """ Function describing the dynamics 
         of the black-box neural network. 
-        z^+ = f_z(z, u) """
+        yz^+ = f_z(yz, u) """
 
-    # Extract a few parameters.
-    Np = parameters['Np']
-    Ny = parameters['Ny']
-    Nu = parameters['Nu']
-    hN_weights = parameters['hN_weights']
+    # Extract parameters.
+    Np, Ny, Nu = parameters['Np'], parameters['Ny'], parameters['Nu']
+
+    # Get NN weights.
+    fNWeights = parameters['fNWeights']
     tanhScale = parameters['tanhScale']
+
+    # Get scaling.
     xuyscales = parameters['xuyscales']
     ymean, ystd = xuyscales['yscale']
     umean, ustd = xuyscales['uscale']
-    zmean = np.concatenate((np.tile(ymean, (Np, )), 
-                            np.tile(umean, (Np, ))))
-    zstd = np.concatenate((np.tile(ystd, (Np, )), 
-                           np.tile(ustd, (Np, ))))
+    yzmean = np.concatenate((ymean, 
+                             np.tile(ymean, (Np, )), 
+                             np.tile(umean, (Np, ))))
+    yzstd = np.concatenate((ystd, 
+                            np.tile(ystd, (Np, )), 
+                            np.tile(ustd, (Np, ))))
     
     # Scale.
-    z = (z - zmean)/zstd
+    yz = (yz - yzmean)/yzstd
     u = (u - umean)/ustd
 
     # Get current output.
-    y = fnn(z, hN_weights, tanhScale)
+    nnInput = np.concatenate((yz, u))
+    yplus = fnn(nnInput, fNWeights, tanhScale)
     
     # Concatenate.
-    zplus = np.concatenate((z[Ny:Np*Ny], y, z[-(Np-1)*Nu:], u))
+    if Np > 0:
+        yzplus = np.concatenate((yplus, yz[Ny:(Np+1)*Ny], y, 
+                                 yz[-(Np-1)*Nu:], u))
+    else:
+        yzplus = yplus
 
     # Scale back.
-    zplus = zplus*zstd + zmean
+    yzplus = yzplus*yzstd + yzmean
 
     # Return the sum.
-    return zplus
+    return yzplus
 
-def bbNN_hx(z, parameters):
+def bbNN_hx(yz, parameters):
     """ Measurement function. """
     
     # Extract a few parameters.
-    Np = parameters['Np']
-    Ny = parameters['Ny']
-    Nu = parameters['Nu']
-    tanhScale = parameters['tanhScale']
-    hN_weights = parameters['hN_weights']
-    xuyscales = parameters['xuyscales']
-    ymean, ystd = xuyscales['yscale']
-    umean, ustd = xuyscales['uscale']
-    zmean = np.concatenate((np.tile(ymean, (Np, )), 
-                            np.tile(umean, (Np, ))))
-    zstd = np.concatenate((np.tile(ystd, (Np, )), 
-                           np.tile(ustd, (Np, ))))
+    Np, Ny = parameters['Np'], parameters['Ny']
     
-    # Scale.
-    z = (z - zmean)/zstd
-
-    # Get current output.
-    y = fnn(z, hN_weights, tanhScale)
-
-    # Scale measurement back.
-    y = y*ystd + ymean
+    # Exctact measurement.
+    if Np > 0:
+        y = yz[:Ny]
+    else:
+        y = yz
 
     # Return the measurement.
     return y
