@@ -32,7 +32,7 @@ def get_openloop_sol(fxu, hx, model_pars, xuguess):
     # Some sizes. 
     Np = 2
     Nx, Nu = model_pars['Nx'], model_pars['Nu']
-    Nmpc = 60
+    Nmpc = 120
 
     # Get the stage cost.
     lxup = lambda x, u, p: cost_yup(hx(x), u, p)
@@ -100,7 +100,7 @@ def main():
     gb_pars['Nx'] = len(parameters['gb_indices'])
 
     # Lists to loop over for the three problems.  
-    model_types = ['plant', 'grey-box', 'black-box', 'Koopman']
+    model_types = ['plant', 'grey-box', 'black-box']
     fxu_list = [plant_fxu, gb_fxu, blackb_fxu, koop_fxu]
     hx_list = [plant_hx, plant_hx, blackb_hx, koop_hx]
     par_list = [parameters, gb_pars, bb_pars, koop_pars]
@@ -133,7 +133,7 @@ def main():
 
     # Get figure.
     t = t*Delta/60
-    legend_names = ['Plant', 'Grey-box', 'Black-box', 'Koopman']
+    legend_names = ['Plant', 'Grey-box', 'Black-box']
     legend_colors = ['b', 'g', 'dimgrey', 'm']
     figures = TwoReacPlots.plot_xudata(t=t, xlist=xlist, ulist=ulist,
                                         legend_names=legend_names,

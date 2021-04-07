@@ -103,7 +103,8 @@ def main():
     #                            legends=['Black-box', 'Hybrid'])
     
     # # Plot the closed-loop simulation.
-    legend_names = ['Plant', 'Plant-TT', 'Black-box-TT']
+    legend_names = ['Plant-EMPC', 'Plant-RTO-MPC', 
+                    'BlackBox-RTO-MPC']
     legend_colors = ['b', 'orange', 'dimgrey']
     clDataList = cstr_flash_empc['clDataList']
     clDataList += cstr_flash_empc_twotier['clDataList']
@@ -119,7 +120,7 @@ def main():
                                 plot_ulabel=True,
                                 legend_names=legend_names, 
                                 legend_colors=legend_colors, 
-                                title_loc=(0.25, 0.9), 
+                                title_loc=(0.18, 0.9), 
                                 plot_y=True)
     
     # # Plot the empc costs.

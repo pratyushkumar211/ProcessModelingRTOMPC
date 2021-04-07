@@ -38,7 +38,7 @@ def getController(fxu, hx, model_pars, xuguess):
                                    [10, 2000, 20000],
                                    [10, 2000, 12000],
                                    [10, 2000, 12000]]), 360, axis=0)
-
+    
     # Steady states/guess.
     xs, us = xuguess['x'], xuguess['u']
 
@@ -47,11 +47,11 @@ def getController(fxu, hx, model_pars, xuguess):
     ulb, uub = model_pars['ulb'], model_pars['uub']
     Q = np.eye(Nx)*np.diag(1/xs**2)
     R = np.eye(Nu)*np.diag(1/us**2)
-    S = 1e-3*np.eye(Nu)*np.diag(1/us**2)
+    S = np.eye(Nu)*np.diag(1/us**2)
 
     # Extened Kalman Filter parameters. 
     xhatPrior = xs[:, np.newaxis]
-    Qw = 1e-8*np.eye(Nx)
+    Qw = 1e-6*np.eye(Nx)
     Rv = np.eye(Ny)
     covxPrior = Qw
 

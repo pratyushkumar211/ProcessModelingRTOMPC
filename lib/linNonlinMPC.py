@@ -563,6 +563,11 @@ class TwoTierMPController:
         us = casadi.SX.sym('us', Nu)
         p = casadi.SX.sym('p', Np)
 
+        # Temporary test code to get guess.
+        utest = self.ulb[:, 0]
+        resfx = mpc.getCasadiFunc(lambda x: x - fxu(x, utest), [Nx], ["x"])
+        rootfinder = casadi.rootfinder('resfx', 'newton', resfx)
+
         # Setup casadi functions.
         lxup = lambda x, u, p: lyup(hx(x), u, p)
         lxup = mpc.getCasadiFunc(lxup, [Nx, Nu, Np], ["x", "u", "p"])
@@ -584,11 +589,12 @@ class TwoTierMPController:
         # Get solution.
         xopt = np.asarray(nlpSoln['x'])
         xs, us = xopt[:Nx, :], xopt[Nx:, :]
+        breakpoint()
         self.xs += [xs]
         self.us += [us]
 
         # Set Guess for next time.
-        self.ssOptXuguess = xopt
+        # self.ssOptXuguess = xopt
 
     def _getLinearizedModel(self, xs, us):
         """ Get the linearized model matrices. """
@@ -643,7 +649,7 @@ class TwoTierMPController:
                                p=self.empcPars[simt:simt+1, :])
             xopt = np.asarray(nlpSoln['x'])
             xs, us = xopt[:Nx, :], xopt[Nx:, :]
-            self.ssOptXuguess = xopt
+            #self.ssOptXuguess = xopt
 
             # Update linear model.
             A, B = self._getLinearizedModel(xs, us)
@@ -652,6 +658,7 @@ class TwoTierMPController:
             Q, R, S = self.Q, self.R, self.S
             A, B, Q, R, M = getAugMatricesForROCPenalty(A, B, Q, R, S)
             self.regulator._updateModel(A, B)
+            breakpoint()
         else:
             xs, us = self.xs[-1], self.us[-1]
 

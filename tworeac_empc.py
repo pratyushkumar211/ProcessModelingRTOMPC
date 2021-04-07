@@ -16,7 +16,7 @@ import copy
 import numpy as np
 from hybridid import PickleTool, SimData, measurement, get_model
 from linNonlinMPC import NonlinearEMPCController
-from tworeac_funcs import plant_ode, greybox_ode, get_parameters
+from tworeac_funcs import plant_ode, greybox_ode, get_plant_pars
 from tworeac_funcs import cost_yup
 from economicopt import get_bbpars_fxu_hx, c2dNonlin, get_xuguess
 from economicopt import get_kooppars_fxu_hx, fnn, get_koopman_ss_xkp0
@@ -28,7 +28,7 @@ def getController(fxu, hx, model_pars, mheTuning, distModel, xuguess):
 
     # Some sizes.
     Np, Nx, Nu, Ny = 2, model_pars['Nx'], model_pars['Nu'], model_pars['Ny']
-    Nmhe, Nmpc = 15, 60
+    Nmhe, Nmpc = 15, 120
 
     # MHE tuning.
     Qwx, Qwd, Rv = mheTuning
@@ -38,10 +38,11 @@ def getController(fxu, hx, model_pars, mheTuning, distModel, xuguess):
 
     # Initial parameters. 
     empcPars = np.repeat(np.array([[100, 180], 
-                                   [100, 150], 
-                                   [100, 120], 
                                    [100, 250], 
-                                   [100, 250]]), 120, axis=0)
+                                   [100, 300], 
+                                   [100, 200]]), 180, axis=0)
+    empcPars = np.concatenate((empcPars, 
+                        np.tile(np.array([[100, 200]]), (Nmpc, 1))), axis=0)
 
     # Get upper and lower bounds.
     ulb, uub = model_pars['ulb'], model_pars['uub']
@@ -120,13 +121,13 @@ def main():
     tworeac_parameters = PickleTool.load(filename='tworeac_parameters.pickle',
                                          type='read')
     parameters = tworeac_parameters['parameters']
-    tworeac_kooptrain = PickleTool.load(filename='tworeac_kooptrain.pickle',
-                                      type='read')
+    # tworeac_kooptrain = PickleTool.load(filename='tworeac_kooptrain.pickle',
+    #                                   type='read')
 
-    # Get the Koopman model parameters and function handles.
-    koop_pars, koop_fxu, koop_hx = get_kooppars_fxu_hx(train=tworeac_kooptrain, 
-                                                       parameters=parameters)
-    xkp0 = get_koopman_ss_xkp0(tworeac_kooptrain, parameters)
+    # # Get the Koopman model parameters and function handles.
+    # koop_pars, koop_fxu, koop_hx = get_kooppars_fxu_hx(train=tworeac_kooptrain, 
+    #                                                    parameters=parameters)
+    # xkp0 = get_koopman_ss_xkp0(tworeac_kooptrain, parameters)
 
     # Get the plant function handle.
     Delta = parameters['Delta']
@@ -136,26 +137,26 @@ def main():
     plant_hx = lambda x: measurement(x, parameters)
 
     # Get the grey-box function handle.
-    gb_fxu = lambda x, u: greybox_ode(x, u, ps, parameters)
-    gb_fxu = c2dNonlin(gb_fxu, Delta)
-    gb_pars = copy.deepcopy(parameters)
-    gb_pars['Nx'] = len(parameters['gb_indices'])
+    # gb_fxu = lambda x, u: greybox_ode(x, u, ps, parameters)
+    # gb_fxu = c2dNonlin(gb_fxu, Delta)
+    # gb_pars = copy.deepcopy(parameters)
+    # gb_pars['Nx'] = len(parameters['gb_indices'])
 
     # Lists to loop over for the three problems.  
-    model_types = ['plant', 'grey-box', 'Koopman']
-    fxu_list = [plant_fxu, gb_fxu, koop_fxu]
-    hx_list = [plant_hx, plant_hx, koop_hx]
-    par_list = [parameters, gb_pars, koop_pars]
-    Nps = [None, None, koop_pars['Np']]
+    model_types = ['plant']
+    fxu_list = [plant_fxu]
+    hx_list = [plant_hx]
+    par_list = [parameters]
+    Nps = [None]
     
     # Get disturbances.
-    disturbances = np.repeat(parameters['ps'], 8*60, axis=0)[:, np.newaxis]
+    disturbances = np.repeat(parameters['ps'], 12*60, axis=0)[:, np.newaxis]
 
     # Lists to store solutions.
     clDataList, stageCostList = [], []
 
     # Loop over the models.
-    for (model_type, fxu, hx, model_pars, Np) in zip(model_types, fxu_list, 
+    for (model_type, fxu, hx, model_pars, Np) in zip(model_types[:1], fxu_list, 
                                                      hx_list, par_list, Nps):
 
         # Get guess. 
@@ -182,7 +183,7 @@ def main():
         # Run closed-loop simulation.
         clData, avgStageCosts = online_simulation(plant, controller,
                                          plant_lyup=controller.lyup,
-                                         Nsim=8*60, disturbances=disturbances,
+                                         Nsim=12*60, disturbances=disturbances,
                                          stdout_filename='tworeac_empc.txt')
 
         # Store data. 

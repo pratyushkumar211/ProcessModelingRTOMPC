@@ -33,10 +33,10 @@ def main():
 
     # Create some parameters.
     xinsert_indices = [1, 2, 4, 5]
-    tanhScale = 0.2
+    tanhScale = 0.05
     tthrow = 120
-    Np = 3
-    hN_dims = [Np*(Ny+Nu), 32, 6]
+    Np = 2
+    hN_dims = [Np*(Ny+Nu), 16, 6]
 
     # Create lists to store data.
     trained_weights = []
@@ -66,7 +66,7 @@ def main():
                              outputs=train_data['outputs'])
 
         # Train.
-        train_bbmodel(model=model, epochs=20000, batch_size=18, 
+        train_bbmodel(model=model, epochs=50000, batch_size=18, 
                       train_data=train_samples, trainval_data=trainval_data, 
                       stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 

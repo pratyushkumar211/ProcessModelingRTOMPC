@@ -48,8 +48,8 @@ def main():
 
     # Get scaling and the training data.
     xuyscales = get_scaling(data=training_data[0])
-    (train_data, trainval_data, val_data) = get_train_val_data(tthrow=tthrow, 
-                                            Np=Np, xuyscales=xuyscales, 
+    (train_data, trainval_data, val_data) = get_train_val_data(tthrow=tthrow,
+                                            Np=Np, xuyscales=xuyscales,
                                             data_list=training_data)
 
     # Loop over the number of samples.

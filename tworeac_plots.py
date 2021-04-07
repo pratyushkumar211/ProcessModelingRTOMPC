@@ -66,7 +66,6 @@ def main():
                                          type='read')
     parameters = tworeac_parameters['parameters']
     training_data = tworeac_parameters['training_data']
-    greybox_val_data = tworeac_parameters['greybox_val_data']
     
     # Load Black-box data after training.
     tworeac_bbtrain = PickleTool.load(filename="tworeac_bbtrain.pickle",
@@ -74,9 +73,9 @@ def main():
     bb_predictions = tworeac_bbtrain['val_predictions']
 
     # Load Koopman data after NN training.
-    tworeac_kooptrain = PickleTool.load(filename="tworeac_kooptrain.pickle",
-                                      type='read')
-    koop_predictions = tworeac_kooptrain['val_predictions']
+    # tworeac_kooptrain = PickleTool.load(filename="tworeac_kooptrain.pickle",
+    #                                   type='read')
+    # koop_predictions = tworeac_kooptrain['val_predictions']
 
 
     # Load data after Koopman training.
@@ -96,18 +95,18 @@ def main():
     figures = []
 
     # Plot validation data.
-    legend_names = ['Plant', 'Grey-box', 'Black-box', 'Koopman']
-    legend_colors = ['b', 'g', 'dimgrey', 'm']
-    valdata_list = [training_data[-1], greybox_val_data]
+    legend_names = ['Plant', 'Black-box']
+    legend_colors = ['b', 'dimgrey']
+    valdata_list = [training_data[-1]]
     valdata_list += bb_predictions
-    valdata_list += koop_predictions
+    #valdata_list += koop_predictions
     #valdata_list += encdeckoopval_predictions
     t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
-                                                     valdata_list[:2],
+                                                     valdata_list[:1],
                                                      plot_range=(10, 6*60+10))
     (t, ulist_train, 
      ylist_train, xlist_train) = get_plotting_array_list(simdata_list=
-                                                     valdata_list[2:],
+                                                     valdata_list[1:],
                                                      plot_range=(0, 6*60))
     ulist += ulist_train
     ylist += ylist_train
@@ -134,34 +133,34 @@ def main():
     clDataList = tworeac_empc['clDataList']
     stageCostList = tworeac_empc['stageCostList']
 
-    # Load data for the economic MPC simulation.
-    tworeac_empc_twotier = PickleTool.load(filename=
-                                    "tworeac_empc_twotier.pickle", 
-                                    type='read')
-    clDataListTwoTier = tworeac_empc_twotier['clDataList']
-    stageCostListTwoTier = tworeac_empc_twotier['stageCostList']
+    # # Load data for the economic MPC simulation.
+    # tworeac_empc_twotier = PickleTool.load(filename=
+    #                                 "tworeac_empc_twotier.pickle", 
+    #                                 type='read')
+    # clDataListTwoTier = tworeac_empc_twotier['clDataList']
+    # stageCostListTwoTier = tworeac_empc_twotier['stageCostList']
 
 
-    # Plot closed-loop simulation data.
-    legend_names = ['Plant', 'Grey-box', 'Koopman', 'Plant-TT', 'Black-box-TT']
-    legend_colors = ['b', 'g', 'm', 'orange', 'dimgrey']
+    # # Plot closed-loop simulation data.
+    legend_names = ['Plant']
+    legend_colors = ['b']
     t, ulist, ylist, xlist = get_plotting_array_list(simdata_list = 
-                                                clDataList + clDataListTwoTier,
-                                                plot_range = (0, 8*60))
+                                                clDataList,
+                                                plot_range = (0, 12*60))
     figures += TwoReacPlots.plot_xudata(t=t, xlist=xlist, ulist=ulist,
                                         legend_names=legend_names,
                                         legend_colors=legend_colors, 
                                         figure_size=PAPER_FIGSIZE, 
                                         ylabel_xcoordinate=-0.1, 
-                                        title_loc=(0.04, 0.9),
-                                        font_size=9)
+                                        title_loc=(0.02, 0.9),
+                                        font_size=8)
 
     # # Plot empc pars.
     # figures += plot_cost_pars(t=t, cost_pars=cost_pars)
 
     # Plot profit curve.
     figures += plotAvgProfits(t=t, stageCostList=
-                              stageCostList + stageCostListTwoTier, 
+                              stageCostList, 
                               legend_colors=legend_colors,
                               legend_names=legend_names)
     
