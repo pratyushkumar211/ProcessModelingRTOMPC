@@ -34,22 +34,6 @@ class PickleTool:
         with open(filename, "wb") as stream:
             pickle.dump(data_object, stream)
 
-# def c2d(A, B, sample_time):
-#     """ Custom c2d function for linear systems."""
-    
-#     # First construct the incumbent matrix
-#     # to take the exponential.
-#     (Nx, Nu) = B.shape
-#     M1 = np.concatenate((A, B), axis=1)
-#     M2 = np.zeros((Nu, Nx+Nu))
-#     M = np.concatenate((M1, M2), axis=0)
-#     Mexp = scipy.linalg.expm(M*sample_time)
-
-#     # Return the extracted matrices.
-#     Ad = Mexp[:Nx, :Nx]
-#     Bd = Mexp[:Nx, -Nu:]
-#     return (Ad, Bd)
-
 def _sample_repeats(num_change, num_simulation_steps,
                     mean_change, sigma_change):
     """ Sample the number of times a repeat in each
@@ -77,27 +61,6 @@ def sample_prbs_like(*, num_change, num_steps,
     repeat = _sample_repeats(num_change, num_steps,
                              mean_change, sigma_change)
     return np.repeat(values, repeat, axis=0)
-
-def get_plotting_arrays(simdata, plot_range):
-    """ Get data and return for plotting. """
-    start, end = plot_range
-    u = simdata.u[start:end, :]
-    x = simdata.x[start:end, :]
-    y = simdata.y[start:end, :]
-    t = simdata.t[start:end]/60 # Convert to hours.
-    # Return t, x, y, u.
-    return (t, x, y, u)
-
-def get_plotting_array_list(*, simdata_list, plot_range):
-    """ Get all data as lists. """
-    ulist, xlist, ylist = [], [], []
-    for simdata in simdata_list:
-        t, x, y, u = get_plotting_arrays(simdata, plot_range)
-        ulist += [u]
-        xlist += [x]
-        ylist += [y]
-    # Return lists.
-    return (t, ulist, ylist, xlist)
 
 def resample_fast(*, x, xDelta, newDelta, resample_type):
     """ Resample with either first of zero-order hold. """
@@ -134,54 +97,6 @@ def get_scaling(*, data):
                 uscale = (umean, ustd), 
                 yscale = (ymean, ystd))
 
-# def plot_avg_profits(*, t, avg_stage_costs,
-#                     legend_colors, legend_names, 
-#                     figure_size=PAPER_FIGSIZE, 
-#                     ylabel_xcoordinate=-0.15):
-#     """ Plot the profit. """
-#     (figure, axes) = plt.subplots(nrows=1, ncols=1,
-#                                   sharex=True,
-#                                   figsize=figure_size,
-#                                   gridspec_kw=dict(left=0.15))
-#     xlabel = 'Time (hr)'
-#     ylabel = '$\Lambda_k$'
-#     for (cost, color) in zip(avg_stage_costs, legend_colors):
-#         # Plot the corresponding data.
-#         profit = -cost
-#         axes.plot(t, profit, color)
-#     axes.legend(legend_names)
-#     axes.set_xlabel(xlabel)
-#     axes.set_ylabel(ylabel, rotation=True)
-#     axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
-#     axes.set_xlim([np.min(t), np.max(t)])
-#     # Return.
-#     return [figure]
-
-# def plot_val_metrics(*, num_samples, val_metrics, colors, legends, 
-#                      figure_size=PAPER_FIGSIZE,
-#                      ylabel_xcoordinate=-0.11, 
-#                      left_label_frac=0.15):
-#     """ Plot validation metric on open loop data. """
-#     (figure, axes) = plt.subplots(nrows=1, ncols=1, 
-#                                   sharex=True, 
-#                                   figsize=figure_size, 
-#                                   gridspec_kw=dict(left=left_label_frac))
-#     xlabel = 'Hours of training samples'
-#     ylabel = 'MSE'
-#     num_samples = num_samples/60
-#     for (val_metric, color) in zip(val_metrics, colors):
-#         # Plot the corresponding data.
-#         axes.semilogy(num_samples, val_metric, color)
-#     axes.legend(legends)
-#     axes.set_xlabel(xlabel)
-#     axes.set_ylabel(ylabel)
-#     axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5) 
-#     axes.set_xlim([np.min(num_samples), np.max(num_samples)])
-#     figure.suptitle('Mean squared error (MSE) - Validation data', 
-#                     x=0.52, y=0.92)
-#    # Return the figure object.
-#     return [figure]
-
 def quick_sim(fxu, hx, x0, u):
     """ Do a quick open-loop simulation. """
     Nsim = u.shape[0]
@@ -197,107 +112,6 @@ def quick_sim(fxu, hx, x0, u):
     # Return.
     return x, y
 
-# def fnn_koopman(yz, fnn_weights):
-#     """ Compute the NN output. """
-#     nn_output = yz
-#     for i in range(0, len(fnn_weights)-2, 2):
-#         (W, b) = fnn_weights[i:i+2]
-#         nn_output = W.T @ nn_output + b[:, np.newaxis]
-#         nn_output = np.tanh(nn_output)
-#     (Wf, bf) = fnn_weights[-2:]
-#     xkp = (Wf.T @ nn_output + bf[:, np.newaxis])
-#     # Return.
-#     return xkp
-
-# def koopman_func(xkp, u, parameters):
-#     """ The Koopman Operator model function. """
-
-#     # Fnn weights.
-#     A = parameters['A']
-#     B = parameters['B']
-    
-#     # Get scaling.
-#     xuyscales = parameters['xuyscales']
-#     umean, ustd = xuyscales['uscale']
-
-#     # Scale inputs/state.
-#     u = (u - umean)/ustd
-
-#     # The Deep Koopman linear model.
-#     xkpplus = A @ xkp + B @ u
-
-#     # Return the sum.
-#     return xkpplus
-
-# def get_koopman_pars_check_func(*, parameters, training_data, train):
-#     """ Get the Koopman operator model parameters. """
-
-#     # Get weights.
-#     trained_weights = train['trained_weights'][-1]
-#     fnn_weights = trained_weights[:-2]
-#     A = trained_weights[-2].T
-#     B = trained_weights[-1].T
-#     #H = trained_weights[-1].T
-
-#     # Get sizes.
-#     Np = train['Np']
-#     Ny, Nu = parameters['Ny'], parameters['Nu']
-#     Nx = Ny + Np*(Ny + Nu) + train['fnn_dims'][-1]
-
-#     # Get scaling.
-#     xuyscales = train['xuyscales']
-#     ymean, ystd = xuyscales['yscale']
-#     umean, ustd = xuyscales['uscale']
-#     yzmean = np.concatenate((np.tile(ymean, (Np+1, )), 
-#                              np.tile(umean, (Np, ))))[:, np.newaxis]
-#     yzstd = np.concatenate((np.tile(ystd, (Np+1, )), 
-#                              np.tile(ustd, (Np, ))))[:, np.newaxis]
-
-#     # Get steady state in the lifted space.
-#     yindices = parameters['yindices']
-#     us = parameters['us']
-#     ys = parameters['xs'][yindices]
-#     yzs = np.concatenate((np.tile(ys, (Np+1, )), 
-#                           np.tile(us, (Np, ))))[:, np.newaxis]
-#     yzs = (yzs - yzmean)/yzstd
-#     xkps = np.concatenate((yzs, fnn_koopman(yzs, fnn_weights)))[:, 0]
-
-#     # Constraints for MPC.
-#     ulb, uub = parameters['ulb'], parameters['uub']
-
-#     # Make the parameter dictionary.
-#     koopman_pars  = dict(Np=Np, Nx=Nx, Nu=Nu, Ny=Ny,
-#                          A=A, B=B, xs=xkps, us=us,
-#                          ulb=ulb, uub=uub, xuyscales=xuyscales)
-
-#     # Get the control input profile for the simulation.
-#     training_data = training_data[-1]
-#     y = training_data.y
-#     u = training_data.u
-#     ts = parameters['tsteps_steady']
-#     uval = u[ts:, :]
-
-#     # Get initial state for the simulation.
-#     yp0seq = y[ts-Np:ts, :].reshape(Np*Ny, )[:, np.newaxis]
-#     up0seq = u[ts-Np:ts:, ].reshape(Np*Nu, )[:, np.newaxis]
-#     y0 = y[ts, :, np.newaxis]
-#     yz0 = np.concatenate((y0, yp0seq, up0seq))
-#     yz0 = (yz0 - yzmean)/yzstd
-#     xkp0 = np.concatenate((yz0, fnn_koopman(yz0, fnn_weights)))[:, 0]
-
-#     # Get the functions.
-#     koopman_fxu = lambda x, u: koopman_func(x, u, koopman_pars)
-#     koopman_hx = lambda x: x[:Ny]*ystd + ymean
-
-#     # Run the simulation.
-#     yzval, yval = quick_sim(koopman_fxu, koopman_hx, xkp0, uval)
-
-#     # To compare with predictions made by the tensorflow model.
-#     ytfval = train['val_predictions'][-1].y
-
-#     # Just return the hybrid parameters.
-#     return koopman_pars
-
 def get_train_val_data(*, tthrow, Np, xuyscales, data_list):
     """ Get the data for training/validation in appropriate format after 
         scaling. """
@@ -308,7 +122,7 @@ def get_train_val_data(*, tthrow, Np, xuyscales, data_list):
     Ny, Nu = len(ymean), len(umean)
 
     # Lists to store data.
-    inputs, yz0, z0, yz, z, outputs = [], [], [], [], [], []
+    inputs, yz0, yz, outputs = [], [], [], []
 
     # Loop through the data list.
     for data in data_list:
@@ -318,14 +132,14 @@ def get_train_val_data(*, tthrow, Np, xuyscales, data_list):
         y = (data.y - ymean)/ystd
         
         # Get input/output trajectory.
-        u_traj = u[tthrow:][np.newaxis, :]
+        u_traj = u[tthrow:, :][np.newaxis, ...]
         y_traj = y[tthrow:, :][np.newaxis, ...]
 
         # Get initial states.
         yp0seq = y[tthrow-Np:tthrow, :].reshape(Np*Ny, )[np.newaxis, :]
         up0seq = u[tthrow-Np:tthrow, :].reshape(Np*Nu, )[np.newaxis, :]
-        z0_traj = np.concatenate((yp0seq, up0seq), axis=-1)
-        yz0_traj = np.concatenate((y[tthrow, np.newaxis, :], z0_traj), axis=-1)
+        y0 = y[tthrow, np.newaxis, :]
+        yz0_traj = np.concatenate((y0, yp0seq, up0seq), axis=-1)
 
         # Get z_traj.
         Nt = u.shape[0]
@@ -340,22 +154,18 @@ def get_train_val_data(*, tthrow, Np, xuyscales, data_list):
         # Collect the trajectories in list.
         inputs += [u_traj]
         yz0 += [yz0_traj]
-        z0 += [z0_traj]
         yz += [yz_traj]
-        z += [z_traj]
         outputs += [y_traj]
     
     # Get the training and validation data for training in compact dicts.
     train_data = dict(inputs=np.concatenate(inputs[:-2], axis=0),
                       yz0=np.concatenate(yz0[:-2], axis=0),
-                      z0=np.concatenate(z0[:-2], axis=0),
                       yz=np.concatenate(yz[:-2], axis=0),
-                      z=np.concatenate(z[:-2], axis=0),
                       outputs=np.concatenate(outputs[:-2], axis=0))
-    trainval_data = dict(inputs=inputs[-2], yz0=yz0[-2], z0=z0[-2], 
-                          yz=yz[-2], z=z[-2], outputs=outputs[-2])
-    val_data = dict(inputs=inputs[-1], yz0=yz0[-1], z0=z0[-1], 
-                    yz=yz[-1], z=z[-1], outputs=outputs[-1])
+    trainval_data = dict(inputs=inputs[-2], yz0=yz0[-2],
+                          yz=yz[-2], outputs=outputs[-2])
+    val_data = dict(inputs=inputs[-1], yz0=yz0[-1],
+                    yz=yz[-1], outputs=outputs[-1])
     # Return.
     return (train_data, trainval_data, val_data)
 
@@ -366,17 +176,19 @@ def measurement(x, parameters):
 
 def get_rectified_xs(*, ode, parameters):
     """ Get the steady state of the plant. """
-    # (xs, us, ps)
-    xs = parameters['xs']
-    us = parameters['us']
-    ps = parameters['ps']
+
+    # ODE Func.
     ode_func = lambda x, u, p: ode(x, u, p, parameters)
 
+    # Some parameters.
+    xs, us, ps = parameters['xs'], parameters['us'], parameters['ps']
+    Nx, Nu, Np = parameters['Nx'], parameters['Nu'], parameters['Np']
+    Delta = parameters['Delta']
+
     # Construct the casadi class.
-    model = mpc.DiscreteSimulator(ode_func, parameters['Delta'],
-                                  [parameters['Nx'], parameters['Nu'], 
-                                   parameters['Np']], 
-                                  ["x", "u", "p"])
+    model = mpc.DiscreteSimulator(ode_func, Delta,
+                                  [Nx, Nu, Np], ["x", "u", "p"])
+
     # Steady state of the plant.
     for _ in range(360):
         xs = model.sim(xs, us, ps)
@@ -385,20 +197,21 @@ def get_rectified_xs(*, ode, parameters):
 
 def get_model(*, ode, parameters, plant=True):
     """ Return a nonlinear plant simulator object."""
+    
+    # Lambda functions for ODEs.
     ode_func = lambda x, u, p: ode(x, u, p, parameters)
     meas_func = lambda x: measurement(x, parameters)
-    if plant:
-        # Construct and return the plant.
-        Nx = parameters['Nx']
-        xs = parameters['xs'][:, np.newaxis]
-        Rv = parameters['Rv']
-    else:
-        # Construct and return the grey-box model.
-        Nx = parameters['Ng']
-        gb_indices = parameters['gb_indices']
-        xs = parameters['xs'][gb_indices, np.newaxis]
-        Rv = 0*parameters['Rv']
+
+    # Get sizes. 
+    Nx, Nu = parameters['Nx'], parameters['Nu']
+    Np, Ny = parameters['Np'], parameters['Ny']
+
+    # Steady state/measurement noise/sample time.
+    xs = parameters['xs'][:, np.newaxis]
+    Rv = parameters['Rv']
+    Delta = parameters['Delta']
+
+    # Return a simulator object.
     return NonlinearPlantSimulator(fxup=ode_func, hx=meas_func,
-                                   Rv = Rv, Nx = Nx, Nu = parameters['Nu'], 
-                                   Np = parameters['Np'], Ny = parameters['Ny'],
-                                   sample_time = parameters['Delta'], x0 = xs)
+                                   Rv = Rv, Nx = Nx, Nu = Nu, Np = Np, Ny = Ny,
+                                   sample_time = Delta, x0 = xs)
