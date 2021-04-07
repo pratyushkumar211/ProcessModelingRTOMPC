@@ -109,7 +109,7 @@ def create_bbNNmodel(*, Np, Ny, Nu, fNDims, tanhScale):
     # Return the compiled model.
     return model
 
-def train_bbNNmodel(*, model, epochs, batch_size, train_data, trainval_data, 
+def train_bbmodel(*, model, epochs, batch_size, train_data, trainval_data, 
                      stdout_filename, ckpt_path):
     """ Function to train the NN controller. """
     # Std out.
@@ -128,7 +128,7 @@ def train_bbNNmodel(*, model, epochs, batch_size, train_data, trainval_data,
                             trainval_data['outputs']),
             callbacks = [checkpoint_callback])
 
-def get_bbNNval_predictions(*, model, val_data, xuyscales, 
+def get_bbval_predictions(*, model, val_data, xuyscales, 
                              xinsert_indices, ckpt_path):
     """ Get the validation predictions. """
 
@@ -171,6 +171,8 @@ def fnn(nnInput, nnWeights, tanhScale):
     # Check input dimensions. 
     if nnInput.ndim == 1:
         nnOutput = nnInput[:, np.newaxis]
+    else:
+        nnOutput = nnInput
 
     # Loop over layers.
     for i in range(0, len(nnWeights)-2, 2):
@@ -244,8 +246,7 @@ def bbNN_fxu(yz, u, parameters):
     
     # Concatenate.
     if Np > 0:
-        yzplus = np.concatenate((yplus, yz[Ny:(Np+1)*Ny], y, 
-                                 yz[-(Np-1)*Nu:], u))
+        yzplus = np.concatenate((yplus, yz[Ny:(Np+1)*Ny], yz[-(Np-1)*Nu:], u))
     else:
         yzplus = yplus
 
@@ -255,7 +256,7 @@ def bbNN_fxu(yz, u, parameters):
     # Return the sum.
     return yzplus
 
-def bbNN_hx(yz, parameters):
+def bb_hx(yz, parameters):
     """ Measurement function. """
     
     # Extract a few parameters.

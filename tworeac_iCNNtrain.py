@@ -11,8 +11,8 @@ import tensorflow as tf
 import time
 import numpy as np
 from hybridid import PickleTool, get_scaling, get_train_val_data
-from BlackBoxFuncs import (create_bbNNmodel, train_bbmodel, 
-                           get_bbval_predictions)
+from BlackBoxFuncs import train_bbmodel, get_bbval_predictions
+from InputConvexFuncs import create_iCNNmodel
 
 # Set the tensorflow global and graph-level seed.
 tf.random.set_seed(123)
@@ -35,7 +35,7 @@ def main():
     xinsert_indices = []
     tthrow = 10
     Np = 0
-    tanhScale = 0.2
+    expScale = 0.2
     fNDims = [Ny + Np*(Ny+Nu), 16, Ny]
 
     # Create lists to store data.
@@ -44,8 +44,8 @@ def main():
     val_predictions = []
 
     # Filenames.
-    ckpt_path = 'tworeac_bbNNtrain.ckpt'
-    stdout_filename = 'tworeac_bbNNtrain.txt'
+    ckpt_path = 'tworeac_iCNNtrain.ckpt'
+    stdout_filename = 'tworeac_iCCNNtrain.txt'
 
     # Get scaling and the training data.
     xuyscales = get_scaling(data=training_data[0])
@@ -57,8 +57,8 @@ def main():
     for num_sample in num_samples:
         
         # Create model.
-        model = create_bbNNmodel(Np=Np, Ny=Ny, Nu=Nu, fNDims=fNDims, 
-                                 tanhScale=tanhScale)
+        model = create_iCNNmodel(Np=Np, Ny=Ny, Nu=Nu, fNDims=fNDims, 
+                                 expScale=expScale)
         
         # Use num samples to adjust here the num training samples.
         train_samples = dict(yz0=train_data['yz0'],
@@ -66,7 +66,7 @@ def main():
                              outputs=train_data['outputs'])
 
         # Train.
-        train_bbmodel(model=model, epochs=10, batch_size=2, 
+        train_bbmodel(model=model, epochs=500, batch_size=2, 
                       train_data=train_samples, trainval_data=trainval_data, 
                       stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 
@@ -94,10 +94,10 @@ def main():
                          val_metrics=val_metrics,
                          num_samples=num_samples,
                          xuyscales=xuyscales, 
-                         tanhScale=tanhScale)
+                         expScale=expScale)
     
     # Save data.
     PickleTool.save(data_object=tworeac_train,
-                    filename='tworeac_bbNNtrain.pickle')
+                    filename='tworeac_iCNNtrain.pickle')
 
 main()

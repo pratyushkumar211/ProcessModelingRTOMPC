@@ -11,8 +11,8 @@ import tensorflow as tf
 import time
 import numpy as np
 from hybridid import PickleTool, get_scaling, get_train_val_data
-from BlackBoxFuncs import (create_bbNNmodel, train_bbNNmodel, 
-                           get_bbNNval_predictions)
+from BlackBoxFuncs import (create_bbNNmodel, train_bbmodel, 
+                           get_bbval_predictions)
 
 # Set the tensorflow global and graph-level seed.
 tf.random.set_seed(123)
@@ -66,12 +66,12 @@ def main():
                              outputs=train_data['outputs'])
 
         # Train.
-        train_bbNNmodel(model=model, epochs=10, batch_size=2, 
+        train_bbmodel(model=model, epochs=10, batch_size=2, 
                       train_data=train_samples, trainval_data=trainval_data, 
                       stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 
         # Validate.
-        (val_prediction, val_metric) = get_bbNNval_predictions(model=model,
+        (val_prediction, val_metric) = get_bbval_predictions(model=model,
                                         val_data=val_data, xuyscales=xuyscales, 
                                         xinsert_indices=xinsert_indices, 
                                         ckpt_path=ckpt_path)
