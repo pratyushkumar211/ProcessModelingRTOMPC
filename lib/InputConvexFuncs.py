@@ -32,12 +32,12 @@ class InputConvexLayer(tf.keras.layers.Layer):
             self.Wz = None
         
         # Create Wy.
-        WyInit =  tf.zeros_initializer()
+        WyInit =  tf.random_normal_initializer()
         self.Wy = tf.Variable(initial_value = WyInit(shape=(yDim, zPlusDim)),
                               trainable=True, dtype='float32')
 
         # Create bias.
-        biasInit =  tf.zeros_initializer()
+        biasInit =  tf.random_normal_initializer()
         self.bias = tf.Variable(initial_value = biasInit(shape=(zPlusDim, )),
                                 trainable=True, dtype='float32')
     

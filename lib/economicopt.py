@@ -192,16 +192,11 @@ def get_xuguess(*, model_type, plant_pars, Np=None, Nx=None):
     us = plant_pars['us']
     if model_type == 'plant':
         xs = plant_pars['xs']
-    elif model_type == 'grey-box':
-        gb_indices = plant_pars['gb_indices']
-        xs = plant_pars['xs'][gb_indices]
-    elif model_type == 'black-box':
+    elif model_type == 'Black-Box-NN' or model_type == 'Input-Convex-NN':
         yindices = plant_pars['yindices']
         ys = plant_pars['xs'][yindices]
-        xs = np.concatenate((np.tile(ys, (Np, )), 
+        xs = np.concatenate((np.tile(ys, (Np+1, )), 
                              np.tile(us, (Np, ))))
-    elif model_type == 'Koopman':
-        xs = np.zeros((Nx, ))
     else:
         pass
     # Return as dict.

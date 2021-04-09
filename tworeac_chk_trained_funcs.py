@@ -52,7 +52,7 @@ def main():
         # CHeck black-box model validation.
         bb_yval = tworeac_bbNNtrain['val_predictions'][-1].y
         bb_xpred, bb_ypred = quick_sim(fxu, hx, yz0, uval)
-
+        breakpoint()
         # Return 
         return 
 
@@ -84,6 +84,7 @@ def main():
         # CHeck black-box model validation.
         iCNN_yval = tworeac_iCNNtrain['val_predictions'][-1].y
         iCNN_xpred, iCNN_ypred = quick_sim(fxu, hx, yz0, uval)
+        breakpoint()
         # Return 
         return 
 

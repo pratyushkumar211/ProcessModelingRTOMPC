@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from hybridid import PickleTool
 from plotting_funcs import PAPER_FIGSIZE, TwoReacPlots, plotAvgProfits
-from hybridid import get_plotting_array_list
+from plotting_funcs import get_plotting_array_list
 
 #def plot_sub_gaps(*, num_samples, sub_gaps, colors, legends, 
 #                  figure_size=PAPER_FIGSIZE,
@@ -64,13 +64,13 @@ def main():
     # Load parameters.
     tworeac_parameters = PickleTool.load(filename="tworeac_parameters.pickle",
                                          type='read')
-    parameters = tworeac_parameters['parameters']
+    plant_pars = tworeac_parameters['plant_pars']
     training_data = tworeac_parameters['training_data']
     
     # Load Black-box data after training.
-    tworeac_bbtrain = PickleTool.load(filename="tworeac_bbtrain.pickle",
+    tworeac_bbNNtrain = PickleTool.load(filename="tworeac_bbNNtrain.pickle",
                                       type='read')
-    bb_predictions = tworeac_bbtrain['val_predictions']
+    bbNN_predictions = tworeac_bbNNtrain['val_predictions']
 
     # Load Koopman data after NN training.
     # tworeac_kooptrain = PickleTool.load(filename="tworeac_kooptrain.pickle",
@@ -95,12 +95,10 @@ def main():
     figures = []
 
     # Plot validation data.
-    legend_names = ['Plant', 'Black-box']
-    legend_colors = ['b', 'dimgrey']
+    legend_names = ['Plant', 'Black-box-NN']
+    legend_colors = ['b', 'dimgrey', 'm']
     valdata_list = [training_data[-1]]
-    valdata_list += bb_predictions
-    #valdata_list += koop_predictions
-    #valdata_list += encdeckoopval_predictions
+    valdata_list += bbNN_predictions
     t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
                                                      valdata_list[:1],
                                                      plot_range=(10, 6*60+10))
@@ -128,10 +126,10 @@ def main():
     #                            legends=['Black-box', 'Hybrid'])
 
     # Load data for the economic MPC simulation.
-    tworeac_empc = PickleTool.load(filename="tworeac_empc.pickle", 
-                                    type='read')
-    clDataList = tworeac_empc['clDataList']
-    stageCostList = tworeac_empc['stageCostList']
+    # tworeac_empc = PickleTool.load(filename="tworeac_empc.pickle", 
+    #                                 type='read')
+    # clDataList = tworeac_empc['clDataList']
+    # stageCostList = tworeac_empc['stageCostList']
 
     # # Load data for the economic MPC simulation.
     # tworeac_empc_twotier = PickleTool.load(filename=
@@ -142,27 +140,27 @@ def main():
 
 
     # # Plot closed-loop simulation data.
-    legend_names = ['Plant']
-    legend_colors = ['b']
-    t, ulist, ylist, xlist = get_plotting_array_list(simdata_list = 
-                                                clDataList,
-                                                plot_range = (0, 12*60))
-    figures += TwoReacPlots.plot_xudata(t=t, xlist=xlist, ulist=ulist,
-                                        legend_names=legend_names,
-                                        legend_colors=legend_colors, 
-                                        figure_size=PAPER_FIGSIZE, 
-                                        ylabel_xcoordinate=-0.1, 
-                                        title_loc=(0.02, 0.9),
-                                        font_size=8)
+    # legend_names = ['Plant']
+    # legend_colors = ['b']
+    # t, ulist, ylist, xlist = get_plotting_array_list(simdata_list = 
+    #                                             clDataList,
+    #                                             plot_range = (0, 12*60))
+    # figures += TwoReacPlots.plot_xudata(t=t, xlist=xlist, ulist=ulist,
+    #                                     legend_names=legend_names,
+    #                                     legend_colors=legend_colors, 
+    #                                     figure_size=PAPER_FIGSIZE, 
+    #                                     ylabel_xcoordinate=-0.1, 
+    #                                     title_loc=(0.02, 0.9),
+    #                                     font_size=8)
 
     # # Plot empc pars.
     # figures += plot_cost_pars(t=t, cost_pars=cost_pars)
 
     # Plot profit curve.
-    figures += plotAvgProfits(t=t, stageCostList=
-                              stageCostList, 
-                              legend_colors=legend_colors,
-                              legend_names=legend_names)
+    # figures += plotAvgProfits(t=t, stageCostList=
+    #                           stageCostList, 
+    #                           legend_colors=legend_colors,
+    #                           legend_names=legend_names)
     
     # Plot the RTO simulation data.
     #cl_data_list = tworeac_rto['cl_data_list']
