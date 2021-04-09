@@ -4,9 +4,11 @@ data-based completion of grey-box models
 using neural networks.
 Pratyush Kumar, pratyushkumar@ucsb.edu
 """
+import sys
 import numpy as np
 import tensorflow as tf
 from BlackBoxFuncs import fnnTF
+from hybridid import SimData
 
 class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
     """
@@ -78,19 +80,19 @@ class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
 
         # Get k1.
         nnInput = tf.concat((x, u), axis=-1)
-        k1 = self._fgreybox(x, u) + fnnTF(nnInput)
+        k1 = self._fgreybox(x, u) + fnnTF(nnInput, self.fNLayers)
                 
         # Get k2.
         nnInput = tf.concat((x + Delta*(k1/2), u), axis=-1)
-        k2 = self._fgreybox(x + Delta*(k1/2), u) + fnnTF(nnInput)
+        k2 = self._fgreybox(x + Delta*(k1/2), u) + fnnTF(nnInput, self.fNLayers)
 
         # Get k3.
         nnInput = tf.concat((x + Delta*(k2/2), u), axis=-1)
-        k3 = self._fgreybox(x + Delta*(k2/2), u) + fnnTF(nnInput)
+        k3 = self._fgreybox(x + Delta*(k2/2), u) + fnnTF(nnInput, self.fNLayers)
 
         # Get k4.
         nnInput = tf.concat((x + Delta*k3, u), axis=-1)
-        k4 = self._fgreybox(x + Delta*k3, u) + fnnTF(nnInput)
+        k4 = self._fgreybox(x + Delta*k3, u) + fnnTF(nnInput, self.fNLayers)
         
         # Get the current output/state and the next time step.
         y = x
@@ -227,8 +229,9 @@ def get_tworeacHybrid_pars(*, train, greybox_pars):
     parameters['ulb'] = greybox_pars['ulb']
     parameters['uub'] = greybox_pars['uub']
     
-    # Time constant.
-    tau = greybox_pars['ps'].squeeze()
+    # Time constant/sample time.
+    parameters['tau'] = greybox_pars['ps'].squeeze()
+    parameters['Delta'] = greybox_pars['Delta']
 
     # Return.
     return parameters
@@ -258,6 +261,7 @@ def tworeacHybrid_fxu(x, u, parameters):
     # Get NN weights.
     fNWeights = parameters['fNWeights']
     tau = parameters['tau']
+    Delta = parameters['Delta']
 
     # Get scaling.
     xuyscales = parameters['xuyscales']

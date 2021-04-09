@@ -190,7 +190,7 @@ def get_sscost(*, fxu, hx, lyu, us, parameters):
 def get_xuguess(*, model_type, plant_pars, Np=None, Nx=None):
     """ Get x, u guess depending on model type. """
     us = plant_pars['us']
-    if model_type == 'plant':
+    if model_type == 'Plant' or model_type == 'Hybrid':
         xs = plant_pars['xs']
     elif model_type == 'Black-Box-NN' or model_type == 'Input-Convex-NN':
         yindices = plant_pars['yindices']

@@ -72,6 +72,11 @@ def main():
                                       type='read')
     bbNN_predictions = tworeac_bbNNtrain['val_predictions']
 
+    # Load Hybrid data after training.
+    tworeac_hybtrain = PickleTool.load(filename="tworeac_hybtrain.pickle",
+                                      type='read')
+    hyb_predictions = tworeac_hybtrain['val_predictions']
+
     # Load Koopman data after NN training.
     # tworeac_kooptrain = PickleTool.load(filename="tworeac_kooptrain.pickle",
     #                                   type='read')
@@ -95,10 +100,11 @@ def main():
     figures = []
 
     # Plot validation data.
-    legend_names = ['Plant', 'Black-box-NN']
+    legend_names = ['Plant', 'Black-box-NN', 'Hybrid']
     legend_colors = ['b', 'dimgrey', 'm']
     valdata_list = [training_data[-1]]
     valdata_list += bbNN_predictions
+    valdata_list += hyb_predictions
     t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
                                                      valdata_list[:1],
                                                      plot_range=(10, 6*60+10))

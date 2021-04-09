@@ -12,16 +12,18 @@ sys.path.append('lib/')
 import numpy as np
 from hybridid import PickleTool, quick_sim
 from BlackBoxFuncs import get_bbNN_pars, bbNN_fxu, bb_hx
-from InputConvexFuncs import get_iCNN_pars, iCNN_fxu
+from TwoReacHybridFuncs import (get_tworeacHybrid_pars,
+                                tworeacHybrid_fxu, tworeacHybrid_hx)
 
 def main():
     """ Main function to be executed. """
     # Load data.
-    tworeac_parameters = PickleTool.load(filename='tworeac_parameters.pickle',
+    tworeac_parameters = PickleTool.load(filename=
+                                        'tworeac_parameters.pickle',
                                          type='read')
     tworeac_bbNNtrain = PickleTool.load(filename='tworeac_bbNNtrain.pickle',
                                         type='read')
-    tworeac_iCNNtrain = PickleTool.load(filename='tworeac_iCNNtrain.pickle',
+    tworeac_hybtrain = PickleTool.load(filename='tworeac_hybtrain.pickle',
                                         type='read')
 
     def check_bbNN(tworeac_bbNNtrain, tworeac_parameters):
@@ -56,40 +58,36 @@ def main():
         # Return 
         return 
 
-    def check_iCNN(tworeac_iCNNtrain, tworeac_parameters):
+    def check_hybrid(tworeac_hybtrain, tworeac_parameters):
         """ Check Black-box functions. """
 
         # Get plant parameters.
-        plant_pars = tworeac_parameters['plant_pars']
+        greybox_pars = tworeac_parameters['greybox_pars']
 
         # Get some sizes/parameters.
         tthrow = 10
-        Np = tworeac_iCNNtrain['Np']
-        Ny, Nu = plant_pars['Ny'], plant_pars['Nu']
+        Ny, Nu = greybox_pars['Ny'], greybox_pars['Nu']
 
         # Get initial state for forecasting.
         training_data = tworeac_parameters['training_data'][-1]
         uval = training_data.u[tthrow:, :]
-        y0 = training_data.y[tthrow, :]
-        yp0seq = training_data.y[tthrow-Np:tthrow, :].reshape(Np*Ny, )
-        up0seq = training_data.u[tthrow-Np:tthrow, :].reshape(Np*Ny, )
-        yz0 = np.concatenate((y0, yp0seq, up0seq))
+        x0 = training_data.x[tthrow, :]
 
         # Get the black-box model parameters and function handles.
-        iCNN_pars = get_iCNN_pars(train=tworeac_iCNNtrain, 
-                                  plant_pars=plant_pars)
-        fxu = lambda x, u: iCNN_fxu(x, u, iCNN_pars)
-        hx = lambda x: bb_hx(x, iCNN_pars)
+        hyb_pars = get_tworeacHybrid_pars(train=tworeac_hybtrain, 
+                                  greybox_pars=greybox_pars)
+        fxu = lambda x, u: tworeacHybrid_fxu(x, u, hyb_pars)
+        hx = lambda x: tworeacHybrid_hx(x)
 
         # CHeck black-box model validation.
-        iCNN_yval = tworeac_iCNNtrain['val_predictions'][-1].y
-        iCNN_xpred, iCNN_ypred = quick_sim(fxu, hx, yz0, uval)
+        hyb_yval = tworeac_hybtrain['val_predictions'][-1].y
+        hyb_xpred, hyb_ypred = quick_sim(fxu, hx, x0, uval)
         breakpoint()
         # Return 
         return 
 
     check_bbNN(tworeac_bbNNtrain, tworeac_parameters)
-    check_iCNN(tworeac_iCNNtrain, tworeac_parameters)
+    check_hybrid(tworeac_hybtrain, tworeac_parameters)
     print("Hi")
 
 main()
@@ -133,4 +131,36 @@ main()
 #     koop_yval = tworeac_kooptrain['val_predictions'][-1].y
 #     koop_xpred, koop_ypred = quick_sim(koop_fxu, koop_hx, xkp0, uval)
 #     Return 
+#     return 
+
+# def check_iCNN(tworeac_iCNNtrain, tworeac_parameters):
+#     """ Check Black-box functions. """
+
+#     # Get plant parameters.
+#     plant_pars = tworeac_parameters['plant_pars']
+
+#     # Get some sizes/parameters.
+#     tthrow = 10
+#     Np = tworeac_iCNNtrain['Np']
+#     Ny, Nu = plant_pars['Ny'], plant_pars['Nu']
+
+#     # Get initial state for forecasting.
+#     training_data = tworeac_parameters['training_data'][-1]
+#     uval = training_data.u[tthrow:, :]
+#     y0 = training_data.y[tthrow, :]
+#     yp0seq = training_data.y[tthrow-Np:tthrow, :].reshape(Np*Ny, )
+#     up0seq = training_data.u[tthrow-Np:tthrow, :].reshape(Np*Ny, )
+#     yz0 = np.concatenate((y0, yp0seq, up0seq))
+
+#     # Get the black-box model parameters and function handles.
+#     iCNN_pars = get_iCNN_pars(train=tworeac_iCNNtrain, 
+#                               plant_pars=plant_pars)
+#     fxu = lambda x, u: iCNN_fxu(x, u, iCNN_pars)
+#     hx = lambda x: bb_hx(x, iCNN_pars)
+
+#     # CHeck black-box model validation.
+#     iCNN_yval = tworeac_iCNNtrain['val_predictions'][-1].y
+#     iCNN_xpred, iCNN_ypred = quick_sim(fxu, hx, yz0, uval)
+#     breakpoint()
+#     # Return 
 #     return 
