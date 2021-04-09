@@ -117,17 +117,19 @@ def get_train_val_data(*, tthrow, Np, xuyscales, data_list):
         scaling. """
 
     # Get scaling pars.
+    xmean, xstd = xuyscales['xscale']
     umean, ustd = xuyscales['uscale']
     ymean, ystd = xuyscales['yscale']
     Ny, Nu = len(ymean), len(umean)
 
     # Lists to store data.
-    inputs, yz0, yz, outputs = [], [], [], []
+    inputs, yz0, yz, x0, outputs = [], [], [], [], []
 
     # Loop through the data list.
     for data in data_list:
         
         # Scale data.
+        x = (data.x - xmean)/xstd
         u = (data.u - umean)/ustd
         y = (data.y - ymean)/ystd
         
@@ -140,6 +142,7 @@ def get_train_val_data(*, tthrow, Np, xuyscales, data_list):
         up0seq = u[tthrow-Np:tthrow, :].reshape(Np*Nu, )[np.newaxis, :]
         y0 = y[tthrow, np.newaxis, :]
         yz0_traj = np.concatenate((y0, yp0seq, up0seq), axis=-1)
+        x0_traj = x[tthrow, np.newaxis, :]
 
         # Get z_traj.
         Nt = u.shape[0]
@@ -155,17 +158,19 @@ def get_train_val_data(*, tthrow, Np, xuyscales, data_list):
         inputs += [u_traj]
         yz0 += [yz0_traj]
         yz += [yz_traj]
+        x0 += [x0_traj]
         outputs += [y_traj]
     
     # Get the training and validation data for training in compact dicts.
     train_data = dict(inputs=np.concatenate(inputs[:-2], axis=0),
                       yz0=np.concatenate(yz0[:-2], axis=0),
                       yz=np.concatenate(yz[:-2], axis=0),
+                      x0=np.concatenate(x0[:-2], axis=0),
                       outputs=np.concatenate(outputs[:-2], axis=0))
     trainval_data = dict(inputs=inputs[-2], yz0=yz0[-2],
-                          yz=yz[-2], outputs=outputs[-2])
+                          yz=yz[-2], x0=x0[-2], outputs=outputs[-2])
     val_data = dict(inputs=inputs[-1], yz0=yz0[-1],
-                    yz=yz[-1], outputs=outputs[-1])
+                    yz=yz[-1], x0=x0[-1], outputs=outputs[-1])
     # Return.
     return (train_data, trainval_data, val_data)
 

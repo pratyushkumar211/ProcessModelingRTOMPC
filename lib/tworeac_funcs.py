@@ -25,23 +25,23 @@ def plant_ode(x, u, p, parameters):
     # Return the derivative.
     return np.array([dCabydt, dCbbydt, dCcbydt])
 
-def greybox_ode(x, u, p, parameters):
-    """ Simple ODE describing the grey-box plant. """
+# def greybox_ode(x, u, p, parameters):
+#     """ Simple ODE describing the grey-box plant. """
 
-    # Extract the parameters.
-    k1 = parameters['k1']
+#     # Extract the parameters.
+#     k1 = parameters['k1']
 
-    # Extract the plant states into meaningful names.
-    (Ca, Cb) = x[0:2]
-    Caf = u[0]
-    tau = p[0]
+#     # Extract the plant states into meaningful names.
+#     (Ca, Cb) = x[0:2]
+#     Caf = u[0]
+#     tau = p[0]
 
-    # Write the ODEs.
-    dCabydt = (Caf-Ca)/tau - k1*Ca
-    dCbbydt = k1*Ca - Cb/tau
+#     # Write the ODEs.
+#     dCabydt = (Caf-Ca)/tau - k1*Ca
+#     dCbbydt = k1*Ca - Cb/tau
 
-    # Return the derivative.
-    return np.array([dCabydt, dCbbydt])
+#     # Return the derivative.
+#     return np.array([dCabydt, dCbbydt])
 
 def get_plant_pars():
     """ Get the parameter values for the 
@@ -90,10 +90,10 @@ def get_greybox_pars(*, plant_pars):
     
     # Parameters.
     parameters = {}
-    parameters['k1'] = 0.2 # m^3/min.
+    #parameters['k1'] = 0.2 # m^3/min.
 
     # Store the dimensions.
-    parameters['Nx'] = 2
+    parameters['Nx'] = 3
     parameters['Nu'] = plant_pars['Nu']
     parameters['Ny'] = plant_pars['Ny']
     parameters['Np'] = plant_pars['Np']
@@ -102,7 +102,7 @@ def get_greybox_pars(*, plant_pars):
     parameters['Delta'] = plant_pars['Delta'] # min.
 
     # Get the steady states.
-    gb_indices = [0, 1]
+    gb_indices = [0, 1, 2]
     parameters['xs'] = plant_pars['xs'][gb_indices] # to be updated.
     parameters['us'] = plant_pars['us'] # Ca0s
     parameters['ps'] = plant_pars['ps'] # tau (min)
@@ -115,7 +115,7 @@ def get_greybox_pars(*, plant_pars):
     parameters['tsteps_steady'] = plant_pars['tsteps_steady']
 
     # Measurement indices and noise.
-    parameters['yindices'] = [0, 1]
+    parameters['yindices'] = [0, 1, 3]
     parameters['Rv'] = 0*np.eye(parameters['Ny'])
 
     # Return the parameters dict.
