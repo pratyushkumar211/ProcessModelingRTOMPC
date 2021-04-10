@@ -49,7 +49,7 @@ def get_plant_pars():
     
     # Parameters.
     parameters = {}
-    parameters['k1'] = 1. # m^3/min.
+    parameters['k1'] = 0.2 # m^3/min.
     parameters['k2'] = 0.01 # m^3/min.
     parameters['k3'] = 0.05 # m^3/min.
 
@@ -66,7 +66,7 @@ def get_plant_pars():
     # Get the steady states.
     parameters['xs'] = np.array([1., 0.5, 0.5]) # to be updated.
     parameters['us'] = np.array([1.5]) # Ca0s
-    parameters['ps'] = np.array([10.]) # tau (min)
+    parameters['ps'] = np.array([20.]) # tau (min)
 
     # Get the constraints. 
     ulb = np.array([0.5])

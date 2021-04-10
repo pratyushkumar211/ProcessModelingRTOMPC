@@ -34,21 +34,24 @@ def gen_train_val_data(*, parameters, num_traj,
         if traj == num_traj-1:
             "Get input for train val simulation."
             Nsim = Nsim_val
-            u = sample_prbs_like(num_change=6, num_steps=Nsim_val, 
+            u = sample_prbs_like(num_change=4, num_steps=Nsim_val, 
                                  lb=ulb, ub=uub,
-                                 mean_change=60, sigma_change=10, seed=seed+1)
+                                 mean_change=90, sigma_change=10, 
+                                 seed=seed+1)
         elif traj == num_traj-2:
             "Get input for validation simulation."
             Nsim = Nsim_trainval
-            u = sample_prbs_like(num_change=6, num_steps=Nsim_trainval, 
+            u = sample_prbs_like(num_change=4, num_steps=Nsim_trainval, 
                                  lb=ulb, ub=uub,
-                                 mean_change=60, sigma_change=10, seed=seed+2)
+                                 mean_change=90, sigma_change=10, 
+                                 seed=seed+2)
         else:
             "Get input for training simulation."
             Nsim = Nsim_train
-            u = sample_prbs_like(num_change=6, num_steps=Nsim_train, 
+            u = sample_prbs_like(num_change=4, num_steps=Nsim_train, 
                                  lb=ulb, ub=uub,
-                                 mean_change=60, sigma_change=10, seed=seed+3)
+                                 mean_change=90, sigma_change=10, 
+                                 seed=seed+3)
 
         seed += 1
 
