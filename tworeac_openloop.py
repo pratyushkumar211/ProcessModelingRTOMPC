@@ -17,10 +17,12 @@ import copy
 import numpy as np
 from hybridid import PickleTool, SimData, measurement
 from linNonlinMPC import NonlinearEMPCRegulator
-from tworeac_funcs import plant_ode, greybox_ode, get_parameters
-from tworeac_funcs import cost_yup
-from economicopt import get_bbpars_fxu_hx, c2dNonlin, get_xuguess
-from economicopt import get_kooppars_fxu_hx, fnn, get_koopman_ss_xkp0
+from tworeac_funcs import cost_yup, plant_ode
+from economicopt import c2dNonlin, get_xuguess
+from BlackBoxFuncs import get_bbNN_pars, bbNN_fxu, bb_hx
+from TwoReacHybridFuncs import (get_tworeacHybrid_pars, 
+                                tworeacHybrid_fxu, 
+                               tworeacHybrid_hx)
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from plotting_funcs import PAPER_FIGSIZE, TwoReacPlots
@@ -39,7 +41,7 @@ def get_openloop_sol(fxu, hx, model_pars, xuguess):
     lxup = mpc.getCasadiFunc(lxup, [Nx, Nu, Np], ["x", "u", "p"])
 
     # Initial parameters. 
-    t0EmpcPars = np.tile(np.array([[100, 200]]), (Nmpc, 1))
+    t0EmpcPars = np.tile(np.array([[100, 180]]), (Nmpc, 1))
 
     # Get upper and lower bounds.
     ulb = model_pars['ulb']
@@ -49,7 +51,8 @@ def get_openloop_sol(fxu, hx, model_pars, xuguess):
     fxu = mpc.getCasadiFunc(fxu, [Nx, Nu], ["x", "u"])
 
     # Return the NN controller.
-    regulator = NonlinearEMPCRegulator(fxu=fxu, lxup=lxup, Nx=Nx, Nu=Nu, Np=Np, 
+    regulator = NonlinearEMPCRegulator(fxu=fxu, lxup=lxup, Nx=Nx, Nu=Nu, 
+                                       Np=Np, 
                                        Nmpc=Nmpc, ulb=ulb, uub=uub, 
                                        t0Guess=xuguess, 
                                        t0EmpcPars=t0EmpcPars)
@@ -69,72 +72,69 @@ def get_openloop_sol(fxu, hx, model_pars, xuguess):
 def main():
     """ Main function to be executed. """
     # Load data.
-    tworeac_parameters = PickleTool.load(filename='tworeac_parameters.pickle',
+    tworeac_parameters = PickleTool.load(filename=
+                                        'tworeac_parameters.pickle',
                                          type='read')
-    parameters = tworeac_parameters['parameters']
-    tworeac_bbtrain = PickleTool.load(filename='tworeac_bbtrain.pickle',
+    plant_pars = tworeac_parameters['plant_pars']
+    greybox_pars = tworeac_parameters['greybox_pars']
+    tworeac_bbNNtrain = PickleTool.load(filename=
+                                    'tworeac_bbNNtrain.pickle',
                                       type='read')
-    tworeac_kooptrain = PickleTool.load(filename='tworeac_kooptrain.pickle',
+    tworeac_hybtrain = PickleTool.load(filename=
+                                      'tworeac_hybtrain.pickle',
                                       type='read')
 
     # Get the black-box model parameters and function handles.
-    bb_pars, blackb_fxu, blackb_hx = get_bbpars_fxu_hx(train=tworeac_bbtrain, 
-                                                       parameters=parameters) 
+    bbNN_pars = get_bbNN_pars(train=tworeac_bbNNtrain, 
+                              plant_pars=plant_pars)
+    bbNN_Fxu = lambda x, u: bbNN_fxu(x, u, bbNN_pars)
+    bbNN_hx = lambda x: bb_hx(x, bbNN_pars)
 
-    # Get the Koopman model parameters and function handles.
-    koop_pars, koop_fxu, koop_hx = get_kooppars_fxu_hx(train=tworeac_kooptrain, 
-                                                       parameters=parameters)
-    xkp0 = get_koopman_ss_xkp0(tworeac_kooptrain, parameters)
+    # Get the black-box model parameters and function handles.
+    hyb_pars = get_tworeacHybrid_pars(train=tworeac_hybtrain, 
+                                      greybox_pars=greybox_pars)
+    hyb_fxu = lambda x, u: tworeacHybrid_fxu(x, u, hyb_pars)
+    hyb_hx = lambda x: tworeacHybrid_hx(x)
 
     # Get the plant function handle.
-    Delta = parameters['Delta']
-    ps = parameters['ps']
-    plant_fxu = lambda x, u: plant_ode(x, u, ps, parameters)
+    Delta = plant_pars['Delta']
+    ps = plant_pars['ps']
+    plant_fxu = lambda x, u: plant_ode(x, u, ps, plant_pars)
     plant_fxu = c2dNonlin(plant_fxu, Delta)
-    plant_hx = lambda x: measurement(x, parameters)
+    plant_hx = lambda x: measurement(x, plant_pars)
 
-    # Get the grey-box function handle.
-    gb_fxu = lambda x, u: greybox_ode(x, u, ps, parameters)
-    gb_fxu = c2dNonlin(gb_fxu, Delta)
-    gb_pars = copy.deepcopy(parameters)
-    gb_pars['Nx'] = len(parameters['gb_indices'])
-
-    # Lists to loop over for the three problems.  
-    model_types = ['plant', 'grey-box', 'black-box']
-    fxu_list = [plant_fxu, gb_fxu, blackb_fxu, koop_fxu]
-    hx_list = [plant_hx, plant_hx, blackb_hx, koop_hx]
-    par_list = [parameters, gb_pars, bb_pars, koop_pars]
-    Nps = [None, None, bb_pars['Np'], koop_pars['Np']]
+    # Lists to loop over for different models.
+    model_types = ['Plant', 'Hybrid']
+    fxu_list = [plant_fxu, hyb_fxu]
+    hx_list = [plant_hx, hyb_hx]
+    par_list = [plant_pars, hyb_pars]
+    Nps = [None, None]
     
     # Lists to store solutions.
     ulist, xlist = [], []
 
     # Loop over the models.
-    for (model_type, fxu, hx, model_pars, Np) in zip(model_types, fxu_list, 
-                                                     hx_list, par_list, Nps):
+    for (model_type, fxu, 
+         hx, model_pars, Np) in zip(model_types, fxu_list, 
+                                    hx_list, par_list, Nps):
 
         # Get guess. 
         xuguess = get_xuguess(model_type=model_type, 
-                              plant_pars=parameters, Np=Np, Nx=model_pars['Nx'])
-
-        # Update guess for the Koopman model.
-        if model_type == 'Koopman':
-            xuguess['x'] = xkp0
+                              plant_pars=plant_pars, Np=Np, 
+                              Nx=model_pars['Nx'])
 
         # Get the steady state optimum.
-        t, useq, xseq, yseq = get_openloop_sol(fxu, hx, model_pars, xuguess)
+        t, useq, xseq, yseq = get_openloop_sol(fxu, hx, 
+                                                model_pars, xuguess)
 
         # Store. 
         ulist += [useq]
-        if model_type != 'plant':
-            xseq = np.insert(yseq, [2], 
-                             np.nan*np.ones((yseq.shape[0], 1)), axis=1)
         xlist += [xseq]
 
     # Get figure.
     t = t*Delta/60
-    legend_names = ['Plant', 'Grey-box', 'Black-box']
-    legend_colors = ['b', 'g', 'dimgrey', 'm']
+    legend_names = model_types
+    legend_colors = ['b', 'm']
     figures = TwoReacPlots.plot_xudata(t=t, xlist=xlist, ulist=ulist,
                                         legend_names=legend_names,
                                         legend_colors=legend_colors, 

@@ -15,7 +15,8 @@ from matplotlib.backends.backend_pdf import PdfPages
 from plotting_funcs import TwoReacPlots, PAPER_FIGSIZE
 from hybridid import PickleTool, measurement
 from BlackBoxFuncs import get_bbNN_pars, bbNN_fxu, bb_hx
-from TwoReacHybridFuncs import (get_tworeacHybrid_pars, tworeacHybrid_fxu, 
+from TwoReacHybridFuncs import (get_tworeacHybrid_pars, 
+                                tworeacHybrid_fxu, 
                                tworeacHybrid_hx)
 from economicopt import (get_ss_optimum, get_xuguess, c2dNonlin, 
                          get_sscost)
@@ -29,9 +30,11 @@ def main():
                                          type='read')
     plant_pars = tworeac_parameters['plant_pars']
     greybox_pars = tworeac_parameters['greybox_pars']
-    tworeac_bbNNtrain = PickleTool.load(filename='tworeac_bbNNtrain.pickle',
+    tworeac_bbNNtrain = PickleTool.load(filename=
+                                    'tworeac_bbNNtrain.pickle',
                                       type='read')
-    tworeac_hybtrain = PickleTool.load(filename='tworeac_hybtrain.pickle',
+    tworeac_hybtrain = PickleTool.load(filename=
+                                      'tworeac_hybtrain.pickle',
                                       type='read')
 
     # Get cost function handle.
