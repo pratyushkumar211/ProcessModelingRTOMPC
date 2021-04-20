@@ -46,91 +46,6 @@ def online_simulation(plant, controller, *, plant_lyup, Nsim=None,
     # Return.
     return clData, avgStageCosts
 
-def get_kooppars_fxu_hx(*, train, parameters):
-    """ Get the black-box parameter dict and function handles. """
-
-    # Get black-box model parameters.
-    Np = train['Np']
-    fN_weights = train['trained_weights'][-1][:-2]
-    A = train['trained_weights'][-1][-2].T
-    B = train['trained_weights'][-1][-1].T
-    xuyscales = train['xuyscales']
-    Ny, Nu = parameters['Ny'], parameters['Nu']
-    Nx = Ny + Np*(Ny + Nu) + train['fN_dims'][-1]
-    ulb, uub = parameters['ulb'], parameters['uub']
-    koop_pars = dict(Nx=Nx, Ny=Ny, Nu=Nu, Np=Np, xuyscales=xuyscales,
-                     fN_weights=fN_weights, ulb=ulb, uub=uub, A=A, B=B)
-    
-    # Get function handles.
-    fxu = lambda x, u: koop_fxu(x, u, koop_pars)
-    hx = lambda x: koop_hx(x, koop_pars)
-
-    # Return.
-    return koop_pars, fxu, hx
-
-def koop_fxu(xkp, u, parameters):
-    """ Function describing the dynamics 
-        of the black-box neural network. 
-        xkp^+ = A*xkp + Bu """
-    
-    # Get A, B matrices.
-    A, B = parameters['A'], parameters['B']
-    umean, ustd = parameters['xuyscales']['uscale']
-
-    # Scale control input.
-    u = (u - umean)/ustd
-
-    # Add extra axis.
-    xkp, u = xkp[:, np.newaxis], u[:, np.newaxis]
-
-    # Get current output.
-    xkplus = A @ xkp + B @ u
-
-    # Remove an axis.
-    xkplus = xkplus[:, 0]
-
-    # Return the sum.
-    return xkplus
-
-def koop_hx(xkp, parameters):
-    """ Measurement function. """
-    
-    # Extract a few parameters.
-    Ny = parameters['Ny']
-    xuyscales = parameters['xuyscales']
-    ymean, ystd = xuyscales['yscale']
-    
-    # Add extra axis.
-    y = xkp[:Ny]*ystd + ymean
-
-    # Return the sum.
-    return y
-
-def get_koopman_ss_xkp0(train, parameters):
-
-    # Get initial state.
-    Np = train['Np']
-    us = parameters['us']
-    yindices = parameters['yindices']
-    ys = parameters['xs'][yindices]
-    yz0 = np.concatenate((np.tile(ys, (Np+1, )), 
-                          np.tile(us, (Np, ))))
-
-    # Scale initial state and get the lifted state.
-    fN_weights = train['trained_weights'][-1][:-2]
-    xuyscales = train['xuyscales']
-    ymean, ystd = xuyscales['yscale']
-    umean, ustd = xuyscales['uscale']
-    yzmean = np.concatenate((np.tile(ymean, (Np+1, )), 
-                            np.tile(umean, (Np, ))))
-    yzstd = np.concatenate((np.tile(ystd, (Np+1, )), 
-                            np.tile(ustd, (Np, ))))
-    yz0 = (yz0 - yzmean)/yzstd
-    xkp0 = np.concatenate((yz0, fnn(yz0, fN_weights, 1.)))
-
-    # Return.
-    return xkp0
-
 def get_ss_optimum(*, fxu, hx, lyu, parameters, guess):
     """ Setup and solve the steady state optimization. """
 
@@ -198,7 +113,7 @@ def get_xuguess(*, model_type, plant_pars, Np=None, Nx=None):
         xs = np.concatenate((np.tile(ys, (Np+1, )), 
                              np.tile(us, (Np, ))))
     else:
-        pass
+        xs = None
     # Return as dict.
     return dict(x=xs, u=us)
 

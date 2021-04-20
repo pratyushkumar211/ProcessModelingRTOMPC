@@ -36,7 +36,7 @@ def main():
     tthrow = 10
     Np = 0
     tanhScale = 1
-    fNDims = [Ny + Np*(Ny+Nu), 32, Ny]
+    fNDims = [Ny + Np*(Ny+Nu), 64, Ny]
 
     # Create lists to store data.
     trained_weights = []
@@ -66,7 +66,7 @@ def main():
                              outputs=train_data['outputs'])
 
         # Train.
-        train_bbmodel(model=model, epochs=10000, batch_size=6, 
+        train_bbmodel(model=model, epochs=10000, batch_size=2, 
                       train_data=train_samples, trainval_data=trainval_data, 
                       stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 

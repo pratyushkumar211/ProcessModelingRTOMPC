@@ -11,8 +11,8 @@ import tensorflow as tf
 import time
 import numpy as np
 from hybridid import PickleTool, get_scaling, get_train_val_data
-from training_funcs import create_koopmodel, train_koopmodel
-from training_funcs import get_koopval_predictions
+from KoopmanModelFuncs import (create_koopmodel, train_koopmodel, 
+                              get_koopval_predictions)
 
 # Set the tensorflow global and graph-level seed.
 tf.random.set_seed(123)
@@ -24,18 +24,18 @@ def main():
                                          type='read')
 
     # Get sizes/raw training data.
-    parameters = tworeac_parameters['parameters']
-    Ny, Nu = parameters['Ny'], parameters['Nu']
+    plant_pars = tworeac_parameters['plant_pars']
+    Ny, Nu = plant_pars['Ny'], plant_pars['Nu']
     training_data = tworeac_parameters['training_data']
     
     # Number of samples.
     num_samples = [hours*60 for hours in [6]]
 
     # Create some parameters.
-    xinsert_indices = [2]
+    xinsert_indices = []
     tthrow = 10
-    Np = 2
-    fN_dims = [Np*(Ny+Nu), 16, 32]
+    Np = 0
+    fNDims = [Ny + Np*(Ny+Nu), 16, 32]
 
     # Create lists to store data.
     trained_weights = []
@@ -56,7 +56,7 @@ def main():
     for num_sample in num_samples:
         
         # Create model.
-        model = create_koopmodel(Np=Np, Ny=Ny, Nu=Nu, fN_dims=fN_dims)
+        model = create_koopmodel(Np=Np, Ny=Ny, Nu=Nu, fNDims=fNDims)
         
         # Use num samples to adjust here the num training samples.
         train_samples = dict(yz0=train_data['yz0'],
@@ -65,7 +65,7 @@ def main():
                              outputs=train_data['outputs'])
 
         # Train.
-        train_koopmodel(model=model, epochs=10000, batch_size=2, 
+        train_koopmodel(model=model, epochs=3000, batch_size=2, 
                       train_data=train_samples, trainval_data=trainval_data,
                       stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 
@@ -87,16 +87,15 @@ def main():
     num_samples = np.asarray(num_samples) + trainval_data['inputs'].shape[1]
 
     # Save the weights.
-    tworeac_training_data = dict(Np=Np,
-                                 fN_dims=fN_dims,
-                                 trained_weights=trained_weights,
-                                 val_predictions=val_predictions,
-                                 val_metrics=val_metrics,
-                                 num_samples=num_samples,
-                                 xuyscales=xuyscales)
+    tworeac_train = dict(Np=Np, fNDims=fNDims,
+                         trained_weights=trained_weights,
+                         val_predictions=val_predictions,
+                         val_metrics=val_metrics,
+                         num_samples=num_samples,
+                         xuyscales=xuyscales)
     
     # Save data.
-    PickleTool.save(data_object=tworeac_training_data,
+    PickleTool.save(data_object=tworeac_train,
                     filename='tworeac_kooptrain.pickle')
 
 main()

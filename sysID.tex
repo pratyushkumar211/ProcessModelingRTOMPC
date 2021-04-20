@@ -371,18 +371,27 @@ operator model are different than the plant model. This simple analysis shows
 that the use of the grey-box and Koopman operator models in MPC can result in
 suboptimal economic performance.
 
-\section{Large, CSTR and flash system example}
-We next study the performance of the black-box NN modeling framework on a large chemical process that consists of a chemical reactor and flash separator in series. The process is depicted in Figure \ref{fig:cstr_flash}, and the ordinary differential equations (ODEs) with parameter values describing the plant model are shown in Appendix \ref{app:cstr_flash}. The model consists of 12 states ($H_r$, $C_{Ar}$, $C_{Br}$, $C_{Cr}$, $T_r$, $H_b$, $C_{Ab}$, $C_{Bb}$, $C_{Cb}$, $T_b$), 6 measurements ($H_r$, $C_{Br}$, $T_r$, $H_b$, $C_{Bb}$, $T_b$), and 2 control inputs ($F$, $D$). The sample time for the measurements is 1 min.
+%\section{Large, CSTR and flash system example}
+%We next study the performance of the black-box NN modeling framework on a 
+%large chemical process that consists of a chemical reactor and flash separator 
+%in series. The process is depicted in Figure \ref{fig:cstr_flash}, and the 
+%ordinary differential equations (ODEs) with parameter values describing the 
+%plant model are shown in Appendix \ref{app:cstr_flash}. The model consists of 
+%12 states ($H_r$, $C_{Ar}$, $C_{Br}$, $C_{Cr}$, $T_r$, $H_b$, $C_{Ab}$, 
+%$C_{Bb}$, $C_{Cb}$, $T_b$), 6 measurements ($H_r$, $C_{Br}$, $T_r$, $H_b$, 
+%$C_{Bb}$, $T_b$), and 2 control inputs ($F$, $D$). The sample time for the 
+%measurements is 1 min.
 
-\begin{figure}[!h]
-  \centering
-  \includegraphics[page=1, height=0.5\textheight,
-                   width=0.7\textwidth]{cstr_flash.pdf}
-  \caption{Schematic of the CSTR and flash chemical process.}
-  \label{fig:cstr_flash}
-\end{figure}
 
-\subsection{Model validation}
+%\begin{figure}[!h]
+%  \centering
+%  \includegraphics[page=1, height=0.5\textheight,
+%                   width=0.7\textwidth]{cstr_flash.pdf}
+%  \caption{Schematic of the CSTR and flash chemical process.}
+%  \label{fig:cstr_flash}
+%\end{figure}
+
+%\subsection{Model validation}
 
 % \begin{figure}[!h]
 %   \centering
@@ -400,13 +409,47 @@ We next study the performance of the black-box NN modeling framework on a large 
 %   \label{fig:cstr_flash_yvalidation}
 % \end{figure}
 
-\subsection{Steady state optimization}
+%\subsection{Steady state optimization}
 
-\subsection{Dynamic economic optimization}
+%\subsection{Dynamic economic optimization}
 
 
-\section{Discussion}
+\section{Hybrid model}
 
+\begin{equation*}
+\begin{bmatrix}
+\dfrac{dC_A}{dt} \\
+\dfrac{dC_B}{dt} \\
+\dfrac{dC_C}{dt}
+\end{bmatrix} = \begin{bmatrix}
+\dfrac{C_{Af} - C_A}{\tau} \\
+- \dfrac{C_B}{\tau} \\
+- \dfrac{C_C}{\tau}
+\end{bmatrix} + f_N(C_A, C_B, C_C)
+\end{equation*}
+
+\section{Learn cost functions with input convex NNs}
+Different proposal. NNs can be made convex from their inputs to outputs. 
+Consider the following architecture (Amos, Xu, Kolter 2017) - 
+
+\begin{equation*}
+	z_{i+1} = g_i(W_i^{z}z_{i} + W_i^{y}x + b_i), i=0, 1, ...k-1
+\end{equation*}
+
+If $g_i(\cdot)$ is convex and non-decreasing, $W_0^{z} = 0$, and $W_{1:k-1}^{z}$
+are all non-negative, then the NN architecture is convex, i.e, the function 
+$z_k(x)$ is convex.
+
+\textbf{RTO algorithm}
+\begin{itemize}
+	\item Obtain steady-state data ($u_s$, $y_s$), and samples of the cost 
+	curve ($\ell(u_s, y_s, p)$) based on current economic cost parameters.
+	\item Fit the input convex NN to the cost curve and optimize.
+\end{itemize}
+
+Extensions - Can allow the NN to be non-convex in some inputs and convex in 
+some inputs. So the NN cost function can be non-convex in economic 
+parameters/disturbance estimates, but we will force it to be convex in $u_s$.
 
 \section*{Appendix} 
 \renewcommand{\thesubsection}{\Alph{subsection}}
