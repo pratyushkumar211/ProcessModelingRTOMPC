@@ -40,8 +40,8 @@ TEXSUFFIXES := .pdf .aux .log .bbl .blg .nav .out .snm .toc .synctex.gz \
 # we are making the article or the talk. Note that the nomenclature is kind of
 # confusing here: in the subfolders, we split paper/presentation/poster, whereas
 # these variables are article/talk/poster, so keep that in mind.
-ARTICLE_SRC := sysID.tex
-TALK_SRC := 
+ARTICLE_SRC := 
+TALK_SRC := group_talk_apr20_2021.tex
 POSTER_SRC := 
 
 PAPER_BIB := 
@@ -102,8 +102,7 @@ PY_MAT_SRC :=
 OCT_MAT_SRC := 
 MATLAB_MAT_SRC := 
 PY_PICKLE_SRC := tworeac_parameters.py tworeac_kooptrain.py \
-				 tworeac_bbtrain.py cstr_flash_parameters.py \
-				 cstr_flash_bbtrain.py
+				 tworeac_bbNNtrain.py \
 
 ## JL_MAT_SRC. These are .jl files on which you run Julia to produce a .mat file.
 ## Note that Julia's .mat files are in an HDF5 format, so you will need to use
@@ -118,8 +117,7 @@ OCT_DAT_SRC :=
 
 ## PY_PLOT files are .py files that create .pdf plots.
 
-PY_PLOT := tworeac_plots.py tworeac_ssopt.py tworeac_openloop.py \
-		   cstr_flash_plots.py cstr_flash_openloop.py
+PY_PLOT := tworeac_plots.py tworeac_ssopt.py
 
 ## PY_MOVIE files are .py files that create movies as a .pdf document.
 
@@ -286,7 +284,7 @@ AUTODEPENDENCIES := $(addprefix $(DEPS_DIR)/, $(addsuffix .dep, $(AUTODEPENDENCI
 ## target is "all". We also provide a "current" goal that users can edit in
 ## case they're only interested in a subset of files for the time being.
 
-.DEFAULT_GOAL := sysID.pdf
+.DEFAULT_GOAL := 
 
 all: $(ARTICLE_PDF) $(TALK_PDF) $(POSTER_PDF)
 .PHONY: all

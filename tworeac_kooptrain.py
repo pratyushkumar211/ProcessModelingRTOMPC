@@ -1,4 +1,4 @@
-# [depends] %LIB%/hybridid.py %LIB%/training_funcs.py
+# [depends] %LIB%/hybridid.py %LIB%/KoopmanModelFuncs.py
 # [depends] tworeac_parameters.pickle
 # [makes] pickle
 """ Script to train the deep Koopman model for the
@@ -35,7 +35,7 @@ def main():
     xinsert_indices = []
     tthrow = 10
     Np = 0
-    fNDims = [Ny + Np*(Ny+Nu), 16, 32]
+    fNDims = [Ny + Np*(Ny+Nu), 32, 32]
 
     # Create lists to store data.
     trained_weights = []
@@ -65,7 +65,7 @@ def main():
                              outputs=train_data['outputs'])
 
         # Train.
-        train_koopmodel(model=model, epochs=3000, batch_size=2, 
+        train_koopmodel(model=model, epochs=5000, batch_size=2, 
                       train_data=train_samples, trainval_data=trainval_data,
                       stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 

@@ -1,7 +1,9 @@
-# [depends] %LIB%/hybridid.py %LIB%/tworeac_funcs.py
-# [depends] %LIB%/economicopt.py %LIB%/plotting_funcs.py
+# [depends] %LIB%/plotting_funcs.py %LIB%/hybridid.py
+# [depends] %LIB%/BlackBoxFuncs.py %LIB%/TwoReacHybridFuncs.py
+# [depends] %LIB%/economicopt.py %LIB%/tworeac_funcs.py
+# [depends] %LIB%/KoopmanModelFuncs.py
 # [depends] tworeac_parameters.pickle
-# [depends] tworeac_bbtrain.pickle
+# [depends] tworeac_bbNNtrain.pickle
 # [depends] tworeac_kooptrain.pickle
 """ Script to use the trained hybrid model for 
     steady-state optimization.

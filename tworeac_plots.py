@@ -1,6 +1,6 @@
 # [depends] %LIB%/hybridid.py %LIB%/plotting_funcs.py
 # [depends] tworeac_parameters.pickle
-# [depends] tworeac_bbtrain.pickle
+# [depends] tworeac_bbNNtrain.pickle
 # [depends] tworeac_kooptrain.pickle
 """ Script to plot the training data
     and grey-box + NN model predictions on validation data.
@@ -73,9 +73,9 @@ def main():
     bbNN_predictions = tworeac_bbNNtrain['val_predictions']
 
     # Load Hybrid data after training.
-    tworeac_hybtrain = PickleTool.load(filename="tworeac_hybtrain.pickle",
-                                      type='read')
-    hyb_predictions = tworeac_hybtrain['val_predictions']
+    #tworeac_hybtrain = PickleTool.load(filename="tworeac_hybtrain.pickle",
+    #                                  type='read')
+    #hyb_predictions = tworeac_hybtrain['val_predictions']
 
     # Load Koopman data after NN training.
     tworeac_kooptrain = PickleTool.load(filename="tworeac_kooptrain.pickle",
