@@ -7,6 +7,10 @@ import sys
 import numpy as np
 import tensorflow as tf
 
+def scaledExp(x, expScale):
+    """ Scaled exponential to use as activation function. """
+    return tf.math.exp(expScale*x)
+
 class InputConvexLayer(tf.keras.layers.Layer):
     """
     Input convex layer.
@@ -118,16 +122,25 @@ class InputConvexCell(tf.keras.layers.AbstractRNNCell):
         return (y, yzplus)
 
 class InputConvexModel(tf.keras.Model):
-    """ Custom model for the Two reaction model. """
-    def __init__(self, Np, Ny, Nu, fNDims, expScale):
-        """ Create the dense layers for the NN, and 
-            construct the overall model. """
+    """ Input convex neural network model. """
+    def __init__(self, Nu, fNDims, expScale, Np=0, Nd=0):
+        
+        # Get the input layers (from which convexity is required).
+        modelInputList = []
+        u = tf.keras.Input(name='u', shape=(Nu, ))
+        modelInputList += [u]
 
-        # Get the size and input layer, and initial state layer.
-        Nx = Ny + Np*(Ny+Nu)
-        useq = tf.keras.Input(name='u', shape=(None, Nu))
-        yz0 = tf.keras.Input(name='yz0', shape=(Nx, ))
+        # Get the input layers (from which convexity is not required).
+        # p contains cost parameters.
+        if Np > 0:
+            p = tf.keras.Input(name='p', shape=(Np, ))
+            modelInputList += [p]
 
+        # d contains disturbances.
+        if Nd > 0:
+            d = tf.keras.Input(name='d', shape=(Nd, ))
+            modelInputList += [d]
+        
         # Get Input Convex NN layers.
         assert len(fNDims) > 2
         fNLayers = [InputConvexLayer(fNDims[1], fNDims[0], Nx + Nu, 
@@ -145,7 +158,7 @@ class InputConvexModel(tf.keras.Model):
         yseq = iCRNNLayer(inputs=useq, initial_state=[yz0])
 
         # Construct model.
-        super().__init__(inputs=[useq, yz0], outputs=yseq)
+        super().__init__(inputs=modelInputList, outputs=yseq)
 
 def create_iCNNmodel(*, Np, Ny, Nu, fNDims, expScale):
     """ Create/compile the two reaction model for training. """
