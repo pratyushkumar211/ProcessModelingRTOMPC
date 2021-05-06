@@ -17,12 +17,29 @@ from TwoReacHybridFuncs import (create_tworeac_model, train_hybrid_model,
 # Set the tensorflow global and graph-level seed.
 tf.random.set_seed(123)
 
+def generate_data(*, plant_pars, hyb_fxu, hyb_hx):
+    """ Function to generate data to train the ICNN. """
+    
+
+    return 
+
 def main():
     """ Main function to be executed. """
     # Load data.
     tworeac_parameters = PickleTool.load(filename=
                                         'tworeac_parameters.pickle',
                                          type='read')
+    tworeac_hybtrain = PickleTool.load(filename=
+                                        'tworeac_hybtrain.pickle',
+                                         type='read')
+    plant_pars = tworeac_parameters['plant_pars']
+    greybox_pars = tworeac_parameters['greybox_pars']
+
+    # Get the black-box model parameters and function handles.
+    hyb_pars = get_tworeacHybrid_pars(train=tworeac_hybtrain, 
+                                      greybox_pars=greybox_pars)
+    hyb_fxu = lambda x, u: tworeacHybrid_fxu(x, u, hyb_pars)
+    hyb_hx = lambda x: tworeacHybrid_hx(x)
 
     # Get sizes/raw training data.
     greybox_pars = tworeac_parameters['greybox_pars']

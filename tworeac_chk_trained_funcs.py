@@ -135,7 +135,7 @@ def main():
 
 
     check_bbNN(tworeac_bbNNtrain, tworeac_parameters)
-    check_koopman(tworeac_kooptrain, tworeac_parameters)
+    #check_koopman(tworeac_kooptrain, tworeac_parameters)
     #check_hybrid(tworeac_hybtrain, tworeac_parameters)
     print("Hi")
 

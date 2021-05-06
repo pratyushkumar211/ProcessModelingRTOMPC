@@ -224,6 +224,7 @@ def get_tworeacHybrid_pars(*, train, greybox_pars):
     # Sizes.
     Nx, Ny, Nu = greybox_pars['Nx'], greybox_pars['Ny'], greybox_pars['Nu']
     parameters['Nx'], parameters['Ny'], parameters['Nu'] = Nx, Ny, Nu
+    parameters['Np'] = train['Np']
 
     # Constraints.
     parameters['ulb'] = greybox_pars['ulb']

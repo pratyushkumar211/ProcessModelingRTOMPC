@@ -38,9 +38,9 @@ def main():
     # tworeac_kooptrain = PickleTool.load(filename=
     #                                 'tworeac_kooptrain.pickle',
     #                                   type='read')
-    # tworeac_hybtrain = PickleTool.load(filename=
-    #                                   'tworeac_hybtrain.pickle',
-    #                                   type='read')
+    tworeac_hybtrain = PickleTool.load(filename=
+                                      'tworeac_hybtrain.pickle',
+                                      type='read')
 
     # Get cost function handle.
     p = [100, 200]
@@ -59,10 +59,10 @@ def main():
     # koop_Hx = lambda x: koop_hx(x, koop_pars)
 
     # Get the black-box model parameters and function handles.
-    # hyb_pars = get_tworeacHybrid_pars(train=tworeac_hybtrain, 
-    #                                   greybox_pars=greybox_pars)
-    # hyb_fxu = lambda x, u: tworeacHybrid_fxu(x, u, hyb_pars)
-    # hyb_hx = lambda x: tworeacHybrid_hx(x)
+    hyb_pars = get_tworeacHybrid_pars(train=tworeac_hybtrain, 
+                                      greybox_pars=greybox_pars)
+    hyb_fxu = lambda x, u: tworeacHybrid_fxu(x, u, hyb_pars)
+    hyb_hx = lambda x: tworeacHybrid_hx(x)
 
     # Get the plant function handle.
     Delta, ps = plant_pars['Delta'], plant_pars['ps']
@@ -71,11 +71,11 @@ def main():
     plant_hx = lambda x: measurement(x, plant_pars)
 
     # Lists to loop over for different models.
-    model_types = ['Plant', 'Black-Box-NN']
-    fxu_list = [plant_fxu, bbNN_Fxu]
-    hx_list = [plant_hx, bbNN_hx]
-    par_list = [plant_pars, bbNN_pars]
-    Nps = [None, bbNN_pars['Np']]
+    model_types = ['Plant', 'Black-Box-NN', 'Hybrid']
+    fxu_list = [plant_fxu, bbNN_Fxu, hyb_fxu]
+    hx_list = [plant_hx, bbNN_hx, hyb_hx]
+    par_list = [plant_pars, bbNN_pars, hyb_pars]
+    Nps = [None, bbNN_pars['Np'], hyb_pars['Np']]
 
     # Loop over the different models, and obtain SS optimums.
     for (model_type, fxu, hx, model_pars, Np) in zip(model_types, fxu_list, 
@@ -126,7 +126,7 @@ def main():
     us = np.asarray(us_list)[:, 0]
 
     legend_names = model_types
-    legend_colors = ['b', 'dimgrey']
+    legend_colors = ['b', 'dimgrey', 'm']
     figures = TwoReacPlots.plot_sscosts(us=us, sscosts=sscosts, 
                                         legend_colors=legend_colors, 
                                         legend_names=legend_names, 
