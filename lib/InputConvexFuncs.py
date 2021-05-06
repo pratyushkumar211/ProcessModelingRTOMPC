@@ -7,9 +7,9 @@ import sys
 import numpy as np
 import tensorflow as tf
 
-def approxReluTF(x, expScale=0.1):
+def approxReluTF(x, k=0.1):
     """ Scaled exponential to use as activation function. """
-    return tf.math.exp(expScale*x)
+    return tf.math.log(1. + tf.math.exp(k*x))/k
 
 def iCNNTF(nnInput, nnLayers):
     """ Compute the output of the feedforward network. """
@@ -21,15 +21,11 @@ def iCNNTF(nnInput, nnLayers):
 class InputConvexLayer(tf.keras.layers.Layer):
     """
     Input convex layer.
-    u_{i+1} = g1(Wut @ u + but)
-    z_{i+1} = Wz @ (z*g2(Wzu @ u + bzu)) + Wy @ (y*(Wyu @ u + byu)) 
-    z_{i+1} += Wu @ u + bz
-    z_{i+1} = g2(z_{i+1})
+    z_{i+1} = g(Wz @ z + Wy @ y + b)
     Wz = 0 or Wz >= 0
-    g1 is tanh, g2 is approx smooth Relu.
+    g is approx smooth Relu.
     """
-    def __init__(self, zPlusDim, zDim, yDim, 
-                       uPlusDim, udim, layerPos, **kwargs):
+    def __init__(self, zPlusDim, zDim, yDim, layerPos, **kwargs):
         super(InputConvexLayer, self).__init__(**kwargs)
 
         # Check for layerPos string.
@@ -41,7 +37,7 @@ class InputConvexLayer(tf.keras.layers.Layer):
         # Random initializer.
         initializer =  tf.random_normal_initializer()
 
-        # Create Wz, Wzu, and bzu.
+        # Create Wz.
         if layerPos == "Mid" or layerPos == "Last":
             
             self.Wz = tf.Variable(initial_value = 
@@ -49,68 +45,31 @@ class InputConvexLayer(tf.keras.layers.Layer):
                                   trainable=True,
                                   constraint=tf.keras.constraints.NonNeg())
 
-            self.Wzu = tf.Variable(initial_value = 
-                                  initializer(shape=(uDim, zDim)),
-                                  trainable=True)
-
-            self.bzu = tf.Variable(initial_value = 
-                                    biasInit(shape=(zDim, )),
-                                    trainable=True)
-
-        # Create Wut and but.
-        if layerPos == "First" or layerPos == "Mid":
-
-            self.Wut = tf.Variable(initial_value = 
-                                  initializer(shape=(uDim, uPlusDim)),
-                                  trainable=True)
-
-            self.but = tf.Variable(initial_value = 
-                                    biasInit(shape=(uPlusDim, )),
-                                    trainable=True)
-
-        # Create Wy, Wyu, byu, Wu, and bz.
-        # These 5 weights are used regardless of the layer position.
+        # Create Wy and bz.
+        # These 2 weights are used regardless of the layer position.
         self.Wy = tf.Variable(initial_value = 
                                 initializer(shape=(yDim, zPlusDim)),
                                 trainable=True)
-        self.Wyu = tf.Variable(initial_value = 
-                                initializer(shape=(uDim, yDim)),
-                                trainable=True)
-        self.byu = tf.Variable(initial_value = 
-                                biasInit(shape=(yDim, )),
-                                trainable=True)
-        self.Wu = tf.Variable(initial_value = 
-                                initializer(shape=(uDim, zPlusDim)),
-                                trainable=True)
-        self.bz = tf.Variable(initial_value = 
+        self.b = tf.Variable(initial_value = 
                                 biasInit(shape=(zPlusDim, )),
                                 trainable=True)
 
-    def call(self, z, u, y):
+    def call(self, z, y):
         """ Call function of the input convex NN layer. """
         
-        # Get uplus.
-        if self.layerPos == "First" or self.layerPos == "Mid":
-            uplus = tf.math.tanh(tf.linalg.matmul(u, self.Wut) + self.but)
-        else:
-            uplus = None
-
         # Get zplus.
-        zplus = tf.linalg.matmul(u, self.Wyu) + self.byu
-        zplus = tf.math.multiply(zplus, y)
-        zplus = tf.linalg.matmul(zplus, self.Wy) 
-        zplus += tf.linalg.matmul(u, self.Wu) + self.bz
+        zplus = tf.linalg.matmul(y, self.Wy) + self.b
+
         # Get the driving term related to z.
         if self.layerPos == "Mid" or self.layerPos == "Last":
-            zplusz = approxReluTF(tf.linalg.matmul(u, self.Wzu) + self.bzu)
-            zplusz = tf.math.multiply(zplusz, z)
-            zplusz = tf.linalg.matmul(zplusz, self.Wz)
-            zplus += zplusz
+            zplus += tf.linalg.matmul(z, self.Wz)
+
+        # Apply activation only if first or middle layer.
         if self.layerPos == "First" or self.layerPos == "Mid":
             zplus = approxReluTF(zplus)
 
         # Return output.
-        return zplus, uplus
+        return zplus
 
 class PartialInputConvexLayer(tf.keras.layers.Layer):
     """
