@@ -258,6 +258,36 @@ def iCNN(nnInput, zWeights, yWeights, bias, expScale):
     # Return.
     return nnOutput
 
+def piCNN(nnInput, zWeights, yWeights, bias, expScale):
+    """ Compute the NN output. """
+
+    # Check input dimensions. 
+    if nnInput.ndim == 1:
+        numOutDim = 1
+        nnInput = nnInput[:, np.newaxis]
+    nnOutput = nnInput
+
+    # Out of First layer.
+    Wy, b = yWeights[0], bias[0]
+    nnOutput = Wy.T @ nnOutput + b[:, np.newaxis]
+    nnOutput = np.exp(expScale*nnOutput)
+
+    # Loop over layers.
+    for Wz, Wy, b in zip(zWeights[:-1], yWeights[1:-1], bias[1:-1]):
+        nnOutput = Wz.T @ nnOutput + Wy.T @ nnInput + b[:, np.newaxis]
+        nnOutput = np.exp(expScale*nnOutput)
+
+    # Last layer.
+    (Wzf, Wyf, bf) = zWeights[-1], yWeights[-1], bias[-1]
+    nnOutput = Wzf.T @ nnOutput + Wyf.T @ nnInput + bf[:, np.newaxis]
+
+    # Return output in same number of dimensions.
+    if numOutDim == 1:
+        nnOutput = nnOutput[:, 0]
+
+    # Return.
+    return nnOutput
+
 def get_iCNN_pars(*, train, plant_pars):
     """ Get the black-box parameter dict and function handles. """
 

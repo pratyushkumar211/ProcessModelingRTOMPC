@@ -23,8 +23,6 @@ from TwoReacHybridFuncs import (get_tworeacHybrid_pars,
 from economicopt import (get_ss_optimum, get_xuguess, c2dNonlin, 
                          get_sscost)
 from tworeac_funcs import cost_yup, plant_ode
-from KoopmanModelFuncs import (get_KoopmanModel_pars, koop_fxu, koop_hx, 
-                              get_koopman_xguess)
 
 def main():
     """ Main function to be executed. """
@@ -37,9 +35,9 @@ def main():
     tworeac_bbNNtrain = PickleTool.load(filename=
                                     'tworeac_bbNNtrain.pickle',
                                       type='read')
-    tworeac_kooptrain = PickleTool.load(filename=
-                                    'tworeac_kooptrain.pickle',
-                                      type='read')
+    # tworeac_kooptrain = PickleTool.load(filename=
+    #                                 'tworeac_kooptrain.pickle',
+    #                                   type='read')
     # tworeac_hybtrain = PickleTool.load(filename=
     #                                   'tworeac_hybtrain.pickle',
     #                                   type='read')
@@ -55,10 +53,10 @@ def main():
     bbNN_hx = lambda x: bb_hx(x, bbNN_pars)
 
     # Get the koopman model parameters and function handles.
-    koop_pars = get_KoopmanModel_pars(train=tworeac_kooptrain, 
-                                      plant_pars=plant_pars)
-    koop_Fxu = lambda x, u: koop_fxu(x, u, koop_pars)
-    koop_Hx = lambda x: koop_hx(x, koop_pars)
+    # koop_pars = get_KoopmanModel_pars(train=tworeac_kooptrain, 
+    #                                   plant_pars=plant_pars)
+    # koop_Fxu = lambda x, u: koop_fxu(x, u, koop_pars)
+    # koop_Hx = lambda x: koop_hx(x, koop_pars)
 
     # Get the black-box model parameters and function handles.
     # hyb_pars = get_tworeacHybrid_pars(train=tworeac_hybtrain, 
@@ -73,11 +71,11 @@ def main():
     plant_hx = lambda x: measurement(x, plant_pars)
 
     # Lists to loop over for different models.
-    model_types = ['Plant', 'Black-Box-NN', 'Koopman']
-    fxu_list = [plant_fxu, bbNN_Fxu, koop_Fxu]
-    hx_list = [plant_hx, bbNN_hx, koop_Hx]
-    par_list = [plant_pars, bbNN_pars, koop_pars]
-    Nps = [None, bbNN_pars['Np'], None]
+    model_types = ['Plant', 'Black-Box-NN']
+    fxu_list = [plant_fxu, bbNN_Fxu]
+    hx_list = [plant_hx, bbNN_hx]
+    par_list = [plant_pars, bbNN_pars]
+    Nps = [None, bbNN_pars['Np']]
 
     # Loop over the different models, and obtain SS optimums.
     for (model_type, fxu, hx, model_pars, Np) in zip(model_types, fxu_list, 
@@ -128,7 +126,7 @@ def main():
     us = np.asarray(us_list)[:, 0]
 
     legend_names = model_types
-    legend_colors = ['b', 'dimgrey', 'm']
+    legend_colors = ['b', 'dimgrey']
     figures = TwoReacPlots.plot_sscosts(us=us, sscosts=sscosts, 
                                         legend_colors=legend_colors, 
                                         legend_names=legend_names, 
