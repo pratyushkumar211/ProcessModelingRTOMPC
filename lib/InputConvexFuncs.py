@@ -11,12 +11,20 @@ def approxReluTF(x, k=0.1):
     """ Scaled exponential to use as activation function. """
     return tf.math.log(1. + tf.math.exp(k*x))/k
 
-def iCNNTF(nnInput, nnLayers):
+def iCNNTF(y, nnLayers):
     """ Compute the output of the feedforward network. """
-    nnOutput = nnInput
+    z = y
     for layer in nnLayers:
-        nnOutput = layer(nnOutput, nnInput)
-    return nnOutput
+        z = layer(z, y)
+    return z
+
+def piCNNTF(y, x, nnLayers):
+    """ Compute the output of the feedforward network. """
+    z = y
+    u = x
+    for layer in nnLayers:
+        z, u = layer(z, u, y)
+    return z
 
 class InputConvexLayer(tf.keras.layers.Layer):
     """
@@ -82,7 +90,7 @@ class PartialInputConvexLayer(tf.keras.layers.Layer):
     g1 is tanh, g2 is approx smooth Relu.
     """
     def __init__(self, zPlusDim, zDim, yDim, 
-                       uPlusDim, udim, layerPos, **kwargs):
+                       uPlusDim, uDim, layerPos, **kwargs):
         super(PartialInputConvexLayer, self).__init__(**kwargs)
 
         # Check for layerPos string.
@@ -159,6 +167,7 @@ class PartialInputConvexLayer(tf.keras.layers.Layer):
             zplusz = tf.math.multiply(zplusz, z)
             zplusz = tf.linalg.matmul(zplusz, self.Wz)
             zplus += zplusz
+        # Apply activation only if first or middle layer.
         if self.layerPos == "First" or self.layerPos == "Mid":
             zplus = approxReluTF(zplus)
 
@@ -166,51 +175,58 @@ class PartialInputConvexLayer(tf.keras.layers.Layer):
         return zplus, uplus
 
 class InputConvexModel(tf.keras.Model):
+
     """ Input convex neural network model. """
-    def __init__(self, Nu, fNDims, expScale, Np=0, Nd=0):
+    def __init__(self, Ny, zDims, uDims=None):
         
         # Get the input layers (from which convexity is required).
-        modelInputList = []
-        u = tf.keras.Input(name='u', shape=(Nu, ))
-        modelInputList += [u]
+        InputList = []
+        y = tf.keras.Input(name='y', shape=(Ny, ))
+        InputList += [y]
 
-        # Get the input layers (from which convexity is not required).
-        # p contains cost parameters.
-        if Np > 0:
-            p = tf.keras.Input(name='p', shape=(Np, ))
-            modelInputList += [p]
-
-        # d contains disturbances.
-        if Nd > 0:
-            d = tf.keras.Input(name='d', shape=(Nd, ))
-            modelInputList += [d]
+        # Get the input layer (from which convexity is not required).
+        if Nx is not None:
+            x = tf.keras.Input(name='x', shape=(Nx, ))
+            InputList += [x]
         
-        # Get Input Convex NN layers.
-        assert len(fNDims) > 2
-        fNLayers = [InputConvexLayer(fNDims[1], fNDims[0], Nx + Nu, 
-                                     activation=True, expScale=expScale)]
-        for (zDim, zPlusDim) in zip(fNDims[1:-2], fNDims[2:-1]):
-            fNLayers += [InputConvexLayer(zPlusDim, zDim, Nx + Nu, Wz=True, 
-                                          activation=True, expScale=expScale)]
-        fNLayers += [InputConvexLayer(fNDims[-1], fNDims[-2], Nx + Nu, Wz=True)]
+        # Get the layers.
+        if uDims is not None:
 
-        # Build model.
-        iCCell = InputConvexCell(Np, Ny, Nu, fNLayers)
+            # Check for at least three layer values. 
+            assert len(zDims) > 2, "Check zDims size."
+            assert len(uDims) > 2, "Check uDims size."
+            assert len(uDims) == len(zDims), """ Dimensions of zDims 
+                                                and uDims not same. """
 
-        # Construct the RNN layer and the computation graph.
-        iCRNNLayer = tf.keras.layers.RNN(iCCell, return_sequences=True)
-        yseq = iCRNNLayer(inputs=useq, initial_state=[yz0])
+            # Create layers.
+            fNLayers = [PartialInputConvexLayer(zDims[1], None, Ny, 
+                                                uDims[1], uDims[0], "First")]
+            for (zDim, zPlusDim, 
+                 uDim, uPlusDim) in zip(zDims[1:-2], zDims[2:-1], 
+                                        uDims[1:-2], uDims[2:-1]):
+                fNLayers += [PartialInputConvexLayer(zPlusDim, zDim, Ny, 
+                                                     uPlusDim, uDim, "Mid")]
+            fNLayers += [PartialInputConvexLayer(zDims[-1], zDims[-2], Ny, 
+                                                 None, uDim[-2], "Last")]
+            
+            # Get symbolic output.
+            f = piCNNTF(y, x, fNLayers)
+        else:
+            
+            # Check for at least three layer values. 
+            assert len(zDims) > 2, "Check zDims size."
+
+            # Create layers.
+            fNLayers = [InputConvexLayer(zDims[1], None, Ny, "First")]
+            for (zDim, zPlusDim) in zip(zDims[1:-2], zDims[2:-1]):
+                fNLayers += [InputConvexLayer(zPlusDim, zDim, Ny, "Mid")]
+            fNLayers += [InputConvexLayer(zDims[-1], zDims[-2], Ny, "Last")]
+
+            # Get symbolic output.
+            f = iCNNTF(y, fNLayers)
 
         # Construct model.
-        super().__init__(inputs=modelInputList, outputs=yseq)
-
-def create_iCNNmodel(*, Np, Ny, Nu, fNDims, expScale):
-    """ Create/compile the two reaction model for training. """
-    model = InputConvexModel(Np, Ny, Nu, fNDims, expScale)
-    # Compile the nn model.
-    model.compile(optimizer='adam', loss='mean_squared_error')
-    # Return the compiled model.
-    return model
+        super().__init__(inputs=InputList, outputs=f)
 
 def iCNN(nnInput, zWeights, yWeights, bias, expScale):
     """ Compute the NN output. """
