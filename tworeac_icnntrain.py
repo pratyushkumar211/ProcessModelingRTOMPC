@@ -20,7 +20,6 @@ from InputConvexFuncs import (get_scaling, get_train_val_data,
                               create_model, train_model, 
                               get_val_predictions_metric)
 
-
 # Set the tensorflow global and graph-level seed.
 tf.random.set_seed(123)
 
@@ -67,7 +66,7 @@ def main():
                          output=train_data['output'])
 
     # Train.
-    train_model(model=model, epochs=300, batch_size=32, 
+    train_model(model=model, epochs=1000, batch_size=32, 
                       train_data=train_samples, trainval_data=trainval_data,
                       stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 

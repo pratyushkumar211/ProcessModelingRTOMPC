@@ -17,13 +17,14 @@ from economicopt import get_sscost
 from TwoReacHybridFuncs import (tworeacHybrid_fxu,
                                 tworeacHybrid_hx,
                                 get_tworeacHybrid_pars)         
+from BlackBoxFuncs import get_bbNN_pars, bbNN_fxu, bb_hx
 
 def generate_data(*, hyb_fxu, hyb_hx, hyb_pars, seed=10):
     """ Function to generate data to train the ICNN. """
 
     # Set numpy seed.
     np.random.seed(seed)
-    
+
     # Get cost function.
     p = [100, 200]
     cost_yu = lambda y, u: cost_yup(y, u, p)
@@ -52,16 +53,26 @@ def main():
     tworeac_parameters = PickleTool.load(filename=
                                         'tworeac_parameters.pickle',
                                          type='read')
+    tworeac_bbNNtrain = PickleTool.load(filename=
+                                        'tworeac_bbNNtrain.pickle',
+                                         type='read')
     tworeac_hybtrain = PickleTool.load(filename=
                                         'tworeac_hybtrain.pickle',
                                          type='read')
+    plant_pars = tworeac_parameters['plant_pars']
     greybox_pars = tworeac_parameters['greybox_pars']
 
-    # Get the black-box model parameters and function handles.
+    # Get the Hybrid model parameters and function handles.
     hyb_pars = get_tworeacHybrid_pars(train=tworeac_hybtrain, 
                                       greybox_pars=greybox_pars)
     hyb_fxu = lambda x, u: tworeacHybrid_fxu(x, u, hyb_pars)
     hyb_hx = lambda x: tworeacHybrid_hx(x)
+
+    # Get the black-box model parameters and function handles.
+    bbNN_pars = get_bbNN_pars(train=tworeac_bbNNtrain, 
+                              plant_pars=plant_pars)
+    bbNN_Fxu = lambda x, u: bbNN_fxu(x, u, bbNN_pars)
+    bbNN_hx = lambda x: bb_hx(x, bbNN_pars)
 
     # Generate data.
     u, lyup = generate_data(hyb_fxu=hyb_fxu, hyb_hx=hyb_hx, 
