@@ -16,14 +16,14 @@ def approxRelu(x, TF=True, k=4):
 
 def icnnTF(y, nnLayers):
     """ Compute the output of the feedforward network. """
-    z = y
+    z = None
     for layer in nnLayers:
         z = layer(z, y)
     return z
 
 def picnnTF(y, x, nnLayers):
     """ Compute the output of the feedforward network. """
-    z = y
+    z = None
     u = x
     for layer in nnLayers:
         z, u = layer(z, u, y)
@@ -189,9 +189,12 @@ class InputConvexModel(tf.keras.Model):
 
         # Get the input layer (from which convexity is not required).
         if uDims is not None:
-            x = tf.keras.Input(name='x', shape=(Nx, ))
+            x = tf.keras.Input(name='x', shape=(uDims[0], ))
             InputList += [x]
         
+        # Check for no initial size in zDims.
+        assert zDims[0] is None, "Remove initial size in zDims."
+
         # Get the layers.
         if uDims is not None:
 
@@ -199,10 +202,12 @@ class InputConvexModel(tf.keras.Model):
             assert len(zDims) > 2, "Check zDims size."
             assert len(uDims) > 2, "Check uDims size."
             assert len(uDims) == len(zDims), """ Dimensions of zDims 
-                                                and uDims not same. """
+                                                 and uDims not same. """
+            # Check for no last size in uDims.
+            assert uDims[-1] is None, "Remove last size in uDims."
 
             # Create layers.
-            fNLayers = [PartialInputConvexLayer(zDims[1], None, Ny, 
+            fNLayers = [PartialInputConvexLayer(zDims[1], zDims[0], Ny, 
                                                 uDims[1], uDims[0], "First")]
             for (zDim, zPlusDim, 
                  uDim, uPlusDim) in zip(zDims[1:-2], zDims[2:-1], 
@@ -210,7 +215,7 @@ class InputConvexModel(tf.keras.Model):
                 fNLayers += [PartialInputConvexLayer(zPlusDim, zDim, Ny, 
                                                      uPlusDim, uDim, "Mid")]
             fNLayers += [PartialInputConvexLayer(zDims[-1], zDims[-2], Ny, 
-                                                 None, uDim[-2], "Last")]
+                                                 uDims[-1], uDim[-2], "Last")]
             
             # Get symbolic output.
             f = picnnTF(y, x, fNLayers)
@@ -220,7 +225,7 @@ class InputConvexModel(tf.keras.Model):
             assert len(zDims) > 2, "Check zDims size."
 
             # Create layers.
-            fNLayers = [InputConvexLayer(zDims[1], None, Ny, "First")]
+            fNLayers = [InputConvexLayer(zDims[1], zDims[0], Ny, "First")]
             for (zDim, zPlusDim) in zip(zDims[1:-2], zDims[2:-1]):
                 fNLayers += [InputConvexLayer(zPlusDim, zDim, Ny, "Mid")]
             fNLayers += [InputConvexLayer(zDims[-1], zDims[-2], Ny, "Last")]
@@ -268,11 +273,13 @@ def picnn(y, x, Wut_list, but_list, Wz_list,
     y = y[:, np.newaxis]
 
     # First layer.
+    # z propagation.
     Wy, Wyu, byu = Wy_list[0], Wyu_list[0], byu_list[0]
     Wu, bz = Wu_list[0], bz_list[0]
     z = Wy.T @ (y*(Wyu.T @ u + byu[:, np.newaxis]))
     z += Wu.T @ u + bz[:, np.newaxis]
     z = approxRelu(z, TF=False)
+    # u propagation.
     Wut, but = Wut_list[0], but_list[0]
     u = np.tanh(Wut.T @ u + but[:, np.newaxis])
 
@@ -280,12 +287,11 @@ def picnn(y, x, Wut_list, but_list, Wz_list,
     for (Wz, Wzu, bzu, Wy, 
          Wyu, byu, Wu, bz, 
          Wut, but) in zip(Wz_list[:-1], Wzu_list[:-1], bzu_list[:-1], 
-                    Wy_list[1:-1], Wyu_list[1:-1], byu_list[1:-1], 
+                          Wy_list[1:-1], Wyu_list[1:-1], byu_list[1:-1], 
                     Wu_list[1:-1], bz_list[1:-1], Wut_list[1:], but_list[1:]):
-        z = Wy.T @ (y*(Wyu.T @ u + byu[:, np.newaxis]))
+        z = Wz.T @ (z*(Wzu.T @ u + bzu[:, np.newaxis]))
+        z += Wy.T @ (y*(Wyu.T @ u + byu[:, np.newaxis]))
         z += Wu.T @ u + bz[:, np.newaxis]
-        zplusz = Wz.T @ (z*(Wzu.T @ u + bzu[:, np.newaxis]))
-        z += zplusz
         z = approxRelu(z, TF=False)
         u = np.tanh(Wut.T @ u + but[:, np.newaxis])
 
@@ -293,10 +299,9 @@ def picnn(y, x, Wut_list, but_list, Wz_list,
     Wz, Wzu, bzu = Wz_list[-1], Wzu_list[-1], bzu_list[-1]
     Wy, Wyu, byu = Wy_list[-1], Wyu_list[-1], byu_list[-1]
     Wu, bz = Wu_list[-1], bz_list[-1]
-    z = Wy.T @ (y*(Wyu.T @ u + byu[:, np.newaxis]))
+    z = Wz.T @ (z*(Wzu.T @ u + bzu[:, np.newaxis]))
+    z += Wy.T @ (y*(Wyu.T @ u + byu[:, np.newaxis]))
     z += Wu.T @ u + bz[:, np.newaxis]
-    zplusz = Wz.T @ (z*(Wzu.T @ u + bzu[:, np.newaxis]))
-    z += zplusz
 
     # Return output in same number of dimensions.
     z = z[:, 0]
@@ -309,9 +314,9 @@ def icnn_lyu(u, parameters):
         the input convex neural network. """
 
     # Get NN weights.
-    zWeights = parameters['zWeights']
-    yWeights = parameters['yWeights']
-    bWeights = parameters['bWeights']
+    Wz_list = parameters['Wz_list']
+    Wy_list = parameters['Wy_list']
+    b_list = parameters['b_list']
 
     # Get scaling.
     ulpscales = parameters['ulpscales']
@@ -322,7 +327,7 @@ def icnn_lyu(u, parameters):
     u = (u - umean)/ustd
 
     # Get the ICNN cost.
-    lyu = iCNN(u, zWeights, yWeights, bWeights)
+    lyu = icnn(u, Wz_list, Wy_list, b_list)
     
     # Scale back.
     lyu = lyu*lyupstd + lyupmean
@@ -331,57 +336,48 @@ def icnn_lyu(u, parameters):
     return lyu
 
 def picnn_lyup(u, p, parameters):
-    """ Function describing the dynamics 
-        of the black-box neural network. 
-        yz^+ = f_z(yz, u) """
-
-    # Extract parameters.
-    Np, Ny, Nu = parameters['Np'], parameters['Ny'], parameters['Nu']
+    """ Function describing the cost function of 
+        the partial input convex neural network. """
 
     # Get NN weights.
-    yWeights = parameters['yWeights']
-    zWeights = parameters['zWeights']
-    bias = parameters['bias']
-    expScale = parameters['expScale']
+    Wz_list = parameters['Wz_list']
+    Wzu_list = parameters['Wzu_list']
+    bzu_list = parameters['bzu_list']
+    Wy_list = parameters['Wy_list']
+    Wyu_list = parameters['Wyu_list']
+    byu_list = parameters['byu_list']
+    Wu_list = parameters['Wu_list']
+    bz_list = parameters['bz_list']
+    Wut_list = parameters['Wut_list']
+    but_list = parameters['but_list']
 
     # Get scaling.
-    xuyscales = parameters['xuyscales']
-    ymean, ystd = xuyscales['yscale']
+    ulpscales = parameters['ulpscales']
     umean, ustd = xuyscales['uscale']
-    yzmean = np.concatenate((ymean, 
-                             np.tile(ymean, (Np, )), 
-                             np.tile(umean, (Np, ))))
-    yzstd = np.concatenate((ystd, 
-                            np.tile(ystd, (Np, )),
-                            np.tile(ustd, (Np, ))))
+    pmean, pstd = xuyscales['pscale']
+    lyupmean, lyupstd = xuyscales['lyupscale']
     
     # Scale.
-    yz = (yz - yzmean)/yzstd
     u = (u - umean)/ustd
+    p = (p - pmean)/pstd
 
-    # Get current output.
-    nnInput = np.concatenate((yz, u))
-    yplus = iCNN(nnInput, zWeights, yWeights, bias, expScale)
+    # Get the ICNN cost.
+    lyup = picnn(u, p, Wut_list, but_list, Wz_list, 
+                 Wzu_list, bzu_list, Wy_list, 
+                 Wyu_list, byu_list, Wu_list, bz_list)
     
-    # Concatenate.
-    if Np > 0:
-        yzplus = np.concatenate((yplus, yz[Ny:(Np+1)*Ny], yz[-(Np-1)*Nu:], u))
-    else:
-        yzplus = yplus
-
     # Scale back.
-    yzplus = yzplus*yzstd + yzmean
+    lyup = lyup*lyupstd + lyupmean
 
-    # Return the sum.
-    return yzplus
+    # Return the cost.
+    return lyup
 
-def get_icnn_pars(*, train, plant_pars):
+def get_icnn_pars(*, train):
     """ Get the black-box parameter dict and function handles. """
 
-    # Get black-box model parameters.
+    # Get model parameters.
     parameters = {}
-    parameters['Np'] = train['Np']
-    parameters['xuyscales'] = train['xuyscales']
+    parameters['ulpscales'] = train['ulpscales']
 
     # Get weights.
     numLayers = len(train['fNDims']) - 1
@@ -389,23 +385,28 @@ def get_icnn_pars(*, train, plant_pars):
     parameters['yWeights'] = trained_weights[slice(0, 3*numLayers, 3)]
     parameters['bias'] = trained_weights[slice(1, 3*numLayers, 3)]
     parameters['zWeights'] = trained_weights[slice(2, 3*numLayers, 3)]
-
-    # Sizes.
-    Ny, Nu = plant_pars['Ny'], plant_pars['Nu']
-    parameters['Ny'], parameters['Nu'] = Ny, Nu
-    parameters['Nx'] = Ny + parameters['Np']*(Ny + Nu)
-
-    # Constraints.
-    parameters['ulb'] = plant_pars['ulb']
-    parameters['uub'] = plant_pars['uub']
-
-    # Scaling for activation function.
-    parameters['expScale'] = train['expScale']
     
     # Return.
     return parameters
 
-def create_icnn_model(*, Nu, zDims, uDims):
+def get_picnn_pars(*, train):
+    """ Get the black-box parameter dict and function handles. """
+
+    # Get model parameters.
+    parameters = {}
+    parameters['ulpscales'] = train['ulpscales']
+
+    # Get weights.
+    numLayers = len(train['fNDims']) - 1
+    trained_weights = train['trained_weights'][-1]
+    parameters['yWeights'] = trained_weights[slice(0, 3*numLayers, 3)]
+    parameters['bias'] = trained_weights[slice(1, 3*numLayers, 3)]
+    parameters['zWeights'] = trained_weights[slice(2, 3*numLayers, 3)]
+    
+    # Return.
+    return parameters
+
+def create_model(*, Nu, zDims, uDims):
     """ Create/compile the two reaction model for training. """
     model = InputConvexModel(Nu, zDims, uDims)
     # Compile the nn model.
@@ -413,8 +414,8 @@ def create_icnn_model(*, Nu, zDims, uDims):
     # Return the compiled model.
     return model
 
-def train_icnn_model(*, model, epochs, batch_size, train_data, 
-                          trainval_data, stdout_filename, ckpt_path):
+def train_model(*, model, epochs, batch_size, train_data, 
+                        trainval_data, stdout_filename, ckpt_path):
     """ Function to train the NN controller. """
 
     # Std out.
@@ -434,14 +435,21 @@ def train_icnn_model(*, model, epochs, batch_size, train_data,
         validation_data = (trainval_data['inputs'], trainval_data['output']),
             callbacks = [checkpoint_callback])
 
-def get_icnn_val_metric(*, model, val_data, ckpt_path):
+def get_val_predictions_metric(*, model, val_data, ulpscales, ckpt_path):
     """ Get the validation predictions. """
 
     # Load best weights.
     model.load_weights(ckpt_path)
 
+    # Predict.
+    val_predictions = model.predict(x=val_data['inputs'])
+
+    # Scale.
+    lyupmean, lyupstd = ulpscales['lyupscale']
+    val_predictions = val_predictions.squeeze()*lyupstd + lyupmean
+
     # Get prediction error on the validation data.
     val_metric = model.evaluate(x=val_data['inputs'], y=val_data['output'])
 
     # Return predictions and metric.
-    return val_metric
+    return val_predictions, val_metric
