@@ -7,18 +7,21 @@ import sys
 import numpy as np
 import tensorflow as tf
 
-def approxReluTF(x, k=0.1):
+def approxRelu(x, TF=True, k=4):
     """ Scaled exponential to use as activation function. """
-    return tf.math.log(1. + tf.math.exp(k*x))/k
+    if TF:
+        return tf.math.log(1. + tf.math.exp(k*x))/k
+    else:
+        return np.log(1. + np.exp(k*x))/k
 
-def iCNNTF(y, nnLayers):
+def icnnTF(y, nnLayers):
     """ Compute the output of the feedforward network. """
     z = y
     for layer in nnLayers:
         z = layer(z, y)
     return z
 
-def piCNNTF(y, x, nnLayers):
+def picnnTF(y, x, nnLayers):
     """ Compute the output of the feedforward network. """
     z = y
     u = x
@@ -74,7 +77,7 @@ class InputConvexLayer(tf.keras.layers.Layer):
 
         # Apply activation only if first or middle layer.
         if self.layerPos == "First" or self.layerPos == "Mid":
-            zplus = approxReluTF(zplus)
+            zplus = approxRelu(zplus)
 
         # Return output.
         return zplus
@@ -163,13 +166,13 @@ class PartialInputConvexLayer(tf.keras.layers.Layer):
         zplus += tf.linalg.matmul(u, self.Wu) + self.bz
         # Get the driving term related to z.
         if self.layerPos == "Mid" or self.layerPos == "Last":
-            zplusz = approxReluTF(tf.linalg.matmul(u, self.Wzu) + self.bzu)
+            zplusz = approxRelu(tf.linalg.matmul(u, self.Wzu) + self.bzu)
             zplusz = tf.math.multiply(zplusz, z)
             zplusz = tf.linalg.matmul(zplusz, self.Wz)
             zplus += zplusz
         # Apply activation only if first or middle layer.
         if self.layerPos == "First" or self.layerPos == "Mid":
-            zplus = approxReluTF(zplus)
+            zplus = approxRelu(zplus)
 
         # Return output.
         return zplus, uplus
@@ -185,7 +188,7 @@ class InputConvexModel(tf.keras.Model):
         InputList += [y]
 
         # Get the input layer (from which convexity is not required).
-        if Nx is not None:
+        if uDims is not None:
             x = tf.keras.Input(name='x', shape=(Nx, ))
             InputList += [x]
         
@@ -210,7 +213,7 @@ class InputConvexModel(tf.keras.Model):
                                                  None, uDim[-2], "Last")]
             
             # Get symbolic output.
-            f = piCNNTF(y, x, fNLayers)
+            f = picnnTF(y, x, fNLayers)
         else:
             
             # Check for at least three layer values. 
@@ -223,102 +226,111 @@ class InputConvexModel(tf.keras.Model):
             fNLayers += [InputConvexLayer(zDims[-1], zDims[-2], Ny, "Last")]
 
             # Get symbolic output.
-            f = iCNNTF(y, fNLayers)
+            f = icnnTF(y, fNLayers)
 
         # Construct model.
         super().__init__(inputs=InputList, outputs=f)
 
-def iCNN(nnInput, zWeights, yWeights, bias, expScale):
+def icnn(y, Wz_list, Wy_list, b_list):
     """ Compute the NN output. """
 
     # Check input dimensions. 
-    if nnInput.ndim == 1:
-        numOutDim = 1
-        nnInput = nnInput[:, np.newaxis]
-    nnOutput = nnInput
+    assert y.ndim == 1
+    y = y[:, np.newaxis]
 
     # Out of First layer.
-    Wy, b = yWeights[0], bias[0]
-    nnOutput = Wy.T @ nnOutput + b[:, np.newaxis]
-    nnOutput = np.exp(expScale*nnOutput)
+    Wy, b = Wy_list[0], b_list[0]
+    z = Wy.T @ y + b[:, np.newaxis]
+    z = approxRelu(z, TF=False)
 
-    # Loop over layers.
-    for Wz, Wy, b in zip(zWeights[:-1], yWeights[1:-1], bias[1:-1]):
-        nnOutput = Wz.T @ nnOutput + Wy.T @ nnInput + b[:, np.newaxis]
-        nnOutput = np.exp(expScale*nnOutput)
-
-    # Last layer.
-    (Wzf, Wyf, bf) = zWeights[-1], yWeights[-1], bias[-1]
-    nnOutput = Wzf.T @ nnOutput + Wyf.T @ nnInput + bf[:, np.newaxis]
-
-    # Return output in same number of dimensions.
-    if numOutDim == 1:
-        nnOutput = nnOutput[:, 0]
-
-    # Return.
-    return nnOutput
-
-def piCNN(nnInput, zWeights, yWeights, bias, expScale):
-    """ Compute the NN output. """
-
-    # Check input dimensions. 
-    if nnInput.ndim == 1:
-        numOutDim = 1
-        nnInput = nnInput[:, np.newaxis]
-    nnOutput = nnInput
-
-    # Out of First layer.
-    Wy, b = yWeights[0], bias[0]
-    nnOutput = Wy.T @ nnOutput + b[:, np.newaxis]
-    nnOutput = np.exp(expScale*nnOutput)
-
-    # Loop over layers.
-    for Wz, Wy, b in zip(zWeights[:-1], yWeights[1:-1], bias[1:-1]):
-        nnOutput = Wz.T @ nnOutput + Wy.T @ nnInput + b[:, np.newaxis]
-        nnOutput = np.exp(expScale*nnOutput)
-
-    # Last layer.
-    (Wzf, Wyf, bf) = zWeights[-1], yWeights[-1], bias[-1]
-    nnOutput = Wzf.T @ nnOutput + Wyf.T @ nnInput + bf[:, np.newaxis]
-
-    # Return output in same number of dimensions.
-    if numOutDim == 1:
-        nnOutput = nnOutput[:, 0]
-
-    # Return.
-    return nnOutput
-
-def get_iCNN_pars(*, train, plant_pars):
-    """ Get the black-box parameter dict and function handles. """
-
-    # Get black-box model parameters.
-    parameters = {}
-    parameters['Np'] = train['Np']
-    parameters['xuyscales'] = train['xuyscales']
-
-    # Get weights.
-    numLayers = len(train['fNDims']) - 1
-    trained_weights = train['trained_weights'][-1]
-    parameters['yWeights'] = trained_weights[slice(0, 3*numLayers, 3)]
-    parameters['bias'] = trained_weights[slice(1, 3*numLayers, 3)]
-    parameters['zWeights'] = trained_weights[slice(2, 3*numLayers, 3)]
-
-    # Sizes.
-    Ny, Nu = plant_pars['Ny'], plant_pars['Nu']
-    parameters['Ny'], parameters['Nu'] = Ny, Nu
-    parameters['Nx'] = Ny + parameters['Np']*(Ny + Nu)
-
-    # Constraints.
-    parameters['ulb'] = plant_pars['ulb']
-    parameters['uub'] = plant_pars['uub']
-
-    # Scaling for activation function.
-    parameters['expScale'] = train['expScale']
+    # Loop over middle layers.
+    for Wz, Wy, b in zip(Wz_list[:-1], Wy_list[1:-1], b_list[1:-1]):
+        z = Wz.T @ z + Wy.T @ y + b[:, np.newaxis]
+        z = approxRelu(z, TF=False)
     
-    # Return.
-    return parameters
+    # Last layer.
+    Wz, Wy, b = Wz_list[-1], Wy_list[-1], b_list[-1]
+    z = Wz.T @ z + Wy.T @ y + b[:, np.newaxis]
 
-def iCNN_fxu(yz, u, parameters):
+    # Return output in same number of dimensions.
+    z = z[:, 0]
+
+    # Return.
+    return z
+
+def picnn(y, x, Wut_list, but_list, Wz_list, 
+                Wzu_list, bzu_list, Wy_list, 
+                Wyu_list, byu_list, Wu_list, bz_list):
+    """ Compute the NN output. """
+
+    # Check input dimensions.
+    u = x[:, np.newaxis] 
+    y = y[:, np.newaxis]
+
+    # First layer.
+    Wy, Wyu, byu = Wy_list[0], Wyu_list[0], byu_list[0]
+    Wu, bz = Wu_list[0], bz_list[0]
+    z = Wy.T @ (y*(Wyu.T @ u + byu[:, np.newaxis]))
+    z += Wu.T @ u + bz[:, np.newaxis]
+    z = approxRelu(z, TF=False)
+    Wut, but = Wut_list[0], but_list[0]
+    u = np.tanh(Wut.T @ u + but[:, np.newaxis])
+
+    # Loop over middle layers.
+    for (Wz, Wzu, bzu, Wy, 
+         Wyu, byu, Wu, bz, 
+         Wut, but) in zip(Wz_list[:-1], Wzu_list[:-1], bzu_list[:-1], 
+                    Wy_list[1:-1], Wyu_list[1:-1], byu_list[1:-1], 
+                    Wu_list[1:-1], bz_list[1:-1], Wut_list[1:], but_list[1:]):
+        z = Wy.T @ (y*(Wyu.T @ u + byu[:, np.newaxis]))
+        z += Wu.T @ u + bz[:, np.newaxis]
+        zplusz = Wz.T @ (z*(Wzu.T @ u + bzu[:, np.newaxis]))
+        z += zplusz
+        z = approxRelu(z, TF=False)
+        u = np.tanh(Wut.T @ u + but[:, np.newaxis])
+
+    # Last layer.
+    Wz, Wzu, bzu = Wz_list[-1], Wzu_list[-1], bzu_list[-1]
+    Wy, Wyu, byu = Wy_list[-1], Wyu_list[-1], byu_list[-1]
+    Wu, bz = Wu_list[-1], bz_list[-1]
+    z = Wy.T @ (y*(Wyu.T @ u + byu[:, np.newaxis]))
+    z += Wu.T @ u + bz[:, np.newaxis]
+    zplusz = Wz.T @ (z*(Wzu.T @ u + bzu[:, np.newaxis]))
+    z += zplusz
+
+    # Return output in same number of dimensions.
+    z = z[:, 0]
+
+    # Return.
+    return z
+
+def icnn_lyu(u, parameters):
+    """ Function describing the cost function of 
+        the input convex neural network. """
+
+    # Get NN weights.
+    zWeights = parameters['zWeights']
+    yWeights = parameters['yWeights']
+    bWeights = parameters['bWeights']
+
+    # Get scaling.
+    ulpscales = parameters['ulpscales']
+    umean, ustd = xuyscales['uscale']
+    lyupmean, lyupstd = xuyscales['lyupscale']
+    
+    # Scale.
+    u = (u - umean)/ustd
+
+    # Get the ICNN cost.
+    lyu = iCNN(u, zWeights, yWeights, bWeights)
+    
+    # Scale back.
+    lyu = lyu*lyupstd + lyupmean
+
+    # Return the cost.
+    return lyu
+
+def picnn_lyup(u, p, parameters):
     """ Function describing the dynamics 
         of the black-box neural network. 
         yz^+ = f_z(yz, u) """
@@ -362,3 +374,74 @@ def iCNN_fxu(yz, u, parameters):
 
     # Return the sum.
     return yzplus
+
+def get_icnn_pars(*, train, plant_pars):
+    """ Get the black-box parameter dict and function handles. """
+
+    # Get black-box model parameters.
+    parameters = {}
+    parameters['Np'] = train['Np']
+    parameters['xuyscales'] = train['xuyscales']
+
+    # Get weights.
+    numLayers = len(train['fNDims']) - 1
+    trained_weights = train['trained_weights'][-1]
+    parameters['yWeights'] = trained_weights[slice(0, 3*numLayers, 3)]
+    parameters['bias'] = trained_weights[slice(1, 3*numLayers, 3)]
+    parameters['zWeights'] = trained_weights[slice(2, 3*numLayers, 3)]
+
+    # Sizes.
+    Ny, Nu = plant_pars['Ny'], plant_pars['Nu']
+    parameters['Ny'], parameters['Nu'] = Ny, Nu
+    parameters['Nx'] = Ny + parameters['Np']*(Ny + Nu)
+
+    # Constraints.
+    parameters['ulb'] = plant_pars['ulb']
+    parameters['uub'] = plant_pars['uub']
+
+    # Scaling for activation function.
+    parameters['expScale'] = train['expScale']
+    
+    # Return.
+    return parameters
+
+def create_icnn_model(*, Nu, zDims, uDims):
+    """ Create/compile the two reaction model for training. """
+    model = InputConvexModel(Nu, zDims, uDims)
+    # Compile the nn model.
+    model.compile(optimizer='adam', loss='mean_squared_error')
+    # Return the compiled model.
+    return model
+
+def train_icnn_model(*, model, epochs, batch_size, train_data, 
+                          trainval_data, stdout_filename, ckpt_path):
+    """ Function to train the NN controller. """
+
+    # Std out.
+    sys.stdout = open(stdout_filename, 'w')
+
+    # Create the checkpoint callback.
+    checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(filepath=ckpt_path,
+                                                    monitor='val_loss',
+                                                    save_best_only=True,
+                                                    save_weights_only=True,
+                                                    verbose=1)
+
+    # Call the fit method to train.
+    model.fit(x=train_data['inputs'], 
+              y=train_data['output'], 
+              epochs=epochs, batch_size=batch_size,
+        validation_data = (trainval_data['inputs'], trainval_data['output']),
+            callbacks = [checkpoint_callback])
+
+def get_icnn_val_metric(*, model, val_data, ckpt_path):
+    """ Get the validation predictions. """
+
+    # Load best weights.
+    model.load_weights(ckpt_path)
+
+    # Get prediction error on the validation data.
+    val_metric = model.evaluate(x=val_data['inputs'], y=val_data['output'])
+
+    # Return predictions and metric.
+    return val_metric
