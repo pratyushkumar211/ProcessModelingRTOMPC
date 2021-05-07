@@ -6,6 +6,8 @@ Pratyush Kumar, pratyushkumar@ucsb.edu
 import sys
 import numpy as np
 import tensorflow as tf
+import mpctools as mpc
+import casadi
 
 def approxRelu(x, TF=True, k=4):
     """ Scaled exponential to use as activation function. """
@@ -16,14 +18,14 @@ def approxRelu(x, TF=True, k=4):
 
 def icnnTF(y, nnLayers):
     """ Compute the output of the feedforward network. """
-    z = None
+    z = y
     for layer in nnLayers:
         z = layer(z, y)
     return z
 
 def picnnTF(y, x, nnLayers):
     """ Compute the output of the feedforward network. """
-    z = None
+    z = y
     u = x
     for layer in nnLayers:
         z, u = layer(z, u, y)
@@ -37,7 +39,6 @@ class InputConvexLayer(tf.keras.layers.Layer):
     g is approx smooth Relu.
     """
     def __init__(self, zPlusDim, zDim, yDim, layerPos, **kwargs):
-        super(InputConvexLayer, self).__init__(**kwargs)
 
         # Check for layerPos string.
         if layerPos not in ["First", "Mid", "Last"]:
@@ -47,7 +48,7 @@ class InputConvexLayer(tf.keras.layers.Layer):
 
         # Random initializer.
         initializer =  tf.random_normal_initializer()
-
+        
         # Create Wz.
         if layerPos == "Mid" or layerPos == "Last":
             
@@ -62,8 +63,10 @@ class InputConvexLayer(tf.keras.layers.Layer):
                                 initializer(shape=(yDim, zPlusDim)),
                                 trainable=True)
         self.b = tf.Variable(initial_value = 
-                                biasInit(shape=(zPlusDim, )),
+                                initializer(shape=(zPlusDim, )),
                                 trainable=True)
+        # Construct.
+        super(InputConvexLayer, self).__init__(**kwargs)
 
     def call(self, z, y):
         """ Call function of the input convex NN layer. """
@@ -118,7 +121,7 @@ class PartialInputConvexLayer(tf.keras.layers.Layer):
                                   trainable=True)
 
             self.bzu = tf.Variable(initial_value = 
-                                    biasInit(shape=(zDim, )),
+                                    initializer(shape=(zDim, )),
                                     trainable=True)
 
         # Create Wut and but.
@@ -129,7 +132,7 @@ class PartialInputConvexLayer(tf.keras.layers.Layer):
                                   trainable=True)
 
             self.but = tf.Variable(initial_value = 
-                                    biasInit(shape=(uPlusDim, )),
+                                   initializer(shape=(uPlusDim, )),
                                     trainable=True)
 
         # Create Wy, Wyu, byu, Wu, and bz.
@@ -141,13 +144,13 @@ class PartialInputConvexLayer(tf.keras.layers.Layer):
                                 initializer(shape=(uDim, yDim)),
                                 trainable=True)
         self.byu = tf.Variable(initial_value = 
-                                biasInit(shape=(yDim, )),
+                                initializer(shape=(yDim, )),
                                 trainable=True)
         self.Wu = tf.Variable(initial_value = 
                                 initializer(shape=(uDim, zPlusDim)),
                                 trainable=True)
         self.bz = tf.Variable(initial_value = 
-                                biasInit(shape=(zPlusDim, )),
+                                initializer(shape=(zPlusDim, )),
                                 trainable=True)
 
     def call(self, z, u, y):
@@ -320,8 +323,8 @@ def icnn_lyu(u, parameters):
 
     # Get scaling.
     ulpscales = parameters['ulpscales']
-    umean, ustd = xuyscales['uscale']
-    lyupmean, lyupstd = xuyscales['lyupscale']
+    umean, ustd = ulpscales['uscale']
+    lyupmean, lyupstd = ulpscales['lyupscale']
     
     # Scale.
     u = (u - umean)/ustd
@@ -372,7 +375,7 @@ def picnn_lyup(u, p, parameters):
     # Return the cost.
     return lyup
 
-def get_icnn_pars(*, train):
+def get_icnn_pars(*, train, plant_pars):
     """ Get the black-box parameter dict and function handles. """
 
     # Get model parameters.
@@ -380,12 +383,16 @@ def get_icnn_pars(*, train):
     parameters['ulpscales'] = train['ulpscales']
 
     # Get weights.
-    numLayers = len(train['fNDims']) - 1
+    numLayers = len(train['zDims']) - 1
     trained_weights = train['trained_weights'][-1]
-    parameters['yWeights'] = trained_weights[slice(0, 3*numLayers, 3)]
-    parameters['bias'] = trained_weights[slice(1, 3*numLayers, 3)]
-    parameters['zWeights'] = trained_weights[slice(2, 3*numLayers, 3)]
-    
+    parameters['Wy_list'] = trained_weights[slice(0, 3*numLayers, 3)]
+    parameters['b_list'] = trained_weights[slice(1, 3*numLayers, 3)]
+    parameters['Wz_list'] = trained_weights[slice(2, 3*numLayers, 3)]
+
+    # Input constraints. 
+    parameters['Nu'] = plant_pars['Nu']
+    parameters['ulb'], parameters['uub'] = plant_pars['ulb'], plant_pars['uub']
+
     # Return.
     return parameters
 
@@ -415,7 +422,7 @@ def create_model(*, Nu, zDims, uDims):
     return model
 
 def train_model(*, model, epochs, batch_size, train_data, 
-                        trainval_data, stdout_filename, ckpt_path):
+                   trainval_data, stdout_filename, ckpt_path):
     """ Function to train the NN controller. """
 
     # Std out.
@@ -442,14 +449,113 @@ def get_val_predictions_metric(*, model, val_data, ulpscales, ckpt_path):
     model.load_weights(ckpt_path)
 
     # Predict.
-    val_predictions = model.predict(x=val_data['inputs'])
+    lyup_predictions = model.predict(x=val_data['inputs'])
 
-    # Scale.
+    # Get scaling.
+    umean, ustd = ulpscales['uscale']
     lyupmean, lyupstd = ulpscales['lyupscale']
-    val_predictions = val_predictions.squeeze()*lyupstd + lyupmean
+
+    # Predict.
+    lyup_predictions = lyup_predictions.squeeze()*lyupstd + lyupmean
+    uval = val_data['inputs'][0]*ustd + umean
+
+    # Store.
+    val_predictions = dict(u=uval, lyup=lyup_predictions)
+    if len(val_data['inputs'])>1:
+        pmean, pstd = ulpscales['pscale']
+        pval = val_data['inputs'][1]*pstd + pmean
+        val_predictions['p'] = pval
 
     # Get prediction error on the validation data.
     val_metric = model.evaluate(x=val_data['inputs'], y=val_data['output'])
 
     # Return predictions and metric.
     return val_predictions, val_metric
+
+def get_scaling(*, u, lyup, p=None):
+
+    # Umean.
+    umean = np.mean(u, axis=0)
+    ustd = np.std(u, axis=0)
+    
+    # lyupmean.
+    lyupmean = np.mean(lyup, axis=0)
+    lyupstd = np.std(lyup, axis=0)
+    
+    # Get dictionary.
+    ulpscales = dict(uscale = (umean, ustd), 
+                     lyupscale = (lyupmean, lyupstd))
+
+    # Get means of p and update dict if necessary.
+    if p is not None:
+        pmean = np.mean(p, axis=0)
+        pstd = np.std(p, axis=0)
+        ulpscales['pscale'] = (pmean, pstd)
+
+    # Return.
+    return ulpscales
+
+def get_train_val_data(*, u, lyup, ulpscales, datasize_fracs, p=None):
+    """ Return train, train val, and validation data for ICNN training. """
+
+    # Get scaling.
+    umean, ustd = ulpscales['uscale']
+    lyupmean, lyupstd = ulpscales['lyupscale']
+
+    # Do the scaling.
+    u = (u - umean)/ustd
+    lyup = (lyup - lyupmean)/lyupstd
+    if p is not None:
+        pmean, pstd = ulpscales['pscale']
+        p = (p-pmean)/pstd
+
+    # Get the corresponding fractions of data. 
+    train_frac, trainval_frac, val_frac = datasize_fracs
+    Ndata = u.shape[0]
+    Ntrain = int(Ndata*train_frac)
+    Ntrainval = int(Ndata*trainval_frac)
+    Nval = int(Ndata*val_frac)
+
+    # Get the three types of data.
+    u = np.split(u, [Ntrain, Ntrain + Ntrainval, ], axis=0)
+    lyup = np.split(lyup, [Ntrain, Ntrain + Ntrainval, ], axis=0)
+
+    # Get dictionaries of data types.
+    train_data = dict(inputs=[u[0]], output=lyup[0])
+    trainval_data = dict(inputs=[u[1]], output=lyup[1])
+    val_data = dict(inputs=[u[2]], output=lyup[2])
+    if p is not None:
+        p = np.split(p, [Ntrain, Ntrain + Ntrainval, ], axis=0)
+        train_data['inputs'] += [p[0]]
+        trainval_data['inputs'] += [p[1]]
+        val_data['inputs'] += [p[2]]
+
+    # Return.
+    return train_data, trainval_data, val_data
+
+def get_ss_optimum(*, lyu, parameters, uguess):
+    """ Setup and solve the steady state optimization. """
+
+    # Input size, constraint.
+    Nu = parameters['Nu']
+    ulb, uub = parameters['ulb'], parameters['uub']
+
+    # Get casadi functions.
+    us = casadi.SX.sym('us', Nu)
+    l = mpc.getCasadiFunc(lyu, [Nu], ["u"])
+
+    # Setup NLP.
+    nlpInfo = dict(x=us, f=l(us), g=us)
+    nlp = casadi.nlpsol('nlp', 'ipopt', nlpInfo)
+
+    # Make a guess, get constraint limits.
+    uguess = uguess[:, np.newaxis]
+    lbg = ulb[:, np.newaxis]
+    ubg = uub[:, np.newaxis]
+
+    # Solve.
+    nlp_soln = nlp(x0=uguess, lbg=lbg, ubg=ubg)
+    us = np.asarray(nlp_soln['x'])[:, 0]
+
+    # Return the steady state solution.
+    return us

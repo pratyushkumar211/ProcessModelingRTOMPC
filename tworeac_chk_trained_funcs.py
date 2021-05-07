@@ -15,6 +15,7 @@ from BlackBoxFuncs import get_bbNN_pars, bbNN_fxu, bb_hx, fnn
 from TwoReacHybridFuncs import (get_tworeacHybrid_pars,
                                 tworeacHybrid_fxu, tworeacHybrid_hx)
 from KoopmanModelFuncs import get_KoopmanModel_pars, koop_fxu, koop_hx
+from InputConvexFuncs import get_icnn_pars, icnn_lyu
 
 def main():
     """ Main function to be executed. """
@@ -26,7 +27,7 @@ def main():
                                         type='read')
     tworeac_hybtrain = PickleTool.load(filename='tworeac_hybtrain.pickle',
                                         type='read')
-    tworeac_kooptrain = PickleTool.load(filename='tworeac_kooptrain.pickle',
+    tworeac_icnntrain = PickleTool.load(filename='tworeac_icnntrain.pickle',
                                         type='read')
 
     def check_bbNN(tworeac_bbNNtrain, tworeac_parameters):
@@ -133,8 +134,31 @@ def main():
         #Return 
         return 
 
+    def check_icnn(tworeac_icnntrain, tworeac_parameters):
+        """ Check Black-box functions. """
+
+        # Plant parameters.
+        plant_pars = tworeac_parameters['plant_pars']
+
+        # Get ICNN function handles.
+        icnn_pars = get_icnn_pars(train=tworeac_icnntrain, 
+                                  plant_pars=plant_pars)
+        icnn_lu = lambda u: icnn_lyu(u, icnn_pars)
+
+        # CHeck black-box model validation.
+        lyup_val = tworeac_icnntrain['val_predictions'][-1]['lyup']
+        uval = tworeac_icnntrain['val_predictions'][-1]['u']
+        
+        lyup_pred = []
+        for u in uval:
+            lyup_pred += [icnn_lu(u)]
+        lyup_pred = np.array(lyup_pred).squeeze()
+
+        #Return 
+        return 
 
     check_bbNN(tworeac_bbNNtrain, tworeac_parameters)
+    check_icnn(tworeac_icnntrain, tworeac_parameters)
     #check_koopman(tworeac_kooptrain, tworeac_parameters)
     #check_hybrid(tworeac_hybtrain, tworeac_parameters)
     print("Hi")

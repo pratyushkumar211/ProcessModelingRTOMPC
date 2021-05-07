@@ -23,6 +23,8 @@ from TwoReacHybridFuncs import (get_tworeacHybrid_pars,
 from economicopt import (get_ss_optimum, get_xuguess, c2dNonlin, 
                          get_sscost)
 from tworeac_funcs import cost_yup, plant_ode
+from InputConvexFuncs import get_ss_optimum as get_icnn_ss_optimum
+from InputConvexFuncs import get_icnn_pars, icnn_lyu
 
 def main():
     """ Main function to be executed. """
@@ -35,9 +37,9 @@ def main():
     tworeac_bbNNtrain = PickleTool.load(filename=
                                     'tworeac_bbNNtrain.pickle',
                                       type='read')
-    # tworeac_kooptrain = PickleTool.load(filename=
-    #                                 'tworeac_kooptrain.pickle',
-    #                                   type='read')
+    tworeac_icnntrain = PickleTool.load(filename=
+                                    'tworeac_icnntrain.pickle',
+                                      type='read')
     tworeac_hybtrain = PickleTool.load(filename=
                                       'tworeac_hybtrain.pickle',
                                       type='read')
@@ -64,6 +66,10 @@ def main():
     hyb_fxu = lambda x, u: tworeacHybrid_fxu(x, u, hyb_pars)
     hyb_hx = lambda x: tworeacHybrid_hx(x)
 
+    # Get ICNN pars and function.
+    icnn_pars = get_icnn_pars(train=tworeac_icnntrain, plant_pars=plant_pars)
+    icnn_lu = lambda u: icnn_lyu(u, icnn_pars)
+    
     # Get the plant function handle.
     Delta, ps = plant_pars['Delta'], plant_pars['ps']
     plant_fxu = lambda x, u: plant_ode(x, u, ps, plant_pars)
@@ -71,11 +77,11 @@ def main():
     plant_hx = lambda x: measurement(x, plant_pars)
 
     # Lists to loop over for different models.
-    model_types = ['Plant', 'Black-Box-NN', 'Hybrid']
-    fxu_list = [plant_fxu, bbNN_Fxu, hyb_fxu]
-    hx_list = [plant_hx, bbNN_hx, hyb_hx]
-    par_list = [plant_pars, bbNN_pars, hyb_pars]
-    Nps = [None, bbNN_pars['Np'], hyb_pars['Np']]
+    model_types = ['Plant', 'Black-Box-NN', 'Hybrid', 'ICNN']
+    fxu_list = [plant_fxu, bbNN_Fxu, hyb_fxu, None]
+    hx_list = [plant_hx, bbNN_hx, hyb_hx, None]
+    par_list = [plant_pars, bbNN_pars, hyb_pars, None]
+    Nps = [None, bbNN_pars['Np'], hyb_pars['Np'], None]
 
     # Loop over the different models, and obtain SS optimums.
     for (model_type, fxu, hx, model_pars, Np) in zip(model_types, fxu_list, 
@@ -83,20 +89,21 @@ def main():
 
         # Get guess.
         xuguess = get_xuguess(model_type=model_type, 
-                              plant_pars=plant_pars, Np=Np, 
-                              Nx = model_pars['Nx'])
+                              plant_pars=plant_pars, Np=Np)
         
         if model_type == 'Koopman':
             xuguess['x'] = get_koopman_xguess(tworeac_kooptrain, plant_pars)
 
         # Get the steady state optimum.
-        xs, us, ys = get_ss_optimum(fxu=fxu, hx=hx, lyu=lyu, 
-                                    parameters=model_pars, guess=xuguess)
-
+        if model_type != 'ICNN':
+            xs, us, ys = get_ss_optimum(fxu=fxu, hx=hx, lyu=lyu, 
+                                        parameters=model_pars, guess=xuguess)
+        else:
+            us = get_icnn_ss_optimum(lyu=icnn_lu, parameters=icnn_pars, 
+                                      uguess=xuguess['u'])
         # Print. 
         print("Model type: " + model_type)
         print('us: ' + str(us))
-        print('ys: ' + str(ys))
 
     # Get a linspace of steady-state u values.
     ulb, uub = plant_pars['ulb'], plant_pars['uub']
@@ -114,9 +121,12 @@ def main():
 
         # Compute SS cost.
         for us in us_list:
-
-            sscost = get_sscost(fxu=fxu, hx=hx, lyu=lyu, 
-                                us=us, parameters=model_pars)
+            
+            if model_type != 'ICNN':
+                sscost = get_sscost(fxu=fxu, hx=hx, lyu=lyu, 
+                                    us=us, parameters=model_pars)
+            else:
+                sscost = icnn_lu(us)
             model_sscost += [sscost]
         
         model_sscost = np.asarray(model_sscost)
@@ -126,7 +136,7 @@ def main():
     us = np.asarray(us_list)[:, 0]
 
     legend_names = model_types
-    legend_colors = ['b', 'dimgrey', 'm']
+    legend_colors = ['b', 'dimgrey', 'm', 'tomato']
     figures = TwoReacPlots.plot_sscosts(us=us, sscosts=sscosts, 
                                         legend_colors=legend_colors, 
                                         legend_names=legend_names, 

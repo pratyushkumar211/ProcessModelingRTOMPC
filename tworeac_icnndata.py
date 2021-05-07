@@ -1,5 +1,7 @@
-# [depends] %LIB%/hybridid.py %LIB%/training_funcs.py
+# [depends] %LIB%/hybridid.py %LIB%/tworeac_funcs.py
+# [depends] %LIB%/economicopt.py %LIB%/TwoReacHybridFuncs.py
 # [depends] tworeac_parameters.pickle
+# [depends] tworeac_hybtrain.pickle
 # [makes] pickle
 """ Script to train the hybrid model for the 
     three reaction system. 
@@ -7,7 +9,6 @@
 
 import sys
 sys.path.append('lib/')
-import tensorflow as tf
 import time
 import numpy as np
 from hybridid import PickleTool
@@ -16,17 +17,14 @@ from economicopt import get_sscost
 from TwoReacHybridFuncs import (tworeacHybrid_fxu,
                                 tworeacHybrid_hx,
                                 get_tworeacHybrid_pars)         
-from InputConvexFuncs import (get_scaling, get_train_val_data, 
-                              create_model, train_model, 
-                              get_val_predictions_metric)
 
-
-# Set the tensorflow global and graph-level seed.
-tf.random.set_seed(123)
-
-def generate_data(*, hyb_fxu, hyb_hx, hyb_pars):
+def generate_data(*, hyb_fxu, hyb_hx, hyb_pars, seed=10):
     """ Function to generate data to train the ICNN. """
 
+    # Set numpy seed.
+    np.random.seed(seed)
+    
+    # Get cost function.
     p = [100, 200]
     cost_yu = lambda y, u: cost_yup(y, u, p)
 
@@ -57,7 +55,6 @@ def main():
     tworeac_hybtrain = PickleTool.load(filename=
                                         'tworeac_hybtrain.pickle',
                                          type='read')
-    plant_pars = tworeac_parameters['plant_pars']
     greybox_pars = tworeac_parameters['greybox_pars']
 
     # Get the black-box model parameters and function handles.
@@ -67,65 +64,14 @@ def main():
     hyb_hx = lambda x: tworeacHybrid_hx(x)
 
     # Generate data.
-    utrain, lyutrain = generate_data(hyb_fxu=hyb_fxu, hyb_hx=hyb_hx, 
-                                     hyb_pars=hyb_pars)    
-
-    # Create some parameters.
-    zDims = [None, 32, 32, 1]
-    uDims = None
-
-    # Create lists to store data.
-    trained_weights = []
-    val_metrics = []
-    val_predictions = []
-
-    # Filenames.
-    ckpt_path = 'tworeac_icnntrain.ckpt'
-    stdout_filename = 'tworeac_icnntrain.txt'
-
-    # Get scaling and the training data.
-    ulpscales = get_scaling(u=utrain, lyup=lyutrain)
-    datasize_fracs = [0.7, 0.15, 0.15]
-    (train_data, 
-     trainval_data, val_data) = get_train_val_data(u=utrain, 
-                                        lyup=lyutrain, ulpscales=ulpscales, 
-                                        datasize_fracs=datasize_fracs)
-    breakpoint()
-    # Create model.
-    model = create_model(Nu=Nu, zDims=zDims, uDims=None)
+    u, lyup = generate_data(hyb_fxu=hyb_fxu, hyb_hx=hyb_hx, 
+                            hyb_pars=hyb_pars)    
     
-    # Use num samples to adjust here the num training samples.
-    train_samples = dict(inputs=train_data['inputs'],
-                         output=train_data['output'])
+    # Get data in dictionary.
+    tworeac_icnndata = dict(u=u, lyup=lyup)
 
-    # Train.
-    train_model(model=model, epochs=10, batch_size=2, 
-                      train_data=train_samples, trainval_data=trainval_data,
-                      stdout_filename=stdout_filename, ckpt_path=ckpt_path)
-
-    # Validate.
-    val_prediction, val_metric = get_val_predictions_metric(model=model,
-                                val_data=val_data, ulpscales=ulpscales, 
-                                ckpt_path=ckpt_path)
-
-    # Get weights to store.
-    fNWeights = model.get_weights()
-
-    # Save info.
-    val_predictions.append(val_prediction)
-    val_metrics.append(val_metric)
-    trained_weights.append(fNWeights)
-
-    # Save the weights.
-    tworeac_icnntrain = dict(zDims=zDims,
-                         trained_weights=trained_weights,
-                         val_predictions=val_predictions,
-                         val_metrics=val_metrics,
-                         num_samples=None,
-                         ulpscales=ulpscales)
-    
     # Save data.
-    PickleTool.save(data_object=tworeac_train,
-                    filename='tworeac_icnntrain.pickle')
+    PickleTool.save(data_object=tworeac_icnndata,
+                    filename='tworeac_icnndata.pickle')
 
 main()

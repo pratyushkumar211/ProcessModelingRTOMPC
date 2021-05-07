@@ -85,7 +85,6 @@ def get_sscost(*, fxu, hx, lyu, us, parameters):
 
     # Get the sizes and actuator bounds.
     Nx, Nu = parameters['Nx'], parameters['Nu']
-    ulb, uub = parameters['ulb'], parameters['uub']
 
     # Get resf casadi function.
     xs = casadi.SX.sym('xs', Nx)
@@ -97,23 +96,25 @@ def get_sscost(*, fxu, hx, lyu, us, parameters):
     xs = np.asarray(rootfinder(xguess))[:, 0]
 
     # Setup NLP.
-    sscost = lyu(hx(xs), us)[0]
+    sscost = lyu(hx(xs), us)
 
     # Return the steady state cost.
     return sscost
 
-def get_xuguess(*, model_type, plant_pars, Np=None, Nx=None):
+def get_xuguess(*, model_type, plant_pars, Np=None):
     """ Get x, u guess depending on model type. """
     us = plant_pars['us']
     if model_type == 'Plant' or model_type == 'Hybrid':
         xs = plant_pars['xs']
-    elif model_type == 'Black-Box-NN' or model_type == 'Input-Convex-NN':
+    elif model_type == 'Black-Box-NN':
         yindices = plant_pars['yindices']
         ys = plant_pars['xs'][yindices]
         xs = np.concatenate((np.tile(ys, (Np+1, )), 
                              np.tile(us, (Np, ))))
-    else:
+    elif model_type == 'ICNN':
         xs = None
+    else:
+        pass
     # Return as dict.
     return dict(x=xs, u=us)
 
