@@ -25,7 +25,7 @@ def gen_train_val_data(*, parameters, num_traj,
     ulb = parameters['ulb']
     uub = parameters['uub']
     us = parameters['us']
-    tthrow = 60
+    tthrow = 10
     p = parameters['ps'][:, np.newaxis]
     np.random.seed(seed)
     

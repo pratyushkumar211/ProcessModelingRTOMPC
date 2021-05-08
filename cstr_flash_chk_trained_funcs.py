@@ -1,19 +1,15 @@
-# [depends] %LIB%/hybridid.py %LIB%/economicopt.py
+# [depends] %LIB%/hybridid.py %LIB%/BlackBoxFuncs.py
 # [depends] cstr_flash_parameters.pickle
-# [depends] cstr_flash_bbtrain.pickle
+# [depends] cstr_flash_bbnntrain.pickle
 """ Script to perform closed-loop simulations
     with the trained models.
     Pratyush Kumar, pratyushkumar@ucsb.edu """
 
 import sys
 sys.path.append('lib/')
-import time
-import mpctools as mpc
-import casadi
-import copy
 import numpy as np
 from hybridid import PickleTool, quick_sim
-from economicopt import get_bbpars_fxu_hx, c2dNonlin, get_xuguess
+from BlackBoxFuncs import get_bbnn_pars, bbnn_fxu, bbnn_hx
 
 def main():
     """ Main function to be executed. """
@@ -21,31 +17,41 @@ def main():
     cstr_flash_parameters = PickleTool.load(filename=
                                          'cstr_flash_parameters.pickle',
                                          type='read')
-    plant_pars = cstr_flash_parameters['plant_pars']
-    cstr_flash_bbtrain = PickleTool.load(filename=
-                                     'cstr_flash_bbtrain.pickle',
+    cstr_flash_bbnntrain = PickleTool.load(filename=
+                                     'cstr_flash_bbnntrain.pickle',
                                       type='read')
 
-    # Get some sizes/parameters.
-    tthrow = 120
-    Np = cstr_flash_bbtrain['Np']
-    Ny, Nu = plant_pars['Ny'], plant_pars['Nu']
+    def check_bbnn(cstr_flash_parameters, cstr_flash_bbnntrain):
 
-    # Get
-    uval = cstr_flash_parameters['training_data'][-1].u[tthrow:, :]
-    yp0seq = cstr_flash_parameters['training_data'][-1].y[tthrow-Np:tthrow, :]
-    yp0seq = yp0seq.reshape(Np*Ny, )
-    up0seq = cstr_flash_parameters['training_data'][-1].u[tthrow-Np:tthrow, :]
-    up0seq = up0seq.reshape(Np*Nu, )
-    x0 = np.concatenate((yp0seq, up0seq))
+        # Get some sizes/parameters.
+        plant_pars = cstr_flash_parameters['plant_pars']
+        tthrow = 10
+        Np = cstr_flash_bbnntrain['Np']
+        Ny, Nu = plant_pars['Ny'], plant_pars['Nu']
 
-    # Get the black-box model parameters and function handles.
-    bb_pars, blackb_fxu, blackb_hx = get_bbpars_fxu_hx(train=
-                                                       cstr_flash_bbtrain, 
-                                                       parameters=plant_pars) 
+        # Get initial state for forecasting.
+        training_data = cstr_flash_parameters['training_data'][-1]
+        uval = training_data.u[tthrow:, :]
+        y0 = training_data.y[tthrow, :]
+        yp0seq = training_data.y[tthrow-Np:tthrow, :].reshape(Np*Ny, )
+        up0seq = training_data.u[tthrow-Np:tthrow, :].reshape(Np*Nu, )
+        yz0 = np.concatenate((y0, yp0seq, up0seq))
 
-    # CHeck black-box model validation.
-    bb_yval = cstr_flash_bbtrain['val_predictions'][-1].y
-    bb_xpred, bb_ypred = quick_sim(blackb_fxu, blackb_hx, x0, uval)
+        # Get the black-box model parameters and function handles.
+        bbnn_pars = get_bbnn_pars(train=cstr_flash_bbnntrain, 
+                                  plant_pars=plant_pars)
+        fxu = lambda x, u: bbnn_fxu(x, u, bbnn_pars)
+        hx = lambda x: bbnn_hx(x, bbnn_pars)
+
+        # CHeck black-box model validation.
+        bb_yval = cstr_flash_bbnntrain['val_predictions'][-1].y
+        bb_xpred, bb_ypred = quick_sim(fxu, hx, yz0, uval)
+        breakpoint()
+        # Return 
+
+        return 
+
+    # Check the different types of functions.
+    check_bbnn(cstr_flash_parameters, cstr_flash_bbnntrain)
 
 main()

@@ -239,7 +239,8 @@ def bbnn_fxu(yz, u, parameters):
     
     # Concatenate.
     if Np > 0:
-        yzplus = np.concatenate((yplus, yz[Ny:(Np+1)*Ny], yz[-(Np-1)*Nu:], u))
+        yzplus = np.concatenate((yplus, yz[2*Ny:(Np+1)*Ny], yz[0:Ny], 
+                                 yz[-(Np-1)*Nu:], u))
     else:
         yzplus = yplus
 
