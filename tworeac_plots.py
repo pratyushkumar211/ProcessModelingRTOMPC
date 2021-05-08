@@ -67,20 +67,20 @@ def main():
     plant_pars = tworeac_parameters['plant_pars']
     training_data = tworeac_parameters['training_data']
     
-    # Load Black-box data after training.
-    tworeac_bbNNtrain = PickleTool.load(filename="tworeac_bbNNtrain.pickle",
+    # # Load Black-box data after training.
+    tworeac_bbnntrain = PickleTool.load(filename="tworeac_bbnntrain.pickle",
                                       type='read')
-    bbNN_predictions = tworeac_bbNNtrain['val_predictions']
+    bbnn_predictions = tworeac_bbnntrain['val_predictions']
 
     # Load Hybrid data after training.
-    #tworeac_hybtrain = PickleTool.load(filename="tworeac_hybtrain.pickle",
-    #                                  type='read')
-    #hyb_predictions = tworeac_hybtrain['val_predictions']
+    tworeac_hybtrain = PickleTool.load(filename="tworeac_hybtrain.pickle",
+                                     type='read')
+    hyb_predictions = tworeac_hybtrain['val_predictions']
 
     # Load Koopman data after NN training.
-    tworeac_kooptrain = PickleTool.load(filename="tworeac_kooptrain.pickle",
-                                      type='read')
-    koop_predictions = tworeac_kooptrain['val_predictions']
+    # tworeac_kooptrain = PickleTool.load(filename="tworeac_kooptrain.pickle",
+    #                                   type='read')
+    # koop_predictions = tworeac_kooptrain['val_predictions']
 
     # Load data after Koopman training.
     #tworeac_kooptrain = PickleTool.load(filename=
@@ -98,11 +98,11 @@ def main():
     figures = []
 
     # Plot validation data.
-    legend_names = ['Plant', 'Black-box-NN', 'Koopman']
+    legend_names = ['Plant', 'Black-box-NN', 'Hybrid']
     legend_colors = ['b', 'dimgrey', 'm']
     valdata_list = [training_data[-1]]
-    valdata_list += bbNN_predictions
-    valdata_list += koop_predictions
+    valdata_list += bbnn_predictions
+    valdata_list += hyb_predictions
     t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
                                                      valdata_list[:1],
                                                      plot_range=(10, 6*60+10))
@@ -113,7 +113,7 @@ def main():
     ulist += ulist_train
     ylist += ylist_train
     xlist += xlist_train
-    figures += TwoReacPlots.plot_xudata(t=t, xlist=xlist, ulist=ulist,
+    figures += TwoReacPlots.plot_xudata(t=t, xlist=ylist, ulist=ulist,
                                         legend_names=legend_names,
                                         legend_colors=legend_colors, 
                                         figure_size=PAPER_FIGSIZE, 

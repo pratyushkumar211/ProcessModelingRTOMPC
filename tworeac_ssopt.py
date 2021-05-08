@@ -38,9 +38,9 @@ def main():
     # tworeac_icnntrain = PickleTool.load(filename=
     #                                 'tworeac_icnntrain.pickle',
     #                                   type='read')
-    # tworeac_hybtrain = PickleTool.load(filename=
-    #                                   'tworeac_hybtrain.pickle',
-    #                                   type='read')
+    tworeac_hybtrain = PickleTool.load(filename=
+                                      'tworeac_hybtrain.pickle',
+                                      type='read')
 
     # Get plant and grey-box parameters. 
     plant_pars = tworeac_parameters['plant_pars']
@@ -57,10 +57,10 @@ def main():
     bbnn_h = lambda x: bbnn_hx(x, bbnn_pars)
 
     # Get the black-box model parameters and function handles.
-    # hyb_pars = get_tworeacHybrid_pars(train=tworeac_hybtrain, 
-    #                                   greybox_pars=greybox_pars)
-    # hyb_fxu = lambda x, u: tworeacHybrid_fxu(x, u, hyb_pars)
-    # hyb_hx = lambda x: tworeacHybrid_hx(x)
+    hyb_pars = get_tworeacHybrid_pars(train=tworeac_hybtrain, 
+                                      greybox_pars=greybox_pars)
+    hyb_fxu = lambda x, u: tworeacHybrid_fxu(x, u, hyb_pars)
+    hyb_hx = lambda x: tworeacHybrid_hx(x)
 
     # Get ICNN pars and function.
     # icnn_pars = get_icnn_pars(train=tworeac_icnntrain, plant_pars=plant_pars)
@@ -74,10 +74,10 @@ def main():
 
     # Lists to loop over for different models.
     model_types = ['Plant', 'Black-Box-NN', 'Hybrid', 'ICNN']
-    fxu_list = [plant_fxu, bbnn_f]
-    hx_list = [plant_hx, bbnn_h]
-    par_list = [plant_pars, bbnn_pars]
-    Nps = [None, bbnn_pars['Np']]
+    fxu_list = [plant_fxu, bbnn_f, hyb_fxu]
+    hx_list = [plant_hx, bbnn_h, hyb_hx]
+    par_list = [plant_pars, bbnn_pars, hyb_pars]
+    Nps = [None, bbnn_pars['Np'], hyb_pars['Np']]
 
     # Loop over the different models, and obtain SS optimums.
     for (model_type, fxu, hx, model_pars, Np) in zip(model_types, fxu_list, 
