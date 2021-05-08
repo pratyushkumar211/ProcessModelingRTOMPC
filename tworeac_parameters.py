@@ -20,7 +20,7 @@ def gen_train_val_data(*, parameters, num_traj,
     # Get the data list.
     data_list = []
     ulb, uub = parameters['ulb'], parameters['uub']
-    tsteps_steady = parameters['tsteps_steady']
+    tthrow = 10
     p = parameters['ps'][:, np.newaxis]
 
     # Start to generate data.
@@ -28,7 +28,7 @@ def gen_train_val_data(*, parameters, num_traj,
         
         # Get the plant and initial steady input.
         plant = get_model(ode=plant_ode, parameters=parameters, plant=True)
-        us_init = np.tile(np.random.uniform(ulb, uub), (tsteps_steady, 1))
+        us_init = np.tile(np.random.uniform(ulb, uub), (tthrow, 1))
         
         # Get input trajectories for different simulatios.
         if traj == num_traj-1:
@@ -57,7 +57,7 @@ def gen_train_val_data(*, parameters, num_traj,
 
         # Complete input profile and run open-loop simulation.
         u = np.concatenate((us_init, u), axis=0)
-        for t in range(tsteps_steady + Nsim):
+        for t in range(tthrow + Nsim):
             plant.step(u[t:t+1, :], p)
         data_list.append(SimData(t=np.asarray(plant.t[0:-1]).squeeze(),
                 x=np.asarray(plant.x[0:-1]).squeeze(),

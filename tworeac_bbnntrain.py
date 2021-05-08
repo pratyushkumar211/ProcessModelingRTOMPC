@@ -11,8 +11,8 @@ import tensorflow as tf
 import time
 import numpy as np
 from hybridid import PickleTool, get_scaling, get_train_val_data
-from BlackBoxFuncs import (create_bbNNmodel, train_bbmodel, 
-                           get_bbval_predictions)
+from BlackBoxFuncs import (create_model, train_model, 
+                           get_val_predictions)
 
 # Set the tensorflow global and graph-level seed.
 tf.random.set_seed(123)
@@ -32,10 +32,9 @@ def main():
     num_samples = [hours*60 for hours in [6]]
 
     # Create some parameters.
-    xinsert_indices = []
+    ypred_xinsert_indices = []
     tthrow = 10
     Np = 0
-    tanhScale = 1
     fNDims = [Ny + Np*(Ny+Nu), 64, Ny]
 
     # Create lists to store data.
@@ -44,8 +43,8 @@ def main():
     val_predictions = []
 
     # Filenames.
-    ckpt_path = 'tworeac_bbNNtrain.ckpt'
-    stdout_filename = 'tworeac_bbNNtrain.txt'
+    ckpt_path = 'tworeac_bbnntrain.ckpt'
+    stdout_filename = 'tworeac_bbnntrain.txt'
 
     # Get scaling and the training data.
     xuyscales = get_scaling(data=training_data[0])
@@ -57,8 +56,7 @@ def main():
     for num_sample in num_samples:
         
         # Create model.
-        model = create_bbNNmodel(Np=Np, Ny=Ny, Nu=Nu, fNDims=fNDims, 
-                                 tanhScale=tanhScale)
+        model = create_model(Np=Np, Ny=Ny, Nu=Nu, fNDims=fNDims)
         
         # Use num samples to adjust here the num training samples.
         train_samples = dict(yz0=train_data['yz0'],
@@ -66,14 +64,14 @@ def main():
                              outputs=train_data['outputs'])
 
         # Train.
-        train_bbmodel(model=model, epochs=3000, batch_size=2, 
+        train_model(model=model, epochs=3000, batch_size=2, 
                       train_data=train_samples, trainval_data=trainval_data, 
                       stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 
         # Validate.
-        (val_prediction, val_metric) = get_bbval_predictions(model=model,
+        (val_prediction, val_metric) = get_val_predictions(model=model,
                                         val_data=val_data, xuyscales=xuyscales, 
-                                        xinsert_indices=xinsert_indices, 
+                                        xinsert_indices=ypred_xinsert_indices, 
                                         ckpt_path=ckpt_path)
 
         # Get weights to store.
@@ -93,11 +91,10 @@ def main():
                          val_predictions=val_predictions,
                          val_metrics=val_metrics,
                          num_samples=num_samples,
-                         xuyscales=xuyscales,
-                         tanhScale=tanhScale)
+                         xuyscales=xuyscales)
     
     # Save data.
     PickleTool.save(data_object=tworeac_train,
-                    filename='tworeac_bbNNtrain.pickle')
+                    filename='tworeac_bbnntrain.pickle')
 
 main()

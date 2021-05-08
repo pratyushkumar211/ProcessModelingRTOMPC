@@ -175,10 +175,10 @@ def fnn(nnInput, nnWeights):
 
     # Loop over layers.
     for i in range(0, len(nnWeights)-2, 2):
-        (W, b) = nnWeights[i:i+2]
+        W, b = nnWeights[i:i+2]
         nnOutput = W.T @ nnOutput + b[:, np.newaxis]
         nnOutput = tanh(nnOutput, TF=False)
-    (Wf, bf) = nnWeights[-2:]
+    Wf, bf = nnWeights[-2:]
     
     # Return output in the same number of dimensions as input.
     nnOutput = Wf.T @ nnOutput + bf[:, np.newaxis]
@@ -204,9 +204,6 @@ def get_bbnn_pars(*, train, plant_pars):
     # Constraints.
     parameters['ulb'] = plant_pars['ulb']
     parameters['uub'] = plant_pars['uub']
-
-    # Scaling for activation function.
-    parameters['tanhScale'] = train['tanhScale']
     
     # Return.
     return parameters
@@ -221,7 +218,6 @@ def bbnn_fxu(yz, u, parameters):
 
     # Get NN weights.
     fNWeights = parameters['fNWeights']
-    tanhScale = parameters['tanhScale']
 
     # Get scaling.
     xuyscales = parameters['xuyscales']
@@ -240,7 +236,7 @@ def bbnn_fxu(yz, u, parameters):
 
     # Get current output.
     nnInput = np.concatenate((yz, u))
-    yplus = fnn(nnInput, fNWeights, tanhScale)
+    yplus = fnn(nnInput, fNWeights)
     
     # Concatenate.
     if Np > 0:

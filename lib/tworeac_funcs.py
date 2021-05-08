@@ -74,9 +74,6 @@ def get_plant_pars():
     parameters['ulb'] = ulb
     parameters['uub'] = uub
 
-    # Number of time-steps to keep the plant at steady.
-    parameters['tsteps_steady'] = 10
-
     # Measurement indices and noise.
     parameters['yindices'] = [0, 1, 2]
     parameters['Rv'] = 0*np.diag([1e-3, 1e-3, 1e-3])
@@ -110,12 +107,6 @@ def get_greybox_pars(*, plant_pars):
     # Get the constraints.
     parameters['ulb'] = plant_pars['ulb']
     parameters['uub'] = plant_pars['uub']
-
-    # Number of time-steps to keep the plant at steady.
-    parameters['tsteps_steady'] = plant_pars['tsteps_steady']
-
-    # Measurement indices and noise.
-    parameters['Rv'] = 0*np.eye(parameters['Ny'])
 
     # Return the parameters dict.
     return parameters

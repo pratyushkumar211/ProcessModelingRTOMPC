@@ -11,7 +11,7 @@ import sys
 sys.path.append('lib/')
 import numpy as np
 from hybridid import PickleTool, quick_sim
-from BlackBoxFuncs import get_bbNN_pars, bbNN_fxu, bb_hx, fnn
+from BlackBoxFuncs import get_bbnn_pars, bbnn_fxu, bbnn_hx
 from TwoReacHybridFuncs import (get_tworeacHybrid_pars,
                                 tworeacHybrid_fxu, tworeacHybrid_hx)
 from KoopmanModelFuncs import get_KoopmanModel_pars, koop_fxu, koop_hx
@@ -23,14 +23,14 @@ def main():
     tworeac_parameters = PickleTool.load(filename=
                                         'tworeac_parameters.pickle',
                                          type='read')
-    tworeac_bbNNtrain = PickleTool.load(filename='tworeac_bbNNtrain.pickle',
+    tworeac_bbnntrain = PickleTool.load(filename='tworeac_bbnntrain.pickle',
                                         type='read')
-    tworeac_hybtrain = PickleTool.load(filename='tworeac_hybtrain.pickle',
-                                        type='read')
-    tworeac_icnntrain = PickleTool.load(filename='tworeac_icnntrain.pickle',
-                                        type='read')
+    # tworeac_hybtrain = PickleTool.load(filename='tworeac_hybtrain.pickle',
+    #                                     type='read')
+    # tworeac_icnntrain = PickleTool.load(filename='tworeac_icnntrain.pickle',
+    #                                     type='read')
 
-    def check_bbNN(tworeac_bbNNtrain, tworeac_parameters):
+    def check_bbnn(tworeac_bbnntrain, tworeac_parameters):
         """ Check Black-box functions. """
 
         # Get plant parameters.
@@ -38,7 +38,7 @@ def main():
 
         # Get some sizes/parameters.
         tthrow = 10
-        Np = tworeac_bbNNtrain['Np']
+        Np = tworeac_bbnntrain['Np']
         Ny, Nu = plant_pars['Ny'], plant_pars['Nu']
 
         # Get initial state for forecasting.
@@ -50,13 +50,13 @@ def main():
         yz0 = np.concatenate((y0, yp0seq, up0seq))
 
         # Get the black-box model parameters and function handles.
-        bbNN_pars = get_bbNN_pars(train=tworeac_bbNNtrain, 
+        bbnn_pars = get_bbnn_pars(train=tworeac_bbnntrain, 
                                   plant_pars=plant_pars)
-        fxu = lambda x, u: bbNN_fxu(x, u, bbNN_pars)
-        hx = lambda x: bb_hx(x, bbNN_pars)
+        fxu = lambda x, u: bbnn_fxu(x, u, bbnn_pars)
+        hx = lambda x: bbnn_hx(x, bbnn_pars)
 
         # CHeck black-box model validation.
-        bb_yval = tworeac_bbNNtrain['val_predictions'][-1].y
+        bb_yval = tworeac_bbnntrain['val_predictions'][-1].y
         bb_xpred, bb_ypred = quick_sim(fxu, hx, yz0, uval)
         breakpoint()
         # Return 
@@ -157,8 +157,8 @@ def main():
         #Return 
         return 
 
-    check_bbNN(tworeac_bbNNtrain, tworeac_parameters)
-    check_icnn(tworeac_icnntrain, tworeac_parameters)
+    check_bbnn(tworeac_bbnntrain, tworeac_parameters)
+    #check_icnn(tworeac_icnntrain, tworeac_parameters)
     #check_koopman(tworeac_kooptrain, tworeac_parameters)
     #check_hybrid(tworeac_hybtrain, tworeac_parameters)
     print("Hi")
