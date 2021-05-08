@@ -171,7 +171,6 @@ def fnn(nnInput, nnWeights):
 
     # Add one extra dimension.
     nnOutput = nnInput[:, np.newaxis]
-    nnOutput = nnInput
 
     # Loop over layers.
     for i in range(0, len(nnWeights)-2, 2):
