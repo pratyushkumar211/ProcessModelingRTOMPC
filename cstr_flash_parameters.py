@@ -12,7 +12,7 @@ import numpy as np
 import scipy.linalg
 from hybridid import (PickleTool, sample_prbs_like, SimData)
 from cstr_flash_funcs import plant_ode, greybox_ode
-from cstr_flash_funcs import get_plant_pars, get_gb_pars
+from cstr_flash_funcs import get_plant_pars, get_greybox_pars
 from hybridid import get_rectified_xs, get_model
 
 def gen_train_val_data(*, parameters, num_traj,
@@ -25,7 +25,7 @@ def gen_train_val_data(*, parameters, num_traj,
     ulb = parameters['ulb']
     uub = parameters['uub']
     us = parameters['us']
-    tthrow = parameters['tthrow']
+    tthrow = 60
     p = parameters['ps'][:, np.newaxis]
     np.random.seed(seed)
     
@@ -43,16 +43,6 @@ def gen_train_val_data(*, parameters, num_traj,
             u = sample_prbs_like(num_change=12, num_steps=Nsim_val,
                                  lb=ulb, ub=uub,
                                  mean_change=60, sigma_change=2, seed=seed)
-
-            # Custom uval for step-test.
-            #u = resample_fast(x = np.array([[8., us[1]], 
-            #                                us,
-            #                                [us[0], 2.],
-            #                                us]), 
-            #                       xDelta=3*60,
-            #                       newDelta=1,
-            #                       resample_type='zoh')
-
         elif traj == num_traj-2:
             "Get input for validation simulation."
             Nsim = Nsim_trainval
@@ -66,8 +56,6 @@ def gen_train_val_data(*, parameters, num_traj,
                                  lb=ulb, ub=uub,
                                  mean_change=30, sigma_change=2, seed=seed)
         seed += 1
-        #umid = 0.5*(ulb + uub)
-        #u = np.where(u<umid, ulb, uub)
 
         # Complete input profile and run open-loop simulation.
         u = np.concatenate((us_init, u), axis=0)
@@ -85,8 +73,6 @@ def get_greybox_val_preds(*, parameters, training_data):
         the prediction of the grey-box model
         on the validation data. """
     model = get_model(ode=greybox_ode, parameters=parameters, plant=False)
-    #tthrow = parameters['tthrow']
-    Ng = parameters['Ng']
     p = parameters['ps'][:, np.newaxis]
     u = training_data[-1].u
     Nsim = u.shape[0]
@@ -203,13 +189,17 @@ def get_greybox_val_preds(*, parameters, training_data):
 def main():
     """ Get the parameters/training/validation data."""
 
-    # Get parameters.
+    # Plant parameters.
     plant_pars = get_plant_pars()
     plant_pars['xs'] = get_rectified_xs(ode=plant_ode, parameters=plant_pars)
-    gb_pars = get_gb_pars(plant_pars=plant_pars)
+
+    # Grey-box parameters.
+    greybox_pars = get_greybox_pars(plant_pars=plant_pars)
+    greybox_pars['xs'] = get_rectified_xs(ode=greybox_ode, 
+                                          parameters=greybox_pars)
 
     # Generate training data.
-    training_data = gen_train_val_data(parameters=plant_pars, num_traj=20,
+    training_data = gen_train_val_data(parameters=plant_pars, num_traj=8,
                                         Nsim_train=4*60, Nsim_trainval=12*60,
                                         Nsim_val=12*60, seed=2)
 
@@ -219,12 +209,12 @@ def main():
     #                                                training_data=training_data)
     
     # Get grey-box model predictions on the validation data.
-    greybox_val_data = get_greybox_val_preds(parameters=gb_pars,
+    greybox_val_data = get_greybox_val_preds(parameters=greybox_pars,
                                              training_data=training_data)
     
     # Collect in a dict.
     cstr_flash_parameters = dict(plant_pars=plant_pars,
-                                 greybox_pars=gb_pars,
+                                 greybox_pars=greybox_pars,
                                  training_data=training_data,
                                  greybox_val_data=greybox_val_data)
 

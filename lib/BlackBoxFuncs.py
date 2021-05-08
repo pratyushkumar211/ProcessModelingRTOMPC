@@ -16,6 +16,17 @@ def fnnTF(nnInput, nnLayers):
         nnOutput = layer(nnOutput)
     return nnOutput
 
+def tanh(x, TF=True, a=1):
+    """ Custom tanh function. """
+    if TF:
+        num = tf.math.exp(a*x) - tf.math.exp(-a*x)
+        den = tf.math.exp(a*x) + tf.math.exp(-a*x)
+    else:
+        num = np.exp(a*x) - np.exp(-a*x)
+        den = np.exp(a*x) + np.exp(-a*x)
+    # Return.
+    return num/den
+
 class BlackBoxCell(tf.keras.layers.AbstractRNNCell):
     """
     RNN Cell
@@ -72,7 +83,7 @@ class BlackBoxCell(tf.keras.layers.AbstractRNNCell):
 
 class BlackBoxModel(tf.keras.Model):
     """ Custom model for the Two reaction model. """
-    def __init__(self, Np, Ny, Nu, fNDims, tanhScale):
+    def __init__(self, Np, Ny, Nu, fNDims):
         """ Create the dense layers for the NN, and 
             construct the overall model. """
 
@@ -80,15 +91,10 @@ class BlackBoxModel(tf.keras.Model):
         useq = tf.keras.Input(name='u', shape=(None, Nu))
         yz0 = tf.keras.Input(name='yz0', shape=(Ny+Np*(Ny+Nu), ))
 
-        def scaledtanh(x, a=tanhScale):
-            num = tf.math.exp(a*x) - tf.math.exp(-a*x)
-            den = tf.math.exp(a*x) + tf.math.exp(-a*x)
-            return num/den
-
         # Dense layers for the NN.
         fNLayers = []
         for dim in fNDims[1:-1]:
-            fNLayers += [tf.keras.layers.Dense(dim, activation=scaledtanh)]
+            fNLayers += [tf.keras.layers.Dense(dim, activation=tanh)]
         fNLayers += [tf.keras.layers.Dense(fNDims[-1], 
                                            kernel_initializer='zeros')]
 
@@ -102,16 +108,16 @@ class BlackBoxModel(tf.keras.Model):
         # Construct model.
         super().__init__(inputs=[useq, yz0], outputs=yseq)
 
-def create_bbNNmodel(*, Np, Ny, Nu, fNDims, tanhScale):
+def create_model(*, Np, Ny, Nu, fNDims):
     """ Create/compile the two reaction model for training. """
-    model = BlackBoxModel(Np, Ny, Nu, fNDims, tanhScale)
+    model = BlackBoxModel(Np, Ny, Nu, fNDims)
     # Compile the nn model.
     model.compile(optimizer='adam', loss='mean_squared_error')
     # Return the compiled model.
     return model
 
-def train_bbmodel(*, model, epochs, batch_size, train_data, trainval_data, 
-                     stdout_filename, ckpt_path):
+def train_model(*, model, epochs, batch_size, train_data, trainval_data, 
+                   stdout_filename, ckpt_path):
     """ Function to train the NN controller. """
     # Std out.
     sys.stdout = open(stdout_filename, 'w')
@@ -129,8 +135,8 @@ def train_bbmodel(*, model, epochs, batch_size, train_data, trainval_data,
                             trainval_data['outputs']),
             callbacks = [checkpoint_callback])
 
-def get_bbval_predictions(*, model, val_data, xuyscales, 
-                             xinsert_indices, ckpt_path):
+def get_val_predictions(*, model, val_data, xuyscales, 
+                           xinsert_indices, ckpt_path):
     """ Get the validation predictions. """
 
     # Load best weights.
@@ -160,37 +166,28 @@ def get_bbval_predictions(*, model, val_data, xuyscales,
     # Return predictions and metric.
     return (val_predictions, val_metric)
 
-def fnn(nnInput, nnWeights, tanhScale):
+def fnn(nnInput, nnWeights):
     """ Compute the NN output. """
 
-    # Scaled tanh function.
-    def scaledtanh(x, a):
-        num = np.exp(a*x) - np.exp(-a*x)
-        den = np.exp(a*x) + np.exp(-a*x)
-        return num/den
-
-    # Check input dimensions. 
-    if nnInput.ndim == 1:
-        nnOutput = nnInput[:, np.newaxis]
-    else:
-        nnOutput = nnInput
+    # Add one extra dimension.
+    nnOutput = nnInput[:, np.newaxis]
+    nnOutput = nnInput
 
     # Loop over layers.
     for i in range(0, len(nnWeights)-2, 2):
         (W, b) = nnWeights[i:i+2]
         nnOutput = W.T @ nnOutput + b[:, np.newaxis]
-        nnOutput = scaledtanh(nnOutput, tanhScale)
+        nnOutput = tanh(nnOutput, TF=False)
     (Wf, bf) = nnWeights[-2:]
     
     # Return output in the same number of dimensions as input.
     nnOutput = Wf.T @ nnOutput + bf[:, np.newaxis]
-    if nnInput.ndim == 1:
-        nnOutput = nnOutput[:, 0]
+    nnOutput = nnOutput[:, 0]
 
     # Return.
     return nnOutput
 
-def get_bbNN_pars(*, train, plant_pars):
+def get_bbnn_pars(*, train, plant_pars):
     """ Get the black-box parameter dict and function handles. """
 
     # Get black-box model parameters.
@@ -214,7 +211,7 @@ def get_bbNN_pars(*, train, plant_pars):
     # Return.
     return parameters
 
-def bbNN_fxu(yz, u, parameters):
+def bbnn_fxu(yz, u, parameters):
     """ Function describing the dynamics 
         of the black-box neural network. 
         yz^+ = f_z(yz, u) """
@@ -257,7 +254,7 @@ def bbNN_fxu(yz, u, parameters):
     # Return the sum.
     return yzplus
 
-def bb_hx(yz, parameters):
+def bbnn_hx(yz, parameters):
     """ Measurement function. """
     
     # Extract a few parameters.

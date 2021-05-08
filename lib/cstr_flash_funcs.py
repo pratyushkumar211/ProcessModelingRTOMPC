@@ -179,14 +179,13 @@ def get_plant_pars():
 
     # The C matrix for the plant.
     parameters['yindices'] = [0, 2, 4, 5, 7, 9]
-    parameters['tthrow'] = 120
     parameters['Rv'] = 0*np.diag([0.8, 1e-3, 1., 
                                   0.8, 1e-3, 1.])
     
     # Return the parameters dict.
     return parameters
 
-def get_gb_pars(*, plant_pars):
+def get_greybox_pars(*, plant_pars):
     """ Get the parameter values for the
         CSTRs with flash example. """
 
@@ -208,7 +207,7 @@ def get_gb_pars(*, plant_pars):
     parameters['Qr'] = 200 # kJ/min
 
     # Store the dimensions.
-    parameters['Ng'] = 8
+    parameters['Nx'] = 8
     parameters['Nu'] = plant_pars['Nu']
     parameters['Ny'] = plant_pars['Ny']
     parameters['Np'] = plant_pars['Np']
@@ -223,19 +222,31 @@ def get_gb_pars(*, plant_pars):
     parameters['ps'] = np.array([5., 320.])
 
     # The C matrix for the grey-box model.
-    parameters['tthrow'] = plant_pars['tthrow']
-    parameters['gb_indices'] = [0, 1, 2, 3, 4, 5, 6, 7]
     parameters['yindices'] = [0, 2, 3, 4, 6, 7]
 
     # Get the constraints.
     parameters['ulb'] = plant_pars['ulb']
     parameters['uub'] = plant_pars['uub']
-
-    # Noise for MHE.
-    parameters['Rv'] = plant_pars['Rv']
     
     # Return the parameters dict.
     return parameters
+
+def cost_yup(y, u, p, pars):
+    """ Custom stage cost for the CSTR/Flash system. """
+    CAf = pars['ps'][0]
+    Td = pars['Td']
+    pho = pars['pho']
+    Cp = pars['Cp']
+    kb = pars['kb']
+    
+    # Get inputs, parameters, and states.
+    F, D = u[0:2]
+    ce, ca, cb = p[0:3]
+    Hb, CBb, Tb = y[[3, 4, 5]]
+    Fb = kb*np.sqrt(Hb)
+    
+    # Compute and return cost.
+    return ca*F*CAf + ce*D*pho*Cp*(Tb-Td) - cb*Fb*CBb
 
 # def get_hybrid_pars(*, greybox_pars, Npast, fnn_weights, xuyscales):
 #     """ Get the hybrid model parameters. """
@@ -338,23 +349,6 @@ def get_gb_pars(*, plant_pars):
 
 #     # Return the sum.
 #     return xGzplus
-
-def cost_yup(y, u, p, pars):
-    """ Custom stage cost for the CSTR/Flash system. """
-    CAf = pars['ps'][0]
-    Td = pars['Td']
-    pho = pars['pho']
-    Cp = pars['Cp']
-    kb = pars['kb']
-    
-    # Get inputs, parameters, and states.
-    F, D = u[0:2]
-    ce, ca, cb = p[0:3]
-    Hb, CBb, Tb = y[[3, 4, 5]]
-    Fb = kb*np.sqrt(Hb)
-    
-    # Compute and return cost.
-    return ca*F*CAf + ce*D*pho*Cp*(Tb-Td) - cb*Fb*CBb
 
 # def sim_hybrid(hybrid_func, uval, hybrid_pars, greybox_processed_data):
 #     """ Hybrid validation simulation to make 

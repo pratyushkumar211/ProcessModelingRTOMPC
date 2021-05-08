@@ -213,7 +213,10 @@ def get_model(*, ode, parameters, plant=True):
 
     # Steady state/measurement noise/sample time.
     xs = parameters['xs'][:, np.newaxis]
-    Rv = parameters['Rv']
+    if plant:
+        Rv = parameters['Rv']
+    else:
+        Rv = 0*np.eye(Ny)
     Delta = parameters['Delta']
 
     # Return a simulator object.
