@@ -44,16 +44,17 @@ def main():
     cstr_flash_parameters = PickleTool.load(filename=
                                             "cstr_flash_parameters.pickle",
                                             type='read')
-    cstr_flash_bbtrain = PickleTool.load(filename="cstr_flash_bbtrain.pickle",
+    cstr_flash_bbnntrain = PickleTool.load(filename=
+                                         "cstr_flash_bbnntrain.pickle",
                                          type='read')
     # cstr_flash_kooptrain = PickleTool.load(filename=
     #                                         "cstr_flash_kooptrain.pickle",
     #                                         type='read')
-    cstr_flash_empc = PickleTool.load(filename="cstr_flash_empc.pickle",
-                                       type='read')
-    cstr_flash_empc_twotier = PickleTool.load(filename=
-                                       "cstr_flash_empc_twotier.pickle",
-                                       type='read')
+    # cstr_flash_empc = PickleTool.load(filename="cstr_flash_empc.pickle",
+    #                                    type='read')
+    # cstr_flash_empc_twotier = PickleTool.load(filename=
+    #                                    "cstr_flash_empc_twotier.pickle",
+    #                                    type='read')
 
     # cstr_flash_encdeckooptrain = PickleTool.load(filename=
     #                                         "cstr_flash_encdeckooptrain.pickle",
@@ -62,17 +63,17 @@ def main():
     #                                   type='read')
 
     # Collect data to plot open-loop predictions.
-    bv_val_predictions = cstr_flash_bbtrain['val_predictions']
+    bbnn_val_predictions = cstr_flash_bbnntrain['val_predictions']
     # koopman_val_predictions = cstr_flash_kooptrain['val_predictions']
     # edkoopman_val_predictions = cstr_flash_encdeckooptrain['val_predictions']
     valdata_list = [cstr_flash_parameters['training_data'][-1]]
     #valdata_list += [cstr_flash_parameters['greybox_val_data']]
-    valdata_list += bv_val_predictions
+    valdata_list += bbnn_val_predictions
     # valdata_list += koopman_val_predictions
     # valdata_list += edkoopman_val_predictions
     (t, ulist, ylist, xlist) = get_plotting_array_list(simdata_list=
                                                     valdata_list[:1],
-                                                plot_range = (120, 12*60+120))
+                                                plot_range = (10, 12*60+120))
     (t, ulist_train, 
      ylist_train, xlist_train) = get_plotting_array_list(simdata_list=
                                                      valdata_list[1:],
@@ -103,37 +104,37 @@ def main():
     #                            legends=['Black-box', 'Hybrid'])
     
     # # Plot the closed-loop simulation.
-    legend_names = ['Plant-EMPC', 'Plant-RTO-MPC', 
-                    'BlackBox-RTO-MPC']
-    legend_colors = ['b', 'orange', 'dimgrey']
-    clDataList = cstr_flash_empc['clDataList']
-    clDataList += cstr_flash_empc_twotier['clDataList']
-    (t, ulist, ylist, xlist) = get_plotting_array_list(simdata_list=
-                                       clDataList,
-                                       plot_range = (0, 24*60))
-    figures += CstrFlashPlots.plot_data(t=t, ulist=ulist, 
-                                ylist=ylist, xlist=xlist, 
-                                figure_size=PAPER_FIGSIZE, 
-                                u_ylabel_xcoordinate=-0.1, 
-                                y_ylabel_xcoordinate=-0.1, 
-                                x_ylabel_xcoordinate=-0.2, 
-                                plot_ulabel=True,
-                                legend_names=legend_names, 
-                                legend_colors=legend_colors, 
-                                title_loc=(0.18, 0.9), 
-                                plot_y=True)
+    # legend_names = ['Plant-EMPC', 'Plant-RTO-MPC', 
+    #                 'BlackBox-RTO-MPC']
+    # legend_colors = ['b', 'orange', 'dimgrey']
+    # clDataList = cstr_flash_empc['clDataList']
+    # clDataList += cstr_flash_empc_twotier['clDataList']
+    # (t, ulist, ylist, xlist) = get_plotting_array_list(simdata_list=
+    #                                    clDataList,
+    #                                    plot_range = (0, 24*60))
+    # figures += CstrFlashPlots.plot_data(t=t, ulist=ulist, 
+    #                             ylist=ylist, xlist=xlist, 
+    #                             figure_size=PAPER_FIGSIZE, 
+    #                             u_ylabel_xcoordinate=-0.1, 
+    #                             y_ylabel_xcoordinate=-0.1, 
+    #                             x_ylabel_xcoordinate=-0.2, 
+    #                             plot_ulabel=True,
+    #                             legend_names=legend_names, 
+    #                             legend_colors=legend_colors, 
+    #                             title_loc=(0.18, 0.9), 
+    #                             plot_y=True)
     
-    # # Plot the empc costs.
-    # figures += plot_cost_pars(t=t, 
-    #                           cost_pars=cstr_flash_empc['cost_pars'][:24*60, :])
+    # # # Plot the empc costs.
+    # # figures += plot_cost_pars(t=t, 
+    # #                           cost_pars=cstr_flash_empc['cost_pars'][:24*60, :])
 
-    # Plot the plant profit in time.
-    stageCostList = cstr_flash_empc['stageCostList']
-    stageCostList += cstr_flash_empc_twotier['stageCostList']
-    figures += plotAvgProfits(t=t,
-                       stageCostList=stageCostList, 
-                       legend_colors=legend_colors,
-                       legend_names=legend_names)
+    # # Plot the plant profit in time.
+    # stageCostList = cstr_flash_empc['stageCostList']
+    # stageCostList += cstr_flash_empc_twotier['stageCostList']
+    # figures += plotAvgProfits(t=t,
+    #                    stageCostList=stageCostList, 
+    #                    legend_colors=legend_colors,
+    #                    legend_names=legend_names)
 
     # Save PDF.
     with PdfPages('cstr_flash_plots.pdf', 'w') as pdf_file:
