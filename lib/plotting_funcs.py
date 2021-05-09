@@ -192,6 +192,7 @@ class CstrFlashPlots:
                     loc = title_loc, ncol=len(legend_names))
         return [figure]
 
+    @staticmethod
     def plot_data(*, t, ulist, ylist, xlist,
                      figure_size, u_ylabel_xcoordinate, 
                      x_ylabel_xcoordinate, legend_names, 
@@ -212,6 +213,28 @@ class CstrFlashPlots:
 
         # Return the figure object.
         return figures
+
+    @staticmethod
+    def plot_sscosts(*, us1, us2, sscosts, legend_colors, 
+                        legend_names, figure_size, 
+                        ylabel_xcoordinate, left_label_frac):
+        """ Plot the profit curves. """
+
+        figure, axes = plt.subplots(nrows=1, ncols=1)
+
+        xlabel = r'$F \ (\textnormal{m}^3/\textnormal{min})$'
+        ylabel = r'$D \ (\textnormal{m}^3/\textnormal{min})$'
+        zlabel = r'Cost ($\$ $)'
+        for (cost, color) in zip(sscosts, legend_colors):
+            # Plot the corresponding data.
+            contour = axes.contourf(us1, us2, cost, 50)
+            figure.colorbar(contour)
+        # axes.legend(legend_names)
+        axes.set_xlabel(xlabel)
+        axes.set_ylabel(ylabel)
+        #axes.set_zlabel(zlabel, rotation=False)
+        # axes.set_xlim([np.min(us), np.max(us)])
+        return [figure]
 
 def plotAvgProfits(*, t, stageCostList,
                       legend_colors, legend_names, 

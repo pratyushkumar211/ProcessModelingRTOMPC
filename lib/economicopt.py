@@ -80,11 +80,13 @@ def get_ss_optimum(*, fxu, hx, lyu, parameters, guess):
     # Return the steady state solution.
     return xs, us, ys
 
-def get_sscost(*, fxu, hx, lyu, us, parameters):
+def get_sscost(*, fxu, hx, lyu, us, parameters, xguess=None):
     """ Setup and solve the steady state optimization. """
 
     # Get the sizes and actuator bounds.
     Nx, Nu = parameters['Nx'], parameters['Nu']
+    if xguess is None:
+        xguess = np.zeros((Nx, 1))
 
     # Get resf casadi function.
     xs = casadi.SX.sym('xs', Nx)
@@ -92,10 +94,9 @@ def get_sscost(*, fxu, hx, lyu, us, parameters):
 
     # Use rootfinder to get the SS.
     rootfinder = casadi.rootfinder('resfx', 'newton', resfx)
-    xguess = np.zeros((Nx, 1))
     xs = np.asarray(rootfinder(xguess))[:, 0]
 
-    # Setup NLP.
+    # Compute the cost based on steady state.
     sscost = lyu(hx(xs), us)
 
     # Return the steady state cost.
