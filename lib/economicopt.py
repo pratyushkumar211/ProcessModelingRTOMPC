@@ -113,6 +113,7 @@ def get_xuguess(*, model_type, plant_pars, Np=None):
         xs = np.concatenate((np.tile(ys, (Np+1, )), 
                              np.tile(us, (Np, ))))
     elif model_type == 'ICNN':
+        us = np.array([5., 2.])
         xs = None
     else:
         pass

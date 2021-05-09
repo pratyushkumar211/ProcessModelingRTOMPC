@@ -12,34 +12,27 @@ sys.path.append('lib/')
 import time
 import numpy as np
 from hybridid import PickleTool
-from tworeac_funcs import cost_yup
+from cstr_flash_funcs import cost_yup
 from economicopt import get_sscost
-from TwoReacHybridFuncs import (tworeacHybrid_fxu,
-                                tworeacHybrid_hx,
-                                get_tworeacHybrid_pars)         
-from BlackBoxFuncs import get_bbNN_pars, bbNN_fxu, bb_hx
+from BlackBoxFuncs import get_bbnn_pars, bbnn_fxu, bbnn_hx
 
-def generate_data(*, hyb_fxu, hyb_hx, hyb_pars, seed=10):
+def generate_data(*, fxu, hx, cost_yu, parameters, seed=10):
     """ Function to generate data to train the ICNN. """
 
     # Set numpy seed.
     np.random.seed(seed)
 
-    # Get cost function.
-    p = [100, 200]
-    cost_yu = lambda y, u: cost_yup(y, u, p)
-
     # Get a list of random inputs.
-    Nu = hyb_pars['Nu']
-    ulb, uub = hyb_pars['ulb'], hyb_pars['uub']
-    Ndata = 1000
+    Nu = parameters['Nu']
+    ulb, uub = parameters['ulb'], parameters['uub']
+    Ndata = 4000
     us_list = list((uub-ulb)*np.random.rand(Ndata, Nu) + ulb)
 
     # Get the corresponding steady state costs.
     ss_costs = []
     for us in us_list:
-        ss_cost = get_sscost(fxu=hyb_fxu, hx=hyb_hx, lyu=cost_yu, 
-                             us=us, parameters=hyb_pars)
+        ss_cost = get_sscost(fxu=fxu, hx=hx, lyu=cost_yu, 
+                             us=us, parameters=parameters)
         ss_costs += [ss_cost]
     lyu = np.array(ss_costs)
     u = np.array(us_list)
@@ -50,39 +43,34 @@ def generate_data(*, hyb_fxu, hyb_hx, hyb_pars, seed=10):
 def main():
     """ Main function to be executed. """
     # Load data.
-    tworeac_parameters = PickleTool.load(filename=
-                                        'tworeac_parameters.pickle',
+    cstr_flash_parameters = PickleTool.load(filename=
+                                        'cstr_flash_parameters.pickle',
                                          type='read')
-    tworeac_bbNNtrain = PickleTool.load(filename=
-                                        'tworeac_bbNNtrain.pickle',
+    cstr_flash_bbnntrain = PickleTool.load(filename=
+                                        'cstr_flash_bbnntrain.pickle',
                                          type='read')
-    tworeac_hybtrain = PickleTool.load(filename=
-                                        'tworeac_hybtrain.pickle',
-                                         type='read')
-    plant_pars = tworeac_parameters['plant_pars']
-    greybox_pars = tworeac_parameters['greybox_pars']
-
-    # Get the Hybrid model parameters and function handles.
-    hyb_pars = get_tworeacHybrid_pars(train=tworeac_hybtrain, 
-                                      greybox_pars=greybox_pars)
-    hyb_fxu = lambda x, u: tworeacHybrid_fxu(x, u, hyb_pars)
-    hyb_hx = lambda x: tworeacHybrid_hx(x)
+    plant_pars = cstr_flash_parameters['plant_pars']
 
     # Get the black-box model parameters and function handles.
-    bbNN_pars = get_bbNN_pars(train=tworeac_bbNNtrain, 
+    bbnn_pars = get_bbnn_pars(train=cstr_flash_bbnntrain, 
                               plant_pars=plant_pars)
-    bbNN_Fxu = lambda x, u: bbNN_fxu(x, u, bbNN_pars)
-    bbNN_hx = lambda x: bb_hx(x, bbNN_pars)
+    bbnn_f = lambda x, u: bbnn_fxu(x, u, bbnn_pars)
+    bbnn_h = lambda x: bbnn_hx(x, bbnn_pars)
+
+    # Cost. 
+    p = [10, 2000, 14000]
+    cost_yu = lambda y, u: cost_yup(y, u, p, plant_pars)
 
     # Generate data.
-    u, lyup = generate_data(hyb_fxu=hyb_fxu, hyb_hx=hyb_hx, 
-                            hyb_pars=hyb_pars)    
+    u, lyup = generate_data(fxu=bbnn_f, hx=bbnn_h, 
+                            cost_yu=cost_yu,
+                            parameters=bbnn_pars)    
     
     # Get data in dictionary.
-    tworeac_icnndata = dict(u=u, lyup=lyup)
+    cstr_flash_icnndata = dict(u=u, lyup=lyup)
 
     # Save data.
-    PickleTool.save(data_object=tworeac_icnndata,
-                    filename='tworeac_icnndata.pickle')
+    PickleTool.save(data_object=cstr_flash_icnndata,
+                    filename='cstr_flash_icnndata.pickle')
 
 main()

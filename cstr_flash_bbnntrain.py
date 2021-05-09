@@ -65,7 +65,7 @@ def main():
                              outputs=train_data['outputs'])
 
         # Train.
-        train_model(model=model, epochs=5000, batch_size=6, 
+        train_model(model=model, epochs=7500, batch_size=6, 
                       train_data=train_samples, trainval_data=trainval_data, 
                       stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 
@@ -87,7 +87,7 @@ def main():
     num_samples = np.asarray(num_samples) + trainval_data['inputs'].shape[1]
 
     # Save the weights.
-    cstr_flash_training_data = dict(Np=Np, fNDims=fNDims,
+    cstr_flash_train = dict(Np=Np, fNDims=fNDims,
                                  trained_weights=trained_weights,
                                  val_predictions=val_predictions,
                                  val_metrics=val_metrics,
@@ -95,7 +95,7 @@ def main():
                                  xuyscales=xuyscales)
     
     # Save data.
-    PickleTool.save(data_object=cstr_flash_training_data,
+    PickleTool.save(data_object=cstr_flash_train,
                     filename='cstr_flash_bbnntrain.pickle')
 
 main()

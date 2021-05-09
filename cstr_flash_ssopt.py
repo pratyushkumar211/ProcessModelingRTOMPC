@@ -20,6 +20,8 @@ from economicopt import get_sscost, get_ss_optimum, c2dNonlin, get_xuguess
 from BlackBoxFuncs import get_bbnn_pars, bbnn_fxu, bbnn_hx
 from cstr_flash_funcs import cost_yup, plant_ode, greybox_ode
 from plotting_funcs import CstrFlashPlots, PAPER_FIGSIZE
+from InputConvexFuncs import get_icnn_pars, icnn_lyu
+from InputConvexFuncs import get_ss_optimum as get_icnn_ss_optimum
 
 def main():
     """ Main function to be executed. """
@@ -31,9 +33,12 @@ def main():
     cstr_flash_bbnntrain = PickleTool.load(filename=
                                      'cstr_flash_bbnntrain.pickle',
                                       type='read')
+    cstr_flash_icnntrain = PickleTool.load(filename=
+                                     'cstr_flash_icnntrain.pickle',
+                                      type='read')
 
     # Get cost function handle.
-    p = [10, 2000, 18000]
+    p = [10, 2000, 14000]
     lyu = lambda y, u: cost_yup(y, u, p, plant_pars)
 
     # Get the plant function handle.
@@ -49,12 +54,16 @@ def main():
     bbnn_f = lambda x, u: bbnn_fxu(x, u, bbnn_pars)
     bbnn_h = lambda x: bbnn_hx(x, bbnn_pars)
 
+    # Get ICNN parameters and function.
+    icnn_pars = get_icnn_pars(train=cstr_flash_icnntrain, plant_pars=plant_pars)
+    icnn_lu = lambda u: icnn_lyu(u, icnn_pars)
+
     # Lists to loop over for different models.
-    model_types = ['Plant', 'Black-Box-NN']
-    fxu_list = [plant_fxu, bbnn_f]
-    hx_list = [plant_hx, bbnn_h]
-    par_list = [plant_pars, bbnn_pars]
-    Nps = [None, bbnn_pars['Np']]
+    model_types = ['Plant', 'Black-Box-NN', 'ICNN']
+    fxu_list = [plant_fxu, bbnn_f, None]
+    hx_list = [plant_hx, bbnn_h, None]
+    par_list = [plant_pars, bbnn_pars, None]
+    Nps = [None, bbnn_pars['Np'], None]
 
     # Loop over the different models, and obtain SS optimums.
     for (model_type, fxu, hx, model_pars, Np) in zip(model_types, fxu_list, 
@@ -65,13 +74,17 @@ def main():
                               plant_pars=plant_pars, Np=Np)
 
         # Get the steady state optimum.
-        xs, us, ys = get_ss_optimum(fxu=fxu, hx=hx, lyu=lyu, 
-                                    parameters=model_pars, guess=xuguess)
+        if model_type != 'ICNN':
+            xs, us, ys = get_ss_optimum(fxu=fxu, hx=hx, lyu=lyu, 
+                                        parameters=model_pars, guess=xuguess)
+        else:
+            uguess = np.array([5., 2.])
+            us = get_icnn_ss_optimum(lyu=icnn_lu, parameters=icnn_pars, 
+                                      uguess=xuguess['u'])
 
         # Print. 
         print("Model type: " + model_type)
         print('us: ' + str(us))
-        print('ys: ' + str(ys))
 
     # # Get a linspace of steady-state u values.
     # Nu = plant_pars['Nu']
