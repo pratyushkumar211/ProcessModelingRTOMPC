@@ -33,10 +33,10 @@ def main():
     num_samples = [hours*60 for hours in [6]]
 
     # Create some parameters.
-    ypred_xinsert_indices = [1, 2, 4, 5]
+    ypred_xinsert_indices = [3, 7]
     tthrow = 10
-    Np = 5
-    fNDims = [Ny + Np*(Ny+Nu), 128, 128, 6]
+    Np = 3
+    fNDims = [Ny + Np*(Ny+Nu), 128, 8]
 
     # Create lists to store data.
     trained_weights = []
@@ -65,7 +65,7 @@ def main():
                              outputs=train_data['outputs'])
 
         # Train.
-        train_model(model=model, epochs=7500, batch_size=6, 
+        train_model(model=model, epochs=6000, batch_size=6, 
                       train_data=train_samples, trainval_data=trainval_data, 
                       stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 
@@ -88,11 +88,11 @@ def main():
 
     # Save the weights.
     cstr_flash_train = dict(Np=Np, fNDims=fNDims,
-                                 trained_weights=trained_weights,
-                                 val_predictions=val_predictions,
-                                 val_metrics=val_metrics,
-                                 num_samples=num_samples,
-                                 xuyscales=xuyscales)
+                            trained_weights=trained_weights,
+                            val_predictions=val_predictions,
+                            val_metrics=val_metrics,
+                            num_samples=num_samples,
+                            xuyscales=xuyscales)
     
     # Save data.
     PickleTool.save(data_object=cstr_flash_train,

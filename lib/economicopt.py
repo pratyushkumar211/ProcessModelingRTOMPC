@@ -110,6 +110,7 @@ def get_xuguess(*, model_type, plant_pars, Np=None):
     elif model_type == 'Black-Box-NN':
         yindices = plant_pars['yindices']
         ys = plant_pars['xs'][yindices]
+        us = np.array([5., 8.])
         xs = np.concatenate((np.tile(ys, (Np+1, )), 
                              np.tile(us, (Np, ))))
     elif model_type == 'ICNN':

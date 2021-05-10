@@ -11,7 +11,7 @@ import mpctools as mpc
 import numpy as np
 import scipy.linalg
 from hybridid import (PickleTool, sample_prbs_like, SimData)
-from cstr_flash_funcs import plant_ode, greybox_ode
+from cstr_flash_funcs import plant_ode
 from cstr_flash_funcs import get_plant_pars, get_greybox_pars
 from hybridid import get_rectified_xs, get_model
 
@@ -68,24 +68,24 @@ def gen_train_val_data(*, parameters, num_traj,
     # Return the data list.
     return data_list
 
-def get_greybox_val_preds(*, parameters, training_data):
-    """ Use the input profile to compute
-        the prediction of the grey-box model
-        on the validation data. """
-    model = get_model(ode=greybox_ode, parameters=parameters, plant=False)
-    p = parameters['ps'][:, np.newaxis]
-    u = training_data[-1].u
-    Nsim = u.shape[0]
-    # Run the open-loop simulation.
-    for t in range(Nsim):
-        model.step(u[t:t+1, :], p)
-    # Insert Nones.
-    x = np.asarray(model.x[0:-1]).squeeze()
-    x = np.insert(x, [3, 7], np.nan*np.ones((Nsim, 2)), axis=1)
-    data = SimData(t=np.asarray(model.t[0:-1]).squeeze(), x=x,
-                   u=np.asarray(model.u).squeeze(),
-                   y=np.asarray(model.y[0:-1]).squeeze())
-    return data
+# def get_greybox_val_preds(*, parameters, training_data):
+#     """ Use the input profile to compute
+#         the prediction of the grey-box model
+#         on the validation data. """
+#     model = get_model(ode=greybox_ode, parameters=parameters, plant=False)
+#     p = parameters['ps'][:, np.newaxis]
+#     u = training_data[-1].u
+#     Nsim = u.shape[0]
+#     # Run the open-loop simulation.
+#     for t in range(Nsim):
+#         model.step(u[t:t+1, :], p)
+#     # Insert Nones.
+#     x = np.asarray(model.x[0:-1]).squeeze()
+#     x = np.insert(x, [3, 7], np.nan*np.ones((Nsim, 2)), axis=1)
+#     data = SimData(t=np.asarray(model.t[0:-1]).squeeze(), x=x,
+#                    u=np.asarray(model.u).squeeze(),
+#                    y=np.asarray(model.y[0:-1]).squeeze())
+#     return data
 
 # def get_mhe_estimator(*, parameters):
 #     """ Filter the training data using a combination 
@@ -195,8 +195,8 @@ def main():
 
     # Grey-box parameters.
     greybox_pars = get_greybox_pars(plant_pars=plant_pars)
-    greybox_pars['xs'] = get_rectified_xs(ode=greybox_ode, 
-                                          parameters=greybox_pars)
+    #greybox_pars['xs'] = get_rectified_xs(ode=greybox_ode, 
+    #                                      parameters=greybox_pars)
 
     # Generate training data.
     training_data = gen_train_val_data(parameters=plant_pars, num_traj=11,
@@ -209,14 +209,13 @@ def main():
     #                                                training_data=training_data)
     
     # Get grey-box model predictions on the validation data.
-    greybox_val_data = get_greybox_val_preds(parameters=greybox_pars,
-                                             training_data=training_data)
+    # greybox_val_data = get_greybox_val_preds(parameters=greybox_pars,
+    #                                          training_data=training_data)
     
     # Collect in a dict.
     cstr_flash_parameters = dict(plant_pars=plant_pars,
                                  greybox_pars=greybox_pars,
-                                 training_data=training_data,
-                                 greybox_val_data=greybox_val_data)
+                                 training_data=training_data)
 
     # Save data.
     PickleTool.save(data_object=cstr_flash_parameters,

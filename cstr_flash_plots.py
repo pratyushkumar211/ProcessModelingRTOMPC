@@ -69,8 +69,6 @@ def main():
     valdata_list = [cstr_flash_parameters['training_data'][-1]]
     #valdata_list += [cstr_flash_parameters['greybox_val_data']]
     valdata_list += bbnn_val_predictions
-    # valdata_list += koopman_val_predictions
-    # valdata_list += edkoopman_val_predictions
     (t, ulist, ylist, xlist) = get_plotting_array_list(simdata_list=
                                                     valdata_list[:1],
                                                 plot_range = (10, 12*60+120))
