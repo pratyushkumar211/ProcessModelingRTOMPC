@@ -26,10 +26,8 @@ def plant_ode(x, u, p, parameters):
     delH2 = parameters['delH2']
     E1byR = parameters['E1byR']
     E2byR = parameters['E2byR']
-    E3byR = parameters['E3byR']
     k1star = parameters['k1star']
     k2star = parameters['k2star']
-    k3star = parameters['k3star']
     Td = parameters['Td']
     Qb = parameters['Qb']
     Qr = parameters['Qr']
@@ -53,18 +51,16 @@ def plant_ode(x, u, p, parameters):
     # The rate constants.
     k1 = k1star*np.exp(-E1byR/Tr)
     k2 = k2star*np.exp(-E2byR/Tr)
-    k3 = k3star*np.exp(-E3byR/Tr)
 
     # The rate of reactions.
     r1 = k1*CAr
     r2 = k2*(CBr**3)
-    r3 = k3*CCr
 
     # Write the CSTR odes.
     dHrbydt = (F + D - Fr)/Ar
     dCArbydt = (F*(CAf - CAr) + D*(CAd - CAr))/(Ar*Hr) - r1
-    dCBrbydt = (-F*CBr + D*(CBd - CBr))/(Ar*Hr) + r1 - 3*r2 + r3
-    dCCrbydt = (-F*CCr + D*(CCd - CCr))/(Ar*Hr) + r2 - r3
+    dCBrbydt = (-F*CBr + D*(CBd - CBr))/(Ar*Hr) + r1 - 3*r2
+    dCCrbydt = (-F*CCr + D*(CCd - CCr))/(Ar*Hr) + r2
     dTrbydt = (F*(Tf - Tr) + D*(Td - Tr))/(Ar*Hr)
     dTrbydt = dTrbydt + (r1*delH1 + r2*delH2)/(pho*Cp)
     dTrbydt = dTrbydt - Qr/(pho*Ar*Cp*Hr)
@@ -150,19 +146,16 @@ def get_plant_pars():
     parameters['Ar'] = 3. # m^2
     parameters['Ab'] = 3. # m^2
     parameters['kr'] = 4. # m^2
-    parameters['kb'] = 2. # m^2
-    parameters['delH1'] = 100. # kJ/mol
-    parameters['delH2'] = 120. # kJ/mol
-    parameters['delH3'] = 50.
+    parameters['kb'] = 3. # m^2
+    parameters['delH1'] = 80. # kJ/mol
+    parameters['delH2'] = 90. # kJ/mol
     parameters['E1byR'] = 200. # K
     parameters['E2byR'] = 300. # K
-    parameters['E3byR'] = 500. # K
-    parameters['k1star'] = 0.3 # 1/min
-    parameters['k2star'] = 0.5 # 1/min
-    parameters['k3star'] = 0. # 1/min
+    parameters['k1star'] = 3. # 1/min
+    parameters['k2star'] = 0.2 # 1/min
     parameters['Td'] = 310 # K
     parameters['Qb'] = 200 # kJ/min
-    parameters['Qr'] = 200 # kJ/min
+    parameters['Qr'] = 1000 # kJ/min
 
     # Store the dimensions. 
     Nx, Nu, Np, Ny = 10, 2, 2, 8
@@ -212,7 +205,7 @@ def get_greybox_pars(*, plant_pars):
     #parameters['k1star'] = 0.3 # 1/min
     parameters['Td'] = 310 # K
     parameters['Qb'] = 200 # kJ/min
-    parameters['Qr'] = 200 # kJ/min
+    parameters['Qr'] = 1000 # kJ/min
 
     # Store the dimensions.
     parameters['Nx'] = 8
@@ -227,7 +220,7 @@ def get_greybox_pars(*, plant_pars):
     #gb_indices = [0, 1, 2, 4, 5, 6, 7, 9]
     #parameters['xs'] = plant_pars['xs'][gb_indices]
     #parameters['us'] = plant_pars['us']
-    parameters['ps'] = np.array([5., 320.])
+    parameters['ps'] = np.array([6., 320.])
 
     # The C matrix for the grey-box model.
     #parameters['yindices'] = [0, 1, 2, 3, 4, 5, 6, 7]
