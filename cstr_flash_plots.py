@@ -47,28 +47,17 @@ def main():
     cstr_flash_bbnntrain = PickleTool.load(filename=
                                          "cstr_flash_bbnntrain.pickle",
                                          type='read')
-    # cstr_flash_kooptrain = PickleTool.load(filename=
-    #                                         "cstr_flash_kooptrain.pickle",
-    #                                         type='read')
-    # cstr_flash_empc = PickleTool.load(filename="cstr_flash_empc.pickle",
-    #                                    type='read')
-    # cstr_flash_empc_twotier = PickleTool.load(filename=
-    #                                    "cstr_flash_empc_twotier.pickle",
-    #                                    type='read')
+    cstr_flash_hybtrain = PickleTool.load(filename=
+                                         "cstr_flash_hybtrain.pickle",
+                                         type='read')
 
-    # cstr_flash_encdeckooptrain = PickleTool.load(filename=
-    #                                         "cstr_flash_encdeckooptrain.pickle",
-    #                                         type='read')
-    #cstr_flash_rto = PickleTool.load(filename="cstr_flash_rto.pickle",
-    #                                   type='read')
 
     # Collect data to plot open-loop predictions.
     bbnn_val_predictions = cstr_flash_bbnntrain['val_predictions']
-    # koopman_val_predictions = cstr_flash_kooptrain['val_predictions']
-    # edkoopman_val_predictions = cstr_flash_encdeckooptrain['val_predictions']
+    hyb_val_predictions = cstr_flash_hybtrain['val_predictions']
     valdata_list = [cstr_flash_parameters['training_data'][-1]]
-    #valdata_list += [cstr_flash_parameters['greybox_val_data']]
     valdata_list += bbnn_val_predictions
+    valdata_list += hyb_val_predictions
     (t, ulist, ylist, xlist) = get_plotting_array_list(simdata_list=
                                                     valdata_list[:1],
                                                 plot_range = (10, 12*60+120))
@@ -79,8 +68,8 @@ def main():
     ulist += ulist_train
     ylist += ylist_train
     xlist += xlist_train
-    legend_names = ['Plant', 'Black-box']#'Black-box', 'Koopman', 'Koopman-ENC-DEC']
-    legend_colors = ['b', 'dimgrey']#'dimgrey', 'm', 'tomato']
+    legend_names = ['Plant', 'Black-box', 'Hybrid']
+    legend_colors = ['b', 'dimgrey', 'm']
     figures = []
     figures += CstrFlashPlots.plot_data(t=t, ulist=ulist, 
                                 ylist=ylist, xlist=xlist, 

@@ -76,7 +76,7 @@ def get_ss_optimum(*, fxu, hx, lyu, parameters, guess):
     xsol = np.asarray(nlp_soln['x'])[:, 0]
     xs, us = np.split(xsol, [Nx])
     ys = hx(xs)
-
+    breakpoint()
     # Return the steady state solution.
     return xs, us, ys
 

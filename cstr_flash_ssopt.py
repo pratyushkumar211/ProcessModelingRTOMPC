@@ -18,10 +18,35 @@ from matplotlib.backends.backend_pdf import PdfPages
 from hybridid import PickleTool, measurement
 from economicopt import get_sscost, get_ss_optimum, c2dNonlin, get_xuguess
 from BlackBoxFuncs import get_bbnn_pars, bbnn_fxu, bbnn_hx
+from CstrFlashHybridFuncs import (get_CstrFlash_hybrid_pars, 
+                                  CstrFlashHybrid_fxu, 
+                                  CstrFlashHybrid_hx)
 from cstr_flash_funcs import cost_yup, plant_ode
 from plotting_funcs import CstrFlashPlots, PAPER_FIGSIZE
 from InputConvexFuncs import get_icnn_pars, icnn_lyu
 from InputConvexFuncs import get_ss_optimum as get_icnn_ss_optimum
+
+def get_xuguess(*, model_type, plant_pars, Np=None):
+    """ Get x, u guess depending on model type. """
+    
+    # Steady state control.
+    us = plant_pars['us']
+
+    if model_type == 'Plant':
+        xs = plant_pars['xs']
+    elif model_type == 'Black-Box-NN' or model_type == 'Hybrid':
+        yindices = plant_pars['yindices']
+        ys = plant_pars['xs'][yindices]
+        us = np.array([10., 8.])
+        xs = np.concatenate((np.tile(ys, (Np+1, )), 
+                             np.tile(us, (Np, ))))
+    elif model_type == 'ICNN':
+        us = np.array([5., 2.])
+        xs = None
+    else:
+        pass
+    # Return as dict.
+    return dict(x=xs, u=us)
 
 def main():
     """ Main function to be executed. """
@@ -29,16 +54,22 @@ def main():
     cstr_flash_parameters = PickleTool.load(filename=
                                         'cstr_flash_parameters.pickle',
                                          type='read')
-    plant_pars = cstr_flash_parameters['plant_pars']
     cstr_flash_bbnntrain = PickleTool.load(filename=
                                      'cstr_flash_bbnntrain.pickle',
+                                      type='read')
+    cstr_flash_hybtrain = PickleTool.load(filename=
+                                     'cstr_flash_hybtrain.pickle',
                                       type='read')
     cstr_flash_icnntrain = PickleTool.load(filename=
                                      'cstr_flash_icnntrain.pickle',
                                       type='read')
 
+    # Get plant and grey-box model parameters.
+    plant_pars = cstr_flash_parameters['plant_pars']
+    greybox_pars = cstr_flash_parameters['greybox_pars']
+
     # Get cost function handle.
-    p = [10, 2000, 14000]
+    p = [10, 2000, 15000]
     lyu = lambda y, u: cost_yup(y, u, p, plant_pars)
 
     # Get the plant function handle.
@@ -54,16 +85,22 @@ def main():
     bbnn_f = lambda x, u: bbnn_fxu(x, u, bbnn_pars)
     bbnn_h = lambda x: bbnn_hx(x, bbnn_pars)
 
+    # Get Hybrid model parameters and function handles.
+    hyb_pars = get_CstrFlash_hybrid_pars(train=cstr_flash_hybtrain, 
+                                         greybox_pars=greybox_pars)
+    hyb_fxu = lambda x, u: CstrFlashHybrid_fxu(x, u, hyb_pars)
+    hyb_hx = lambda x: CstrFlashHybrid_hx(x, hyb_pars)
+
     # Get ICNN parameters and function.
-    icnn_pars = get_icnn_pars(train=cstr_flash_icnntrain, plant_pars=plant_pars)
-    icnn_lu = lambda u: icnn_lyu(u, icnn_pars)
+    #icnn_pars = get_icnn_pars(train=cstr_flash_icnntrain, plant_pars=plant_pars)
+    #icnn_lu = lambda u: icnn_lyu(u, icnn_pars)
 
     # Lists to loop over for different models.
-    model_types = ['Plant', 'Black-Box-NN']
-    fxu_list = [plant_fxu, bbnn_f, None]
-    hx_list = [plant_hx, bbnn_h, None]
-    par_list = [plant_pars, bbnn_pars, None]
-    Nps = [None, bbnn_pars['Np'], None]
+    model_types = ['Plant', 'Black-Box-NN', 'Hybrid']
+    fxu_list = [plant_fxu, bbnn_f, hyb_fxu]
+    hx_list = [plant_hx, bbnn_h, hyb_hx]
+    par_list = [plant_pars, bbnn_pars, hyb_pars]
+    Nps = [None, bbnn_pars['Np'], hyb_pars['Np']]
 
     # Loop over the different models, and obtain SS optimums.
     for (model_type, fxu, hx, model_pars, Np) in zip(model_types, fxu_list, 

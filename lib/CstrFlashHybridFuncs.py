@@ -319,7 +319,7 @@ def CstrFlashHybrid_fxu(x, u, parameters):
     k1 +=  fnn(nnInput, fNWeights)
 
     # Interpolate for k2 and k3.
-    ypseqInterp = interpolate_pseq(np.concatenate((ypseq, xG)), Np, Ny)
+    ypseqInterp = interpolate_pseq(np.concatenate((ypseq, xG)), Ny, Np)
     z = np.concatenate((ypseqInterp, upseq))
     
     # Get k2.
