@@ -7,7 +7,7 @@ Pratyush Kumar, pratyushkumar@ucsb.edu
 import sys
 import numpy as np
 import tensorflow as tf
-from BlackBoxFuncs import fnnTF
+from BlackBoxFuncs import fnnTF, fnn
 
 class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
     """
@@ -83,7 +83,7 @@ class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
 
         # Get the scaled derivative.
         xdot = tf.concat([dHrbydt, dCArbydt, dCBrbydt, dTrbydt,
-                          dHbbydt, dCAbbydt, dCBbbydt, dTbbydt], axis=-1)/xstd
+                          dHbbydt, dCAbbydt, dCBbbydt, dTbbydt], axis=-1)/ystd
 
         # Return the derivative.
         return xdot
@@ -170,9 +170,10 @@ class CstrFlashModel(tf.keras.Model):
         
         # Dense layers for the NN.
         fNLayers = []
-        for dim in fnn_dims[1:-1]:
+        for dim in fNDims[1:-1]:
             fNLayers += [tf.keras.layers.Dense(dim, activation='tanh')]
-        fNLayers += [tf.keras.layers.Dense(fnn_dims[-1])]
+        fNLayers += [tf.keras.layers.Dense(fNDims[-1], 
+                                          kernel_initializer='zeros')]
 
         # Build model.
         interpLayer = InterpolationLayer(p=Ny, Np=Np)
@@ -187,6 +188,14 @@ class CstrFlashModel(tf.keras.Model):
         # Construct model.
         super().__init__(inputs=[useq, xGz0], outputs=yseq)
 
+def create_model(*, Np, fNDims, xuyscales, greybox_pars):
+    """ Create/compile the two reaction model for training. """
+    model = CstrFlashModel(Np, fNDims, xuyscales, greybox_pars)
+    # Compile the nn model.
+    model.compile(optimizer='adam', loss='mean_squared_error')
+    # Return the compiled model.
+    return model
+
 def get_CstrFlash_hybrid_pars(*, train, greybox_pars):
     """ Get the hybrid model parameters. """
 
@@ -197,7 +206,8 @@ def get_CstrFlash_hybrid_pars(*, train, greybox_pars):
 
     # Sizes.
     Nx, Ny, Nu = greybox_pars['Nx'], greybox_pars['Ny'], greybox_pars['Nu']
-    parameters['Nx'], parameters['Ny'], parameters['Nu'] = Nx, Ny, Nu
+    parameters['Ny'], parameters['Nu'] = Ny, Nu
+    parameters['Nx'] = greybox_pars['Nx'] + train['Np']*(Ny + Nu)
     parameters['Np'] = train['Np']
 
     # Constraints.
@@ -215,73 +225,134 @@ def get_CstrFlash_hybrid_pars(*, train, greybox_pars):
     parameters['Td'] = greybox_pars['Td']
     parameters['Qb'] = greybox_pars['Qb']
     parameters['Qr'] = greybox_pars['Qr']
+    parameters['ps'] = greybox_pars['ps']
 
     # Return.
     return parameters
 
+def interpolate_pseq(pseq, p, Np):
+    """ y is of dimension: (None, (Np+1)*p)
+        Return y of dimension: (None, Np*p). """
+    pseq_interp = []
+    for t in range(Np):
+        pseq_interp += [0.5*(pseq[t*p:(t+1)*p] + pseq[(t+1)*p:(t+2)*p])]
+    # Return.
+    return np.concatenate(pseq_interp)
+
+def fgreybox(x, u, parameters):
+    """ Grey-box part of the hybrid model. """
+
+    # Extract the parameters.
+    pho = parameters['pho']
+    Cp = parameters['Cp']
+    Ar = parameters['Ar']
+    Ab = parameters['Ab']
+    kr = parameters['kr']
+    kb = parameters['kb']
+    Td = parameters['Td']
+    Qr = parameters['Qr']
+    Qb = parameters['Qb']
+    ps = parameters['ps']
+
+    # Extract the plant states into meaningful names.
+    Hr, CAr, CBr, Tr = x[0:4]
+    Hb, CAb, CBb, Tb = x[4:8]
+    F, D = u[0:2]
+    CAf, Tf = ps[0:2]
+    
+    # The outlet mass flow rates.
+    Fr = kr*np.sqrt(Hr)
+    Fb = kb*np.sqrt(Hb)
+    
+    # Write the CSTR odes.
+    dHrbydt = (F + D - Fr)/Ar
+    dCArbydt = (F*(CAf - CAr) - D*CAr)/(Ar*Hr)
+    dCBrbydt = (-F*CBr - D*CBr)/(Ar*Hr)
+    dTrbydt = (F*(Tf - Tr) + D*(Td - Tr))/(Ar*Hr) - - Qr/(pho*Ar*Cp*Hr)
+
+    # Write the flash odes.
+    dHbbydt = (Fr - Fb - D)/Ab
+    dCAbbydt = (Fr*(CAr - CAb) + D*CAb)/(Ab*Hb)
+    dCBbbydt = (Fr*(CBr - CBb) + D*CBb)/(Ab*Hb)
+    dTbbydt = (Fr*(Tr - Tb))/(Ab*Hb) + Qb/(pho*Ab*Cp*Hb)
+
+    # Get the derivative.
+    xdot = np.array([dHrbydt, dCArbydt, dCBrbydt, dTrbydt,
+                     dHbbydt, dCAbbydt, dCBbbydt, dTbbydt])
+
+    # Return.
+    return xdot
+
 def CstrFlashHybrid_fxu(x, u, parameters):
     """ The augmented continuous time model. """
 
-    # Extract a few parameters.
-    Ng = parameters['Ng']
-    Ny = parameters['Ny']
-    Nu = parameters['Nu']
-    ps = parameters['ps']
-    Npast = parameters['Npast']
-    Delta = parameters['Delta']
-    fnn_weights = parameters['fnn_weights']
-    xuyscales = parameters['xuyscales']
-    xmean, xstd = xuyscales['xscale']
-    umean, ustd = xuyscales['uscale']
-    ymean, ystd = xuyscales['yscale']
-    xGzmean = np.concatenate((xmean,
-                               np.tile(ymean, (Npast, )), 
-                               np.tile(umean, (Npast, ))))
-    xGzstd = np.concatenate((xstd,
-                             np.tile(ystd, (Npast, )), 
-                             np.tile(ustd, (Npast, ))))
+    # Sizes.
+    Nx, Ny, Nu = parameters['Nx'], parameters['Ny'], parameters['Nu']
+    Np = parameters['Np']
 
-    # Get some vectors.
-    xGz = (xGz - xGzmean)/xGzstd
-    u = (u-umean)/ustd
-    xG, ypseq, upseq = xGz[:Ng], xGz[Ng:Ng+Npast*Ny], xGz[-Npast*Nu:]
-    z = xGz[Ng:]
-    hxG = measurement(xG, parameters)
+    # Sample time.
+    Delta = parameters['Delta']
+
+    # NN weights.
+    fNWeights = parameters['fNWeights']
+
+    # Get scaling.
+    xuyscales = parameters['xuyscales']
+    ymean, ystd = xuyscales['yscale']
+    umean, ustd = xuyscales['uscale']
+    xmean = np.concatenate((np.tile(ymean, (Np + 1, )), 
+                            np.tile(umean, (Np, ))))
+    xstd = np.concatenate((np.tile(ystd, (Np + 1, )), 
+                           np.tile(ustd, (Np, ))))
+
+    # Scale.
+    x = (x - xmean)/xstd
+    u = (u - umean)/ustd
+
+    # Extract vectors.
+    xG, ypseq, upseq = x[:Ny], x[Ny:Ny + Np*Ny], x[-Np*Nu:]
+    z = x[Ny:]
     
     # Get k1.
-    k1 = greybox_ode(xG*xstd + xmean, u*ustd + umean, ps, parameters)/xstd
-    k1 +=  fnn(xG, z, u, Npast, xuyscales, fnn_weights)
+    nnInput = np.concatenate((xG, z, u))
+    k1 = fgreybox(xG*ystd + ymean, u*ustd + umean, parameters)/ystd
+    k1 +=  fnn(nnInput, fNWeights)
 
     # Interpolate for k2 and k3.
-    ypseq_interp = interpolate_yseq(np.concatenate((ypseq, hxG)), Npast, Ny)
-    z = np.concatenate((ypseq_interp, upseq))
+    ypseqInterp = interpolate_pseq(np.concatenate((ypseq, xG)), Np, Ny)
+    z = np.concatenate((ypseqInterp, upseq))
     
     # Get k2.
-    k2 = greybox_ode((xG + Delta*(k1/2))*xstd + xmean, u*ustd + umean, 
-                       ps, parameters)/xstd
-    k2 += fnn(xG + Delta*(k1/2), z, u, Npast, xuyscales, fnn_weights)
+    nnInput = np.concatenate((xG + Delta*(k1/2), z, u))
+    k2 = fgreybox((xG + Delta*(k1/2))*ystd + ymean, u*ustd + umean, 
+                       parameters)/ystd
+    k2 += fnn(nnInput, fNWeights)
 
     # Get k3.
-    k3 = greybox_ode((xG + Delta*(k2/2))*xstd + xmean, u*ustd + umean, 
-                       ps, parameters)/xstd
-    k3 += fnn(xG + Delta*(k2/2), z, u, Npast, xuyscales, fnn_weights)
+    nnInput = np.concatenate((xG + Delta*(k2/2), z, u))
+    k3 = fgreybox((xG + Delta*(k2/2))*ystd + ymean, u*ustd + umean, 
+                        parameters)/ystd
+    k3 += fnn(nnInput, fNWeights)
 
     # Get k4.
-    ypseq_shifted = np.concatenate((ypseq[Ny:], hxG))
-    z = np.concatenate((ypseq_shifted, upseq))
-    k4 = greybox_ode((xG + Delta*k3)*xstd + xmean, u*ustd + umean, 
-                       ps, parameters)/xstd
-    k4 += fnn(xG + Delta*k3, z, u, Npast, xuyscales, fnn_weights)
+    ypseqShifted = np.concatenate((ypseq[Ny:], xG))
+    z = np.concatenate((ypseqShifted, upseq))
+    nnInput = np.concatenate((xG + Delta*k3, z, u))
+    k4 = fgreybox((xG + Delta*k3)*ystd + ymean, u*ustd + umean, 
+                      parameters)/ystd
+    k4 += fnn(nnInput, fNWeights)
     
-    # Get the current output/state and the next time step.
+    # Get the state at the next time step.
     xGplus = xG + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
-    zplus = np.concatenate((ypseq_shifted, upseq[Nu:], u))
-    xGzplus = np.concatenate((xGplus, zplus))
-    xGzplus = xGzplus*xGzstd + xGzmean
+    zplus = np.concatenate((ypseqShifted, upseq[Nu:], u))
+    xplus = np.concatenate((xGplus, zplus))
+    xplus = xplus*xstd + xmean
 
     # Return the sum.
-    return xGzplus
+    return xplus
 
-def CstrFlashHybrid_hx(x):
+def CstrFlashHybrid_hx(x, parameters):
     """ Measurement function. """
-    return x
+    Ny = parameters['Ny']
+    # Return only the x.
+    return x[:Ny]

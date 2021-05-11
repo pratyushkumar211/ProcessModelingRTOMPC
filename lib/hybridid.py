@@ -72,15 +72,6 @@ def resample_fast(*, x, xDelta, newDelta, resample_type):
         return np.concatenate([np.linspace(x[t, :], x[t+1, :], Delta_ratio)
                                for t in range(x.shape[0]-1)], axis=0)
 
-# def interpolate_yseq(yseq, Npast, Ny):
-#     """ y is of dimension: (None, (Npast+1)*p)
-#         Return y of dimension: (None, Npast*p). """
-#     yseq_interp = []
-#     for t in range(Npast):
-#         yseq_interp.append(0.5*(yseq[t*Ny:(t+1)*Ny] + yseq[(t+1)*Ny:(t+2)*Ny]))
-#     # Return.
-#     return np.concatenate(yseq_interp)
-
 def get_scaling(*, data):
     """ Scale the input/output. """
     # Xmean.

@@ -227,7 +227,7 @@ def get_greybox_pars(*, plant_pars):
     #gb_indices = [0, 1, 2, 4, 5, 6, 7, 9]
     #parameters['xs'] = plant_pars['xs'][gb_indices]
     #parameters['us'] = plant_pars['us']
-    #parameters['ps'] = np.array([5., 320.])
+    parameters['ps'] = np.array([5., 320.])
 
     # The C matrix for the grey-box model.
     #parameters['yindices'] = [0, 1, 2, 3, 4, 5, 6, 7]
