@@ -15,22 +15,22 @@ class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
     dxG/dt  = fG(xG, u) + f_N(xG, y_{k-N_p:k-1}, u_{k-N_p:k-1}), y = xG
     """
     def __init__(self, Np, interpLayer, fNLayers, xuyscales, 
-                       grey_box_pars, **kwargs):
+                       greybox_pars, **kwargs):
         super(CstrFlashHybridCell, self).__init__(**kwargs)
 
         # Save attributes.
         self.Np = Np
         self.interpLayer = interpLayer
         self.fNLayers = fNLayers
-        self.parameters = grey_box_pars
+        self.parameters = greybox_pars
         self.xuyscales = xuyscales
-        self.Nx, self.Ny, self.Nu = (grey_box_pars['Ng'],
-                                     grey_box_pars['Ny'],
-                                     grey_box_pars['Nu'])
+        self.Nx, self.Ny, self.Nu = (greybox_pars['Nx'],
+                                     greybox_pars['Ny'],
+                                     greybox_pars['Nu'])
     
     @property
     def state_size(self):
-        return self.Ng + self.Np*(self.Ny + self.Nu)
+        return self.Nx + self.Np*(self.Ny + self.Nu)
     
     @property
     def output_size(self):
@@ -49,12 +49,14 @@ class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
         kr = self.parameters['kr']
         kb = self.parameters['kb']
         Td = self.parameters['Td']
+        Qr = self.parameters['Qr']
+        Qb = self.parameters['Qb']
         ps = self.parameters['ps']
 
         # Scale back to physical states.
-        xmean, xstd = self.xuyscales['xscale']
+        ymean, ystd = self.xuyscales['yscale']
         umean, ustd = self.xuyscales['uscale']
-        x = x*xstd + xmean
+        x = x*ystd + ymean
         u = u*ustd + umean
 
         # Extract the plant states into meaningful names.
@@ -69,16 +71,14 @@ class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
         
         # Write the CSTR odes.
         dHrbydt = (F + D - Fr)/Ar
-        dCArbydt = (F*(CAf - CAr) + D*(CAd - CAr))/(Ar*Hr) - r1
-        dCBrbydt = (-F*CBr + D*(CBd - CBr))/(Ar*Hr) + r1
-        dTrbydt = (F*(Tf - Tr) + D*(Td - Tr))/(Ar*Hr)
-        dTrbydt = dTrbydt + (r1*delH1)/(pho*Cp)
-        dTrbydt = dTrbydt - Qr/(pho*Ar*Cp*Hr)
+        dCArbydt = (F*(CAf - CAr) - D*CAr)/(Ar*Hr)
+        dCBrbydt = (-F*CBr - D*CBr)/(Ar*Hr)
+        dTrbydt = (F*(Tf - Tr) + D*(Td - Tr))/(Ar*Hr) - - Qr/(pho*Ar*Cp*Hr)
 
         # Write the flash odes.
         dHbbydt = (Fr - Fb - D)/Ab
-        dCAbbydt = (Fr*(CAr - CAb) + D*(CAb - CAd))/(Ab*Hb)
-        dCBbbydt = (Fr*(CBr - CBb) + D*(CBb - CBd))/(Ab*Hb)
+        dCAbbydt = (Fr*(CAr - CAb) + D*CAb)/(Ab*Hb)
+        dCBbbydt = (Fr*(CBr - CBb) + D*CBb)/(Ab*Hb)
         dTbbydt = (Fr*(Tr - Tb))/(Ab*Hb) + Qb/(pho*Ab*Cp*Hb)
 
         # Get the scaled derivative.
@@ -88,20 +88,6 @@ class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
         # Return the derivative.
         return xdot
 
-    def _hxg(self, xg):
-        """ Measurement function. """
-        yindices = self.parameters['yindices']
-        # Return the measured grey-box states.
-        return tf.gather(xg, yindices, axis=-1)
-
-    def _fnn(self, xg, z, u):
-        """ Compute the output of the feedforward network. """
-        fnn_output = tf.concat((xg, z, u), axis=-1)
-        for layer in self.fnn_layers:
-            fnn_output = layer(fnn_output)
-        # Return.
-        return fnn_output
-
     def call(self, inputs, states):
         """ Call function of the hybrid RNN cell.
             Dimension of states: (None, Ng + Np*(Ny + Nu))
@@ -109,48 +95,45 @@ class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
         """
         # Extract variables.
         [xGz] = states
-        [xG, z] = tf.split(xGz, [self.Ng, self.Np*(self.Ny+self.Nu)],
+        [xG, z] = tf.split(xGz, [self.Nx, self.Np*(self.Ny+self.Nu)],
                            axis=-1)
         (ypseq, upseq) = tf.split(z, [self.Np*self.Ny, self.Np*self.Nu],
                                   axis=-1)
         u = inputs
 
-        # Extract parameters.
+        # Sample time.
         Delta = self.parameters['Delta']
-        xscale, yscale = self.xuyscales['xscale'], self.xuyscales['yscale']
-        xmean, xstd = xscale
-        ymean, ystd = yscale
 
         # Get k1.
-        k1 = self._fg(xG, u) + self._fnn(xG, z, u)
+        nnInput = tf.concat((xG, z, u), axis=-1)
+        k1 = self._fg(xG, u) + fnnTF(nnInput, self.fNLayers)
 
         # Interpolate for k2 and k3.
-        hxG = self._hxg(xG)
-        ypseq_interp = self.interp_layer(tf.concat((ypseq, hxG), axis=-1))
-        z = tf.concat((ypseq_interp, upseq), axis=-1)
+        ypseqInterp = self.interpLayer(tf.concat((ypseq, xG), axis=-1))
+        z = tf.concat((ypseqInterp, upseq), axis=-1)
         
         # Get k2.
-        k2 = self._fg(xG + Delta*(k1/2), u) + self._fnn(xG + Delta*(k1/2), z, u)
+        nnInput = tf.concat((xG + Delta*(k1/2), z, u), axis=-1)
+        k2 = self._fg(xG + Delta*(k1/2), u) + fnnTF(nnInput, self.fNLayers)
 
         # Get k3.
-        k3 = self._fg(xG + Delta*(k2/2), u) + self._fnn(xG + Delta*(k2/2), z, u)
+        nnInput = tf.concat((xG + Delta*(k2/2), z, u), axis=-1)
+        k3 = self._fg(xG + Delta*(k2/2), u) + fnnTF(nnInput, self.fNLayers)
 
         # Get k4.
-        ypseq_shifted = tf.concat((ypseq[..., self.Ny:], hxG), axis=-1)
-        z = tf.concat((ypseq_shifted, upseq), axis=-1)
-        k4 = self._fg(xG + Delta*k3, u) + self._fnn(xG + Delta*k3, z, u)
+        ypseqShifted = tf.concat((ypseq[..., self.Ny:], xG), axis=-1)
+        z = tf.concat((ypseqShifted, upseq), axis=-1)
+        nnInput = tf.concat((xG + Delta*k3, z, u), axis=-1)
+        k4 = self._fg(xG + Delta*k3, u) + fnnTF(nnInput, self.fNLayers)
         
         # Get the current output/state and the next time step.
-        y = (self._hxg(xG*xstd + xmean) - ymean)/ystd
+        y = xG
         xGplus = xG + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
-        zplus = tf.concat((ypseq_shifted, upseq[..., self.Nu:], u), axis=-1)
+        zplus = tf.concat((ypseqShifted, upseq[..., self.Nu:], u), axis=-1)
         xplus = tf.concat((xGplus, zplus), axis=-1)
-
-        # Measurement/Grey-box state.
-        output = tf.concat((y, xG), axis=-1)
         
         # Return output and states at the next time-step.
-        return (output, xplus)
+        return y, xplus
 
 class InterpolationLayer(tf.keras.layers.Layer):
     """
@@ -170,50 +153,135 @@ class InterpolationLayer(tf.keras.layers.Layer):
         for t in range(self.Np):
             yseq_interp.append(0.5*(yseq[..., t*self.p:(t+1)*self.p] + 
                                     yseq[..., (t+1)*self.p:(t+2)*self.p]))
+        # Return.
         return tf.concat(yseq_interp, axis=-1)
-
-    def get_config(self):
-        return super().get_config()
 
 class CstrFlashModel(tf.keras.Model):
     """ Custom model for the CSTR Flash model. """
-    def __init__(self, Np, fNDims, xuyscales, grey_box_pars):
+    def __init__(self, Np, fNDims, xuyscales, greybox_pars):
 
         # Get the size and input layer, and initial state layer.
-        Ny, Nu = grey_box_pars['Ny'], grey_box_pars['Nu']
+        Nx, Ny = greybox_pars['Nx'], greybox_pars['Ny']
+        Nu = greybox_pars['Nu']
+
+        # Create inputs to the model.
         useq = tf.keras.Input(name='u', shape=(None, Nu))
-        if model_type == 'black-box':
-            initial_state = tf.keras.Input(name='yz0',
-                                           shape=(Ny + Np*(Ny+Nu), ))
-        else:
-            initial_state = tf.keras.Input(name='xGz0',
-                                           shape=(Ng + Np*(Ny+Nu), ))
+        xGz0 = tf.keras.Input(name='xGz0', shape=(Nx + Np*(Ny+Nu), ))
         
         # Dense layers for the NN.
-        fnn_layers = []
+        fNLayers = []
         for dim in fnn_dims[1:-1]:
-            fnn_layers.append(tf.keras.layers.Dense(dim, activation='tanh'))
-        fnn_layers.append(tf.keras.layers.Dense(fnn_dims[-1]))
+            fNLayers += [tf.keras.layers.Dense(dim, activation='tanh')]
+        fNLayers += [tf.keras.layers.Dense(fnn_dims[-1])]
 
-        # Build model depending on option.
-        if model_type == 'black-box':
-            cstr_flash_cell = BlackBoxCell(Np, Ny, Nu, fnn_layers)
-
-        if model_type == 'hybrid':
-            interp_layer = InterpolationLayer(p=Ny, Np=Np)
-            cstr_flash_cell = CstrFlashHybridCell(Np, interp_layer, fnn_layers,
-                                            xuyscales, cstr_flash_parameters)
+        # Build model.
+        interpLayer = InterpolationLayer(p=Ny, Np=Np)
+        cstr_flash_cell = CstrFlashHybridCell(Np, interpLayer, fNLayers,
+                                              xuyscales, greybox_pars)
 
         # Construct the RNN layer and the computation graph.
         cstr_flash_layer = tf.keras.layers.RNN(cstr_flash_cell,
                                                return_sequences=True)
-        layer_output = cstr_flash_layer(inputs=layer_input,
-                                        initial_state=[initial_state])
-        if model_type == 'black-box':
-            outputs = [layer_output]
-        else:
-            y, xG = tf.split(layer_output, [Ny, Ng], axis=-1)
-            outputs = [y, xG]
+        yseq = cstr_flash_layer(inputs=useq, initial_state=[xGz0])
+
         # Construct model.
-        super().__init__(inputs=[layer_input, initial_state],
-                         outputs=outputs)
+        super().__init__(inputs=[useq, xGz0], outputs=yseq)
+
+def get_CstrFlash_hybrid_pars(*, train, greybox_pars):
+    """ Get the hybrid model parameters. """
+
+    # Get black-box model parameters.
+    parameters = {}
+    parameters['fNWeights'] = train['trained_weights'][-1]
+    parameters['xuyscales'] = train['xuyscales']
+
+    # Sizes.
+    Nx, Ny, Nu = greybox_pars['Nx'], greybox_pars['Ny'], greybox_pars['Nu']
+    parameters['Nx'], parameters['Ny'], parameters['Nu'] = Nx, Ny, Nu
+    parameters['Np'] = train['Np']
+
+    # Constraints.
+    parameters['ulb'] = greybox_pars['ulb']
+    parameters['uub'] = greybox_pars['uub']
+    
+    # Grey-box model parameters.
+    parameters['Delta'] = greybox_pars['Delta'] # min
+    parameters['pho'] = greybox_pars['pho']
+    parameters['Cp'] = greybox_pars['Cp']
+    parameters['Ar'] = greybox_pars['Ar']
+    parameters['Ab'] = greybox_pars['Ab']
+    parameters['kr'] = greybox_pars['kr']
+    parameters['kb'] = greybox_pars['kb']
+    parameters['Td'] = greybox_pars['Td']
+    parameters['Qb'] = greybox_pars['Qb']
+    parameters['Qr'] = greybox_pars['Qr']
+
+    # Return.
+    return parameters
+
+def CstrFlashHybrid_fxu(x, u, parameters):
+    """ The augmented continuous time model. """
+
+    # Extract a few parameters.
+    Ng = parameters['Ng']
+    Ny = parameters['Ny']
+    Nu = parameters['Nu']
+    ps = parameters['ps']
+    Npast = parameters['Npast']
+    Delta = parameters['Delta']
+    fnn_weights = parameters['fnn_weights']
+    xuyscales = parameters['xuyscales']
+    xmean, xstd = xuyscales['xscale']
+    umean, ustd = xuyscales['uscale']
+    ymean, ystd = xuyscales['yscale']
+    xGzmean = np.concatenate((xmean,
+                               np.tile(ymean, (Npast, )), 
+                               np.tile(umean, (Npast, ))))
+    xGzstd = np.concatenate((xstd,
+                             np.tile(ystd, (Npast, )), 
+                             np.tile(ustd, (Npast, ))))
+
+    # Get some vectors.
+    xGz = (xGz - xGzmean)/xGzstd
+    u = (u-umean)/ustd
+    xG, ypseq, upseq = xGz[:Ng], xGz[Ng:Ng+Npast*Ny], xGz[-Npast*Nu:]
+    z = xGz[Ng:]
+    hxG = measurement(xG, parameters)
+    
+    # Get k1.
+    k1 = greybox_ode(xG*xstd + xmean, u*ustd + umean, ps, parameters)/xstd
+    k1 +=  fnn(xG, z, u, Npast, xuyscales, fnn_weights)
+
+    # Interpolate for k2 and k3.
+    ypseq_interp = interpolate_yseq(np.concatenate((ypseq, hxG)), Npast, Ny)
+    z = np.concatenate((ypseq_interp, upseq))
+    
+    # Get k2.
+    k2 = greybox_ode((xG + Delta*(k1/2))*xstd + xmean, u*ustd + umean, 
+                       ps, parameters)/xstd
+    k2 += fnn(xG + Delta*(k1/2), z, u, Npast, xuyscales, fnn_weights)
+
+    # Get k3.
+    k3 = greybox_ode((xG + Delta*(k2/2))*xstd + xmean, u*ustd + umean, 
+                       ps, parameters)/xstd
+    k3 += fnn(xG + Delta*(k2/2), z, u, Npast, xuyscales, fnn_weights)
+
+    # Get k4.
+    ypseq_shifted = np.concatenate((ypseq[Ny:], hxG))
+    z = np.concatenate((ypseq_shifted, upseq))
+    k4 = greybox_ode((xG + Delta*k3)*xstd + xmean, u*ustd + umean, 
+                       ps, parameters)/xstd
+    k4 += fnn(xG + Delta*k3, z, u, Npast, xuyscales, fnn_weights)
+    
+    # Get the current output/state and the next time step.
+    xGplus = xG + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
+    zplus = np.concatenate((ypseq_shifted, upseq[Nu:], u))
+    xGzplus = np.concatenate((xGplus, zplus))
+    xGzplus = xGzplus*xGzstd + xGzmean
+
+    # Return the sum.
+    return xGzplus
+
+def CstrFlashHybrid_hx(x):
+    """ Measurement function. """
+    return x

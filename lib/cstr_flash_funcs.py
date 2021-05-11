@@ -198,9 +198,9 @@ def get_greybox_pars(*, plant_pars):
 
     # Parameters.
     parameters = {}
-    parameters['alphaA'] = 8.
-    parameters['alphaB'] = 1.
-    parameters['alphaC'] = 1.
+    #parameters['alphaA'] = 8.
+    #parameters['alphaB'] = 1.
+    #parameters['alphaC'] = 1.
     parameters['pho'] = 6. # Kg/m^3
     parameters['Cp'] = 3. # KJ/(Kg-K)
     parameters['Ar'] = 3. # m^2
@@ -233,8 +233,8 @@ def get_greybox_pars(*, plant_pars):
     #parameters['yindices'] = [0, 1, 2, 3, 4, 5, 6, 7]
 
     # Get the constraints.
-    #parameters['ulb'] = plant_pars['ulb']
-    #parameters['uub'] = plant_pars['uub']
+    parameters['ulb'] = plant_pars['ulb']
+    parameters['uub'] = plant_pars['uub']
     
     # Return the parameters dict.
     return parameters

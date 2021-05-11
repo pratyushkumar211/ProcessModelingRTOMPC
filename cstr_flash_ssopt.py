@@ -18,7 +18,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 from hybridid import PickleTool, measurement
 from economicopt import get_sscost, get_ss_optimum, c2dNonlin, get_xuguess
 from BlackBoxFuncs import get_bbnn_pars, bbnn_fxu, bbnn_hx
-from cstr_flash_funcs import cost_yup, plant_ode, greybox_ode
+from cstr_flash_funcs import cost_yup, plant_ode
 from plotting_funcs import CstrFlashPlots, PAPER_FIGSIZE
 from InputConvexFuncs import get_icnn_pars, icnn_lyu
 from InputConvexFuncs import get_ss_optimum as get_icnn_ss_optimum
@@ -59,7 +59,7 @@ def main():
     icnn_lu = lambda u: icnn_lyu(u, icnn_pars)
 
     # Lists to loop over for different models.
-    model_types = ['Plant', 'Black-Box-NN', 'ICNN']
+    model_types = ['Plant', 'Black-Box-NN']
     fxu_list = [plant_fxu, bbnn_f, None]
     hx_list = [plant_hx, bbnn_h, None]
     par_list = [plant_pars, bbnn_pars, None]
