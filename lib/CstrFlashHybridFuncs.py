@@ -73,7 +73,7 @@ class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
         dHrbydt = (F + D - Fr)/Ar
         dCArbydt = (F*(CAf - CAr) - D*CAr)/(Ar*Hr)
         dCBrbydt = (-F*CBr - D*CBr)/(Ar*Hr)
-        dTrbydt = (F*(Tf - Tr) + D*(Td - Tr))/(Ar*Hr) - - Qr/(pho*Ar*Cp*Hr)
+        dTrbydt = (F*(Tf - Tr) + D*(Td - Tr))/(Ar*Hr) - Qr/(pho*Ar*Cp*Hr)
 
         # Write the flash odes.
         dHbbydt = (Fr - Fb - D)/Ab
@@ -173,7 +173,7 @@ class CstrFlashModel(tf.keras.Model):
         for dim in fNDims[1:-1]:
             fNLayers += [tf.keras.layers.Dense(dim, activation='tanh')]
         fNLayers += [tf.keras.layers.Dense(fNDims[-1], 
-                                          kernel_initializer='zeros')]
+                                           kernel_initializer='zeros')]
 
         # Build model.
         interpLayer = InterpolationLayer(p=Ny, Np=Np)
@@ -207,7 +207,7 @@ def get_CstrFlash_hybrid_pars(*, train, greybox_pars):
     # Sizes.
     Nx, Ny, Nu = greybox_pars['Nx'], greybox_pars['Ny'], greybox_pars['Nu']
     parameters['Ny'], parameters['Nu'] = Ny, Nu
-    parameters['Nx'] = greybox_pars['Nx'] + train['Np']*(Ny + Nu)
+    parameters['Nx'] = Nx + train['Np']*(Ny + Nu)
     parameters['Np'] = train['Np']
 
     # Constraints.
@@ -268,7 +268,7 @@ def fgreybox(x, u, parameters):
     dHrbydt = (F + D - Fr)/Ar
     dCArbydt = (F*(CAf - CAr) - D*CAr)/(Ar*Hr)
     dCBrbydt = (-F*CBr - D*CBr)/(Ar*Hr)
-    dTrbydt = (F*(Tf - Tr) + D*(Td - Tr))/(Ar*Hr) - - Qr/(pho*Ar*Cp*Hr)
+    dTrbydt = (F*(Tf - Tr) + D*(Td - Tr))/(Ar*Hr) - Qr/(pho*Ar*Cp*Hr)
 
     # Write the flash odes.
     dHbbydt = (Fr - Fb - D)/Ab
