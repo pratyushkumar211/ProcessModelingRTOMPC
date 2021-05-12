@@ -37,7 +37,7 @@ def get_xuguess(*, model_type, plant_pars, Np=None):
     elif model_type == 'Black-Box-NN' or model_type == 'Hybrid':
         yindices = plant_pars['yindices']
         ys = plant_pars['xs'][yindices]
-        us = np.array([15., 8.])
+        us = np.array([7., 8.])
         xs = np.concatenate((np.tile(ys, (Np+1, )), 
                              np.tile(us, (Np, ))))
     elif model_type == 'ICNN':
@@ -69,7 +69,7 @@ def main():
     greybox_pars = cstr_flash_parameters['greybox_pars']
 
     # Get cost function handle.
-    p = [10, 3000, 14000]
+    p = [30, 2200, 10000]
     lyu = lambda y, u: cost_yup(y, u, p, plant_pars)
 
     # Get the plant function handle.
@@ -80,10 +80,10 @@ def main():
     plant_hx = lambda x: measurement(x, plant_pars)
 
     # Get the black-box model parameters and function handles.
-    # bbnn_pars = get_bbnn_pars(train=cstr_flash_bbnntrain, 
-    #                           plant_pars=plant_pars)
-    # bbnn_f = lambda x, u: bbnn_fxu(x, u, bbnn_pars)
-    # bbnn_h = lambda x: bbnn_hx(x, bbnn_pars)
+    bbnn_pars = get_bbnn_pars(train=cstr_flash_bbnntrain, 
+                              plant_pars=plant_pars)
+    bbnn_f = lambda x, u: bbnn_fxu(x, u, bbnn_pars)
+    bbnn_h = lambda x: bbnn_hx(x, bbnn_pars)
 
     # Get Hybrid model parameters and function handles.
     hyb_pars = get_CstrFlash_hybrid_pars(train=cstr_flash_hybtrain, 
@@ -96,11 +96,11 @@ def main():
     icnn_lu = lambda u: icnn_lyu(u, icnn_pars)
 
     # Lists to loop over for different models.
-    model_types = ['Plant', 'Hybrid', 'ICNN']
-    fxu_list = [plant_fxu, hyb_fxu, None]
-    hx_list = [plant_hx, hyb_hx, None]
-    par_list = [plant_pars, hyb_pars, None]
-    Nps = [None, hyb_pars['Np'], None]
+    model_types = ['Plant', 'Black-Box-NN', 'Hybrid']
+    fxu_list = [plant_fxu, bbnn_f, hyb_fxu, None]
+    hx_list = [plant_hx, bbnn_h, hyb_hx, None]
+    par_list = [plant_pars, bbnn_pars, hyb_pars, None]
+    Nps = [None, bbnn_pars['Np'], hyb_pars['Np'], None]
 
     # Loop over the different models, and obtain SS optimums.
     for (model_type, fxu, hx, model_pars, Np) in zip(model_types, fxu_list, 
