@@ -37,7 +37,7 @@ def get_xuguess(*, model_type, plant_pars, Np=None):
     elif model_type == 'Black-Box-NN' or model_type == 'Hybrid':
         yindices = plant_pars['yindices']
         ys = plant_pars['xs'][yindices]
-        us = np.array([5., 8.])
+        us = np.array([10., 8.])
         xs = np.concatenate((np.tile(ys, (Np+1, )), 
                              np.tile(us, (Np, ))))
     elif model_type == 'ICNN':
@@ -80,10 +80,10 @@ def main():
     plant_hx = lambda x: measurement(x, plant_pars)
 
     # Get the black-box model parameters and function handles.
-    bbnn_pars = get_bbnn_pars(train=cstr_flash_bbnntrain, 
-                              plant_pars=plant_pars)
-    bbnn_f = lambda x, u: bbnn_fxu(x, u, bbnn_pars)
-    bbnn_h = lambda x: bbnn_hx(x, bbnn_pars)
+    # bbnn_pars = get_bbnn_pars(train=cstr_flash_bbnntrain, 
+    #                           plant_pars=plant_pars)
+    # bbnn_f = lambda x, u: bbnn_fxu(x, u, bbnn_pars)
+    # bbnn_h = lambda x: bbnn_hx(x, bbnn_pars)
 
     # Get Hybrid model parameters and function handles.
     hyb_pars = get_CstrFlash_hybrid_pars(train=cstr_flash_hybtrain, 
@@ -92,15 +92,15 @@ def main():
     hyb_hx = lambda x: CstrFlashHybrid_hx(x, hyb_pars)
 
     # Get ICNN parameters and function.
-    icnn_pars = get_icnn_pars(train=cstr_flash_icnntrain, plant_pars=plant_pars)
-    icnn_lu = lambda u: icnn_lyu(u, icnn_pars)
+    # icnn_pars = get_icnn_pars(train=cstr_flash_icnntrain, plant_pars=plant_pars)
+    # icnn_lu = lambda u: icnn_lyu(u, icnn_pars)
 
     # Lists to loop over for different models.
     model_types = ['Plant']
-    fxu_list = [plant_fxu, bbnn_f, hyb_fxu, None]
-    hx_list = [plant_hx, bbnn_h, hyb_hx, None]
-    par_list = [plant_pars, bbnn_pars, hyb_pars, None]
-    Nps = [None, bbnn_pars['Np'], hyb_pars['Np'], None]
+    fxu_list = [plant_fxu, hyb_fxu, None]
+    hx_list = [plant_hx, hyb_hx, None]
+    par_list = [plant_pars, hyb_pars, None]
+    Nps = [None, hyb_pars['Np'], None]
 
     # Loop over the different models, and obtain SS optimums.
     for (model_type, fxu, hx, model_pars, Np) in zip(model_types, fxu_list, 

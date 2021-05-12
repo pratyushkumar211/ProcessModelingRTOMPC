@@ -56,7 +56,7 @@ def main():
     bbnn_val_predictions = cstr_flash_bbnntrain['val_predictions']
     hyb_val_predictions = cstr_flash_hybtrain['val_predictions']
     valdata_list = [cstr_flash_parameters['training_data'][-1]]
-    valdata_list += bbnn_val_predictions
+    #valdata_list += bbnn_val_predictions
     valdata_list += hyb_val_predictions
     (t, ulist, ylist, xlist) = get_plotting_array_list(simdata_list=
                                                     valdata_list[:1],
@@ -68,8 +68,8 @@ def main():
     ulist += ulist_train
     ylist += ylist_train
     xlist += xlist_train
-    legend_names = ['Plant', 'Black-box', 'Hybrid']
-    legend_colors = ['b', 'dimgrey', 'm']
+    legend_names = ['Plant', 'Hybrid']
+    legend_colors = ['b', 'm']
     figures = []
     figures += CstrFlashPlots.plot_data(t=t, ulist=ulist, 
                                 ylist=ylist, xlist=xlist, 

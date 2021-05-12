@@ -140,7 +140,7 @@ def get_plant_pars():
     parameters = {}
     parameters['alphaA'] = 8.
     parameters['alphaB'] = 1.
-    parameters['alphaC'] = 0.
+    parameters['alphaC'] = 1.
     parameters['pho'] = 6. # Kg/m^3
     parameters['Cp'] = 3. # KJ/(Kg-K)
     parameters['Ar'] = 3. # m^2
@@ -200,12 +200,12 @@ def get_greybox_pars(*, plant_pars):
     parameters['Ab'] = 3. # m^2
     parameters['kr'] = 4. # m^2
     parameters['kb'] = 3. # m^2
-    parameters['delH1'] = 80. # kJ/mol
-    parameters['delH2'] = 90. # kJ/mol
+    parameters['delH1'] = 150. # kJ/mol
+    #parameters['delH2'] = 90. # kJ/mol
     parameters['E1byR'] = 200. # K
-    parameters['E2byR'] = 300. # K
+    #parameters['E2byR'] = 300. # K
     parameters['k1star'] = 2. # 1/min
-    parameters['k2star'] = 0.2 # 1/min
+    #parameters['k2star'] = 0.2 # 1/min
     parameters['Td'] = 310 # K
     parameters['Qb'] = 200 # kJ/min
     parameters['Qr'] = 2000 # kJ/min

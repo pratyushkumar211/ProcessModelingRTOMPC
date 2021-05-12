@@ -51,11 +51,8 @@ class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
         kr = self.parameters['kr']
         kb = self.parameters['kb']
         delH1 = self.parameters['delH1']
-        delH2 = self.parameters['delH2']
         E1byR = self.parameters['E1byR']
-        E2byR = self.parameters['E2byR']
         k1star = self.parameters['k1star']
-        k2star = self.parameters['k2star']
         Td = self.parameters['Td']
         Qr = self.parameters['Qr']
         Qb = self.parameters['Qb']
@@ -84,16 +81,14 @@ class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
         
         # Get rate of reactions.
         k1 = k1star*tf.math.exp(-E1byR/Tr)
-        k2 = k2star*tf.math.exp(-E2byR/Tr)
         r1 = k1*CAr
-        r2 = k2*tf.math.pow(CBr, 3)
 
         # Write the CSTR odes.
         dHrbydt = (F + D - Fr)/Ar
         dCArbydt = (F*(CAf - CAr) + D*(CAd - CAr))/(Ar*Hr) - r1
-        dCBrbydt = (-F*CBr + D*(CBd - CBr))/(Ar*Hr) + r1 - 3*r2
+        dCBrbydt = (-F*CBr + D*(CBd - CBr))/(Ar*Hr) + r1
         dTrbydt = (F*(Tf - Tr) + D*(Td - Tr))/(Ar*Hr) - Qr/(pho*Ar*Cp*Hr)
-        dTrbydt += (r1*delH1 + r2*delH2)/(pho*Cp)
+        dTrbydt += (r1*delH1)/(pho*Cp)
 
         # Write the flash odes.
         dHbbydt = (Fr - Fb - D)/Ab
@@ -191,8 +186,7 @@ class CstrFlashModel(tf.keras.Model):
         # Dense layers for the NN.
         fNLayers = []
         for dim in fNDims[1:-1]:
-            fNLayers += [tf.keras.layers.Dense(dim, activation='tanh', 
-                                               kernel_initializer='zeros')]
+            fNLayers += [tf.keras.layers.Dense(dim, activation='tanh')]
         fNLayers += [tf.keras.layers.Dense(fNDims[-1], 
                                            kernel_initializer='zeros')]
 
@@ -237,12 +231,17 @@ def get_CstrFlash_hybrid_pars(*, train, greybox_pars):
     
     # Grey-box model parameters.
     parameters['Delta'] = greybox_pars['Delta'] # min
+    parameters['alphaA'] = greybox_pars['alphaA']
+    parameters['alphaB'] = greybox_pars['alphaB']
     parameters['pho'] = greybox_pars['pho']
     parameters['Cp'] = greybox_pars['Cp']
     parameters['Ar'] = greybox_pars['Ar']
     parameters['Ab'] = greybox_pars['Ab']
     parameters['kr'] = greybox_pars['kr']
     parameters['kb'] = greybox_pars['kb']
+    parameters['E1byR'] = greybox_pars['E1byR']
+    parameters['delH1'] = greybox_pars['delH1']
+    parameters['k1star'] = greybox_pars['k1star']
     parameters['Td'] = greybox_pars['Td']
     parameters['Qb'] = greybox_pars['Qb']
     parameters['Qr'] = greybox_pars['Qr']
@@ -264,12 +263,17 @@ def fgreybox(x, u, parameters):
     """ Grey-box part of the hybrid model. """
 
     # Extract the parameters.
+    alphaA = parameters['alphaA']
+    alphaB = parameters['alphaB']
     pho = parameters['pho']
     Cp = parameters['Cp']
     Ar = parameters['Ar']
     Ab = parameters['Ab']
     kr = parameters['kr']
     kb = parameters['kb']
+    delH1 = parameters['delH1']
+    E1byR = parameters['E1byR']
+    k1star = parameters['k1star']
     Td = parameters['Td']
     Qr = parameters['Qr']
     Qb = parameters['Qb']
@@ -281,22 +285,30 @@ def fgreybox(x, u, parameters):
     F, D = u[0:2]
     CAf, Tf = ps[0:2]
     
-    # Get the rate of reactions.
+    # Compute recycle flow-rates.
+    den = alphaA*CAb + alphaB*CBb
+    CAd = alphaA*CAb/den
+    CBd = alphaB*CBb/den
 
     # The outlet mass flow rates.
     Fr = kr*np.sqrt(Hr)
     Fb = kb*np.sqrt(Hb)
     
+    # Get rate of reaction.
+    k1 = k1star*np.exp(-E1byR/Tr)
+    r1 = k1*CAr
+
     # Write the CSTR odes.
     dHrbydt = (F + D - Fr)/Ar
-    dCArbydt = (F*(CAf - CAr) - D*CAr)/(Ar*Hr)
-    dCBrbydt = (-F*CBr - D*CBr)/(Ar*Hr)
+    dCArbydt = (F*(CAf - CAr) + D*(CAd - CAr))/(Ar*Hr) - r1
+    dCBrbydt = (-F*CBr + D*(CBd - CBr))/(Ar*Hr) + r1
     dTrbydt = (F*(Tf - Tr) + D*(Td - Tr))/(Ar*Hr) - Qr/(pho*Ar*Cp*Hr)
+    dTrbydt += (r1*delH1)/(pho*Cp)
 
     # Write the flash odes.
     dHbbydt = (Fr - Fb - D)/Ab
-    dCAbbydt = (Fr*(CAr - CAb) + D*CAb)/(Ab*Hb)
-    dCBbbydt = (Fr*(CBr - CBb) + D*CBb)/(Ab*Hb)
+    dCAbbydt = (Fr*(CAr - CAb) + D*(CAb - CAd))/(Ab*Hb)
+    dCBbbydt = (Fr*(CBr - CBb) + D*(CBb - CBd))/(Ab*Hb)
     dTbbydt = (Fr*(Tr - Tb))/(Ab*Hb) + Qb/(pho*Ab*Cp*Hb)
 
     # Get the derivative.
