@@ -42,12 +42,20 @@ class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
             for the two reaction model. """
         
         # Extract the parameters.
+        alphaA = self.parameters['alphaA']
+        alphaB = self.parameters['alphaB']
         pho = self.parameters['pho']
         Cp = self.parameters['Cp']
         Ar = self.parameters['Ar']
         Ab = self.parameters['Ab']
         kr = self.parameters['kr']
         kb = self.parameters['kb']
+        delH1 = self.parameters['delH1']
+        delH2 = self.parameters['delH2']
+        E1byR = self.parameters['E1byR']
+        E2byR = self.parameters['E2byR']
+        k1star = self.parameters['k1star']
+        k2star = self.parameters['k2star']
         Td = self.parameters['Td']
         Qr = self.parameters['Qr']
         Qb = self.parameters['Qb']
@@ -65,20 +73,32 @@ class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
         F, D = u[..., 0:1], u[..., 1:2]
         CAf, Tf = ps[0], ps[1]
         
+        # Compute recycle flow-rates.
+        den = alphaA*CAb + alphaB*CBb
+        CAd = alphaA*CAb/den
+        CBd = alphaB*CBb/den
+
         # The outlet mass flow rates.
         Fr = kr*tf.math.sqrt(Hr)
         Fb = kb*tf.math.sqrt(Hb)
         
+        # Get rate of reactions.
+        k1 = k1star*tf.math.exp(-E1byR/Tr)
+        k2 = k2star*tf.math.exp(-E2byR/Tr)
+        r1 = k1*CAr
+        r2 = k2*tf.math.pow(CBr, 3)
+
         # Write the CSTR odes.
         dHrbydt = (F + D - Fr)/Ar
-        dCArbydt = (F*(CAf - CAr) - D*CAr)/(Ar*Hr)
-        dCBrbydt = (-F*CBr - D*CBr)/(Ar*Hr)
+        dCArbydt = (F*(CAf - CAr) + D*(CAd - CAr))/(Ar*Hr) - r1
+        dCBrbydt = (-F*CBr + D*(CBd - CBr))/(Ar*Hr) + r1 - 3*r2
         dTrbydt = (F*(Tf - Tr) + D*(Td - Tr))/(Ar*Hr) - Qr/(pho*Ar*Cp*Hr)
+        dTrbydt += (r1*delH1 + r2*delH2)/(pho*Cp)
 
         # Write the flash odes.
         dHbbydt = (Fr - Fb - D)/Ab
-        dCAbbydt = (Fr*(CAr - CAb) + D*CAb)/(Ab*Hb)
-        dCBbbydt = (Fr*(CBr - CBb) + D*CBb)/(Ab*Hb)
+        dCAbbydt = (Fr*(CAr - CAb) + D*(CAb - CAd))/(Ab*Hb)
+        dCBbbydt = (Fr*(CBr - CBb) + D*(CBb - CBd))/(Ab*Hb)
         dTbbydt = (Fr*(Tr - Tb))/(Ab*Hb) + Qb/(pho*Ab*Cp*Hb)
 
         # Get the scaled derivative.
@@ -171,7 +191,8 @@ class CstrFlashModel(tf.keras.Model):
         # Dense layers for the NN.
         fNLayers = []
         for dim in fNDims[1:-1]:
-            fNLayers += [tf.keras.layers.Dense(dim, activation='tanh')]
+            fNLayers += [tf.keras.layers.Dense(dim, activation='tanh', 
+                                               kernel_initializer='zeros')]
         fNLayers += [tf.keras.layers.Dense(fNDims[-1], 
                                            kernel_initializer='zeros')]
 
@@ -260,6 +281,8 @@ def fgreybox(x, u, parameters):
     F, D = u[0:2]
     CAf, Tf = ps[0:2]
     
+    # Get the rate of reactions.
+
     # The outlet mass flow rates.
     Fr = kr*np.sqrt(Hr)
     Fb = kb*np.sqrt(Hb)
