@@ -29,7 +29,7 @@ def generate_data(*, fxu, hx, cost_yu, parameters, seed=10,
     # Get a list of random inputs.
     Nu = parameters['Nu']
     ulb, uub = parameters['ulb'], parameters['uub']
-    Ndata = 4000
+    Ndata = 4500
     us_list = list((uub-ulb)*np.random.rand(Ndata, Nu) + ulb)
 
     # Get the corresponding steady state costs.
@@ -41,7 +41,7 @@ def generate_data(*, fxu, hx, cost_yu, parameters, seed=10,
         ss_costs += [ss_cost]
     lyu = np.array(ss_costs)
     u = np.array(us_list)
-        
+    
     # Get rid of NaNs in sscost.
     u = np.delete(u, np.where(np.isnan(lyu)), axis=0)
     lyu = np.delete(lyu, np.where(np.isnan(lyu)), axis=0)
@@ -79,7 +79,7 @@ def main():
     hyb_hx = lambda x: CstrFlashHybrid_hx(x, hyb_pars)
 
     # Cost.
-    p = [10, 3000, 14000]
+    p = [30, 2200, 10000]
     cost_yu = lambda y, u: cost_yup(y, u, p, plant_pars)
     
     # Get xGuess.

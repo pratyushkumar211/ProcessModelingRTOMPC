@@ -93,7 +93,8 @@ def get_sscost(*, fxu, hx, lyu, us, parameters, xguess=None):
     resfx = mpc.getCasadiFunc(lambda x: -x + fxu(x, us), [Nx], ["x"])
 
     # Use rootfinder to get the SS.
-    rootfinder = casadi.rootfinder('resfx', 'newton', resfx)
+    rootfinder_opts = dict(error_on_fail=False, line_search=False)
+    rootfinder = casadi.rootfinder('resfx', 'newton', resfx, rootfinder_opts)
     xs = np.asarray(rootfinder(xguess))[:, 0]
 
     # Compute the cost based on steady state.
