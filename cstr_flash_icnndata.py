@@ -79,12 +79,12 @@ def main():
     hyb_hx = lambda x: CstrFlashHybrid_hx(x, hyb_pars)
 
     # Cost.
-    p = [10, 2000, 14000]
+    p = [10, 3000, 14000]
     cost_yu = lambda y, u: cost_yup(y, u, p, plant_pars)
     
     # Get xGuess.
     ys = plant_pars['xs'][plant_pars['yindices']]
-    us = np.array([15., 5.])
+    us = np.array([10., 5.])
     Np = hyb_pars['Np']
     xguess = np.concatenate((np.tile(ys, (Np+1, )), 
                              np.tile(us, (Np, ))))

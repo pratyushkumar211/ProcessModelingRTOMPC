@@ -37,11 +37,11 @@ def get_xuguess(*, model_type, plant_pars, Np=None):
     elif model_type == 'Black-Box-NN' or model_type == 'Hybrid':
         yindices = plant_pars['yindices']
         ys = plant_pars['xs'][yindices]
-        us = np.array([10., 8.])
+        us = np.array([15., 8.])
         xs = np.concatenate((np.tile(ys, (Np+1, )), 
                              np.tile(us, (Np, ))))
     elif model_type == 'ICNN':
-        us = np.array([15., 4.])
+        us = np.array([5., 4.])
         xs = None
     else:
         pass
@@ -69,7 +69,7 @@ def main():
     greybox_pars = cstr_flash_parameters['greybox_pars']
 
     # Get cost function handle.
-    p = [20, 3000, 15000]
+    p = [10, 3000, 14000]
     lyu = lambda y, u: cost_yup(y, u, p, plant_pars)
 
     # Get the plant function handle.
@@ -92,11 +92,11 @@ def main():
     hyb_hx = lambda x: CstrFlashHybrid_hx(x, hyb_pars)
 
     # Get ICNN parameters and function.
-    # icnn_pars = get_icnn_pars(train=cstr_flash_icnntrain, plant_pars=plant_pars)
-    # icnn_lu = lambda u: icnn_lyu(u, icnn_pars)
+    icnn_pars = get_icnn_pars(train=cstr_flash_icnntrain, plant_pars=plant_pars)
+    icnn_lu = lambda u: icnn_lyu(u, icnn_pars)
 
     # Lists to loop over for different models.
-    model_types = ['Plant']
+    model_types = ['Plant', 'Hybrid', 'ICNN']
     fxu_list = [plant_fxu, hyb_fxu, None]
     hx_list = [plant_hx, hyb_hx, None]
     par_list = [plant_pars, hyb_pars, None]
