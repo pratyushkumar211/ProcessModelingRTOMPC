@@ -82,7 +82,6 @@ def main():
         hyb_xpred, hyb_ypred = quick_sim(fxu, hx, yz0, uval)
         breakpoint()
         # Return 
-
         return 
 
     # Check the different types of functions.

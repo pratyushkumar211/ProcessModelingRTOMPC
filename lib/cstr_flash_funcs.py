@@ -200,7 +200,7 @@ def get_greybox_pars(*, plant_pars):
     parameters['Ab'] = 3. # m^2
     parameters['kr'] = 4. # m^2
     parameters['kb'] = 3. # m^2
-    parameters['delH1'] = 150. # kJ/mol
+    parameters['delH1'] = 80. # kJ/mol
     #parameters['delH2'] = 90. # kJ/mol
     parameters['E1byR'] = 200. # K
     #parameters['E2byR'] = 300. # K
