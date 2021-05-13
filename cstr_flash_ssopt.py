@@ -37,11 +37,11 @@ def get_xuguess(*, model_type, plant_pars, Np=None):
     elif model_type == 'Black-Box-NN' or model_type == 'Hybrid':
         yindices = plant_pars['yindices']
         ys = plant_pars['xs'][yindices]
-        us = np.array([10., 2.])
+        us = np.array([10., 8.])
         xs = np.concatenate((np.tile(ys, (Np+1, )), 
                              np.tile(us, (Np, ))))
     elif model_type == 'ICNN':
-        us = np.array([5., 4.])
+        us = np.array([10., 8.])
         xs = None
     else:
         pass
@@ -96,7 +96,7 @@ def main():
     icnn_lu = lambda u: icnn_lyu(u, icnn_pars)
 
     # Lists to loop over for different models.
-    model_types = ['Plant', 'Black-Box-NN', 'Hybrid']
+    model_types = ['Plant', 'Black-Box-NN', 'Hybrid', 'ICNN']
     fxu_list = [plant_fxu, bbnn_f, hyb_fxu, None]
     hx_list = [plant_hx, bbnn_h, hyb_hx, None]
     par_list = [plant_pars, bbnn_pars, hyb_pars, None]
