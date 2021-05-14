@@ -25,7 +25,7 @@ def main():
                                         'cstr_flash_parameters.pickle',
                                          type='read')
     cstr_flash_icnndata = PickleTool.load(filename=
-                                        'cstr_flash_icnndata.pickle',
+                                        'cstr_flash_icnndata_hybrid.pickle',
                                          type='read')
     plant_pars = cstr_flash_parameters['plant_pars']
 

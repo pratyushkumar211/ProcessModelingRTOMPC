@@ -20,11 +20,30 @@ from BlackBoxFuncs import get_bbnn_pars, bbnn_fxu, bbnn_hx
 from TwoReacHybridFuncs import (get_tworeacHybrid_pars, 
                                 tworeacHybrid_fxu, 
                                tworeacHybrid_hx)
-from economicopt import (get_ss_optimum, get_xuguess, c2dNonlin, 
+from economicopt import (get_ss_optimum, c2dNonlin, 
                          get_sscost)
 from tworeac_funcs import cost_yup, plant_ode
 from InputConvexFuncs import get_ss_optimum as get_icnn_ss_optimum
 from InputConvexFuncs import get_icnn_pars, icnn_lyu
+
+def get_xuguess(*, model_type, plant_pars, Np=None):
+    """ Get x, u guess depending on model type. """
+    us = plant_pars['us']
+    if model_type == 'Plant' or model_type == 'Hybrid':
+        xs = plant_pars['xs']
+    elif model_type == 'Black-Box-NN':
+        yindices = plant_pars['yindices']
+        ys = plant_pars['xs'][yindices]
+        us = np.array([0.5])
+        xs = np.concatenate((np.tile(ys, (Np+1, )), 
+                             np.tile(us, (Np, ))))
+    elif model_type == 'ICNN':
+        us = np.array([1.5])
+        xs = None
+    else:
+        pass
+    # Return as dict.
+    return dict(x=xs, u=us)
 
 def main():
     """ Main function to be executed. """
@@ -35,9 +54,9 @@ def main():
     tworeac_bbnntrain = PickleTool.load(filename=
                                     'tworeac_bbnntrain.pickle',
                                       type='read')
-    # tworeac_icnntrain = PickleTool.load(filename=
-    #                                 'tworeac_icnntrain.pickle',
-    #                                   type='read')
+    tworeac_icnntrain = PickleTool.load(filename=
+                                    'tworeac_icnntrain.pickle',
+                                      type='read')
     tworeac_hybtrain = PickleTool.load(filename=
                                       'tworeac_hybtrain.pickle',
                                       type='read')
@@ -63,8 +82,8 @@ def main():
     hyb_hx = lambda x: tworeacHybrid_hx(x)
 
     # Get ICNN pars and function.
-    # icnn_pars = get_icnn_pars(train=tworeac_icnntrain, plant_pars=plant_pars)
-    # icnn_lu = lambda u: icnn_lyu(u, icnn_pars)
+    icnn_pars = get_icnn_pars(train=tworeac_icnntrain, plant_pars=plant_pars)
+    icnn_lu = lambda u: icnn_lyu(u, icnn_pars)
     
     # Get the plant function handle.
     Delta, ps = plant_pars['Delta'], plant_pars['ps']
@@ -73,11 +92,11 @@ def main():
     plant_hx = lambda x: measurement(x, plant_pars)
 
     # Lists to loop over for different models.
-    model_types = ['Plant', 'Black-Box-NN', 'Hybrid', 'ICNN']
-    fxu_list = [plant_fxu, bbnn_f, hyb_fxu]
-    hx_list = [plant_hx, bbnn_h, hyb_hx]
-    par_list = [plant_pars, bbnn_pars, hyb_pars]
-    Nps = [None, bbnn_pars['Np'], hyb_pars['Np']]
+    model_types = ['Plant', 'Black-Box-NN', 'ICNN']
+    fxu_list = [plant_fxu, bbnn_f, None]
+    hx_list = [plant_hx, bbnn_h, None]
+    par_list = [plant_pars, bbnn_pars, None]
+    Nps = [None, bbnn_pars['Np'], None]
 
     # Loop over the different models, and obtain SS optimums.
     for (model_type, fxu, hx, model_pars, Np) in zip(model_types, fxu_list, 
@@ -87,9 +106,6 @@ def main():
         xuguess = get_xuguess(model_type=model_type, 
                               plant_pars=plant_pars, Np=Np)
         
-        if model_type == 'Koopman':
-            xuguess['x'] = get_koopman_xguess(tworeac_kooptrain, plant_pars)
-
         # Get the steady state optimum.
         if model_type != 'ICNN':
             xs, us, ys = get_ss_optimum(fxu=fxu, hx=hx, lyu=lyu, 
@@ -132,7 +148,7 @@ def main():
     us = np.asarray(us_list)[:, 0]
 
     legend_names = model_types
-    legend_colors = ['b', 'dimgrey', 'm', 'tomato']
+    legend_colors = ['b', 'dimgrey', 'tomato']
     figures = TwoReacPlots.plot_sscosts(us=us, sscosts=sscosts, 
                                         legend_colors=legend_colors, 
                                         legend_names=legend_names, 

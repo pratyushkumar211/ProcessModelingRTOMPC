@@ -17,7 +17,7 @@ from economicopt import get_sscost
 from TwoReacHybridFuncs import (tworeacHybrid_fxu,
                                 tworeacHybrid_hx,
                                 get_tworeacHybrid_pars)         
-from BlackBoxFuncs import get_bbNN_pars, bbNN_fxu, bb_hx
+from BlackBoxFuncs import get_bbnn_pars, bbnn_fxu, bbnn_hx
 
 def generate_data(*, hyb_fxu, hyb_hx, hyb_pars, seed=10):
     """ Function to generate data to train the ICNN. """
@@ -54,7 +54,7 @@ def main():
                                         'tworeac_parameters.pickle',
                                          type='read')
     tworeac_bbNNtrain = PickleTool.load(filename=
-                                        'tworeac_bbNNtrain.pickle',
+                                        'tworeac_bbnntrain.pickle',
                                          type='read')
     tworeac_hybtrain = PickleTool.load(filename=
                                         'tworeac_hybtrain.pickle',
@@ -69,14 +69,14 @@ def main():
     hyb_hx = lambda x: tworeacHybrid_hx(x)
 
     # Get the black-box model parameters and function handles.
-    bbNN_pars = get_bbNN_pars(train=tworeac_bbNNtrain, 
+    bbnn_pars = get_bbnn_pars(train=tworeac_bbNNtrain, 
                               plant_pars=plant_pars)
-    bbNN_Fxu = lambda x, u: bbNN_fxu(x, u, bbNN_pars)
-    bbNN_hx = lambda x: bb_hx(x, bbNN_pars)
+    bbnn_f = lambda x, u: bbnn_fxu(x, u, bbnn_pars)
+    bbnn_h = lambda x: bbnn_hx(x, bbnn_pars)
 
     # Generate data.
-    u, lyup = generate_data(hyb_fxu=hyb_fxu, hyb_hx=hyb_hx, 
-                            hyb_pars=hyb_pars)    
+    u, lyup = generate_data(hyb_fxu=bbnn_f, hyb_hx=bbnn_h, 
+                            hyb_pars=bbnn_pars)    
     
     # Get data in dictionary.
     tworeac_icnndata = dict(u=u, lyup=lyup)

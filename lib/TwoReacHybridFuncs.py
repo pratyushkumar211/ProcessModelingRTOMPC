@@ -41,7 +41,7 @@ class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
             dCb/dt = -Cb/tau
             dCc/dt = -Cc/tau
             """
-
+        
         # Extract the parameters.
         tau = self.greybox_pars['ps'].squeeze()
         

@@ -103,25 +103,6 @@ def get_sscost(*, fxu, hx, lyu, us, parameters, xguess=None):
     # Return the steady state cost.
     return sscost
 
-def get_xuguess(*, model_type, plant_pars, Np=None):
-    """ Get x, u guess depending on model type. """
-    us = plant_pars['us']
-    if model_type == 'Plant' or model_type == 'Hybrid':
-        xs = plant_pars['xs']
-    elif model_type == 'Black-Box-NN':
-        yindices = plant_pars['yindices']
-        ys = plant_pars['xs'][yindices]
-        us = np.array([5., 8.])
-        xs = np.concatenate((np.tile(ys, (Np+1, )), 
-                             np.tile(us, (Np, ))))
-    elif model_type == 'ICNN':
-        us = np.array([5., 2.])
-        xs = None
-    else:
-        pass
-    # Return as dict.
-    return dict(x=xs, u=us)
-
 def c2dNonlin(fxu, Delta):
     """ Quick function to 
         convert a ode to discrete

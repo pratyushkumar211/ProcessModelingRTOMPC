@@ -1507,7 +1507,7 @@ class LinearMPCController:
         # Augmented Noise Covariance.
         Qwaug = scipy.linalg.block_diag(Qwx, Qwd)
         # Check that the augmented model is detectable. 
-        assert_detectable(Aaug, Caug)
+        assertDetectable(Aaug, Caug)
         return (Aaug, Baug, Caug, Qwaug)
     
     def control_law(self, ysp, y):

@@ -91,9 +91,9 @@ def main():
 
 
     # Generate data.
-    u, lyup = generate_data(fxu=hyb_fxu, hx=hyb_hx, 
+    u, lyup = generate_data(fxu=bbnn_f, hx=bbnn_h, 
                             cost_yu=cost_yu,
-                            parameters=hyb_pars, 
+                            parameters=bbnn_pars, 
                             xguess=xguess)
     
     # Get data in dictionary.
