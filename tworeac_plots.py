@@ -98,11 +98,11 @@ def main():
     figures = []
 
     # Plot validation data.
-    legend_names = ['Plant', 'Black-box-NN', 'Hybrid']
+    legend_names = ['Plant', 'Black-box-NN']
     legend_colors = ['b', 'dimgrey', 'm']
     valdata_list = [training_data[-1]]
     valdata_list += bbnn_predictions
-    valdata_list += hyb_predictions
+    #valdata_list += hyb_predictions
     t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
                                                      valdata_list[:1],
                                                      plot_range=(10, 6*60+10))
@@ -118,7 +118,7 @@ def main():
                                         legend_colors=legend_colors, 
                                         figure_size=PAPER_FIGSIZE, 
                                         ylabel_xcoordinate=-0.1, 
-                                        title_loc=(0.15, 0.9),
+                                        title_loc=(0.25, 0.9),
                                         font_size=12)
 
     # Plot validation metrics to show data requirements.

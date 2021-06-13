@@ -21,7 +21,7 @@ from TwoReacHybridFuncs import (get_tworeacHybrid_pars,
                                 tworeacHybrid_fxu, 
                                tworeacHybrid_hx)
 from economicopt import (get_ss_optimum, c2dNonlin, 
-                         get_sscost)
+                         get_xs_sscost)
 from tworeac_funcs import cost_yup, plant_ode
 from InputConvexFuncs import get_ss_optimum as get_icnn_ss_optimum
 from InputConvexFuncs import get_icnn_pars, icnn_lyu
@@ -108,7 +108,7 @@ def main():
         
         # Get the steady state optimum.
         if model_type != 'ICNN':
-            xs, us, ys = get_ss_optimum(fxu=fxu, hx=hx, lyu=lyu, 
+            xs, us, ys, opt_sscost = get_ss_optimum(fxu=fxu, hx=hx, lyu=lyu, 
                                         parameters=model_pars, guess=xuguess)
         else:
             us = get_icnn_ss_optimum(lyu=icnn_lu, parameters=icnn_pars, 
@@ -135,7 +135,7 @@ def main():
         for us in us_list:
             
             if model_type != 'ICNN':
-                sscost = get_sscost(fxu=fxu, hx=hx, lyu=lyu, 
+                _, sscost = get_xs_sscost(fxu=fxu, hx=hx, lyu=lyu, 
                                     us=us, parameters=model_pars)
             else:
                 sscost = icnn_lu(us)

@@ -4,6 +4,7 @@
     Pratyush Kumar, pratyushkumar@ucsb.edu """
 
 import numpy as np
+import mpctools as mpc
 
 def plant_ode(x, u, p, parameters):
     """ Simple ODE describing a 3D system. """
@@ -13,7 +14,7 @@ def plant_ode(x, u, p, parameters):
     k3 = parameters['k3']
     
     # Extract the plant states into meaningful names.
-    (Ca, Cb, Cc) = x[0:3]
+    Ca, Cb, Cc = x[0], x[1], x[2] 
     Caf = u[0]
     tau = p[0]
 
@@ -23,7 +24,7 @@ def plant_ode(x, u, p, parameters):
     dCcbydt = k2*(Cb**3) - k3*Cc - Cc/tau
 
     # Return the derivative.
-    return np.array([dCabydt, dCbbydt, dCcbydt])
+    return mpc.vcat([dCabydt, dCbbydt, dCcbydt])
 
 # def greybox_ode(x, u, p, parameters):
 #     """ Simple ODE describing the grey-box plant. """

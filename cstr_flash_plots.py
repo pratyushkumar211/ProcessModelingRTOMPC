@@ -44,32 +44,35 @@ def main():
     cstr_flash_parameters = PickleTool.load(filename=
                                             "cstr_flash_parameters.pickle",
                                             type='read')
-    cstr_flash_bbnntrain = PickleTool.load(filename=
-                                         "cstr_flash_bbnntrain.pickle",
-                                         type='read')
-    cstr_flash_hybtrain = PickleTool.load(filename=
-                                         "cstr_flash_hybtrain.pickle",
-                                         type='read')
+    cstr_flash_ssopt = PickleTool.load(filename=
+                                       "cstr_flash_ssopt.pickle",
+                                       type='read')
+    # cstr_flash_bbnntrain = PickleTool.load(filename=
+    #                                      "cstr_flash_bbnntrain.pickle",
+    #                                      type='read')
+    # cstr_flash_hybtrain = PickleTool.load(filename=
+    #                                      "cstr_flash_hybtrain.pickle",
+    #                                      type='read')
 
 
     # Collect data to plot open-loop predictions.
-    bbnn_val_predictions = cstr_flash_bbnntrain['val_predictions']
-    hyb_val_predictions = cstr_flash_hybtrain['val_predictions']
+    #bbnn_val_predictions = cstr_flash_bbnntrain['val_predictions']
+    #hyb_val_predictions = cstr_flash_hybtrain['val_predictions']
     valdata_list = [cstr_flash_parameters['training_data'][-1]]
-    valdata_list += bbnn_val_predictions
-    valdata_list += hyb_val_predictions
+    #valdata_list += bbnn_val_predictions
+    #valdata_list += hyb_val_predictions
     (t, ulist, ylist, xlist) = get_plotting_array_list(simdata_list=
                                                     valdata_list[:1],
                                                 plot_range = (10, 12*60+120))
-    (t, ulist_train, 
-     ylist_train, xlist_train) = get_plotting_array_list(simdata_list=
-                                                     valdata_list[1:],
-                                                     plot_range=(0, 12*60))
-    ulist += ulist_train
-    ylist += ylist_train
-    xlist += xlist_train
-    legend_names = ['Plant', 'Black-Box', 'Hybrid']
-    legend_colors = ['b', 'dimgrey', 'm']
+    #(t, ulist_train, 
+    # ylist_train, xlist_train) = get_plotting_array_list(simdata_list=
+    #                                                 valdata_list[1:],
+    #                                                 plot_range=(0, 12*60))
+    #ulist += ulist_train
+    #ylist += ylist_train
+    #xlist += xlist_train
+    legend_names = ['Plant']
+    legend_colors = ['b']
     figures = []
     figures += CstrFlashPlots.plot_data(t=t, ulist=ulist, 
                                 ylist=ylist, xlist=xlist, 
@@ -81,6 +84,15 @@ def main():
                                 legend_names=legend_names, 
                                 legend_colors=legend_colors, 
                                 title_loc=(0.25, 0.9))
+
+    # Get the contour plots.
+    us1 = cstr_flash_ssopt['us1']
+    us2 = cstr_flash_ssopt['us2']
+    sscosts = cstr_flash_ssopt['sscosts']
+    for sscost in sscosts:
+        figures += CstrFlashPlots.plot_sscosts(us1=us1, us2=us2, 
+                                        sscost=sscost, 
+                                        figure_size=PAPER_FIGSIZE)
 
     # Plot validation metrics to show data requirements.
     #num_samples = cstr_flash_train['num_samples']

@@ -95,8 +95,7 @@ class BlackBoxModel(tf.keras.Model):
         fNLayers = []
         for dim in fNDims[1:-1]:
             fNLayers += [tf.keras.layers.Dense(dim, activation=tanh)]
-        fNLayers += [tf.keras.layers.Dense(fNDims[-1], 
-                                           kernel_initializer='zeros')]
+        fNLayers += [tf.keras.layers.Dense(fNDims[-1])]
 
         # Build model.
         bbCell = BlackBoxCell(Np, Ny, Nu, fNLayers)

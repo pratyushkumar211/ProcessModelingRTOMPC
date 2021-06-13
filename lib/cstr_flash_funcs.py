@@ -1,13 +1,10 @@
-# [depends] %LIB%/hybridid.py %LIB%/linNonlinMPC.py
-# [makes] pickle
 """ Script to generate the necessary
     parameters and training data for the 
     CSTR and flash example.
     Pratyush Kumar, pratyushkumar@ucsb.edu """
 
-import sys
-sys.path.append('lib/')
 import numpy as np
+import mpctools as mpc
 
 def plant_ode(x, u, p, parameters):
     """ ODEs describing the 10-D system. """
@@ -33,10 +30,10 @@ def plant_ode(x, u, p, parameters):
     Qr = parameters['Qr']
 
     # Extract the plant states into meaningful names.
-    Hr, CAr, CBr, CCr, Tr = x[0:5]
-    Hb, CAb, CBb, CCb, Tb = x[5:10]
-    F, D = u[0:2]
-    CAf, Tf = p[0:2]
+    Hr, CAr, CBr, CCr, Tr = x[0], x[1], x[2], x[3], x[4]
+    Hb, CAb, CBb, CCb, Tb = x[5], x[6], x[7], x[8], x[9]
+    F, D = u[0], u[1]
+    CAf, Tf = p[0], p[1]
 
     # The flash vapor phase mass fractions.
     den = alphaA*CAb + alphaB*CBb + alphaC*CCb
@@ -73,7 +70,7 @@ def plant_ode(x, u, p, parameters):
     dTbbydt = (Fr*(Tr - Tb))/(Ab*Hb) + Qb/(pho*Ab*Cp*Hb)
 
     # Return the derivative.
-    return np.array([dHrbydt, dCArbydt, dCBrbydt, dCCrbydt, dTrbydt,
+    return mpc.vcat([dHrbydt, dCArbydt, dCBrbydt, dCCrbydt, dTrbydt,
                      dHbbydt, dCAbbydt, dCBbbydt, dCCbbydt, dTbbydt])
 
 # def greybox_ode(x, u, p, parameters):
@@ -170,7 +167,7 @@ def get_plant_pars():
     # Get the steady states.
     parameters['xs'] = np.array([50., 1., 0., 0., 313.,
                                  50., 1., 0., 0., 313.])
-    parameters['us'] = np.array([10., 5.])
+    parameters['us'] = np.array([5., 2.])
     parameters['ps'] = np.array([6., 320.])
 
     # Get the constraints.

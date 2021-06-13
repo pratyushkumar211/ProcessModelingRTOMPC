@@ -6,6 +6,7 @@ Pratyush Kumar, pratyushkumar@ucsb.edu
 """
 import sys
 import numpy as np
+import mpctools as mpc
 import tensorflow as tf
 from BlackBoxFuncs import fnnTF, fnn
 

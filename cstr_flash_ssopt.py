@@ -16,7 +16,7 @@ import mpctools as mpc
 import itertools
 from matplotlib.backends.backend_pdf import PdfPages
 from hybridid import PickleTool, measurement
-from economicopt import get_sscost, get_ss_optimum, c2dNonlin
+from economicopt import get_xs_sscost, get_ss_optimum, c2dNonlin
 from BlackBoxFuncs import get_bbnn_pars, bbnn_fxu, bbnn_hx
 from CstrFlashHybridFuncs import (get_CstrFlash_hybrid_pars, 
                                   CstrFlashHybrid_fxu, 
@@ -37,7 +37,7 @@ def get_xuguess(*, model_type, plant_pars, Np=None):
     elif model_type == 'Black-Box-NN' or model_type == 'Hybrid':
         yindices = plant_pars['yindices']
         ys = plant_pars['xs'][yindices]
-        us = np.array([10., 8.])
+        us = np.array([15., 2.])
         xs = np.concatenate((np.tile(ys, (Np+1, )), 
                              np.tile(us, (Np, ))))
     elif model_type == 'ICNN':
@@ -112,7 +112,7 @@ def main():
 
         # Get the steady state optimum.
         if model_type != 'ICNN':
-            xs, us, ys = get_ss_optimum(fxu=fxu, hx=hx, lyu=lyu, 
+            xs, us, ys, opt_sscost = get_ss_optimum(fxu=fxu, hx=hx, lyu=lyu, 
                                         parameters=model_pars, guess=xuguess)
         else:
             us = get_icnn_ss_optimum(lyu=icnn_lu, parameters=icnn_pars, 
@@ -122,70 +122,57 @@ def main():
         print("Model type: " + model_type)
         print('us: ' + str(us))
 
-    # # Get a linspace of steady-state u values.
-    # Nu = plant_pars['Nu']
-    # ulb, uub = plant_pars['ulb'], plant_pars['uub']
+    # Get a linspace of steady-state u values.
+    Nu = plant_pars['Nu']
+    ulb, uub = plant_pars['ulb'], plant_pars['uub']
 
-    # # Get lists.
-    # us1_list = list(np.linspace(ulb[0], uub[0], 2))
-    # us2_list = list(np.linspace(ulb[1], uub[1], 2))
+    # Get lists.
+    us1_list = list(np.linspace(ulb[0], uub[0], 4))
+    us2_list = list(np.linspace(ulb[1], uub[1], 4))
 
-    # # Lists to store Steady-state cost.
-    # sscosts = []
+    # Lists to store Steady-state cost.
+    sscosts = []
 
-    # # Loop over all the models.
-    # for (model_type, fxu, hx, model_pars) in zip(model_types, fxu_list, 
-    #                                              hx_list, par_list):
+    # Loop over all the models.
+    for (model_type, fxu, hx, model_pars, Np) in zip(model_types, fxu_list, 
+                                                 hx_list, par_list, Nps):
 
-    #     # List to store SS costs for one model.
-    #     model_sscost = []
+        # List to store SS costs for one model.
+        model_sscost = []
 
-    #     # Get guess.
-    #     xuguess = get_xuguess(model_type=model_type, 
-    #                           plant_pars=plant_pars, Np=Np)
+        # Get guess.
+        xuguess = get_xuguess(model_type=model_type, 
+                              plant_pars=plant_pars, Np=Np)
 
-    #     # Compute SS cost.
-    #     for us1, us2 in itertools.product(us1_list, us2_list):
+        # Compute SS cost.
+        for us2, us1 in itertools.product(us2_list, us1_list):
             
-    #         # Get the vector input.
-    #         us = np.array([us1, us2])
-    #         if model_type != 'ICNN':
-    #             sscost = get_sscost(fxu=fxu, hx=hx, lyu=lyu, 
-    #                                 us=us, parameters=model_pars, 
-    #                                 findRoot=True,
-    #                                 xguess=xuguess['x'])
-    #         else:
-    #             sscost = icnn_lu(us)
-    #         model_sscost += [sscost]
+            # Get the vector input.
+            us = np.array([us1, us2])
+            if model_type != 'ICNN':
+                xs, sscost = get_xs_sscost(fxu=fxu, hx=hx, lyu=lyu, 
+                                    us=us, parameters=model_pars, 
+                                    xguess=xuguess['x'], 
+                                    lbx=np.zeros((model_pars['Nx'], )), 
+                                    ubx=np.tile(np.inf, (model_pars['Nx'], )))
+            else:
+                sscost = icnn_lu(us)
+            model_sscost += [sscost]
 
-    #     model_sscost = np.asarray(model_sscost).squeeze()
-    #     model_sscost = model_sscost.reshape(len(us2_list), len(us1_list))
-    #     sscosts += [model_sscost]
+        model_sscost = np.asarray(model_sscost).squeeze()
+        model_sscost = model_sscost.reshape(len(us1_list), len(us2_list))
+        sscosts += [model_sscost]
 
-    # # Get mesh.
-    # us1 = np.asarray(us1_list)
-    # us2 = np.asarray(us2_list)
-    # us1, us2 = np.meshgrid(us1, us2)
-    # legend_names = model_types
-    # legend_colors = ['b', 'm']
-    # figures = CstrFlashPlots.plot_sscosts(us1=us1, us2=us2, 
-    #                                     sscosts=sscosts[:1], 
-    #                                     legend_colors=legend_colors[:1], 
-    #                                     legend_names=legend_names, 
-    #                                     figure_size=PAPER_FIGSIZE, 
-    #                                     ylabel_xcoordinate=-0.12, 
-    #                                     left_label_frac=0.15)
-    # figures += CstrFlashPlots.plot_sscosts(us1=us1, us2=us2, 
-    #                                     sscosts=sscosts[1:], 
-    #                                     legend_colors=legend_colors[1:], 
-    #                                     legend_names=legend_names, 
-    #                                     figure_size=PAPER_FIGSIZE, 
-    #                                     ylabel_xcoordinate=-0.12, 
-    #                                     left_label_frac=0.15)
+    # Get mesh.
+    us1 = np.asarray(us1_list)
+    us2 = np.asarray(us2_list)
+    us1, us2 = np.meshgrid(us1, us2)
 
-    # # Finally plot.
-    # with PdfPages('cstr_flash_ssopt.pdf', 'w') as pdf_file:
-    #     for fig in figures:
-    #         pdf_file.savefig(fig)
+    # Get dictionary to save data.
+    cstr_flash_ssopt = dict(us1=us1, us2=us2, sscosts=sscosts)
+
+    # Save data.
+    PickleTool.save(data_object=cstr_flash_ssopt,
+                    filename='cstr_flash_ssopt.pickle')
 
 main()

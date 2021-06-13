@@ -74,34 +74,54 @@ def get_ss_optimum(*, fxu, hx, lyu, parameters, guess):
     # Solve.
     nlp_soln = nlp(x0=xuguess, lbg=lbg, ubg=ubg)
     xsol = np.asarray(nlp_soln['x'])[:, 0]
+    opt_sscost = np.asarray(nlp_soln['f'])
     xs, us = np.split(xsol, [Nx])
     ys = hx(xs)
 
     # Return the steady state solution.
-    return xs, us, ys
+    return xs, us, ys, opt_sscost
 
-def get_sscost(*, fxu, hx, lyu, us, parameters, xguess=None):
+def get_xs_sscost(*, fxu, hx, lyu, us, parameters, 
+                     xguess=None, 
+                     lbx=None, ubx=None):
     """ Setup and solve the steady state optimization. """
 
     # Get the sizes and actuator bounds.
     Nx, Nu = parameters['Nx'], parameters['Nu']
+
+    # Initial Guess.
     if xguess is None:
         xguess = np.zeros((Nx, 1))
 
-    # Get resf casadi function.
+    # Decision variable.
     xs = casadi.SX.sym('xs', Nx)
-    resfx = mpc.getCasadiFunc(lambda x: -x + fxu(x, us), [Nx], ["x"])
 
-    # Use rootfinder to get the SS.
-    rootfinder_opts = dict(error_on_fail=False, line_search=False)
-    rootfinder = casadi.rootfinder('resfx', 'newton', resfx, rootfinder_opts)
-    xs = np.asarray(rootfinder(xguess))[:, 0]
+    # Model as a casadi function.
+    fxu = mpc.getCasadiFunc(fxu, [Nx, Nu], ["x", "u"])
+
+    # Constraints.
+    g = xs - fxu(xs, us)
+    lbg = np.zeros((Nx, 1))
+    ubg = lbg
+    if lbx is not None and ubx is not None:
+        lbx, ubx = lbx[:, np.newaxis], ubx[:, np.newaxis]
+    else:
+        lbx = np.tile(-np.inf, (Nx, 1))
+        ubx = np.tile(np.inf, (Nx, 1))
+
+    # Setup dummy NLP.
+    nlp = dict(x=xs, f=1, g=g)
+    nlp = casadi.nlpsol('nlp', 'ipopt', nlp)
+
+    # Solve.
+    nlp_soln = nlp(x0=xguess, lbg=lbg, ubg=ubg, lbx=lbx, ubx=ubx)
+    xs = np.asarray(nlp_soln['x'])[:, 0]
 
     # Compute the cost based on steady state.
     sscost = lyu(hx(xs), us)
 
     # Return the steady state cost.
-    return sscost
+    return xs, sscost
 
 def c2dNonlin(fxu, Delta):
     """ Quick function to 

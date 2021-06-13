@@ -1,16 +1,10 @@
 # Pratyush Kumar, pratyushkumar@ucsb.edu
 
-import sys
 import numpy as np
-import mpctools as mpc
-import scipy.linalg
 import matplotlib.pyplot as plt
-import casadi
-import collections
-import pickle
 import plottools
-import time
 import itertools
+from matplotlib import cm
 
 PRESENTATION_FIGSIZE = (6, 6)
 PAPER_FIGSIZE = (6, 6)
@@ -215,25 +209,27 @@ class CstrFlashPlots:
         return figures
 
     @staticmethod
-    def plot_sscosts(*, us1, us2, sscosts, legend_colors, 
-                        legend_names, figure_size, 
-                        ylabel_xcoordinate, left_label_frac):
+    def plot_sscosts(*, us1, us2, sscost, figure_size):
         """ Plot the profit curves. """
 
-        figure, axes = plt.subplots(nrows=1, ncols=1)
+        figure, axes = plt.subplots(nrows=1, ncols=1, 
+                                subplot_kw=dict(projection="3d"))
 
         xlabel = r'$F \ (\textnormal{m}^3/\textnormal{min})$'
         ylabel = r'$D \ (\textnormal{m}^3/\textnormal{min})$'
         zlabel = r'Cost ($\$ $)'
-        for (cost, color) in zip(sscosts, legend_colors):
-            # Plot the corresponding data.
-            contour = axes.contourf(us1, us2, cost, 50)
-            figure.colorbar(contour)
-        # axes.legend(legend_names)
+
+        # Make the surface plot.
+        surf = axes.plot_surface(us1, us2, sscost, 
+                                    cmap=cm.viridis, 
+                                    shade=True)
+        #axes.view_init(10, -50)
+        
+        figure.colorbar(surf)
+        figure.tight_layout()
         axes.set_xlabel(xlabel)
         axes.set_ylabel(ylabel)
-        #axes.set_zlabel(zlabel, rotation=False)
-        # axes.set_xlim([np.min(us), np.max(us)])
+        axes.set_zlabel(zlabel, rotation=False)
         return [figure]
 
 def plotAvgProfits(*, t, stageCostList,

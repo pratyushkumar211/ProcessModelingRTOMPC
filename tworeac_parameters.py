@@ -12,6 +12,7 @@ from hybridid import PickleTool, sample_prbs_like, SimData
 from hybridid import get_rectified_xs, get_model
 from tworeac_funcs import get_plant_pars, plant_ode, get_greybox_pars
 
+
 def gen_train_val_data(*, parameters, num_traj, 
                           Nsim_train, Nsim_trainval, 
                           Nsim_val, seed):
@@ -98,7 +99,7 @@ def main():
                                         num_traj=4, Nsim_train=360,
                                         Nsim_trainval=360, Nsim_val=360,
                                         seed=103)
-    
+
     # Create a dict and save.
     tworeac_parameters = dict(plant_pars=plant_pars,
                               greybox_pars=greybox_pars, 
