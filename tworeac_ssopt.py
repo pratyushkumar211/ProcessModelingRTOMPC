@@ -5,6 +5,7 @@
 # [depends] tworeac_parameters.pickle
 # [depends] tworeac_bbnntrain.pickle
 # [depends] tworeac_hybtrain.pickle
+# [makes] pickle
 """ Script to use the trained hybrid model for 
     steady-state optimization.
     Pratyush Kumar, pratyushkumar@ucsb.edu """

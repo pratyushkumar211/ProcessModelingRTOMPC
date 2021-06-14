@@ -2,6 +2,7 @@
 # [depends] tworeac_parameters.pickle
 # [depends] tworeac_bbnntrain.pickle
 # [depends] tworeac_hybtrain.pickle
+# [depends] tworeac_ssopt.pickle
 """ Script to plot the training data
     and grey-box + NN model predictions on validation data.
     Pratyush Kumar, pratyushkumar@ucsb.edu """
