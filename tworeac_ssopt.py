@@ -67,7 +67,7 @@ def main():
     greybox_pars = tworeac_parameters['greybox_pars']
 
     # Get cost function handle.
-    p = [100, 200]
+    p = [100, 180]
     lyu = lambda y, u: cost_yup(y, u, p)
 
     # Get the black-box model parameters and function handles.

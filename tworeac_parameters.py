@@ -42,7 +42,7 @@ def gen_train_val_data(*, parameters, num_traj,
         elif traj == num_traj-2:
             "Get input for validation simulation."
             Nsim = Nsim_trainval
-            u = sample_prbs_like(num_change=12, num_steps=Nsim_trainval, 
+            u = sample_prbs_like(num_change=8, num_steps=Nsim_trainval, 
                                  lb=ulb, ub=uub,
                                  mean_change=30, sigma_change=10, 
                                  seed=seed+2)
@@ -96,8 +96,8 @@ def main():
     
     # Generate training data.
     training_data = gen_train_val_data(parameters=plant_pars,
-                                        num_traj=4, Nsim_train=360,
-                                        Nsim_trainval=360, Nsim_val=360,
+                                        num_traj=3, Nsim_train=360,
+                                        Nsim_trainval=240, Nsim_val=360,
                                         seed=103)
 
     # Create a dict and save.

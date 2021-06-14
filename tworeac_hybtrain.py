@@ -36,7 +36,7 @@ def main():
     xinsert_indices = []
     Np = 0
     tthrow = 10
-    fNDims = [Nx, 8, 3]
+    fNDims = [Nx, 4, 2]
 
     # Create lists to store data.
     trained_weights = []
@@ -60,14 +60,14 @@ def main():
         # Create model.
         model = create_tworeac_model(fNDims=fNDims, xuyscales=xuyscales, 
                                      greybox_pars=greybox_pars)
-        
+
         # Use num samples to adjust here the num training samples.
         train_samples = dict(x0=train_data['x0'],
                              inputs=train_data['inputs'],
                              outputs=train_data['outputs'])
 
         # Train.
-        train_hybrid_model(model=model, epochs=10000, batch_size=2, 
+        train_hybrid_model(model=model, epochs=15000, batch_size=1, 
                       train_data=train_samples, trainval_data=trainval_data,
                       stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 
