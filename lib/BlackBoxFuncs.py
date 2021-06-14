@@ -1,3 +1,4 @@
+# [depends] hybridid.py
 """
 Custom neural network layers for the 
 data-based completion of grey-box models 
