@@ -1,7 +1,7 @@
 # [depends] %LIB%/hybridid.py %LIB%/plotting_funcs.py
 # [depends] tworeac_parameters.pickle
-# [depends] tworeac_bbNNtrain.pickle
-# [depends] tworeac_kooptrain.pickle
+# [depends] tworeac_bbnntrain.pickle
+# [depends] tworeac_hybtrain.pickle
 """ Script to plot the training data
     and grey-box + NN model predictions on validation data.
     Pratyush Kumar, pratyushkumar@ucsb.edu """
@@ -77,6 +77,10 @@ def main():
                                      type='read')
     hyb_predictions = tworeac_hybtrain['val_predictions']
 
+    # Load the steady state cost computations.
+    tworeac_ssopt = PickleTool.load(filename="tworeac_ssopt.pickle",
+                                     type='read')
+
     # Load Koopman data after NN training.
     # tworeac_kooptrain = PickleTool.load(filename="tworeac_kooptrain.pickle",
     #                                   type='read')
@@ -98,11 +102,11 @@ def main():
     figures = []
 
     # Plot validation data.
-    legend_names = ['Plant', 'Black-box-NN']
+    legend_names = ['Plant', 'Black-Box-NN', 'Hybrid']
     legend_colors = ['b', 'dimgrey', 'm']
     valdata_list = [training_data[-1]]
     valdata_list += bbnn_predictions
-    #valdata_list += hyb_predictions
+    valdata_list += hyb_predictions
     t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
                                                      valdata_list[:1],
                                                      plot_range=(10, 6*60+10))
@@ -128,6 +132,17 @@ def main():
     #                            val_metrics=val_metrics, 
     #                            colors=['dimgray', 'm'], 
     #                            legends=['Black-box', 'Hybrid'])
+
+    # Steady state cost curves.
+    us = tworeac_ssopt['us']
+    sscosts = tworeac_ssopt['sscosts']
+    figures += TwoReacPlots.plot_sscosts(us=us, sscosts=sscosts, 
+                                        legend_colors=legend_colors, 
+                                        legend_names=legend_names, 
+                                        figure_size=PAPER_FIGSIZE, 
+                                        ylabel_xcoordinate=-0.12, 
+                                        left_label_frac=0.15, 
+                                        font_size=12)
 
     # Load data for the economic MPC simulation.
     # tworeac_empc = PickleTool.load(filename="tworeac_empc.pickle", 

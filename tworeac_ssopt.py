@@ -3,8 +3,8 @@
 # [depends] %LIB%/economicopt.py %LIB%/tworeac_funcs.py
 # [depends] %LIB%/InputConvexFuncs.py
 # [depends] tworeac_parameters.pickle
-# [depends] tworeac_bbNNtrain.pickle
-# [depends] tworeac_kooptrain.pickle
+# [depends] tworeac_bbnntrain.pickle
+# [depends] tworeac_hybtrain.pickle
 """ Script to use the trained hybrid model for 
     steady-state optimization.
     Pratyush Kumar, pratyushkumar@ucsb.edu """
@@ -54,9 +54,9 @@ def main():
     tworeac_bbnntrain = PickleTool.load(filename=
                                     'tworeac_bbnntrain.pickle',
                                       type='read')
-    tworeac_icnntrain = PickleTool.load(filename=
-                                    'tworeac_icnntrain.pickle',
-                                      type='read')
+    # tworeac_icnntrain = PickleTool.load(filename=
+    #                                 'tworeac_icnntrain.pickle',
+    #                                   type='read')
     tworeac_hybtrain = PickleTool.load(filename=
                                       'tworeac_hybtrain.pickle',
                                       type='read')
@@ -82,8 +82,8 @@ def main():
     hyb_hx = lambda x: tworeacHybrid_hx(x)
 
     # Get ICNN pars and function.
-    icnn_pars = get_icnn_pars(train=tworeac_icnntrain, plant_pars=plant_pars)
-    icnn_lu = lambda u: icnn_lyu(u, icnn_pars)
+    # icnn_pars = get_icnn_pars(train=tworeac_icnntrain, plant_pars=plant_pars)
+    # icnn_lu = lambda u: icnn_lyu(u, icnn_pars)
     
     # Get the plant function handle.
     Delta, ps = plant_pars['Delta'], plant_pars['ps']
@@ -92,11 +92,11 @@ def main():
     plant_hx = lambda x: measurement(x, plant_pars)
 
     # Lists to loop over for different models.
-    model_types = ['Plant', 'Black-Box-NN', 'ICNN']
-    fxu_list = [plant_fxu, bbnn_f, None]
-    hx_list = [plant_hx, bbnn_h, None]
-    par_list = [plant_pars, bbnn_pars, None]
-    Nps = [None, bbnn_pars['Np'], None]
+    model_types = ['Plant', 'Black-Box-NN', 'Hybrid']
+    fxu_list = [plant_fxu, bbnn_f, hyb_fxu, None]
+    hx_list = [plant_hx, bbnn_h, hyb_hx, None]
+    par_list = [plant_pars, bbnn_pars, hyb_pars, None]
+    Nps = [None, bbnn_pars['Np'], hyb_pars['Np'], None]
 
     # Loop over the different models, and obtain SS optimums.
     for (model_type, fxu, hx, model_pars, Np) in zip(model_types, fxu_list, 
@@ -147,19 +147,12 @@ def main():
     # Get us as rank 1 array.
     us = np.asarray(us_list)[:, 0]
 
-    legend_names = model_types
-    legend_colors = ['b', 'dimgrey', 'tomato']
-    figures = TwoReacPlots.plot_sscosts(us=us, sscosts=sscosts, 
-                                        legend_colors=legend_colors, 
-                                        legend_names=legend_names, 
-                                        figure_size=PAPER_FIGSIZE, 
-                                        ylabel_xcoordinate=-0.12, 
-                                        left_label_frac=0.15, 
-                                        font_size=12)
+    # Create data object and save.
+    tworeac_ssopt = dict(us=us, sscosts=sscosts)
 
-    # Finally plot.
-    with PdfPages('tworeac_ssopt.pdf', 'w') as pdf_file:
-        for fig in figures:
-            pdf_file.savefig(fig)
+    # Save.
+    PickleTool.save(data_object=tworeac_ssopt,
+                    filename='tworeac_ssopt.pickle')
+
 
 main()

@@ -1,4 +1,4 @@
-# [depends] %LIB%/hybridid.py %LIB%/training_funcs.py
+# [depends] %LIB%/hybridid.py %LIB%/TwoReacHybridFuncs.py
 # [depends] tworeac_parameters.pickle
 # [makes] pickle
 """ Script to train the hybrid model for the 
@@ -36,7 +36,7 @@ def main():
     xinsert_indices = []
     Np = 0
     tthrow = 10
-    fNDims = [Nx, 64, 3]
+    fNDims = [Nx, 8, 3]
 
     # Create lists to store data.
     trained_weights = []
@@ -67,7 +67,7 @@ def main():
                              outputs=train_data['outputs'])
 
         # Train.
-        train_hybrid_model(model=model, epochs=20, batch_size=2, 
+        train_hybrid_model(model=model, epochs=10000, batch_size=2, 
                       train_data=train_samples, trainval_data=trainval_data,
                       stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 
