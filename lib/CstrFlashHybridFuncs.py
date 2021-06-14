@@ -1,3 +1,4 @@
+# [depends] BlackBoxFuncs.py
 """
 Custom neural network layers for the 
 data-based completion of grey-box models 
@@ -37,7 +38,7 @@ class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
     def output_size(self):
         return self.Ny        
 
-    def _fg(self, x, u):
+    def _fxu(self, x, u):
         """ Function to compute the 
             derivative (RHS of the ODE)
             for the two reaction model. """
@@ -58,6 +59,10 @@ class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
         Qr = self.parameters['Qr']
         Qb = self.parameters['Qb']
         ps = self.parameters['ps']
+
+        # Get the output of the neural network.
+        nnOutput = fnnTF(x, self.fNLayers)
+        r1, r2 = nnOutput[..., 0:1], nnOutput[..., 1:2]
 
         # Scale back to physical states.
         ymean, ystd = self.xuyscales['yscale']
@@ -81,13 +86,13 @@ class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
         Fb = kb*tf.math.sqrt(Hb)
         
         # Get rate of reactions.
-        k1 = k1star*tf.math.exp(-E1byR/Tr)
-        r1 = k1*CAr
+        #k1 = k1star*tf.math.exp(-E1byR/Tr)
+        #r1 = k1*CAr
 
         # Write the CSTR odes.
         dHrbydt = (F + D - Fr)/Ar
-        dCArbydt = (F*(CAf - CAr) + D*(CAd - CAr))/(Ar*Hr) - r1
-        dCBrbydt = (-F*CBr + D*(CBd - CBr))/(Ar*Hr) + r1
+        dCArbydt = (F*(CAf - CAr) + D*(CAd - CAr))/(Ar*Hr)
+        dCBrbydt = (-F*CBr + D*(CBd - CBr))/(Ar*Hr)
         dTrbydt = (F*(Tf - Tr) + D*(Td - Tr))/(Ar*Hr) - Qr/(pho*Ar*Cp*Hr)
         dTrbydt += (r1*delH1)/(pho*Cp)
 

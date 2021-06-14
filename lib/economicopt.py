@@ -59,11 +59,11 @@ def get_ss_optimum(*, fxu, hx, lyu, parameters, guess):
     # Get casadi functions.
     lyu_func = lambda x, u: lyu(hx(x), u)
     lyu = mpc.getCasadiFunc(lyu_func, [Nx, Nu], ["x", "u"])
-    fxu = mpc.getCasadiFunc(fxu, [Nx, Nu], ["x", "u"])
+    f = mpc.getCasadiFunc(fxu, [Nx, Nu], ["x", "u"])
 
     # Setup NLP.
     nlp = dict(x=casadi.vertcat(xs, us), f=lyu(xs, us),
-               g=casadi.vertcat(xs -  fxu(xs, us), us))
+               g=casadi.vertcat(xs -  f(xs, us), us))
     nlp = casadi.nlpsol('nlp', 'ipopt', nlp)
 
     # Make a guess, get constraint limits.

@@ -1,3 +1,4 @@
+# [depends] BlackBoxFuncs.py hybridid.py
 """
 Custom neural network layers for the 
 data-based completion of grey-box models 
@@ -6,6 +7,7 @@ Pratyush Kumar, pratyushkumar@ucsb.edu
 """
 import sys
 import numpy as np
+import mpctools as mpc
 import tensorflow as tf
 from BlackBoxFuncs import fnnTF, fnn
 from hybridid import SimData
@@ -46,8 +48,7 @@ class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
         tau = self.greybox_pars['ps'].squeeze()
         
         # Get the output of the neural network.
-        nnInput = tf.concat((x, u), axis=-1)
-        nnOutput = fnnTF(nnInput, self.fNLayers)
+        nnOutput = fnnTF(x, self.fNLayers)
         r1, r2 = nnOutput[..., 0:1], nnOutput[..., 1:2]
 
         # Scale back to physical states.
@@ -70,11 +71,10 @@ class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
         xdot = tf.concat([dCabydt, dCbbydt, dCcbydt], axis=-1)/xstd
 
         # NN contributions.
-        fN = tf.concat([r1, (r1*Castd - 3*r2*Ccstd)/Cbstd, r2], axis=-1)
+        fN = tf.concat([-r1, (r1*Castd - 3*r2*Ccstd)/Cbstd, r2], axis=-1)
         
         # Final derivative.
         xdot += fN
-
 
         # Return the derivative.
         return xdot
@@ -220,8 +220,8 @@ def fxu(x, u, tau, xuyscales, fNWeights):
     """ Partial grey-box ODE function. """
 
     # Extract the plant states into meaningful names.
-    (Ca, Cb, Cc) = x[0:3]
-    Caf = u[0]
+    (Ca, Cb, Cc) = x[0:1], x[1:2], x[2:3]
+    Caf = u[0:1]
 
     # Get the scales.
     xmean, xstd = xuyscales['yscale']
@@ -231,8 +231,7 @@ def fxu(x, u, tau, xuyscales, fNWeights):
     # Scale state, inputs, for the NN.
     x = (x - xmean)/xstd
     u = (u - umean)/ustd
-    nnInput = np.concatenate((x, u))
-    nnOutput = fnn(nnInput, fNWeights)
+    nnOutput = fnn(x, fNWeights)
     r1, r2 = nnOutput[0:1], nnOutput[1:2]
 
     # Write the ODEs.
@@ -241,8 +240,8 @@ def fxu(x, u, tau, xuyscales, fNWeights):
     dCcbydt = -(Cc/tau)
 
     # Scale.
-    xdot = np.array([dCabydt, dCbbydt, dCcbydt])
-    fN = np.concatenate((r1, (r1*Castd - 3*r2*Ccstd)/Cbstd, r2))*xstd
+    xdot = mpc.vcat([dCabydt, dCbbydt, dCcbydt])
+    fN = np.concatenate((-r1, (r1*Castd - 3*r2*Ccstd)/Cbstd, r2))*xstd
     xdot += fN
 
     # Return.

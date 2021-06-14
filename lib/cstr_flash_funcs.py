@@ -167,7 +167,7 @@ def get_plant_pars():
     # Get the steady states.
     parameters['xs'] = np.array([50., 1., 0., 0., 313.,
                                  50., 1., 0., 0., 313.])
-    parameters['us'] = np.array([5., 2.])
+    parameters['us'] = np.array([5., 8.])
     parameters['ps'] = np.array([6., 320.])
 
     # Get the constraints.
