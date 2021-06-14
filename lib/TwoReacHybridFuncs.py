@@ -7,7 +7,7 @@ Pratyush Kumar, pratyushkumar@ucsb.edu
 import sys
 import numpy as np
 import tensorflow as tf
-from BlackBoxFuncs import fnnTF
+from BlackBoxFuncs import fnnTF, fnn
 from hybridid import SimData
 
 class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
@@ -32,21 +32,27 @@ class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
     def output_size(self):
         return self.greybox_pars['Nx']
 
-    def _fgreybox(self, x, u):
+    def _fxu(self, x, u):
         """ Function to compute the 
             derivative (RHS of the ODE)
             for the two reaction model. 
             
-            dCa/dt = (Caf-Ca)/tau 
-            dCb/dt = -Cb/tau
-            dCc/dt = -Cc/tau
+            dCa/dt = (Caf-Ca)/tau - r1
+            dCb/dt = -Cb/tau + r1 - 3*r2
+            dCc/dt = -Cc/tau + r2
             """
         
         # Extract the parameters.
         tau = self.greybox_pars['ps'].squeeze()
         
+        # Get the output of the neural network.
+        nnInput = tf.concat((x, u), axis=-1)
+        nnOutput = fnnTF(nnInput, self.fNLayers)
+        r1, r2 = nnOutput[..., 0:1], nnOutput[..., 1:2]
+
         # Scale back to physical states.
-        xmean, xstd = self.xuyscales['xscale']
+        xmean, xstd = self.xuyscales['yscale']
+        Castd, Cbstd, Ccstd = xstd[0:1], xstd[1:2], xstd[2:3]
         umean, ustd = self.xuyscales['uscale']
         x = x*xstd + xmean
         u = u*ustd + umean
@@ -63,6 +69,13 @@ class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
         # Scaled derivate.
         xdot = tf.concat([dCabydt, dCbbydt, dCcbydt], axis=-1)/xstd
 
+        # NN contributions.
+        fN = tf.concat([r1, (r1*Castd - 3*r2*Ccstd)/Cbstd, r2], axis=-1)
+        
+        # Final derivative.
+        xdot += fN
+
+
         # Return the derivative.
         return xdot
 
@@ -78,21 +91,11 @@ class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
         # Sample time.
         Delta = self.greybox_pars['Delta']        
 
-        # Get k1.
-        nnInput = tf.concat((x, u), axis=-1)
-        k1 = self._fgreybox(x, u) + fnnTF(nnInput, self.fNLayers)
-                
-        # Get k2.
-        nnInput = tf.concat((x + Delta*(k1/2), u), axis=-1)
-        k2 = self._fgreybox(x + Delta*(k1/2), u) + fnnTF(nnInput, self.fNLayers)
-
-        # Get k3.
-        nnInput = tf.concat((x + Delta*(k2/2), u), axis=-1)
-        k3 = self._fgreybox(x + Delta*(k2/2), u) + fnnTF(nnInput, self.fNLayers)
-
-        # Get k4.
-        nnInput = tf.concat((x + Delta*k3, u), axis=-1)
-        k4 = self._fgreybox(x + Delta*k3, u) + fnnTF(nnInput, self.fNLayers)
+        # Get k1, k2, k3, and k4.
+        k1 = self._fxu(x, u)
+        k2 = self._fxu(x + Delta*(k1/2), u)
+        k3 = self._fxu(x + Delta*(k2/2), u)
+        k4 = self._fxu(x + Delta*k3, u)
         
         # Get the current output/state and the next time step.
         y = x
@@ -189,30 +192,6 @@ def get_hybrid_predictions(*, model, val_data, xuyscales,
     # Return predictions and metric.
     return (val_predictions, val_metric)
 
-def fnn(nnInput, nnWeights):
-    """ Compute the NN output. """
-
-    # Check input dimensions. 
-    if nnInput.ndim == 1:
-        nnOutput = nnInput[:, np.newaxis]
-    else:
-        nnOutput = nnInput
-
-    # Loop over layers.
-    for i in range(0, len(nnWeights)-2, 2):
-        (W, b) = nnWeights[i:i+2]
-        nnOutput = W.T @ nnOutput + b[:, np.newaxis]
-        nnOutput = np.tanh(nnOutput)
-    (Wf, bf) = nnWeights[-2:]
-    
-    # Return output in the same number of dimensions as input.
-    nnOutput = Wf.T @ nnOutput + bf[:, np.newaxis]
-    if nnInput.ndim == 1:
-        nnOutput = nnOutput[:, 0]
-
-    # Return.
-    return nnOutput
-
 def get_tworeacHybrid_pars(*, train, greybox_pars):
     """ Get the black-box parameter dict and function handles. """
 
@@ -237,20 +216,37 @@ def get_tworeacHybrid_pars(*, train, greybox_pars):
     # Return.
     return parameters
 
-def fgreybox(x, u, tau):
+def fxu(x, u, tau, xuyscales, fNWeights):
     """ Partial grey-box ODE function. """
 
     # Extract the plant states into meaningful names.
     (Ca, Cb, Cc) = x[0:3]
     Caf = u[0]
 
+    # Get the scales.
+    xmean, xstd = xuyscales['yscale']
+    Castd, Cbstd, Ccstd = xstd[0:1], xstd[1:2], xstd[2:3]
+    umean, ustd = xuyscales['uscale']
+    
+    # Scale state, inputs, for the NN.
+    x = (x - xmean)/xstd
+    u = (u - umean)/ustd
+    nnInput = np.concatenate((x, u))
+    nnOutput = fnn(nnInput, fNWeights)
+    r1, r2 = nnOutput[0:1], nnOutput[1:2]
+
     # Write the ODEs.
     dCabydt = (Caf-Ca)/tau
     dCbbydt = -(Cb/tau)
     dCcbydt = -(Cc/tau)
 
-    # Return. 
-    return np.array([dCabydt, dCbbydt, dCcbydt])
+    # Scale.
+    xdot = np.array([dCabydt, dCbbydt, dCcbydt])
+    fN = np.concatenate((r1, (r1*Castd - 3*r2*Ccstd)/Cbstd, r2))*xstd
+    xdot += fN
+
+    # Return.
+    return xdot
 
 def tworeacHybrid_fxu(x, u, parameters):
     """ Function describing the dynamics 
@@ -266,38 +262,17 @@ def tworeacHybrid_fxu(x, u, parameters):
 
     # Get scaling.
     xuyscales = parameters['xuyscales']
-    xmean, xstd = xuyscales['xscale']
-    umean, ustd = xuyscales['uscale']
-    
-    # Scale state and inputs.
-    x = (x - xmean)/xstd
-    u = (u - umean)/ustd
-    
-    # Get k1.
-    nnInput = np.concatenate((x, u))
-    k1 = fgreybox(x*xstd + xmean, u*ustd + umean, tau)/xstd
-    k1 += fnn(nnInput, fNWeights)
-    
-    # Get k2.
-    nnInput = np.concatenate((x + Delta*(k1/2), u))
-    k2 = fgreybox((x + Delta*(k1/2))*xstd + xmean, u*ustd + umean, tau)/xstd
-    k2 += fnn(nnInput, fNWeights)
+    xmean, xstd = xuyscales['yscale']
 
-    # Get k3.
-    nnInput = np.concatenate((x + Delta*(k2/2), u))
-    k3 = fgreybox((x + Delta*(k2/2))*xstd + xmean, u*ustd + umean, tau)/xstd
-    k3 += fnn(nnInput, fNWeights)
-
-    # Get k4.
-    nnInput = np.concatenate((x + Delta*k3, u))
-    k4 = fgreybox((x + Delta*k3)*xstd + xmean, u*ustd + umean, tau)/xstd
-    k4 += fnn(nnInput, fNWeights)
+    # Get k1, k2, k3, and k4.
+    k1 = fxu(x, u, tau, xuyscales, fNWeights)
+    k2 = fxu(x + Delta*(k1/2), u, tau, xuyscales, fNWeights)
+    k3 = fxu(x + Delta*(k2/2), u, tau, xuyscales, fNWeights)
+    k4 = fxu(x + Delta*k3, u, tau, xuyscales, fNWeights)
     
     # Get the current output/state and the next time step.
     xplus = x + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
 
-    # Scale back.
-    xplus = xplus*xstd + xmean
 
     # Return the sum.
     return xplus

@@ -12,8 +12,8 @@ sys.path.append('lib/')
 import numpy as np
 from hybridid import PickleTool, quick_sim
 from BlackBoxFuncs import get_bbnn_pars, bbnn_fxu, bbnn_hx
-# from TwoReacHybridFuncs import (get_tworeacHybrid_pars,
-#                                 tworeacHybrid_fxu, tworeacHybrid_hx)
+from TwoReacHybridFuncs import (get_tworeacHybrid_pars,
+                                tworeacHybrid_fxu, tworeacHybrid_hx)
 # from KoopmanModelFuncs import get_KoopmanModel_pars, koop_fxu, koop_hx
 # from InputConvexFuncs import get_icnn_pars, icnn_lyu
 
@@ -25,8 +25,8 @@ def main():
                                          type='read')
     tworeac_bbnntrain = PickleTool.load(filename='tworeac_bbnntrain.pickle',
                                         type='read')
-    # tworeac_hybtrain = PickleTool.load(filename='tworeac_hybtrain.pickle',
-    #                                     type='read')
+    tworeac_hybtrain = PickleTool.load(filename='tworeac_hybtrain.pickle',
+                                        type='read')
     # tworeac_icnntrain = PickleTool.load(filename='tworeac_icnntrain.pickle',
     #                                     type='read')
 
@@ -160,7 +160,7 @@ def main():
     check_bbnn(tworeac_bbnntrain, tworeac_parameters)
     #check_icnn(tworeac_icnntrain, tworeac_parameters)
     #check_koopman(tworeac_kooptrain, tworeac_parameters)
-    #check_hybrid(tworeac_hybtrain, tworeac_parameters)
+    check_hybrid(tworeac_hybtrain, tworeac_parameters)
     print("Hi")
 
 main()

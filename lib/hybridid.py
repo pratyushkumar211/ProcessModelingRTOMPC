@@ -120,7 +120,7 @@ def get_train_val_data(*, tthrow, Np, xuyscales, data_list):
     for data in data_list:
         
         # Scale data.
-        x = (data.x - xmean)/xstd
+        x = (data.x - ymean)/ystd
         u = (data.u - umean)/ustd
         y = (data.y - ymean)/ystd
         
