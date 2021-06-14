@@ -192,7 +192,7 @@ def main():
     # Plant parameters.
     plant_pars = get_plant_pars()
     plant_pars['xs'] = get_rectified_xs(ode=plant_ode, parameters=plant_pars)
-
+    breakpoint()
     # Grey-box parameters.
     greybox_pars = get_greybox_pars(plant_pars=plant_pars)
     #greybox_pars['xs'] = get_rectified_xs(ode=greybox_ode, 

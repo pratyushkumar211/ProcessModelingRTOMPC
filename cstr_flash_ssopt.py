@@ -1,7 +1,11 @@
 # [depends] %LIB%/hybridid.py %LIB%/cstr_flash_funcs.py
-# [depends] %LIB%/economicopt.py %LIB%/plotting_funcs.py
+# [depends] %LIB%/economicopt.py %LIB%/BlackBoxFuncs.py
+# [depends] %LIB%/CstrFlashHybridFuncs.py %LIB%/InputConvexFuncs.py
+# [depends] %LIB%/plotting_funcs.py 
 # [depends] cstr_flash_parameters.pickle
-# [depends] cstr_flash_bbtrain.pickle
+# [depends] cstr_flash_bbnntrain.pickle
+# [depends] cstr_flash_hybtrain.pickle
+# [makes] pickle
 """ Script to use the trained hybrid model for 
     steady-state optimization.
     Pratyush Kumar, pratyushkumar@ucsb.edu """

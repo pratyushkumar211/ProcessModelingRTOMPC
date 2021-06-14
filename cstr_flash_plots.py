@@ -1,5 +1,8 @@
 # [depends] %LIB%/hybridid.py %LIB%/plotting_funcs.py
-# [depends] cstr_flash_parameters.pickle cstr_flash_bbtrain.pickle
+# [depends] cstr_flash_parameters.pickle 
+# [depends] cstr_flash_bbnntrain.pickle
+# [depends] cstr_flash_hybtrain.pickle
+# [depends] cstr_flash_ssopt.pickle
 """ Script to plot the training data
     and grey-box + NN model predictions on validation data.
     Pratyush Kumar, pratyushkumar@ucsb.edu """

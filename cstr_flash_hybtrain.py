@@ -1,4 +1,5 @@
-# [depends] %LIB%/hybridid.py %LIB%/training_funcs.py
+# [depends] %LIB%/hybridid.py %LIB%/CstrFlashHybridFuncs.py
+# [depends] %LIB%/BlackBoxFuncs.py
 # [depends] cstr_flash_parameters.pickle
 # [makes] pickle
 """ Script to train the hybrid model for the 
