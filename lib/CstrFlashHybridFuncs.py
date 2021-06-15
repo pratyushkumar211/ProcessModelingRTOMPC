@@ -60,7 +60,7 @@ class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
 
         # Scale back to physical states.
         xmean, xstd = self.xuyscales['yscale']
-        Castd, Ccstd = xstd[0:1], xstd[2:3]
+        Castd, Ccstd = xstd[1:2], xstd[3:4]
         umean, ustd = self.xuyscales['uscale']
         x = x*xstd + xmean
         u = u*ustd + umean
@@ -170,8 +170,7 @@ class CstrFlashModel(tf.keras.Model):
         fNLayers = []
         for dim in fNDims[1:-1]:
             fNLayers += [tf.keras.layers.Dense(dim, activation='tanh')]
-        fNLayers += [tf.keras.layers.Dense(fNDims[-1], 
-                                           kernel_initializer='zeros')]
+        fNLayers += [tf.keras.layers.Dense(fNDims[-1])]
 
         # Build model.
         cstr_flash_cell = CstrFlashHybridCell(fNLayers, xuyscales, greybox_pars)
@@ -267,7 +266,7 @@ def fxu(x, u, parameters, xuyscales, fNWeights):
     
     # Get the scales.
     xmean, xstd = xuyscales['yscale']
-    Castd, Ccstd = xstd[0:1], xstd[2:3]
+    Castd, Ccstd = xstd[1:2], xstd[3:4]
     umean, ustd = xuyscales['uscale']
 
     # Scale state, inputs, for the NN.

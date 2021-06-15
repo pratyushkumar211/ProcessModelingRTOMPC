@@ -36,7 +36,7 @@ def main():
     ypred_xinsert_indices = []
     tthrow = 10
     Np = 0
-    fNDims = [Ny + Np*(Ny+Nu), 32, 10]
+    fNDims = [Ny + Np*(Ny+Nu), 64, 64, 10]
 
     # Create lists to store data.
     trained_weights = []
@@ -65,7 +65,7 @@ def main():
                              outputs=train_data['outputs'])
 
         # Train.
-        train_model(model=model, epochs=20, batch_size=9, 
+        train_model(model=model, epochs=3000, batch_size=4, 
                       train_data=train_samples, trainval_data=trainval_data, 
                       stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 
