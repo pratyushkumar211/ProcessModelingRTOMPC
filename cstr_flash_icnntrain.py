@@ -25,12 +25,12 @@ def main():
                                         'cstr_flash_parameters.pickle',
                                          type='read')
     cstr_flash_icnndata = PickleTool.load(filename=
-                                        'cstr_flash_icnndata_hybrid.pickle',
+                                        'cstr_flash_icnndata.pickle',
                                          type='read')
     plant_pars = cstr_flash_parameters['plant_pars']
 
     # Create some parameters.
-    zDims = [None, 32, 1]
+    zDims = [None, 32, 32, 1]
     uDims = None
     Nu = plant_pars['Nu']
 
@@ -61,7 +61,7 @@ def main():
                          output=train_data['output'])
 
     # Train.
-    train_model(model=model, epochs=1000, batch_size=32, 
+    train_model(model=model, epochs=500, batch_size=32, 
                       train_data=train_samples, trainval_data=trainval_data,
                       stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 

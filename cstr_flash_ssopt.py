@@ -37,15 +37,16 @@ def get_xuguess(*, model_type, plant_pars, Np=None):
     us = plant_pars['us']
 
     if model_type == 'Plant':
+        us = np.array([5., 8.])
         xs = plant_pars['xs']
     elif model_type == 'Black-Box-NN' or model_type == 'Hybrid':
         yindices = plant_pars['yindices']
         ys = plant_pars['xs'][yindices]
-        us = np.array([15., 2.])
+        us = np.array([5., 8.])
         xs = np.concatenate((np.tile(ys, (Np+1, )), 
                              np.tile(us, (Np, ))))
     elif model_type == 'ICNN':
-        us = np.array([10., 8.])
+        us = np.array([5., 2.])
         xs = None
     else:
         pass
@@ -64,16 +65,16 @@ def main():
     cstr_flash_hybtrain = PickleTool.load(filename=
                                      'cstr_flash_hybtrain.pickle',
                                       type='read')
-    # cstr_flash_icnntrain = PickleTool.load(filename=
-    #                                  'cstr_flash_icnntrain.pickle',
-    #                                   type='read')
+    cstr_flash_icnntrain = PickleTool.load(filename=
+                                     'cstr_flash_icnntrain.pickle',
+                                      type='read')
 
     # Get plant and grey-box model parameters.
     plant_pars = cstr_flash_parameters['plant_pars']
     greybox_pars = cstr_flash_parameters['greybox_pars']
 
     # Get cost function handle.
-    p = [500, 300, 12000]
+    p = [20, 3200, 16000]
     lyu = lambda y, u: cost_yup(y, u, p, plant_pars)
 
     # Get the plant function handle.
@@ -96,15 +97,17 @@ def main():
     hyb_hx = lambda x: CstrFlashHybrid_hx(x)
 
     # Get ICNN parameters and function.
-    # icnn_pars = get_icnn_pars(train=cstr_flash_icnntrain, plant_pars=plant_pars)
-    # icnn_lu = lambda u: icnn_lyu(u, icnn_pars)
+    icnn_pars = get_icnn_pars(train=cstr_flash_icnntrain, plant_pars=plant_pars)
+    icnn_lu = lambda u: icnn_lyu(u, icnn_pars)
 
     # Lists to loop over for different models.
-    model_types = ['Plant', 'Black-Box-NN', 'Hybrid']
+    model_types = ['Plant', 'Black-Box-NN', 'Hybrid', 'ICNN']
     fxu_list = [plant_fxu, bbnn_f, hyb_fxu, None]
     hx_list = [plant_hx, bbnn_h, hyb_hx, None]
     par_list = [plant_pars, bbnn_pars, hyb_pars, None]
     Nps = [None, 0, 0, None]
+    opt_sscosts = []
+    opt_us = []
 
     # Loop over the different models, and obtain SS optimums.
     for (model_type, fxu, hx, model_pars, Np) in zip(model_types, fxu_list, 
@@ -118,14 +121,33 @@ def main():
         if model_type != 'ICNN':
             xs, us, ys, opt_sscost = get_ss_optimum(fxu=fxu, hx=hx, lyu=lyu, 
                                         parameters=model_pars, guess=xuguess)
+            opt_sscosts += [opt_sscost]
         else:
             us = get_icnn_ss_optimum(lyu=icnn_lu, parameters=icnn_pars, 
                                       uguess=xuguess['u'])
+        
+        # Store the optimal us in the list.
+        opt_us += [us]
 
         # Print. 
         print("Model type: " + model_type)
         print('us: ' + str(us))
     
+    # Check for Suboptimality loss.
+    xuguess = get_xuguess(model_type='Plant', 
+                              plant_pars=plant_pars, Np=None)
+    xs, sscost_hyb = get_xs_sscost(fxu=plant_fxu, hx=plant_hx, lyu=lyu, 
+                               us=opt_us[2], parameters=plant_pars, 
+                               xguess=xuguess['x'], 
+                               lbx=np.zeros((plant_pars['Nx'], )), 
+                               ubx=np.tile(np.inf, (plant_pars['Nx'], )))
+    xs, sscost_icnn = get_xs_sscost(fxu=plant_fxu, hx=plant_hx, lyu=lyu, 
+                               us=opt_us[3], parameters=plant_pars, 
+                               xguess=xuguess['x'], 
+                               lbx=np.zeros((plant_pars['Nx'], )), 
+                               ubx=np.tile(np.inf, (plant_pars['Nx'], )))
+    breakpoint()
+    print("Hi")
     # # Get a linspace of steady-state u values.
     # Nu = plant_pars['Nu']
     # ulb, uub = plant_pars['ulb'], plant_pars['uub']

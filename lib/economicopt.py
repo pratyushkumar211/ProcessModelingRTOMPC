@@ -119,7 +119,7 @@ def get_xs_sscost(*, fxu, hx, lyu, us, parameters,
 
     # Compute the cost based on steady state.
     sscost = lyu(hx(xs), us)
-
+    
     # Return the steady state cost.
     return xs, sscost
 

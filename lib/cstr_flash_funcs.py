@@ -176,8 +176,8 @@ def get_plant_pars():
 
     # The C matrix for the plant.
     parameters['yindices'] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-    parameters['Rv'] = 0*np.diag([0.8, 1e-4, 1e-4, 1e-4, 1., 
-                                  0.8, 1e-4, 1e-4, 1e-4, 1.])
+    parameters['Rv'] = np.diag([0.8, 1e-3, 1e-3, 1e-3, 1., 
+                                  0.8, 1e-3, 1e-3, 1e-3, 1.])
     
     # Return the parameters dict.
     return parameters
@@ -243,7 +243,7 @@ def cost_yup(y, u, p, pars):
     # Get inputs, parameters, and states.
     F, D = u[0:2]
     ce, ca, cb = p[0:3]
-    Hb, CBb, Tb = y[[4, 6, 7]]
+    Hb, CBb, Tb = y[[5, 7, 9]]
     Fb = kb*np.sqrt(Hb)
     
     # Compute and return cost.
