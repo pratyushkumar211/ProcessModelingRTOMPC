@@ -1,6 +1,8 @@
 # [depends] %LIB%/hybridid.py %LIB%/BlackBoxFuncs.py
+# [depends] %LIB%/CstrFlashHybridFuncs.py
 # [depends] cstr_flash_parameters.pickle
 # [depends] cstr_flash_bbnntrain.pickle
+# [depends] cstr_flash_hybtrain.pickle
 """ Script to perform closed-loop simulations
     with the trained models.
     Pratyush Kumar, pratyushkumar@ucsb.edu """
@@ -60,26 +62,22 @@ def main():
         # Get some sizes/parameters.
         greybox_pars = cstr_flash_parameters['greybox_pars']
         tthrow = 10
-        Np = cstr_flash_hybtrain['Np']
         Ny, Nu = greybox_pars['Ny'], greybox_pars['Nu']
 
         # Get initial state for forecasting.
         training_data = cstr_flash_parameters['training_data'][-1]
         uval = training_data.u[tthrow:, :]
-        y0 = training_data.y[tthrow, :]
-        yp0seq = training_data.y[tthrow-Np:tthrow, :].reshape(Np*Ny, )
-        up0seq = training_data.u[tthrow-Np:tthrow, :].reshape(Np*Nu, )
-        yz0 = np.concatenate((y0, yp0seq, up0seq))
+        x0 = training_data.x[tthrow, :]
 
         # Get the black-box model parameters and function handles.
         hyb_pars = get_CstrFlash_hybrid_pars(train=cstr_flash_hybtrain, 
                                               greybox_pars=greybox_pars)
         fxu = lambda x, u: CstrFlashHybrid_fxu(x, u, hyb_pars)
-        hx = lambda x: CstrFlashHybrid_hx(x, hyb_pars)
+        hx = lambda x: CstrFlashHybrid_hx(x)
 
         # CHeck black-box model validation.
         hyb_yval = cstr_flash_hybtrain['val_predictions'][-1].y
-        hyb_xpred, hyb_ypred = quick_sim(fxu, hx, yz0, uval)
+        hyb_xpred, hyb_ypred = quick_sim(fxu, hx, x0, uval)
         breakpoint()
         # Return 
         return 

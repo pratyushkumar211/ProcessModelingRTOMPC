@@ -155,7 +155,7 @@ def get_plant_pars():
     parameters['Qr'] = 2000 # kJ/min
 
     # Store the dimensions. 
-    Nx, Nu, Np, Ny = 10, 2, 2, 8
+    Nx, Nu, Np, Ny = 10, 2, 2, 10
     parameters['Nx'] = Nx
     parameters['Nu'] = Nu
     parameters['Np'] = Np
@@ -175,9 +175,9 @@ def get_plant_pars():
     parameters['uub'] = np.array([15., 8.])
 
     # The C matrix for the plant.
-    parameters['yindices'] = [0, 1, 2, 4, 5, 6, 7, 9]
-    parameters['Rv'] = 0*np.diag([0.8, 1e-3, 1e-3, 1., 
-                                  0.8, 1e-3, 1e-3, 1.])
+    parameters['yindices'] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    parameters['Rv'] = 0*np.diag([0.8, 1e-3, 1e-3, 1e-3, 1., 
+                                  0.8, 1e-3, 1e-3, 1e-3, 1.])
     
     # Return the parameters dict.
     return parameters
@@ -190,7 +190,7 @@ def get_greybox_pars(*, plant_pars):
     parameters = {}
     parameters['alphaA'] = 8.
     parameters['alphaB'] = 1.
-    #parameters['alphaC'] = 1.
+    parameters['alphaC'] = 1.
     parameters['pho'] = 6. # Kg/m^3
     parameters['Cp'] = 3. # KJ/(Kg-K)
     parameters['Ar'] = 3. # m^2
@@ -198,17 +198,17 @@ def get_greybox_pars(*, plant_pars):
     parameters['kr'] = 4. # m^2
     parameters['kb'] = 3. # m^2
     parameters['delH1'] = 80. # kJ/mol
-    #parameters['delH2'] = 90. # kJ/mol
-    parameters['E1byR'] = 200. # K
+    parameters['delH2'] = 90. # kJ/mol
+    #parameters['E1byR'] = 200. # K
     #parameters['E2byR'] = 300. # K
-    parameters['k1star'] = 2. # 1/min
+    #parameters['k1star'] = 2. # 1/min
     #parameters['k2star'] = 0.2 # 1/min
     parameters['Td'] = 310 # K
     parameters['Qb'] = 200 # kJ/min
     parameters['Qr'] = 2000 # kJ/min
 
     # Store the dimensions.
-    parameters['Nx'] = 8
+    parameters['Nx'] = plant_pars['Nx']
     parameters['Nu'] = plant_pars['Nu']
     parameters['Ny'] = plant_pars['Ny']
     parameters['Np'] = plant_pars['Np']

@@ -35,10 +35,10 @@ def main():
     num_samples = [hours*60 for hours in [6]]
 
     # Create some parameters.
-    ypred_xinsert_indices = [3, 7]
+    ypred_xinsert_indices = []
     tthrow = 10
-    Np = 3
-    fNDims = [Ny + Np*(Ny+Nu), 64, 64, 8]
+    Np = 0
+    fNDims = [Ny + Np*(Ny+Nu), 16, 2]
 
     # Create lists to store data.
     trained_weights = []
@@ -59,16 +59,16 @@ def main():
     for num_sample in num_samples:
         
         # Create model.
-        model = create_model(Np=Np, fNDims=fNDims, 
+        model = create_model(fNDims=fNDims, 
                              xuyscales=xuyscales, greybox_pars=greybox_pars)
 
         # Use num samples to adjust here the num training samples.
-        train_samples = dict(yz0=train_data['yz0'],
+        train_samples = dict(yz0=train_data['x0'],
                              inputs=train_data['inputs'],
                              outputs=train_data['outputs'])
 
         # Train.
-        train_model(model=model, epochs=5000, batch_size=9, 
+        train_model(model=model, epochs=10, batch_size=9, 
                     train_data=train_samples, trainval_data=trainval_data, 
                     stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 

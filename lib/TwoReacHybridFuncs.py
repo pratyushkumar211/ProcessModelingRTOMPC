@@ -251,9 +251,6 @@ def tworeacHybrid_fxu(x, u, parameters):
     """ Function describing the dynamics 
         of the Two reac hybrid model. """
 
-    # Extract parameters.
-    Nx, Nu = parameters['Nx'], parameters['Nu']
-
     # Get NN weights.
     fNWeights = parameters['fNWeights']
     tau = parameters['tau']
@@ -261,7 +258,6 @@ def tworeacHybrid_fxu(x, u, parameters):
 
     # Get scaling.
     xuyscales = parameters['xuyscales']
-    xmean, xstd = xuyscales['yscale']
 
     # Get k1, k2, k3, and k4.
     k1 = fxu(x, u, tau, xuyscales, fNWeights)

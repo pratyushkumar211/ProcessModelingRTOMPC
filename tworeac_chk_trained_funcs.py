@@ -1,8 +1,8 @@
-# [depends] %LIB%/hybridid.py %LIB%/economicopt.py
+# [depends] %LIB%/hybridid.py %LIB%/BlackBoxFuncs.py
+# [depends] %LIB%/TwoReacHybridFuncs.py
 # [depends] tworeac_parameters.pickle
-# [depends] tworeac_bbtrain.pickle
-# [depends] tworeac_kooptrain.pickle
-# [makes] pickle
+# [depends] tworeac_bbnntrain.pickle
+# [depends] tworeac_hybtrain.pickle
 """ Script to perform closed-loop simulations
     with the trained models.
     Pratyush Kumar, pratyushkumar@ucsb.edu """
