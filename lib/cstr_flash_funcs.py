@@ -39,7 +39,7 @@ def plant_ode(x, u, p, parameters):
     den = alphaA*CAb + alphaB*CBb + alphaC*CCb
     CAd = alphaA*CAb/den
     CBd = alphaB*CBb/den
-    CCd = alphaB*CCb/den
+    CCd = alphaC*CCb/den
 
     # The outlet mass flow rates.
     Fr = kr*np.sqrt(Hr)
@@ -176,8 +176,8 @@ def get_plant_pars():
 
     # The C matrix for the plant.
     parameters['yindices'] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-    parameters['Rv'] = 0*np.diag([0.8, 1e-3, 1e-3, 1e-3, 1., 
-                                  0.8, 1e-3, 1e-3, 1e-3, 1.])
+    parameters['Rv'] = 0*np.diag([0.8, 1e-4, 1e-4, 1e-4, 1., 
+                                  0.8, 1e-4, 1e-4, 1e-4, 1.])
     
     # Return the parameters dict.
     return parameters
@@ -199,10 +199,10 @@ def get_greybox_pars(*, plant_pars):
     parameters['kb'] = 3. # m^2
     parameters['delH1'] = 80. # kJ/mol
     parameters['delH2'] = 90. # kJ/mol
-    #parameters['E1byR'] = 200. # K
-    #parameters['E2byR'] = 300. # K
-    #parameters['k1star'] = 2. # 1/min
-    #parameters['k2star'] = 0.2 # 1/min
+    # parameters['E1byR'] = 200. # K
+    # parameters['E2byR'] = 300. # K
+    # parameters['k1star'] = 2. # 1/min
+    # parameters['k2star'] = 0.2 # 1/min
     parameters['Td'] = 310 # K
     parameters['Qb'] = 200 # kJ/min
     parameters['Qr'] = 2000 # kJ/min

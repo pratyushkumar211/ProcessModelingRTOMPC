@@ -74,12 +74,12 @@ class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
                      x[..., 8:9], x[..., 9:10])
         F, D = u[..., 0:1], u[..., 1:2]
         CAf, Tf = ps[0], ps[1]
-        
+
         # The flash vapor phase mass fractions.
         den = alphaA*CAb + alphaB*CBb + alphaC*CCb
         CAd = alphaA*CAb/den
         CBd = alphaB*CBb/den
-        CCd = alphaB*CCb/den
+        CCd = alphaC*CCb/den
 
         # The outlet mass flow rates.
         Fr = kr*tf.math.sqrt(Hr)
@@ -103,7 +103,7 @@ class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
 
         # Get the scaled derivative.
         xdot = tf.concat([dHrbydt, dCArbydt, dCBrbydt, dCCrbydt, dTrbydt,
-                dHbbydt, dCAbbydt, dCBbbydt, dCBbbydt, dTbbydt], axis=-1)/xstd
+                dHbbydt, dCAbbydt, dCBbbydt, dCCbbydt, dTbbydt], axis=-1)/xstd
 
         # Return the derivative.
         return xdot
@@ -302,8 +302,8 @@ def fxu(x, u, parameters, xuyscales, fNWeights):
     dTbbydt = (Fr*(Tr - Tb))/(Ab*Hb) + Qb/(pho*Ab*Cp*Hb)
 
     # Get the scaled derivative.
-    xdot = tf.concat([dHrbydt, dCArbydt, dCBrbydt, dCCrbydt, dTrbydt,
-            dHbbydt, dCAbbydt, dCBbbydt, dCBbbydt, dTbbydt], axis=-1)
+    xdot = mpc.vcat([dHrbydt, dCArbydt, dCBrbydt, dCCrbydt, dTrbydt,
+            dHbbydt, dCAbbydt, dCBbbydt, dCCbbydt, dTbbydt])
 
     # Return.
     return xdot

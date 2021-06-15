@@ -64,16 +64,16 @@ def main():
     cstr_flash_hybtrain = PickleTool.load(filename=
                                      'cstr_flash_hybtrain.pickle',
                                       type='read')
-    cstr_flash_icnntrain = PickleTool.load(filename=
-                                     'cstr_flash_icnntrain.pickle',
-                                      type='read')
+    # cstr_flash_icnntrain = PickleTool.load(filename=
+    #                                  'cstr_flash_icnntrain.pickle',
+    #                                   type='read')
 
     # Get plant and grey-box model parameters.
     plant_pars = cstr_flash_parameters['plant_pars']
     greybox_pars = cstr_flash_parameters['greybox_pars']
 
     # Get cost function handle.
-    p = [30, 2200, 10000]
+    p = [500, 300, 12000]
     lyu = lambda y, u: cost_yup(y, u, p, plant_pars)
 
     # Get the plant function handle.
@@ -93,18 +93,18 @@ def main():
     hyb_pars = get_CstrFlash_hybrid_pars(train=cstr_flash_hybtrain, 
                                          greybox_pars=greybox_pars)
     hyb_fxu = lambda x, u: CstrFlashHybrid_fxu(x, u, hyb_pars)
-    hyb_hx = lambda x: CstrFlashHybrid_hx(x, hyb_pars)
+    hyb_hx = lambda x: CstrFlashHybrid_hx(x)
 
     # Get ICNN parameters and function.
-    icnn_pars = get_icnn_pars(train=cstr_flash_icnntrain, plant_pars=plant_pars)
-    icnn_lu = lambda u: icnn_lyu(u, icnn_pars)
+    # icnn_pars = get_icnn_pars(train=cstr_flash_icnntrain, plant_pars=plant_pars)
+    # icnn_lu = lambda u: icnn_lyu(u, icnn_pars)
 
     # Lists to loop over for different models.
-    model_types = ['Plant', 'Black-Box-NN', 'Hybrid', 'ICNN']
+    model_types = ['Plant', 'Black-Box-NN', 'Hybrid']
     fxu_list = [plant_fxu, bbnn_f, hyb_fxu, None]
     hx_list = [plant_hx, bbnn_h, hyb_hx, None]
     par_list = [plant_pars, bbnn_pars, hyb_pars, None]
-    Nps = [None, bbnn_pars['Np'], hyb_pars['Np'], None]
+    Nps = [None, 0, 0, None]
 
     # Loop over the different models, and obtain SS optimums.
     for (model_type, fxu, hx, model_pars, Np) in zip(model_types, fxu_list, 
@@ -125,58 +125,58 @@ def main():
         # Print. 
         print("Model type: " + model_type)
         print('us: ' + str(us))
+    
+    # # Get a linspace of steady-state u values.
+    # Nu = plant_pars['Nu']
+    # ulb, uub = plant_pars['ulb'], plant_pars['uub']
 
-    # Get a linspace of steady-state u values.
-    Nu = plant_pars['Nu']
-    ulb, uub = plant_pars['ulb'], plant_pars['uub']
+    # # Get lists.
+    # us1_list = list(np.linspace(ulb[0], uub[0], 4))
+    # us2_list = list(np.linspace(ulb[1], uub[1], 4))
 
-    # Get lists.
-    us1_list = list(np.linspace(ulb[0], uub[0], 4))
-    us2_list = list(np.linspace(ulb[1], uub[1], 4))
+    # # Lists to store Steady-state cost.
+    # sscosts = []
 
-    # Lists to store Steady-state cost.
-    sscosts = []
+    # # Loop over all the models.
+    # for (model_type, fxu, hx, model_pars, Np) in zip(model_types, fxu_list, 
+    #                                              hx_list, par_list, Nps):
 
-    # Loop over all the models.
-    for (model_type, fxu, hx, model_pars, Np) in zip(model_types, fxu_list, 
-                                                 hx_list, par_list, Nps):
+    #     # List to store SS costs for one model.
+    #     model_sscost = []
 
-        # List to store SS costs for one model.
-        model_sscost = []
+    #     # Get guess.
+    #     xuguess = get_xuguess(model_type=model_type, 
+    #                           plant_pars=plant_pars, Np=Np)
 
-        # Get guess.
-        xuguess = get_xuguess(model_type=model_type, 
-                              plant_pars=plant_pars, Np=Np)
-
-        # Compute SS cost.
-        for us2, us1 in itertools.product(us2_list, us1_list):
+    #     # Compute SS cost.
+    #     for us2, us1 in itertools.product(us2_list, us1_list):
             
-            # Get the vector input.
-            us = np.array([us1, us2])
-            if model_type != 'ICNN':
-                xs, sscost = get_xs_sscost(fxu=fxu, hx=hx, lyu=lyu, 
-                                    us=us, parameters=model_pars, 
-                                    xguess=xuguess['x'], 
-                                    lbx=np.zeros((model_pars['Nx'], )), 
-                                    ubx=np.tile(np.inf, (model_pars['Nx'], )))
-            else:
-                sscost = icnn_lu(us)
-            model_sscost += [sscost]
+    #         # Get the vector input.
+    #         us = np.array([us1, us2])
+    #         if model_type != 'ICNN':
+    #             xs, sscost = get_xs_sscost(fxu=fxu, hx=hx, lyu=lyu, 
+    #                                 us=us, parameters=model_pars, 
+    #                                 xguess=xuguess['x'], 
+    #                                 lbx=np.zeros((model_pars['Nx'], )), 
+    #                                 ubx=np.tile(np.inf, (model_pars['Nx'], )))
+    #         else:
+    #             sscost = icnn_lu(us)
+    #         model_sscost += [sscost]
 
-        model_sscost = np.asarray(model_sscost).squeeze()
-        model_sscost = model_sscost.reshape(len(us1_list), len(us2_list))
-        sscosts += [model_sscost]
+    #     model_sscost = np.asarray(model_sscost).squeeze()
+    #     model_sscost = model_sscost.reshape(len(us1_list), len(us2_list))
+    #     sscosts += [model_sscost]
 
-    # Get mesh.
-    us1 = np.asarray(us1_list)
-    us2 = np.asarray(us2_list)
-    us1, us2 = np.meshgrid(us1, us2)
+    # # Get mesh.
+    # us1 = np.asarray(us1_list)
+    # us2 = np.asarray(us2_list)
+    # us1, us2 = np.meshgrid(us1, us2)
 
-    # Get dictionary to save data.
-    cstr_flash_ssopt = dict(us1=us1, us2=us2, sscosts=sscosts)
+    # # Get dictionary to save data.
+    # cstr_flash_ssopt = dict(us1=us1, us2=us2, sscosts=sscosts)
 
-    # Save data.
-    PickleTool.save(data_object=cstr_flash_ssopt,
-                    filename='cstr_flash_ssopt.pickle')
+    # # Save data.
+    # PickleTool.save(data_object=cstr_flash_ssopt,
+    #                 filename='cstr_flash_ssopt.pickle')
 
 main()

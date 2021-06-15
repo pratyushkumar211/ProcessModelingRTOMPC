@@ -53,29 +53,29 @@ def main():
     cstr_flash_bbnntrain = PickleTool.load(filename=
                                          "cstr_flash_bbnntrain.pickle",
                                          type='read')
-    # cstr_flash_hybtrain = PickleTool.load(filename=
-    #                                      "cstr_flash_hybtrain.pickle",
-    #                                      type='read')
+    cstr_flash_hybtrain = PickleTool.load(filename=
+                                         "cstr_flash_hybtrain.pickle",
+                                         type='read')
 
 
     # Collect data to plot open-loop predictions.
     bbnn_val_predictions = cstr_flash_bbnntrain['val_predictions']
-    #hyb_val_predictions = cstr_flash_hybtrain['val_predictions']
+    hyb_val_predictions = cstr_flash_hybtrain['val_predictions']
     valdata_list = [cstr_flash_parameters['training_data'][-1]]
     valdata_list += bbnn_val_predictions
-    #valdata_list += hyb_val_predictions
+    valdata_list += hyb_val_predictions
     (t, ulist, ylist, xlist) = get_plotting_array_list(simdata_list=
                                                     valdata_list[:1],
-                                                plot_range = (10, 12*60+120))
+                                                plot_range = (10, 6*60+10))
     (t, ulist_train, 
     ylist_train, xlist_train) = get_plotting_array_list(simdata_list=
                                                     valdata_list[1:],
-                                                    plot_range=(0, 12*60))
+                                                    plot_range=(0, 6*60))
     ulist += ulist_train
     ylist += ylist_train
     xlist += xlist_train
-    legend_names = ['Plant', 'Black-Box-NN']
-    legend_colors = ['b', 'dimgrey']
+    legend_names = ['Plant', 'Black-Box-NN', 'Hybrid']
+    legend_colors = ['b', 'dimgrey', 'm']
     figures = []
     figures += CstrFlashPlots.plot_data(t=t, ulist=ulist, 
                                 ylist=ylist, xlist=ylist, 

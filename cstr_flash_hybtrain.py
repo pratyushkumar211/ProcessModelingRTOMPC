@@ -1,5 +1,5 @@
 # [depends] %LIB%/hybridid.py %LIB%/CstrFlashHybridFuncs.py
-# [depends] %LIB%/BlackBoxFuncs.py
+# [depends] %LIB%/TwoReacHybridFuncs.py
 # [depends] cstr_flash_parameters.pickle
 # [makes] pickle
 """ Script to train the hybrid model for the 
@@ -13,7 +13,7 @@ import time
 import numpy as np
 from hybridid import PickleTool, get_scaling, get_train_val_data
 from CstrFlashHybridFuncs import create_model
-from BlackBoxFuncs import train_model, get_val_predictions
+from TwoReacHybridFuncs import train_hybrid_model, get_hybrid_predictions
 
 # Set the tensorflow global and graph-level seed.
 tf.random.set_seed(123)
@@ -63,17 +63,17 @@ def main():
                              xuyscales=xuyscales, greybox_pars=greybox_pars)
 
         # Use num samples to adjust here the num training samples.
-        train_samples = dict(yz0=train_data['x0'],
+        train_samples = dict(x0=train_data['x0'],
                              inputs=train_data['inputs'],
                              outputs=train_data['outputs'])
 
         # Train.
-        train_model(model=model, epochs=5000, batch_size=1, 
+        train_hybrid_model(model=model, epochs=6000, batch_size=4, 
                     train_data=train_samples, trainval_data=trainval_data, 
                     stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 
         # Validate.
-        (val_prediction, val_metric) = get_val_predictions(model=model,
+        (val_prediction, val_metric) = get_hybrid_predictions(model=model,
                                     val_data=val_data, xuyscales=xuyscales, 
                                     xinsert_indices=ypred_xinsert_indices, 
                                     ckpt_path=ckpt_path)
