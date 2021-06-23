@@ -8,6 +8,7 @@ import numpy as np
 import tensorflow as tf
 import mpctools as mpc
 import casadi
+from economicopt import get_xs_sscost
 
 def approxRelu(x, TF=True, k=4):
     """ Scaled exponential to use as activation function. """
@@ -559,3 +560,48 @@ def get_ss_optimum(*, lyu, parameters, uguess):
 
     # Return the steady state solution.
     return us
+
+def generate_picnn_data(*, fxup, hx, model_pars, cost_yup,
+                           Nsamp_us, plb, pub, Nsamp_p, seed=10):
+    """ Function to generate data to train the ICNN. """
+
+    # Set numpy seed.
+    np.random.seed(seed)
+
+    # Get a list of random SS inputs.
+    Nu = model_pars['Nu']
+    ulb, uub = model_pars['ulb'], model_pars['uub']
+    us_list = list((uub-ulb)*np.random.rand(Nsamp_us, Nu) + ulb)
+
+    # Get a list of parameters (economic and disturbances if any).
+    Np = len(plb)
+    Ndist = model_pars['Np']
+    p_list = list((pub-plb)*np.random.rand(Nsamp_p, Np) + plb)
+
+    # List to store the steady state values.
+    ss_costs = []
+
+    # Iterate through all the parameters and control input generated.
+    for p, us in itertools.product(p_list, us_list):
+
+        # Get the economic parameters and disturbances.
+        econp, distp = p[:Np-Ndist], p[-Ndist:]
+        
+        # Get the cost handle for fixed economic parameters.
+        cost_yu = lambda y, u: cost_yup(y, u, econp)
+
+        # Get the dynamic model handle for fixed disturbances.
+        fxu = lambda x, u: fxup(x, u, distp)
+
+        # Get the steady state xs and cost.
+        _, ss_cost = get_xs_sscost(fxu=fxu, hx=hx, lyu=cost_yu, 
+                                   us=us, parameters=model_pars)
+        ss_costs += [ss_cost]
+
+    # Get the final data as arrays.
+    p = np.array(p_list)
+    u = np.array(us_list)
+    lyup = np.array(ss_costs)
+
+    # Return.
+    return p, u, lyup
