@@ -10,13 +10,6 @@ import numpy as np
 import tensorflow as tf
 from hybridid import SimData
 
-def fnnTF(nnInput, nnLayers):
-    """ Compute the output of the feedforward network. """
-    nnOutput = nnInput
-    for layer in nnLayers:
-        nnOutput = layer(nnOutput)
-    return nnOutput
-
 def tanh(x, TF=True, a=1):
     """ Custom tanh function. """
     if TF:
@@ -27,6 +20,33 @@ def tanh(x, TF=True, a=1):
         den = np.exp(a*x) + np.exp(-a*x)
     # Return.
     return num/den
+
+def fnnTF(nnInput, nnLayers):
+    """ Compute the output of the feedforward network. """
+    nnOutput = nnInput
+    for layer in nnLayers:
+        nnOutput = layer(nnOutput)
+    return nnOutput
+
+def fnn(nnInput, nnWeights):
+    """ Compute the NN output. """
+
+    # Add one extra dimension.
+    nnOutput = nnInput[:, np.newaxis]
+
+    # Loop over layers.
+    for i in range(0, len(nnWeights)-2, 2):
+        W, b = nnWeights[i:i+2]
+        nnOutput = W.T @ nnOutput + b[:, np.newaxis]
+        nnOutput = tanh(nnOutput, TF=False)
+    Wf, bf = nnWeights[-2:]
+    
+    # Return output in the same number of dimensions as input.
+    nnOutput = Wf.T @ nnOutput + bf[:, np.newaxis]
+    nnOutput = nnOutput[:, 0]
+
+    # Return.
+    return nnOutput
 
 class BlackBoxCell(tf.keras.layers.AbstractRNNCell):
     """
@@ -165,26 +185,6 @@ def get_val_predictions(*, model, val_data, xuyscales,
 
     # Return predictions and metric.
     return (val_predictions, val_metric)
-
-def fnn(nnInput, nnWeights):
-    """ Compute the NN output. """
-
-    # Add one extra dimension.
-    nnOutput = nnInput[:, np.newaxis]
-
-    # Loop over layers.
-    for i in range(0, len(nnWeights)-2, 2):
-        W, b = nnWeights[i:i+2]
-        nnOutput = W.T @ nnOutput + b[:, np.newaxis]
-        nnOutput = tanh(nnOutput, TF=False)
-    Wf, bf = nnWeights[-2:]
-    
-    # Return output in the same number of dimensions as input.
-    nnOutput = Wf.T @ nnOutput + bf[:, np.newaxis]
-    nnOutput = nnOutput[:, 0]
-
-    # Return.
-    return nnOutput
 
 def get_bbnn_pars(*, train, plant_pars):
     """ Get the black-box parameter dict and function handles. """
