@@ -12,8 +12,7 @@ import tensorflow as tf
 import time
 import numpy as np
 from hybridid import PickleTool, get_scaling, get_train_val_data
-from CstrFlashHybridFuncs import create_model
-from TwoReacHybridFuncs import train_hybrid_model, get_hybrid_predictions
+from CstrFlashHybridFuncs import create_model, train_model, get_val_predictions
 
 # Set the tensorflow global and graph-level seed.
 tf.random.set_seed(123)
