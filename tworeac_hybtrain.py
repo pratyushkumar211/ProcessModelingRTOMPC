@@ -11,8 +11,8 @@ import tensorflow as tf
 import time
 import numpy as np
 from hybridid import PickleTool, get_scaling, get_train_val_data
-from TwoReacHybridFuncs import (create_tworeac_model, train_hybrid_model, 
-                               get_hybrid_predictions)         
+from TwoReacHybridFuncs import (create_model, train_model, 
+                                get_val_predictions)         
 
 # Set the tensorflow global and graph-level seed.
 tf.random.set_seed(123)
@@ -25,8 +25,8 @@ def main():
                                          type='read')
 
     # Get sizes/raw training data.
-    greybox_pars = tworeac_parameters['greybox_pars']
-    Nx, Nu = greybox_pars['Nx'], greybox_pars['Nu']
+    hyb_greybox_pars = tworeac_parameters['hyb_greybox_pars']
+    Nx, Nu = hyb_greybox_pars['Nx'], hyb_greybox_pars['Nu']
     training_data = tworeac_parameters['training_data']
     
     # Number of samples.
@@ -58,8 +58,8 @@ def main():
     for num_sample in num_samples:
         
         # Create model.
-        model = create_tworeac_model(fNDims=fNDims, xuyscales=xuyscales, 
-                                     greybox_pars=greybox_pars)
+        model = create_model(fNDims=fNDims, xuyscales=xuyscales, 
+                                     hyb_greybox_pars=hyb_greybox_pars)
 
         # Use num samples to adjust here the num training samples.
         train_samples = dict(x0=train_data['x0'],
@@ -67,12 +67,12 @@ def main():
                              outputs=train_data['outputs'])
 
         # Train.
-        train_hybrid_model(model=model, epochs=15000, batch_size=1, 
+        train_model(model=model, epochs=15000, batch_size=1, 
                       train_data=train_samples, trainval_data=trainval_data,
                       stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 
         # Validate.
-        (val_prediction, val_metric) = get_hybrid_predictions(model=model,
+        (val_prediction, val_metric) = get_val_predictions(model=model,
                                     val_data=val_data, xuyscales=xuyscales, 
                                     xinsert_indices=xinsert_indices, 
                                     ckpt_path=ckpt_path)

@@ -18,8 +18,8 @@ from matplotlib.backends.backend_pdf import PdfPages
 from plotting_funcs import TwoReacPlots, PAPER_FIGSIZE
 from hybridid import PickleTool, measurement
 from BlackBoxFuncs import get_bbnn_pars, bbnn_fxu, bbnn_hx
-from TwoReacHybridFuncs import (get_tworeacHybrid_pars, 
-                                tworeacHybrid_fxu, tworeacHybrid_hx)
+from TwoReacHybridFuncs import (get_hybrid_pars, 
+                                hybrid_fxu, hybrid_hx)
 from economicopt import (get_ss_optimum, c2dNonlin, 
                          get_xs_sscost)
 from tworeac_funcs import cost_yup, plant_ode
@@ -35,6 +35,7 @@ def get_xuguess(*, model_type, plant_pars, Np=None):
         yindices = plant_pars['yindices']
         ys = plant_pars['xs'][yindices]
         us = np.array([0.5])
+        ys = np.array([0, 0, 0])
         xs = np.concatenate((np.tile(ys, (Np+1, )), 
                              np.tile(us, (Np, ))))
     elif model_type == 'ICNN':
@@ -54,16 +55,16 @@ def main():
     tworeac_bbnntrain = PickleTool.load(filename=
                                     'tworeac_bbnntrain.pickle',
                                       type='read')
-    # tworeac_icnntrain = PickleTool.load(filename=
-    #                                 'tworeac_icnntrain.pickle',
-    #                                   type='read')
+    tworeac_icnntrain = PickleTool.load(filename=
+                                    'tworeac_icnntrain.pickle',
+                                      type='read')
     tworeac_hybtrain = PickleTool.load(filename=
                                       'tworeac_hybtrain.pickle',
                                       type='read')
 
     # Get plant and grey-box parameters. 
     plant_pars = tworeac_parameters['plant_pars']
-    greybox_pars = tworeac_parameters['greybox_pars']
+    hyb_greybox_pars = tworeac_parameters['hyb_greybox_pars']
 
     # Get cost function handle.
     p = [100, 180]
@@ -76,14 +77,14 @@ def main():
     bbnn_h = lambda x: bbnn_hx(x, bbnn_pars)
 
     # Get the black-box model parameters and function handles.
-    hyb_pars = get_tworeacHybrid_pars(train=tworeac_hybtrain, 
-                                      greybox_pars=greybox_pars)
-    hyb_fxu = lambda x, u: tworeacHybrid_fxu(x, u, hyb_pars)
-    hyb_hx = lambda x: tworeacHybrid_hx(x)
+    hyb_pars = get_hybrid_pars(train=tworeac_hybtrain, 
+                               hyb_greybox_pars=hyb_greybox_pars)
+    hyb_fxu = lambda x, u: hybrid_fxu(x, u, hyb_pars)
+    hyb_hx = lambda x: hybrid_hx(x)
 
     # Get ICNN pars and function.
-    # icnn_pars = get_icnn_pars(train=tworeac_icnntrain, plant_pars=plant_pars)
-    # icnn_lu = lambda u: icnn_lyu(u, icnn_pars)
+    icnn_pars = get_icnn_pars(train=tworeac_icnntrain, plant_pars=plant_pars)
+    icnn_lu = lambda u: icnn_lyu(u, icnn_pars)
     
     # Get the plant function handle.
     Delta, ps = plant_pars['Delta'], plant_pars['ps']
@@ -92,7 +93,7 @@ def main():
     plant_hx = lambda x: measurement(x, plant_pars)
 
     # Lists to loop over for different models.
-    model_types = ['Plant', 'Black-Box-NN', 'Hybrid']
+    model_types = ['Plant', 'Black-Box-NN', 'Hybrid', 'ICNN']
     fxu_list = [plant_fxu, bbnn_f, hyb_fxu, None]
     hx_list = [plant_hx, bbnn_h, hyb_hx, None]
     par_list = [plant_pars, bbnn_pars, hyb_pars, None]
@@ -111,12 +112,13 @@ def main():
             xs, us, ys, opt_sscost = get_ss_optimum(fxu=fxu, hx=hx, lyu=lyu, 
                                         parameters=model_pars, guess=xuguess)
         else:
-            us = get_icnn_ss_optimum(lyu=icnn_lu, parameters=icnn_pars, 
-                                      uguess=xuguess['u'])
+            us, opt_sscost = get_icnn_ss_optimum(lyup=icnn_lu, 
+                                                 parameters=icnn_pars, 
+                                                 uguess=xuguess['u'])
         # Print. 
         print("Model type: " + model_type)
         print('us: ' + str(us))
-
+    breakpoint()
     # Get a linspace of steady-state u values.
     ulb, uub = plant_pars['ulb'], plant_pars['uub']
     us_list = list(np.linspace(ulb, uub, 100))

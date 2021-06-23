@@ -582,7 +582,8 @@ def get_ss_optimum(*, lyup, parameters, uguess, pval=None):
     # Return the steady state solution.
     return us, opt_sscost
 
-def generate_icnn_data(*, fxu, hx, cost_yu, parameters, Ndata, seed=10):
+def generate_icnn_data(*, fxu, hx, cost_yu, parameters, Ndata, 
+                          xguess=None, seed=10):
     """ Function to generate data to train the ICNN. """
 
     # Set numpy seed.
@@ -601,8 +602,8 @@ def generate_icnn_data(*, fxu, hx, cost_yu, parameters, Ndata, seed=10):
 
         # Solve the steady state equation.
         _, ss_cost = get_xs_sscost(fxu=fxu, hx=hx, lyu=cost_yu, 
-                             us=us, parameters=parameters, 
-                             xguess=xguess)
+                                   us=us, parameters=parameters, 
+                                   xguess=xguess)
         ss_costs += [ss_cost]
 
     # Get arrays to return the generated data.
@@ -613,7 +614,8 @@ def generate_icnn_data(*, fxu, hx, cost_yu, parameters, Ndata, seed=10):
     return u, lyu
 
 def generate_picnn_data(*, fxup, hx, model_pars, cost_yup,
-                           Nsamp_us, plb, pub, Nsamp_p, seed=10, dist=False):
+                           Nsamp_us, plb, pub, Nsamp_p, seed=10, 
+                           dist=False, xguess=None):
     """ Function to generate data to train the ICNN. """
 
     # Set numpy seed.
@@ -653,7 +655,7 @@ def generate_picnn_data(*, fxup, hx, model_pars, cost_yup,
 
         # Get the steady state xs and cost.
         _, ss_cost = get_xs_sscost(fxu=fxu, hx=hx, lyu=cost_yu, 
-                                   us=us, parameters=model_pars)
+                                   us=us, parameters=model_pars, xguess=xguess)
         ss_costs += [ss_cost]
 
     # Get the final data as arrays.

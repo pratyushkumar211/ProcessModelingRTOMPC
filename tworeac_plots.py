@@ -137,6 +137,8 @@ def main():
     # Steady state cost curves.
     us = tworeac_ssopt['us']
     sscosts = tworeac_ssopt['sscosts']
+    legend_names = ['Plant', 'Black-Box-NN', 'Hybrid', 'ICNN']
+    legend_colors = ['b', 'dimgrey', 'm', 'orange']
     figures += TwoReacPlots.plot_sscosts(us=us, sscosts=sscosts, 
                                         legend_colors=legend_colors, 
                                         legend_names=legend_names, 

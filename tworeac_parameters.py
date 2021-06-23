@@ -10,7 +10,7 @@ sys.path.append('lib/')
 import numpy as np
 from hybridid import PickleTool, sample_prbs_like, SimData
 from hybridid import get_rectified_xs, get_model
-from tworeac_funcs import get_plant_pars, plant_ode, get_greybox_pars
+from tworeac_funcs import get_plant_pars, plant_ode, get_hyb_greybox_pars
 
 
 def gen_train_val_data(*, parameters, num_traj, 
@@ -92,7 +92,7 @@ def main():
     plant_pars = get_plant_pars()
     plant_pars['xs'] = get_rectified_xs(ode=plant_ode, 
                                         parameters=plant_pars)
-    greybox_pars = get_greybox_pars(plant_pars=plant_pars)
+    hyb_greybox_pars = get_hyb_greybox_pars(plant_pars=plant_pars)
     
     # Generate training data.
     training_data = gen_train_val_data(parameters=plant_pars,
@@ -102,7 +102,7 @@ def main():
 
     # Create a dict and save.
     tworeac_parameters = dict(plant_pars=plant_pars,
-                              greybox_pars=greybox_pars, 
+                              hyb_greybox_pars=hyb_greybox_pars, 
                               training_data=training_data)
     
     # Save data.

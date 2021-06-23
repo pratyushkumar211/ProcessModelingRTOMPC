@@ -53,13 +53,12 @@ def get_plant_pars():
     parameters['k1'] = 1. # m^3/min.
     parameters['k2'] = 0.01 # m^3/min.
     parameters['k3'] = 0.05 # m^3/min.
-    parameters['tau'] = 10 # min.
 
     # Store the dimensions.
     parameters['Nx'] = 3
     parameters['Nu'] = 1
     parameters['Ny'] = 3
-    parameters['Np'] = 0
+    parameters['Np'] = 1
 
     # Sample time.
     parameters['Delta'] = 1. # min.
@@ -67,6 +66,7 @@ def get_plant_pars():
     # Get the steady states.
     parameters['xs'] = np.array([1., 0.5, 0.5]) # to be updated.
     parameters['us'] = np.array([1.5]) # Ca0s
+    parameters['ps'] = np.array([10.]) # min.
 
     # Get the constraints. 
     ulb = np.array([0.5])
@@ -81,7 +81,7 @@ def get_plant_pars():
     # Return the parameters dict.
     return parameters
 
-def get_greybox_pars(*, plant_pars):
+def get_hyb_greybox_pars(*, plant_pars):
     """ Get the parameter values for the 
         three reaction example. """
     

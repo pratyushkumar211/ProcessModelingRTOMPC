@@ -20,19 +20,19 @@ class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
     dxG/dt  = fG(xG, u) + f_N(xG, z, u)
     y = xG
     """
-    def __init__(self, fNLayers, xuyscales, greybox_pars, **kwargs):
+    def __init__(self, fNLayers, xuyscales, hyb_greybox_pars, **kwargs):
         super(TwoReacHybridCell, self).__init__(**kwargs)
         self.fNLayers = fNLayers
         self.xuyscales = xuyscales
-        self.greybox_pars = greybox_pars
+        self.hyb_greybox_pars = hyb_greybox_pars
 
     @property
     def state_size(self):
-        return self.greybox_pars['Nx']
+        return self.hyb_greybox_pars['Nx']
     
     @property
     def output_size(self):
-        return self.greybox_pars['Nx']
+        return self.hyb_greybox_pars['Nx']
 
     def _fxu(self, x, u):
         """ Function to compute the 
@@ -45,7 +45,7 @@ class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
             """
         
         # Extract the parameters.
-        tau = self.greybox_pars['ps'].squeeze()
+        tau = self.hyb_greybox_pars['ps'].squeeze()
         
         # Get the output of the neural network.
         nnOutput = fnnTF(x, self.fNLayers)
@@ -89,7 +89,7 @@ class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
         u = inputs
 
         # Sample time.
-        Delta = self.greybox_pars['Delta']        
+        Delta = self.hyb_greybox_pars['Delta']        
 
         # Get k1, k2, k3, and k4.
         k1 = self._fxu(x, u)
@@ -106,12 +106,12 @@ class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
 
 class TwoReacModel(tf.keras.Model):
     """ Custom model for the Two reaction model. """
-    def __init__(self, fNDims, xuyscales, greybox_pars):
+    def __init__(self, fNDims, xuyscales, hyb_greybox_pars):
         """ Create the dense layers for the NN, and 
             construct the overall model. """
 
         # Get the size and input layer, and initial state layer.
-        Nx, Nu = greybox_pars['Nx'], greybox_pars['Nu']
+        Nx, Nu = hyb_greybox_pars['Nx'], hyb_greybox_pars['Nu']
         layer_input = tf.keras.Input(name='u', shape=(None, Nu))
         initial_state = tf.keras.Input(name='x0', shape=(Nx, ))
 
@@ -122,7 +122,7 @@ class TwoReacModel(tf.keras.Model):
         fNLayers += [tf.keras.layers.Dense(fNDims[-1])]
 
         # Get the tworeac cell object.
-        tworeac_cell = TwoReacHybridCell(fNLayers, xuyscales, greybox_pars)
+        tworeac_cell = TwoReacHybridCell(fNLayers, xuyscales, hyb_greybox_pars)
 
         # Construct the RNN layer and the computation graph.
         tworeac_layer = tf.keras.layers.RNN(tworeac_cell, return_sequences=True)
@@ -132,9 +132,9 @@ class TwoReacModel(tf.keras.Model):
         super().__init__(inputs=[layer_input, initial_state], 
                          outputs=layer_output)
 
-def create_model(*, fNDims, xuyscales, greybox_pars):
+def create_model(*, fNDims, xuyscales, hyb_greybox_pars):
     """ Create/compile the two reaction model for training. """
-    model = TwoReacModel(fNDims, xuyscales, greybox_pars)
+    model = TwoReacModel(fNDims, xuyscales, hyb_greybox_pars)
     # Compile the nn model.
     model.compile(optimizer='adam', loss='mean_squared_error')
     # Return the compiled model.
@@ -192,7 +192,7 @@ def get_val_predictions(*, model, val_data, xuyscales,
     # Return predictions and metric.
     return (val_predictions, val_metric)
 
-def get_hybrid_pars(*, train, greybox_pars):
+def get_hybrid_pars(*, train, hyb_greybox_pars):
     """ Get the black-box parameter dict and function handles. """
 
     # Get black-box model parameters.
@@ -201,17 +201,18 @@ def get_hybrid_pars(*, train, greybox_pars):
     parameters['xuyscales'] = train['xuyscales']
 
     # Sizes.
-    Nx, Ny, Nu = greybox_pars['Nx'], greybox_pars['Ny'], greybox_pars['Nu']
+    Nx, Ny = hyb_greybox_pars['Nx'], hyb_greybox_pars['Ny']
+    Nu = hyb_greybox_pars['Nu']
     parameters['Nx'], parameters['Ny'], parameters['Nu'] = Nx, Ny, Nu
     parameters['Np'] = train['Np']
 
     # Constraints.
-    parameters['ulb'] = greybox_pars['ulb']
-    parameters['uub'] = greybox_pars['uub']
+    parameters['ulb'] = hyb_greybox_pars['ulb']
+    parameters['uub'] = hyb_greybox_pars['uub']
     
     # Time constant/sample time.
-    parameters['tau'] = greybox_pars['ps'].squeeze()
-    parameters['Delta'] = greybox_pars['Delta']
+    parameters['tau'] = hyb_greybox_pars['ps'].squeeze()
+    parameters['Delta'] = hyb_greybox_pars['Delta']
 
     # Return.
     return parameters
@@ -271,6 +272,6 @@ def hybrid_fxu(x, u, parameters):
     # Return the sum.
     return xplus
 
-def hyb_hx(x):
+def hybrid_hx(x):
     """ Measurement function. """
     return x

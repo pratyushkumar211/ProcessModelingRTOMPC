@@ -1,5 +1,6 @@
 # [depends] %LIB%/hybridid.py %LIB%/tworeac_funcs.py
 # [depends] %LIB%/economicopt.py %LIB%/TwoReacHybridFuncs.py
+# [depends] %LIB%/InputConvexFuncs.py %LIB%/BlackBoxFuncs.py
 # [depends] tworeac_parameters.pickle
 # [depends] tworeac_hybtrain.pickle
 # [makes] pickle
@@ -13,39 +14,10 @@ import time
 import numpy as np
 from hybridid import PickleTool
 from tworeac_funcs import cost_yup
-from economicopt import get_sscost
-from TwoReacHybridFuncs import (tworeacHybrid_fxu,
-                                tworeacHybrid_hx,
-                                get_tworeacHybrid_pars)         
+from TwoReacHybridFuncs import (hybrid_fxu, hybrid_hx,
+                                get_hybrid_pars)         
 from BlackBoxFuncs import get_bbnn_pars, bbnn_fxu, bbnn_hx
-
-def generate_data(*, hyb_fxu, hyb_hx, hyb_pars, seed=10):
-    """ Function to generate data to train the ICNN. """
-
-    # Set numpy seed.
-    np.random.seed(seed)
-
-    # Get cost function.
-    p = [100, 200]
-    cost_yu = lambda y, u: cost_yup(y, u, p)
-
-    # Get a list of random inputs.
-    Nu = hyb_pars['Nu']
-    ulb, uub = hyb_pars['ulb'], hyb_pars['uub']
-    Ndata = 1000
-    us_list = list((uub-ulb)*np.random.rand(Ndata, Nu) + ulb)
-
-    # Get the corresponding steady state costs.
-    ss_costs = []
-    for us in us_list:
-        ss_cost = get_sscost(fxu=hyb_fxu, hx=hyb_hx, lyu=cost_yu, 
-                             us=us, parameters=hyb_pars)
-        ss_costs += [ss_cost]
-    lyu = np.array(ss_costs)
-    u = np.array(us_list)
-
-    # Return.
-    return u, lyu
+from InputConvexFuncs import generate_icnn_data
 
 def main():
     """ Main function to be executed. """
@@ -60,23 +32,30 @@ def main():
                                         'tworeac_hybtrain.pickle',
                                          type='read')
     plant_pars = tworeac_parameters['plant_pars']
-    greybox_pars = tworeac_parameters['greybox_pars']
+    hyb_greybox_pars = tworeac_parameters['hyb_greybox_pars']
 
     # Get the Hybrid model parameters and function handles.
-    hyb_pars = get_tworeacHybrid_pars(train=tworeac_hybtrain, 
-                                      greybox_pars=greybox_pars)
-    hyb_fxu = lambda x, u: tworeacHybrid_fxu(x, u, hyb_pars)
-    hyb_hx = lambda x: tworeacHybrid_hx(x)
+    hyb_pars = get_hybrid_pars(train=tworeac_hybtrain, 
+                               hyb_greybox_pars=hyb_greybox_pars)
+    hyb_fxu = lambda x, u: hybrid_fxu(x, u, hyb_pars)
+    hyb_hx = lambda x: hybrid_hx(x)
+
+    # Get the cost function handle.
+    p = [100, 180]
+    cost_yu = lambda y, u: cost_yup(y, u, p)
 
     # Get the black-box model parameters and function handles.
-    bbnn_pars = get_bbnn_pars(train=tworeac_bbNNtrain, 
-                              plant_pars=plant_pars)
-    bbnn_f = lambda x, u: bbnn_fxu(x, u, bbnn_pars)
-    bbnn_h = lambda x: bbnn_hx(x, bbnn_pars)
+    # bbnn_pars = get_bbnn_pars(train=tworeac_bbNNtrain, 
+    #                           plant_pars=plant_pars)
+    # bbnn_f = lambda x, u: bbnn_fxu(x, u, bbnn_pars)
+    # bbnn_h = lambda x: bbnn_hx(x, bbnn_pars)
 
     # Generate data.
-    u, lyup = generate_data(hyb_fxu=bbnn_f, hyb_hx=bbnn_h, 
-                            hyb_pars=bbnn_pars)    
+    xguess = plant_pars['xs']
+    Ndata = 2000
+    u, lyup = generate_icnn_data(fxu=hyb_fxu, hx=hyb_hx, cost_yu=cost_yu, 
+                                 parameters=hyb_pars, Ndata=Ndata, 
+                                 xguess=xguess)
     
     # Get data in dictionary.
     tworeac_icnndata = dict(u=u, lyup=lyup)

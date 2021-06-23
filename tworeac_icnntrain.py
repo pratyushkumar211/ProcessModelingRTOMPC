@@ -11,14 +11,9 @@ import tensorflow as tf
 import time
 import numpy as np
 from hybridid import PickleTool
-from tworeac_funcs import cost_yup
-from economicopt import get_sscost
-from TwoReacHybridFuncs import (tworeacHybrid_fxu,
-                                tworeacHybrid_hx,
-                                get_tworeacHybrid_pars)         
 from InputConvexFuncs import (get_scaling, get_train_val_data, 
                               create_model, train_model, 
-                              get_val_predictions_metric)
+                              get_val_predictions)
 
 # Set the tensorflow global and graph-level seed.
 tf.random.set_seed(123)
@@ -71,7 +66,7 @@ def main():
                       stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 
     # Validate.
-    val_prediction, val_metric = get_val_predictions_metric(model=model,
+    val_prediction, val_metric = get_val_predictions(model=model,
                                 val_data=val_data, ulpscales=ulpscales, 
                                 ckpt_path=ckpt_path)
 
