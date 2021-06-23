@@ -24,12 +24,85 @@ def icnnTF(y, nnLayers):
         z = layer(z, y)
     return z
 
+def icnn(y, Wz_list, Wy_list, b_list):
+    """ Compute the NN output. """
+
+    # Check input dimensions. 
+    assert y.ndim == 1
+    y = y[:, np.newaxis]
+
+    # Out of First layer.
+    Wy, b = Wy_list[0], b_list[0]
+    z = Wy.T @ y + b[:, np.newaxis]
+    z = approxRelu(z, TF=False)
+
+    # Loop over middle layers.
+    for Wz, Wy, b in zip(Wz_list[:-1], Wy_list[1:-1], b_list[1:-1]):
+        z = Wz.T @ z + Wy.T @ y + b[:, np.newaxis]
+        z = approxRelu(z, TF=False)
+    
+    # Last layer.
+    Wz, Wy, b = Wz_list[-1], Wy_list[-1], b_list[-1]
+    z = Wz.T @ z + Wy.T @ y + b[:, np.newaxis]
+
+    # Return output in same number of dimensions.
+    z = z[:, 0]
+
+    # Return.
+    return z
+
 def picnnTF(y, x, nnLayers):
     """ Compute the output of the feedforward network. """
     z = y
     u = x
     for layer in nnLayers:
         z, u = layer(z, u, y)
+    return z
+
+def picnn(y, x, Wut_list, but_list, Wz_list, 
+                Wzu_list, bzu_list, Wy_list, 
+                Wyu_list, byu_list, Wu_list, bz_list):
+    """ Compute the NN output. """
+
+    # Check input dimensions.
+    u = x[:, np.newaxis] 
+    y = y[:, np.newaxis]
+
+    # First layer.
+    # z propagation.
+    Wy, Wyu, byu = Wy_list[0], Wyu_list[0], byu_list[0]
+    Wu, bz = Wu_list[0], bz_list[0]
+    z = Wy.T @ (y*(Wyu.T @ u + byu[:, np.newaxis]))
+    z += Wu.T @ u + bz[:, np.newaxis]
+    z = approxRelu(z, TF=False)
+    # u propagation.
+    Wut, but = Wut_list[0], but_list[0]
+    u = np.tanh(Wut.T @ u + but[:, np.newaxis])
+
+    # Loop over middle layers.
+    for (Wz, Wzu, bzu, Wy, 
+         Wyu, byu, Wu, bz, 
+         Wut, but) in zip(Wz_list[:-1], Wzu_list[:-1], bzu_list[:-1], 
+                          Wy_list[1:-1], Wyu_list[1:-1], byu_list[1:-1], 
+                    Wu_list[1:-1], bz_list[1:-1], Wut_list[1:], but_list[1:]):
+        z = Wz.T @ (z*(Wzu.T @ u + bzu[:, np.newaxis]))
+        z += Wy.T @ (y*(Wyu.T @ u + byu[:, np.newaxis]))
+        z += Wu.T @ u + bz[:, np.newaxis]
+        z = approxRelu(z, TF=False)
+        u = np.tanh(Wut.T @ u + but[:, np.newaxis])
+
+    # Last layer.
+    Wz, Wzu, bzu = Wz_list[-1], Wzu_list[-1], bzu_list[-1]
+    Wy, Wyu, byu = Wy_list[-1], Wyu_list[-1], byu_list[-1]
+    Wu, bz = Wu_list[-1], bz_list[-1]
+    z = Wz.T @ (z*(Wzu.T @ u + bzu[:, np.newaxis]))
+    z += Wy.T @ (y*(Wyu.T @ u + byu[:, np.newaxis]))
+    z += Wu.T @ u + bz[:, np.newaxis]
+
+    # Return output in same number of dimensions.
+    z = z[:, 0]
+
+    # Return.
     return z
 
 class InputConvexLayer(tf.keras.layers.Layer):
@@ -240,79 +313,6 @@ class InputConvexModel(tf.keras.Model):
         # Construct model.
         super().__init__(inputs=InputList, outputs=f)
 
-def icnn(y, Wz_list, Wy_list, b_list):
-    """ Compute the NN output. """
-
-    # Check input dimensions. 
-    assert y.ndim == 1
-    y = y[:, np.newaxis]
-
-    # Out of First layer.
-    Wy, b = Wy_list[0], b_list[0]
-    z = Wy.T @ y + b[:, np.newaxis]
-    z = approxRelu(z, TF=False)
-
-    # Loop over middle layers.
-    for Wz, Wy, b in zip(Wz_list[:-1], Wy_list[1:-1], b_list[1:-1]):
-        z = Wz.T @ z + Wy.T @ y + b[:, np.newaxis]
-        z = approxRelu(z, TF=False)
-    
-    # Last layer.
-    Wz, Wy, b = Wz_list[-1], Wy_list[-1], b_list[-1]
-    z = Wz.T @ z + Wy.T @ y + b[:, np.newaxis]
-
-    # Return output in same number of dimensions.
-    z = z[:, 0]
-
-    # Return.
-    return z
-
-def picnn(y, x, Wut_list, but_list, Wz_list, 
-                Wzu_list, bzu_list, Wy_list, 
-                Wyu_list, byu_list, Wu_list, bz_list):
-    """ Compute the NN output. """
-
-    # Check input dimensions.
-    u = x[:, np.newaxis] 
-    y = y[:, np.newaxis]
-
-    # First layer.
-    # z propagation.
-    Wy, Wyu, byu = Wy_list[0], Wyu_list[0], byu_list[0]
-    Wu, bz = Wu_list[0], bz_list[0]
-    z = Wy.T @ (y*(Wyu.T @ u + byu[:, np.newaxis]))
-    z += Wu.T @ u + bz[:, np.newaxis]
-    z = approxRelu(z, TF=False)
-    # u propagation.
-    Wut, but = Wut_list[0], but_list[0]
-    u = np.tanh(Wut.T @ u + but[:, np.newaxis])
-
-    # Loop over middle layers.
-    for (Wz, Wzu, bzu, Wy, 
-         Wyu, byu, Wu, bz, 
-         Wut, but) in zip(Wz_list[:-1], Wzu_list[:-1], bzu_list[:-1], 
-                          Wy_list[1:-1], Wyu_list[1:-1], byu_list[1:-1], 
-                    Wu_list[1:-1], bz_list[1:-1], Wut_list[1:], but_list[1:]):
-        z = Wz.T @ (z*(Wzu.T @ u + bzu[:, np.newaxis]))
-        z += Wy.T @ (y*(Wyu.T @ u + byu[:, np.newaxis]))
-        z += Wu.T @ u + bz[:, np.newaxis]
-        z = approxRelu(z, TF=False)
-        u = np.tanh(Wut.T @ u + but[:, np.newaxis])
-
-    # Last layer.
-    Wz, Wzu, bzu = Wz_list[-1], Wzu_list[-1], bzu_list[-1]
-    Wy, Wyu, byu = Wy_list[-1], Wyu_list[-1], byu_list[-1]
-    Wu, bz = Wu_list[-1], bz_list[-1]
-    z = Wz.T @ (z*(Wzu.T @ u + bzu[:, np.newaxis]))
-    z += Wy.T @ (y*(Wyu.T @ u + byu[:, np.newaxis]))
-    z += Wu.T @ u + bz[:, np.newaxis]
-
-    # Return output in same number of dimensions.
-    z = z[:, 0]
-
-    # Return.
-    return z
-
 def icnn_lyu(u, parameters):
     """ Function describing the cost function of 
         the input convex neural network. """
@@ -443,7 +443,7 @@ def train_model(*, model, epochs, batch_size, train_data,
         validation_data = (trainval_data['inputs'], trainval_data['output']),
             callbacks = [checkpoint_callback])
 
-def get_val_predictions_metric(*, model, val_data, ulpscales, ckpt_path):
+def get_val_predictions(*, model, val_data, ulpscales, ckpt_path):
     """ Get the validation predictions. """
 
     # Load best weights.
@@ -534,19 +534,34 @@ def get_train_val_data(*, u, lyup, ulpscales, datasize_fracs, p=None):
     # Return.
     return train_data, trainval_data, val_data
 
-def get_ss_optimum(*, lyu, parameters, uguess):
+def get_ss_optimum(*, lyup, parameters, uguess, pval=None):
     """ Setup and solve the steady state optimization. """
 
     # Input size, constraint.
     Nu = parameters['Nu']
     ulb, uub = parameters['ulb'], parameters['uub']
 
-    # Get casadi functions.
+    # Get casadi functions/NLP dict.
     us = casadi.SX.sym('us', Nu)
-    l = mpc.getCasadiFunc(lyu, [Nu], ["u"])
+    if pval is not None:
 
+        # Casadi function for stage cost.
+        Np = len(pval)
+        p = casadi.SX.sym('p', Np)
+        l = mpc.getCasadiFunc(lyup, [Nu, Np], ["u", "p"])
+
+        # NLP info dict.
+        nlpInfo = dict(x=us, f=l(us, p), g=us, p=p)
+
+    else:
+
+        # Casadi function for stage cost.
+        l = mpc.getCasadiFunc(lyup, [Nu], ["u"])
+
+        # NLP info dict.
+        nlpInfo = dict(x=us, f=l(us), g=us)
+    
     # Setup NLP.
-    nlpInfo = dict(x=us, f=l(us), g=us)
     nlp = casadi.nlpsol('nlp', 'ipopt', nlpInfo)
 
     # Make a guess, get constraint limits.
@@ -555,14 +570,50 @@ def get_ss_optimum(*, lyu, parameters, uguess):
     ubg = uub[:, np.newaxis]
 
     # Solve.
-    nlp_soln = nlp(x0=uguess, lbg=lbg, ubg=ubg)
+    if pval is not None:
+        nlp_soln = nlp(x0=uguess, lbg=lbg, ubg=ubg, p=pval)
+    else:
+        nlp_soln = nlp(x0=uguess, lbg=lbg, ubg=ubg)
+    
+    # Get the final optimum SS control input and cost.
     us = np.asarray(nlp_soln['x'])[:, 0]
+    opt_sscost = np.asarray(nlp_soln['f'])
 
     # Return the steady state solution.
-    return us
+    return us, opt_sscost
 
-def generate_picnn_data(*, f, hx, model_pars, cost_yup,
-                           Nsamp_us, plb, pub, Nsamp_p, seed=10):
+def generate_icnn_data(*, fxu, hx, cost_yu, parameters, Ndata, seed=10):
+    """ Function to generate data to train the ICNN. """
+
+    # Set numpy seed.
+    np.random.seed(seed)
+
+    # Get a list of random inputs.
+    Nu = parameters['Nu']
+    ulb, uub = parameters['ulb'], parameters['uub']
+    us_list = list((uub-ulb)*np.random.rand(Ndata, Nu) + ulb)
+
+    # Get a list to store the steady state costs.
+    ss_costs = []
+
+    # Loop over all the generated us.
+    for us in us_list:
+
+        # Solve the steady state equation.
+        _, ss_cost = get_xs_sscost(fxu=fxu, hx=hx, lyu=cost_yu, 
+                             us=us, parameters=parameters, 
+                             xguess=xguess)
+        ss_costs += [ss_cost]
+
+    # Get arrays to return the generated data.
+    u = np.array(us_list)
+    lyu = np.array(ss_costs)
+
+    # Return.
+    return u, lyu
+
+def generate_picnn_data(*, fxup, hx, model_pars, cost_yup,
+                           Nsamp_us, plb, pub, Nsamp_p, seed=10, dist=False):
     """ Function to generate data to train the ICNN. """
 
     # Set numpy seed.
@@ -573,11 +624,16 @@ def generate_picnn_data(*, f, hx, model_pars, cost_yup,
     ulb, uub = model_pars['ulb'], model_pars['uub']
     us_list = list((uub-ulb)*np.random.rand(Nsamp_us, Nu) + ulb)
 
-    # Get a list of parameters (economic and disturbances if any).
-    Np = len(plb) # Number of total parameters.
-    Ndist = model_pars['Np'] # Number of disturbances.
+    # Get the list of random parameters (economic and disturbances if any).
+    Np = len(plb)
     p_list = list((pub-plb)*np.random.rand(Nsamp_p, Np) + plb)
 
+    # If there are disturbances in the model.
+    if dist: 
+        Ndist = model_pars['Np']
+    else:
+        Ndist = 0
+    
     # List to store the steady state values.
     ss_costs = []
 
@@ -591,9 +647,9 @@ def generate_picnn_data(*, f, hx, model_pars, cost_yup,
         # Get the dynamic model handle for fixed disturbances.
         if Ndist != 0:
             distp = p[-Ndist:]
-            fxu = lambda x, u: f(x, u, distp)
+            fxu = lambda x, u: fxup(x, u, distp)
         else:
-            fxu = f
+            fxu = fxup
 
         # Get the steady state xs and cost.
         _, ss_cost = get_xs_sscost(fxu=fxu, hx=hx, lyu=cost_yu, 
