@@ -51,95 +51,6 @@ class NonlinearPlantSimulator:
         self.y.append(y)
         self.t.append(self.t[-1]+self.sample_time)
 
-# class RTOController:
-
-#     def __init__(self, *, fxu, hx, lyup, Nx, Nu, Np, 
-#                  ulb, uub, init_guess, opt_pars, Ntstep_solve):
-#         """ Class to construct and solve steady state optimization
-#             problems.
-                
-#         Optimization problem:
-#         min_{xs, us} l(ys, us, p)
-#         subject to:
-#         xs = f(xs, us), ys = h(xs), ulb <= us <= uub
-#         """
-
-#         # Model.
-#         self.fxu = fxu
-#         self.hx = hx
-#         self.lyup = lyup
-
-#         # Sizes.
-#         self.Nx = Nx
-#         self.Nu = Nu
-#         self.Np = Np
-
-#         # Input constraints.
-#         self.ulb = ulb
-#         self.uub = uub
-
-#         # Inital guess/parameters.
-#         self.init_guess = init_guess
-#         self.opt_pars = opt_pars
-#         self.Ntstep_solve = Ntstep_solve
-
-#         # Setup the optimization problem.
-#         self._setup_ss_optimization()
-
-#         # Lists to save data.
-#         self.xs = []
-#         self.us = []
-#         self.computation_times = []
-
-#     def _setup_ss_optimization(self):
-#         """ Setup the steady state optimization. """
-#         # Construct NLP and solve.
-#         xs = casadi.SX.sym('xs', self.Nx)
-#         us = casadi.SX.sym('us', self.Nu)
-#         p = casadi.SX.sym('p', self.Np)
-#         lyup = lambda x, u, p: self.lyup(self.hx(x), u, p)
-#         lyup = mpc.getCasadiFunc(lyup,
-#                           [self.Nx, self.Nu, self.Np],
-#                           ["x", "u", "p"])
-#         fxu = mpc.getCasadiFunc(self.fxu,
-#                           [self.Nx, self.Nu],
-#                           ["x", "u"])
-#         nlp = dict(x=casadi.vertcat(xs, us), 
-#                    f=lyup(xs, us, p),
-#                    g=casadi.vertcat(xs -  fxu(xs, us), us), 
-#                    p=p)
-#         self.nlp = casadi.nlpsol('nlp', 'ipopt', nlp)
-#         xuguess = np.concatenate((self.init_guess['x'], 
-#                                   self.init_guess['u']))[:, np.newaxis]
-#         self.lbg = np.concatenate((np.zeros((self.Nx,)), 
-#                                    self.ulb))[:, np.newaxis]
-#         self.ubg = np.concatenate((np.zeros((self.Nx,)), 
-#                                    self.uub))[:, np.newaxis]
-#         nlp_soln = self.nlp(x0=xuguess, lbg=self.lbg, ubg=self.ubg, 
-#                             p=self.opt_pars[0:1, :])
-#         self.xuguess = np.asarray(nlp_soln['x'])        
-
-#     def control_law(self, simt, y):
-#         """ RTO Controller, no use of feedback. 
-#             Only solve every certain interval. """
-
-#         tstart = time.time()
-#         if simt%self.Ntstep_solve == 0:
-#             nlp_soln = self.nlp(x0=self.xuguess, lbg=self.lbg, ubg=self.ubg, 
-#                                 p=self.opt_pars[simt:simt+1, :])
-#             self.xuguess = np.asarray(nlp_soln['x'])
-#         xs, us = np.split(self.xuguess, [self.Nx,], axis=0)
-#         tend = time.time()
-#         self._append_data(xs, us)
-#         self.computation_times.append(tend-tstart)
-#         # Return the steady input.
-#         return us
-
-#     def _append_data(self, xs, us):
-#         " Append data. "
-#         self.xs.append(xs)
-#         self.us.append(us)
-
 class NonlinearEMPCRegulator:
 
     def __init__(self, *, fxu, lxup, Nx, Nu, Np,
@@ -502,8 +413,8 @@ class NonlinearEMPCController:
         # Return control input.
         return self.uprev
 
-class TwoTierMPController:
-    """ Class to instantiate Extended Kalman Filter,
+class RTOLinearMPController:
+    """ Class to instantiate a Kalman Filter, Target Selector,
         Linear MPC Regulator, and updates linear model/targets
         based on steady state optimums.
     """

@@ -132,7 +132,7 @@ class TwoReacModel(tf.keras.Model):
         super().__init__(inputs=[layer_input, initial_state], 
                          outputs=layer_output)
 
-def create_tworeac_model(*, fNDims, xuyscales, greybox_pars):
+def create_model(*, fNDims, xuyscales, greybox_pars):
     """ Create/compile the two reaction model for training. """
     model = TwoReacModel(fNDims, xuyscales, greybox_pars)
     # Compile the nn model.
@@ -140,7 +140,7 @@ def create_tworeac_model(*, fNDims, xuyscales, greybox_pars):
     # Return the compiled model.
     return model
 
-def train_hybrid_model(*, model, epochs, batch_size, train_data, 
+def train_model(*, model, epochs, batch_size, train_data, 
                           trainval_data, stdout_filename, ckpt_path):
     """ Function to train the NN controller. """
 
@@ -161,8 +161,8 @@ def train_hybrid_model(*, model, epochs, batch_size, train_data,
                             trainval_data['outputs']),
             callbacks = [checkpoint_callback])
 
-def get_hybrid_predictions(*, model, val_data, xuyscales, 
-                             xinsert_indices, ckpt_path):
+def get_val_predictions(*, model, val_data, xuyscales, 
+                       xinsert_indices, ckpt_path):
     """ Get the validation predictions. """
 
     # Load best weights.
@@ -192,7 +192,7 @@ def get_hybrid_predictions(*, model, val_data, xuyscales,
     # Return predictions and metric.
     return (val_predictions, val_metric)
 
-def get_tworeacHybrid_pars(*, train, greybox_pars):
+def get_hybrid_pars(*, train, greybox_pars):
     """ Get the black-box parameter dict and function handles. """
 
     # Get black-box model parameters.
@@ -247,7 +247,7 @@ def fxu(x, u, tau, xuyscales, fNWeights):
     # Return.
     return xdot
 
-def tworeacHybrid_fxu(x, u, parameters):
+def hybrid_fxu(x, u, parameters):
     """ Function describing the dynamics 
         of the Two reac hybrid model. """
 
@@ -268,10 +268,9 @@ def tworeacHybrid_fxu(x, u, parameters):
     # Get the current output/state and the next time step.
     xplus = x + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
 
-
     # Return the sum.
     return xplus
 
-def tworeacHybrid_hx(x):
+def hyb_hx(x):
     """ Measurement function. """
     return x

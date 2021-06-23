@@ -10,6 +10,7 @@ import numpy as np
 import mpctools as mpc
 import tensorflow as tf
 from BlackBoxFuncs import fnnTF, fnn
+from TwoReacHybridFuncs import train_model, get_val_predictions
 
 class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
     """

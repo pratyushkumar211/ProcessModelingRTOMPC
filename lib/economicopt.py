@@ -123,7 +123,7 @@ def get_xs_sscost(*, fxu, hx, lyu, us, parameters,
     # Return the steady state cost.
     return xs, sscost
 
-def c2dNonlin(fxup, Delta):
+def c2dNonlin(f, Delta, p=False):
     """ Quick function to 
         convert a ode to discrete
         time using the RK4 method.
@@ -132,15 +132,28 @@ def c2dNonlin(fxup, Delta):
         dx/dt = f(x, u, p)
         assume zero-order hold on the input.
     """
-    # Get k1, k2, k3, k4.
-    k1 = fxup
-    k2 = lambda x, u, p: fxu(x + Delta*(k1(x, u, p)/2), u, p)
-    k3 = lambda x, u, p: fxu(x + Delta*(k2(x, u, p)/2), u, p)
-    k4 = lambda x, u, p: fxu(x + Delta*k3(x, u, p), u, p)
+    if p:
 
-    # Final discrete time function.
-    xplus = lambda x, u, p: x + (Delta/6)*(k1(x, u, p) + 
-                                2*k2(x, u, p) + 2*k3(x, u, p) + k4(x, u, p))
+        # Get k1, k2, k3, k4.
+        k1 = f
+        k2 = lambda x, u, p: f(x + Delta*(k1(x, u, p)/2), u, p)
+        k3 = lambda x, u, p: f(x + Delta*(k2(x, u, p)/2), u, p)
+        k4 = lambda x, u, p: f(x + Delta*k3(x, u, p), u, p)
+
+        # Final discrete time function.
+        xplus = lambda x, u, p: x + (Delta/6)*(k1(x, u, p) + 2*k2(x, u, p) +
+                                               2*k3(x, u, p) + k4(x, u, p))
+    else:
+        
+        # Get k1, k2, k3, k4.
+        k1 = f
+        k2 = lambda x, u: f(x + Delta*(k1(x, u)/2), u)
+        k3 = lambda x, u: f(x + Delta*(k2(x, u)/2), u)
+        k4 = lambda x, u: f(x + Delta*k3(x, u), u)
+
+        # Final discrete time function.
+        xplus = lambda x, u: x + (Delta/6)*(k1(x, u) + 2*k2(x, u) + 
+                                            2*k3(x, u) + k4(x, u))
 
     # Return.
     return xplus

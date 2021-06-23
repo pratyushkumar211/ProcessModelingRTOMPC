@@ -1,5 +1,6 @@
 # [depends] %LIB%/hybridid.py %LIB%/tworeac_funcs.py
 # [depends] %LIB%/economicopt.py %LIB%/TwoReacHybridFuncs.py
+# [depends] %LIB%/InputConvexFuncs.py
 # [depends] tworeac_parameters.pickle
 # [depends] tworeac_hybtrain.pickle
 # [makes] pickle
@@ -9,43 +10,16 @@
 
 import sys
 sys.path.append('lib/')
-import time
+import itertools
 import numpy as np
-from hybridid import PickleTool
+from hybridid import PickleTool 
 from tworeac_funcs import cost_yup
-from economicopt import get_sscost
+from economicopt import get_xs_sscost
+from InputConvexFuncs import generate_picnn_data
 from TwoReacHybridFuncs import (tworeacHybrid_fxu,
                                 tworeacHybrid_hx,
                                 get_tworeacHybrid_pars)         
-from BlackBoxFuncs import get_bbnn_pars, bbnn_fxu, bbnn_hx
-
-def generate_data(*, hyb_fxu, hyb_hx, hyb_pars, seed=10):
-    """ Function to generate data to train the ICNN. """
-
-    # Set numpy seed.
-    np.random.seed(seed)
-
-    # Get cost function.
-    p = [100, 200]
-    cost_yu = lambda y, u: cost_yup(y, u, p)
-
-    # Get a list of random inputs.
-    Nu = hyb_pars['Nu']
-    ulb, uub = hyb_pars['ulb'], hyb_pars['uub']
-    Ndata = 1000
-    us_list = list((uub-ulb)*np.random.rand(Ndata, Nu) + ulb)
-
-    # Get the corresponding steady state costs.
-    ss_costs = []
-    for us in us_list:
-        ss_cost = get_sscost(fxu=hyb_fxu, hx=hyb_hx, lyu=cost_yu, 
-                             us=us, parameters=hyb_pars)
-        ss_costs += [ss_cost]
-    lyu = np.array(ss_costs)
-    u = np.array(us_list)
-
-    # Return.
-    return u, lyu
+# from BlackBoxFuncs import get_bbnn_pars, bbnn_fxu, bbnn_hx
 
 def main():
     """ Main function to be executed. """
@@ -53,9 +27,9 @@ def main():
     tworeac_parameters = PickleTool.load(filename=
                                         'tworeac_parameters.pickle',
                                          type='read')
-    tworeac_bbNNtrain = PickleTool.load(filename=
-                                        'tworeac_bbnntrain.pickle',
-                                         type='read')
+    # tworeac_bbNNtrain = PickleTool.load(filename=
+    #                                     'tworeac_bbnntrain.pickle',
+    #                                      type='read')
     tworeac_hybtrain = PickleTool.load(filename=
                                         'tworeac_hybtrain.pickle',
                                          type='read')
@@ -69,14 +43,16 @@ def main():
     hyb_hx = lambda x: tworeacHybrid_hx(x)
 
     # Get the black-box model parameters and function handles.
-    bbnn_pars = get_bbnn_pars(train=tworeac_bbNNtrain, 
-                              plant_pars=plant_pars)
-    bbnn_f = lambda x, u: bbnn_fxu(x, u, bbnn_pars)
-    bbnn_h = lambda x: bbnn_hx(x, bbnn_pars)
+    # bbnn_pars = get_bbnn_pars(train=tworeac_bbNNtrain, 
+    #                           plant_pars=plant_pars)
+    # bbnn_f = lambda x, u: bbnn_fxu(x, u, bbnn_pars)
+    # bbnn_h = lambda x: bbnn_hx(x, bbnn_pars)
 
     # Generate data.
-    u, lyup = generate_data(hyb_fxu=bbnn_f, hyb_hx=bbnn_h, 
-                            hyb_pars=bbnn_pars)    
+    p, u, lyup = generate_picnn_data(fxup=hyb_fxup, hx=hx, 
+                                    model_pars=hyb_pars, cost_yup=cost_yup, 
+                                    Nsamp_us=Nsamp_us, plb=plb, pub=pub,
+                                    Nsamp_p=Nsamp_p) 
     
     # Get data in dictionary.
     tworeac_icnndata = dict(u=u, lyup=lyup)

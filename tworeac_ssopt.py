@@ -19,8 +19,7 @@ from plotting_funcs import TwoReacPlots, PAPER_FIGSIZE
 from hybridid import PickleTool, measurement
 from BlackBoxFuncs import get_bbnn_pars, bbnn_fxu, bbnn_hx
 from TwoReacHybridFuncs import (get_tworeacHybrid_pars, 
-                                tworeacHybrid_fxu, 
-                               tworeacHybrid_hx)
+                                tworeacHybrid_fxu, tworeacHybrid_hx)
 from economicopt import (get_ss_optimum, c2dNonlin, 
                          get_xs_sscost)
 from tworeac_funcs import cost_yup, plant_ode
