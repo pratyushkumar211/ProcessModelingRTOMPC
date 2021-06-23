@@ -561,7 +561,7 @@ def get_ss_optimum(*, lyu, parameters, uguess):
     # Return the steady state solution.
     return us
 
-def generate_picnn_data(*, fxup, hx, model_pars, cost_yup,
+def generate_picnn_data(*, f, hx, model_pars, cost_yup,
                            Nsamp_us, plb, pub, Nsamp_p, seed=10):
     """ Function to generate data to train the ICNN. """
 
@@ -574,8 +574,8 @@ def generate_picnn_data(*, fxup, hx, model_pars, cost_yup,
     us_list = list((uub-ulb)*np.random.rand(Nsamp_us, Nu) + ulb)
 
     # Get a list of parameters (economic and disturbances if any).
-    Np = len(plb)
-    Ndist = model_pars['Np']
+    Np = len(plb) # Number of total parameters.
+    Ndist = model_pars['Np'] # Number of disturbances.
     p_list = list((pub-plb)*np.random.rand(Nsamp_p, Np) + plb)
 
     # List to store the steady state values.
@@ -583,15 +583,17 @@ def generate_picnn_data(*, fxup, hx, model_pars, cost_yup,
 
     # Iterate through all the parameters and control input generated.
     for p, us in itertools.product(p_list, us_list):
-
-        # Get the economic parameters and disturbances.
-        econp, distp = p[:Np-Ndist], p[-Ndist:]
         
         # Get the cost handle for fixed economic parameters.
+        econp = p[:Np-Ndist]
         cost_yu = lambda y, u: cost_yup(y, u, econp)
 
         # Get the dynamic model handle for fixed disturbances.
-        fxu = lambda x, u: fxup(x, u, distp)
+        if Ndist != 0:
+            distp = p[-Ndist:]
+            fxu = lambda x, u: f(x, u, distp)
+        else:
+            fxu = f
 
         # Get the steady state xs and cost.
         _, ss_cost = get_xs_sscost(fxu=fxu, hx=hx, lyu=cost_yu, 
