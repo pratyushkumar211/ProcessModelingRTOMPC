@@ -77,7 +77,7 @@ def main():
     val_predictions.append(val_prediction)
     val_metrics.append(val_metric)
     trained_weights.append(fNWeights)
-
+    
     # Save the weights.
     tworeac_icnntrain = dict(zDims=zDims,
                          trained_weights=trained_weights,

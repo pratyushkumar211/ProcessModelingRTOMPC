@@ -30,8 +30,8 @@ def main():
     plant_pars = tworeac_parameters['plant_pars']
 
     # Create some parameters.
-    zDims = [None, 32, 1]
-    uDims = [1, 16, None]
+    zDims = [None, 32, 32, 1]
+    uDims = [1, 16, 16, None]
     Nu = plant_pars['Nu']
 
     # Create lists to store data.
@@ -63,7 +63,7 @@ def main():
                          output=train_data['output'])
 
     # Train.
-    train_model(model=model, epochs=100, batch_size=32, 
+    train_model(model=model, epochs=30, batch_size=32, 
                       train_data=train_samples, trainval_data=trainval_data,
                       stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 
@@ -79,7 +79,7 @@ def main():
     val_predictions.append(val_prediction)
     val_metrics.append(val_metric)
     trained_weights.append(fNWeights)
-
+    breakpoint()
     # Save the weights.
     tworeac_picnntrain = dict(zDims=zDims,
                          uDims=uDims,

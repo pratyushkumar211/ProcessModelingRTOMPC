@@ -25,7 +25,7 @@ def icnnTF(y, nnLayers):
         z = layer(z, y)
     return z
 
-def icnn(y, Wz_list, Wy_list, b_list):
+def icnn(y, Wz_list, Wy_list, bz_list):
     """ Compute the NN output. """
 
     # Check input dimensions. 
@@ -33,18 +33,18 @@ def icnn(y, Wz_list, Wy_list, b_list):
     y = y[:, np.newaxis]
 
     # Out of First layer.
-    Wy, b = Wy_list[0], b_list[0]
-    z = Wy.T @ y + b[:, np.newaxis]
+    Wy, bz = Wy_list[0], bz_list[0]
+    z = Wy.T @ y + bz[:, np.newaxis]
     z = approxRelu(z, TF=False)
 
     # Loop over middle layers.
-    for Wz, Wy, b in zip(Wz_list[:-1], Wy_list[1:-1], b_list[1:-1]):
-        z = Wz.T @ z + Wy.T @ y + b[:, np.newaxis]
+    for Wz, Wy, bz in zip(Wz_list[:-1], Wy_list[1:-1], bz_list[1:-1]):
+        z = Wz.T @ z + Wy.T @ y + bz[:, np.newaxis]
         z = approxRelu(z, TF=False)
     
     # Last layer.
-    Wz, Wy, b = Wz_list[-1], Wy_list[-1], b_list[-1]
-    z = Wz.T @ z + Wy.T @ y + b[:, np.newaxis]
+    Wz, Wy, bz = Wz_list[-1], Wy_list[-1], bz_list[-1]
+    z = Wz.T @ z + Wy.T @ y + bz[:, np.newaxis]
 
     # Return output in same number of dimensions.
     z = z[:, 0]
@@ -86,7 +86,7 @@ def picnn(y, x, Wut_list, but_list, Wz_list,
          Wut, but) in zip(Wz_list[:-1], Wzu_list[:-1], bzu_list[:-1], 
                           Wy_list[1:-1], Wyu_list[1:-1], byu_list[1:-1], 
                     Wu_list[1:-1], bz_list[1:-1], Wut_list[1:], but_list[1:]):
-        z = Wz.T @ (z*(Wzu.T @ u + bzu[:, np.newaxis]))
+        z = Wz.T @ (z*approxRelu(Wzu.T @ u + bzu[:, np.newaxis], TF=False))
         z += Wy.T @ (y*(Wyu.T @ u + byu[:, np.newaxis]))
         z += Wu.T @ u + bz[:, np.newaxis]
         z = approxRelu(z, TF=False)
@@ -96,7 +96,7 @@ def picnn(y, x, Wut_list, but_list, Wz_list,
     Wz, Wzu, bzu = Wz_list[-1], Wzu_list[-1], bzu_list[-1]
     Wy, Wyu, byu = Wy_list[-1], Wyu_list[-1], byu_list[-1]
     Wu, bz = Wu_list[-1], bz_list[-1]
-    z = Wz.T @ (z*(Wzu.T @ u + bzu[:, np.newaxis]))
+    z = Wz.T @ (z*approxRelu(Wzu.T @ u + bzu[:, np.newaxis], TF=False))
     z += Wy.T @ (y*(Wyu.T @ u + byu[:, np.newaxis]))
     z += Wu.T @ u + bz[:, np.newaxis]
 
@@ -273,6 +273,9 @@ class InputConvexModel(tf.keras.Model):
         # Check for no initial size in zDims.
         assert zDims[0] is None, "Remove initial size in zDims."
 
+        # Number of layers. 
+        numLayers = len(zDims) - 1
+
         # Get the layers.
         if uDims is not None:
 
@@ -286,14 +289,18 @@ class InputConvexModel(tf.keras.Model):
 
             # Create layers.
             fNLayers = [PartialInputConvexLayer(zDims[1], zDims[0], Ny, 
-                                                uDims[1], uDims[0], "First")]
+                                                uDims[1], uDims[0], "First", 
+                                                name='l0')]
             for (zDim, zPlusDim, 
-                 uDim, uPlusDim) in zip(zDims[1:-2], zDims[2:-1], 
-                                        uDims[1:-2], uDims[2:-1]):
+                 uDim, uPlusDim, i) in zip(zDims[1:-2], zDims[2:-1], 
+                                        uDims[1:-2], uDims[2:-1], 
+                                        range(1, numLayers-1)):
                 fNLayers += [PartialInputConvexLayer(zPlusDim, zDim, Ny, 
-                                                     uPlusDim, uDim, "Mid")]
+                                                     uPlusDim, uDim, "Mid", 
+                                                     name='l' + str(i))]
             fNLayers += [PartialInputConvexLayer(zDims[-1], zDims[-2], Ny, 
-                                                 uDims[-1], uDims[-2], "Last")]
+                                                 uDims[-1], uDims[-2], "Last", 
+                                                 name='l' + str(numLayers-1))]
             
             # Get symbolic output.
             f = picnnTF(y, x, fNLayers)
@@ -303,10 +310,14 @@ class InputConvexModel(tf.keras.Model):
             assert len(zDims) > 2, "Check zDims size."
 
             # Create layers.
-            fNLayers = [InputConvexLayer(zDims[1], zDims[0], Ny, "First")]
-            for (zDim, zPlusDim) in zip(zDims[1:-2], zDims[2:-1]):
-                fNLayers += [InputConvexLayer(zPlusDim, zDim, Ny, "Mid")]
-            fNLayers += [InputConvexLayer(zDims[-1], zDims[-2], Ny, "Last")]
+            fNLayers = [InputConvexLayer(zDims[1], zDims[0], Ny, "First", 
+                                         name='l0')]
+            for (zDim, zPlusDim, i) in zip(zDims[1:-2], zDims[2:-1], 
+                                           range(1, numLayers-1)):
+                fNLayers += [InputConvexLayer(zPlusDim, zDim, Ny, "Mid", 
+                                              name='l' + str(i))]
+            fNLayers += [InputConvexLayer(zDims[-1], zDims[-2], Ny, "Last", 
+                                          name='l' + str(numLayers-1))]
 
             # Get symbolic output.
             f = icnnTF(y, fNLayers)
@@ -358,9 +369,9 @@ def picnn_lyup(u, p, parameters):
 
     # Get scaling.
     ulpscales = parameters['ulpscales']
-    umean, ustd = xuyscales['uscale']
-    pmean, pstd = xuyscales['pscale']
-    lyupmean, lyupstd = xuyscales['lyupscale']
+    umean, ustd = ulpscales['uscale']
+    pmean, pstd = ulpscales['pscale']
+    lyupmean, lyupstd = ulpscales['lyupscale']
     
     # Scale.
     u = (u - umean)/ustd
@@ -388,7 +399,7 @@ def get_icnn_pars(*, train, plant_pars):
     numLayers = len(train['zDims']) - 1
     trained_weights = train['trained_weights'][-1]
     parameters['Wy_list'] = trained_weights[slice(0, 3*numLayers, 3)]
-    parameters['b_list'] = trained_weights[slice(1, 3*numLayers, 3)]
+    parameters['bz_list'] = trained_weights[slice(1, 3*numLayers, 3)]
     parameters['Wz_list'] = trained_weights[slice(2, 3*numLayers, 3)]
 
     # Input constraints. 
@@ -477,6 +488,56 @@ def get_val_predictions(*, model, val_data, ulpscales, ckpt_path):
 
     # Return predictions and metric.
     return val_predictions, val_metric
+
+def get_weights(model, numLayers, picnn=True):
+    """ Function to conveniently get the weights of the layers. """
+
+    # Create lists to store the weights.
+    Wz_list, Wy_list, bz_list = [], [], []
+    if picnn:
+        Wzu_list, bzu_list = [], []
+        Wyu_list, byu_list = [], []
+        Wu_list, Wut_list, but_list = [], [], []
+
+    for i in range(numLayers):
+        layerName = 'l' + str(i)
+        layer = model.get_layer(layerName)
+
+        # Get all the weights.
+        if hasattr(layer, 'Wz'):
+            Wz_list += [np.asarray(layer.Wz)]
+        if hasattr(layer, 'Wy'):
+            Wy_list += [np.asarray(layer.Wy)]
+        if hasattr(layer, 'bz'):
+            bz_list += [np.asarray(layer.bz)]
+        if hasattr(layer, 'Wzu'):
+            Wzu_list += [np.asarray(layer.Wzu)]
+        if hasattr(layer, 'bzu'):
+            bzu_list += [np.asarray(layer.bzu)]
+        if hasattr(layer, 'Wyu'):
+            Wyu_list += [np.asarray(layer.Wyu)]
+        if hasattr(layer, 'byu'):
+            byu_list += [np.asarray(layer.byu)]
+        if hasattr(layer, 'Wu'):
+            Wu_list += [np.asarray(layer.Wu)]
+        if hasattr(layer, 'Wut'):
+            Wut_list += [np.asarray(layer.Wut)]
+        if hasattr(layer, 'but'):
+            but_list += [np.asarray(layer.but)]
+
+    # Get the weights in a dictionary.
+    weights = dict(Wz_list=Wz_list, Wy_list=Wy_list, bz_list=bz_list)
+    if picnn:
+        weights['Wzu_list'] = Wzu_list
+        weights['bzu_list'] = bzu_list
+        weights['Wyu_list'] = Wyu_list
+        weights['byu_list'] = byu_list
+        weights['Wu_list'] = Wu_list
+        weights['Wut_list'] = Wut_list
+        weights['but_list'] = but_list
+
+    # Return.
+    return weights 
 
 def get_scaling(*, u, lyup, p=None):
 
