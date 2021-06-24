@@ -16,9 +16,8 @@ from hybridid import PickleTool
 from tworeac_funcs import cost_yup
 from economicopt import get_xs_sscost
 from InputConvexFuncs import generate_picnn_data
-from TwoReacHybridFuncs import (tworeacHybrid_fxu,
-                                tworeacHybrid_hx,
-                                get_tworeacHybrid_pars)         
+from TwoReacHybridFuncs import (hybrid_fxu, hybrid_hx,
+                                get_hybrid_pars)         
 # from BlackBoxFuncs import get_bbnn_pars, bbnn_fxu, bbnn_hx
 
 def main():
@@ -34,13 +33,13 @@ def main():
                                         'tworeac_hybtrain.pickle',
                                          type='read')
     plant_pars = tworeac_parameters['plant_pars']
-    greybox_pars = tworeac_parameters['greybox_pars']
+    hyb_greybox_pars = tworeac_parameters['hyb_greybox_pars']
 
     # Get the Hybrid model parameters and function handles.
-    hyb_pars = get_tworeacHybrid_pars(train=tworeac_hybtrain, 
-                                      greybox_pars=greybox_pars)
-    hyb_fxu = lambda x, u: tworeacHybrid_fxu(x, u, hyb_pars)
-    hyb_hx = lambda x: tworeacHybrid_hx(x)
+    hyb_pars = get_hybrid_pars(train=tworeac_hybtrain, 
+                               hyb_greybox_pars=hyb_greybox_pars)
+    hyb_fxu = lambda x, u: hybrid_fxu(x, u, hyb_pars)
+    hyb_hx = lambda x: hybrid_hx(x)
 
     # Get the black-box model parameters and function handles.
     # bbnn_pars = get_bbnn_pars(train=tworeac_bbNNtrain, 
@@ -48,17 +47,24 @@ def main():
     # bbnn_f = lambda x, u: bbnn_fxu(x, u, bbnn_pars)
     # bbnn_h = lambda x: bbnn_hx(x, bbnn_pars)
 
+    # Range of economic parameters.
+    plb = np.array([100., 120.])
+    pub = np.array([100., 240.])
+    Nsamp_us = 10
+    Nsamp_p = 10
+
     # Generate data.
-    p, u, lyup = generate_picnn_data(fxup=hyb_fxup, hx=hx, 
+    p, u, lyup = generate_picnn_data(fxup=hyb_fxu, hx=hyb_hx, 
                                     model_pars=hyb_pars, cost_yup=cost_yup, 
                                     Nsamp_us=Nsamp_us, plb=plb, pub=pub,
                                     Nsamp_p=Nsamp_p) 
     
     # Get data in dictionary.
-    tworeac_icnndata = dict(u=u, lyup=lyup)
+    p = p[:, 1:2]
+    tworeac_picnndata = dict(p=p, u=u, lyup=lyup)
 
     # Save data.
-    PickleTool.save(data_object=tworeac_icnndata,
-                    filename='tworeac_icnndata.pickle')
+    PickleTool.save(data_object=tworeac_picnndata,
+                    filename='tworeac_picnndata.pickle')
 
 main()

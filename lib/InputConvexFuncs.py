@@ -8,6 +8,7 @@ import numpy as np
 import tensorflow as tf
 import mpctools as mpc
 import casadi
+import itertools
 from economicopt import get_xs_sscost
 
 def approxRelu(x, TF=True, k=4):
@@ -292,7 +293,7 @@ class InputConvexModel(tf.keras.Model):
                 fNLayers += [PartialInputConvexLayer(zPlusDim, zDim, Ny, 
                                                      uPlusDim, uDim, "Mid")]
             fNLayers += [PartialInputConvexLayer(zDims[-1], zDims[-2], Ny, 
-                                                 uDims[-1], uDim[-2], "Last")]
+                                                 uDims[-1], uDims[-2], "Last")]
             
             # Get symbolic output.
             f = picnnTF(y, x, fNLayers)
@@ -397,7 +398,7 @@ def get_icnn_pars(*, train, plant_pars):
     # Return.
     return parameters
 
-def get_picnn_pars(*, train):
+def get_picnn_pars(*, train, plant_pars):
     """ Get the black-box parameter dict and function handles. """
 
     # Get model parameters.
@@ -411,6 +412,10 @@ def get_picnn_pars(*, train):
     parameters['bias'] = trained_weights[slice(1, 3*numLayers, 3)]
     parameters['zWeights'] = trained_weights[slice(2, 3*numLayers, 3)]
     
+    # Input constraints. 
+    parameters['Nu'] = plant_pars['Nu']
+    parameters['ulb'], parameters['uub'] = plant_pars['ulb'], plant_pars['uub']
+
     # Return.
     return parameters
 
@@ -659,8 +664,8 @@ def generate_picnn_data(*, fxup, hx, model_pars, cost_yup,
         ss_costs += [ss_cost]
 
     # Get the final data as arrays.
-    p = np.array(p_list)
-    u = np.array(us_list)
+    p = np.repeat(np.array(p_list), Nsamp_us, axis=0)
+    u = np.tile(np.array(us_list), (Nsamp_p, 1))
     lyup = np.array(ss_costs)
 
     # Return.

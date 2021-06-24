@@ -15,7 +15,8 @@ from BlackBoxFuncs import get_bbnn_pars, bbnn_fxu, bbnn_hx
 from TwoReacHybridFuncs import (get_hybrid_pars,
                                 hybrid_fxu, hybrid_hx)
 # from KoopmanModelFuncs import get_KoopmanModel_pars, koop_fxu, koop_hx
-# from InputConvexFuncs import get_icnn_pars, icnn_lyu
+from InputConvexFuncs import get_icnn_pars, icnn_lyu
+from InputConvexFuncs import get_picnn_pars, picnn_lyup
 
 def main():
     """ Main function to be executed. """
@@ -27,8 +28,10 @@ def main():
                                         type='read')
     tworeac_hybtrain = PickleTool.load(filename='tworeac_hybtrain.pickle',
                                         type='read')
-    # tworeac_icnntrain = PickleTool.load(filename='tworeac_icnntrain.pickle',
-    #                                     type='read')
+    tworeac_icnntrain = PickleTool.load(filename='tworeac_icnntrain.pickle',
+                                        type='read')
+    tworeac_picnntrain = PickleTool.load(filename='tworeac_picnntrain.pickle',
+                                        type='read')
 
     def check_bbnn(tworeac_bbnntrain, tworeac_parameters):
         """ Check Black-box functions. """
@@ -153,12 +156,37 @@ def main():
         for u in uval:
             lyup_pred += [icnn_lu(u)]
         lyup_pred = np.array(lyup_pred).squeeze()
+        breakpoint()
+        #Return 
+        return 
 
+    def check_picnn(tworeac_picnntrain, tworeac_parameters):
+        """ Check Black-box functions. """
+
+        # Plant parameters.
+        plant_pars = tworeac_parameters['plant_pars']
+
+        # Get ICNN function handles.
+        picnn_pars = get_picnn_pars(train=tworeac_picnntrain, 
+                                    plant_pars=plant_pars)
+        picnn_lup = lambda u, p: picnn_lyup(u, p, icnn_pars)
+
+        # CHeck black-box model validation.
+        lyup_val = tworeac_picnntrain['val_predictions'][-1]['lyup']
+        uval = tworeac_picnntrain['val_predictions'][-1]['u']
+        pval = tworeac_picnntrain['val_predictions'][-1]['p']
+
+        lyup_pred = []
+        for u, p in zip(uval, pval):
+            lyup_pred += [picnn_lup(u, p)]
+        lyup_pred = np.array(lyup_pred).squeeze()
+        breakpoint()
         #Return 
         return 
 
     check_bbnn(tworeac_bbnntrain, tworeac_parameters)
-    #check_icnn(tworeac_icnntrain, tworeac_parameters)
+    check_icnn(tworeac_icnntrain, tworeac_parameters)
+    check_picnn(tworeac_picnntrain, tworeac_parameters)
     #check_koopman(tworeac_kooptrain, tworeac_parameters)
     check_hybrid(tworeac_hybtrain, tworeac_parameters)
     print("Hi")
