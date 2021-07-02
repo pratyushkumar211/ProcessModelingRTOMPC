@@ -25,6 +25,7 @@ from economicopt import (get_ss_optimum, c2dNonlin,
 from tworeac_funcs import cost_yup, plant_ode
 from InputConvexFuncs import get_ss_optimum as get_icnn_ss_optimum
 from InputConvexFuncs import get_icnn_pars, icnn_lyu
+from InputConvexFuncs import get_picnn_pars, picnn_lyup
 
 def get_xuguess(*, model_type, plant_pars, Np=None):
     """ Get x, u guess depending on model type. """
@@ -38,7 +39,7 @@ def get_xuguess(*, model_type, plant_pars, Np=None):
         ys = np.array([0, 0, 0])
         xs = np.concatenate((np.tile(ys, (Np+1, )), 
                              np.tile(us, (Np, ))))
-    elif model_type == 'ICNN':
+    elif model_type == 'ICNN' or model_type == 'PICNN':
         us = np.array([1.5])
         xs = None
     else:
@@ -58,6 +59,9 @@ def main():
     tworeac_icnntrain = PickleTool.load(filename=
                                     'tworeac_icnntrain.pickle',
                                       type='read')
+    tworeac_picnntrain = PickleTool.load(filename=
+                                    'tworeac_picnntrain.pickle',
+                                      type='read')
     tworeac_hybtrain = PickleTool.load(filename=
                                       'tworeac_hybtrain.pickle',
                                       type='read')
@@ -67,7 +71,7 @@ def main():
     hyb_greybox_pars = tworeac_parameters['hyb_greybox_pars']
 
     # Get cost function handle.
-    p = [100, 180]
+    p = [100, 200]
     lyu = lambda y, u: cost_yup(y, u, p)
 
     # Get the black-box model parameters and function handles.
@@ -86,6 +90,10 @@ def main():
     icnn_pars = get_icnn_pars(train=tworeac_icnntrain, plant_pars=plant_pars)
     icnn_lu = lambda u: icnn_lyu(u, icnn_pars)
     
+    # Get PICNN pars and function.
+    picnn_pars = get_picnn_pars(train=tworeac_picnntrain, plant_pars=plant_pars)
+    picnn_lup = lambda u, p: picnn_lyup(u, p, picnn_pars)
+    
     # Get the plant function handle.
     Delta, ps = plant_pars['Delta'], plant_pars['ps']
     plant_fxu = lambda x, u: plant_ode(x, u, ps, plant_pars)
@@ -93,7 +101,7 @@ def main():
     plant_hx = lambda x: measurement(x, plant_pars)
 
     # Lists to loop over for different models.
-    model_types = ['Plant', 'Black-Box-NN', 'Hybrid', 'ICNN']
+    model_types = ['Plant', 'Black-Box-NN', 'Hybrid', 'PICNN']
     fxu_list = [plant_fxu, bbnn_f, hyb_fxu, None]
     hx_list = [plant_hx, bbnn_h, hyb_hx, None]
     par_list = [plant_pars, bbnn_pars, hyb_pars, None]
@@ -108,13 +116,14 @@ def main():
                               plant_pars=plant_pars, Np=Np)
         
         # Get the steady state optimum.
-        if model_type != 'ICNN':
+        if model_type != 'PICNN':
             xs, us, ys, opt_sscost = get_ss_optimum(fxu=fxu, hx=hx, lyu=lyu, 
                                         parameters=model_pars, guess=xuguess)
         else:
-            us, opt_sscost = get_icnn_ss_optimum(lyup=icnn_lu, 
-                                                 parameters=icnn_pars, 
-                                                 uguess=xuguess['u'])
+            us, opt_sscost = get_icnn_ss_optimum(lyup=picnn_lup, 
+                                                 parameters=picnn_pars, 
+                                                 uguess=xuguess['u'], 
+                                                 pval=p[1:])
         # Print. 
         print("Model type: " + model_type)
         print('us: ' + str(us))

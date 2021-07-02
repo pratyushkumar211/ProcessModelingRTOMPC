@@ -169,7 +169,7 @@ def main():
         # Get ICNN function handles.
         picnn_pars = get_picnn_pars(train=tworeac_picnntrain, 
                                     plant_pars=plant_pars)
-        picnn_lup = lambda u, p: picnn_lyup(u, p, icnn_pars)
+        picnn_lup = lambda u, p: picnn_lyup(u, p, picnn_pars)
 
         # CHeck black-box model validation.
         lyup_val = tworeac_picnntrain['val_predictions'][-1]['lyup']

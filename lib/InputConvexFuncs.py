@@ -137,7 +137,7 @@ class InputConvexLayer(tf.keras.layers.Layer):
         self.Wy = tf.Variable(initial_value = 
                                 initializer(shape=(yDim, zPlusDim)),
                                 trainable=True)
-        self.b = tf.Variable(initial_value = 
+        self.bz = tf.Variable(initial_value = 
                                 initializer(shape=(zPlusDim, )),
                                 trainable=True)
         # Construct.
@@ -147,7 +147,7 @@ class InputConvexLayer(tf.keras.layers.Layer):
         """ Call function of the input convex NN layer. """
         
         # Get zplus.
-        zplus = tf.linalg.matmul(y, self.Wy) + self.b
+        zplus = tf.linalg.matmul(y, self.Wy) + self.bz
 
         # Get the driving term related to z.
         if self.layerPos == "Mid" or self.layerPos == "Last":
@@ -332,7 +332,7 @@ def icnn_lyu(u, parameters):
     # Get NN weights.
     Wz_list = parameters['Wz_list']
     Wy_list = parameters['Wy_list']
-    b_list = parameters['b_list']
+    bz_list = parameters['bz_list']
 
     # Get scaling.
     ulpscales = parameters['ulpscales']
@@ -343,7 +343,7 @@ def icnn_lyu(u, parameters):
     u = (u - umean)/ustd
 
     # Get the ICNN cost.
-    lyu = icnn(u, Wz_list, Wy_list, b_list)
+    lyu = icnn(u, Wz_list, Wy_list, bz_list)
     
     # Scale back.
     lyu = lyu*lyupstd + lyupmean
@@ -396,11 +396,10 @@ def get_icnn_pars(*, train, plant_pars):
     parameters['ulpscales'] = train['ulpscales']
 
     # Get weights.
-    numLayers = len(train['zDims']) - 1
     trained_weights = train['trained_weights'][-1]
-    parameters['Wy_list'] = trained_weights[slice(0, 3*numLayers, 3)]
-    parameters['bz_list'] = trained_weights[slice(1, 3*numLayers, 3)]
-    parameters['Wz_list'] = trained_weights[slice(2, 3*numLayers, 3)]
+    parameters['Wy_list'] = trained_weights['Wy_list']
+    parameters['bz_list'] = trained_weights['bz_list']
+    parameters['Wz_list'] = trained_weights['Wz_list']
 
     # Input constraints. 
     parameters['Nu'] = plant_pars['Nu']
@@ -417,11 +416,17 @@ def get_picnn_pars(*, train, plant_pars):
     parameters['ulpscales'] = train['ulpscales']
 
     # Get weights.
-    numLayers = len(train['fNDims']) - 1
     trained_weights = train['trained_weights'][-1]
-    parameters['yWeights'] = trained_weights[slice(0, 3*numLayers, 3)]
-    parameters['bias'] = trained_weights[slice(1, 3*numLayers, 3)]
-    parameters['zWeights'] = trained_weights[slice(2, 3*numLayers, 3)]
+    parameters['Wy_list'] = trained_weights['Wy_list']
+    parameters['bz_list'] = trained_weights['bz_list']
+    parameters['Wz_list'] = trained_weights['Wz_list']
+    parameters['Wzu_list'] = trained_weights['Wzu_list']
+    parameters['bzu_list'] = trained_weights['bzu_list']
+    parameters['Wyu_list'] = trained_weights['Wyu_list']
+    parameters['byu_list'] = trained_weights['byu_list']
+    parameters['Wu_list'] = trained_weights['Wu_list']
+    parameters['Wut_list'] = trained_weights['Wut_list']
+    parameters['but_list'] = trained_weights['but_list']
     
     # Input constraints. 
     parameters['Nu'] = plant_pars['Nu']
