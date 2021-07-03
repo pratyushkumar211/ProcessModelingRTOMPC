@@ -13,7 +13,7 @@ import numpy as np
 from hybridid import PickleTool
 from InputConvexFuncs import (get_scaling, get_train_val_data, 
                               create_model, train_model, 
-                              get_val_predictions_metric)
+                              get_val_predictions, get_weights)
 
 # Set the tensorflow global and graph-level seed.
 tf.random.set_seed(123)
@@ -31,6 +31,7 @@ def main():
 
     # Create some parameters.
     zDims = [None, 32, 32, 1]
+    numLayers = len(zDims) - 1
     uDims = None
     Nu = plant_pars['Nu']
 
@@ -61,17 +62,17 @@ def main():
                          output=train_data['output'])
 
     # Train.
-    train_model(model=model, epochs=500, batch_size=32, 
+    train_model(model=model, epochs=1000, batch_size=32, 
                       train_data=train_samples, trainval_data=trainval_data,
                       stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 
     # Validate.
-    val_prediction, val_metric = get_val_predictions_metric(model=model,
+    val_prediction, val_metric = get_val_predictions(model=model,
                                 val_data=val_data, ulpscales=ulpscales, 
                                 ckpt_path=ckpt_path)
 
     # Get weights to store.
-    fNWeights = model.get_weights()
+    fNWeights = get_weights(model, numLayers, picnn=False)
 
     # Save info.
     val_predictions.append(val_prediction)

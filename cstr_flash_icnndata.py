@@ -1,7 +1,8 @@
-# [depends] %LIB%/hybridid.py %LIB%/tworeac_funcs.py
-# [depends] %LIB%/economicopt.py %LIB%/TwoReacHybridFuncs.py
-# [depends] tworeac_parameters.pickle
-# [depends] tworeac_hybtrain.pickle
+# [depends] %LIB%/hybridid.py %LIB%/cstr_flash_funcs.py
+# [depends] %LIB%/economicopt.py %LIB%/CstrFlashHybridFuncs.py
+# [depends] %LIB%/InputConvexFuncs.py %LIB%/BlackBoxFuncs.py
+# [depends] cstr_flash_parameters.pickle
+# [depends] cstr_flash_hybtrain.pickle
 # [makes] pickle
 """ Script to train the hybrid model for the 
     three reaction system. 
@@ -15,7 +16,7 @@ from hybridid import PickleTool
 from cstr_flash_funcs import cost_yup
 from economicopt import get_xs_sscost
 from BlackBoxFuncs import get_bbnn_pars, bbnn_fxu, bbnn_hx
-from CstrFlashHybridFuncs import get_hybrid_pars, hybrid_fxu, hybrid_hx
+from CstrFlashHybridFuncs import get_hybrid_pars, hybrid_fxup, hybrid_hx
 from InputConvexFuncs import generate_icnn_data
 
 def main():
@@ -32,7 +33,7 @@ def main():
                                          type='read')
 
     # Get plant and grey-box parameters.
-    greybox_pars = cstr_flash_parameters['greybox_pars']
+    hyb_greybox_pars = cstr_flash_parameters['hyb_greybox_pars']
     plant_pars = cstr_flash_parameters['plant_pars']
 
     # Get the black-box model parameters and function handles.
@@ -42,25 +43,25 @@ def main():
     # bbnn_h = lambda x: bbnn_hx(x, bbnn_pars)
 
     # Get hybrid model parameters and function handles.
-    hyb_pars = get_CstrFlash_hybrid_pars(train=cstr_flash_hybtrain, 
-                                         greybox_pars=greybox_pars)
-    hyb_fxu = lambda x, u: CstrFlashHybrid_fxu(x, u, hyb_pars)
-    hyb_hx = lambda x: CstrFlashHybrid_hx(x)
+    hyb_pars = get_hybrid_pars(train=cstr_flash_hybtrain, 
+                               hyb_greybox_pars=hyb_greybox_pars)
+    ps = hyb_pars['ps']
+    hyb_fxu = lambda x, u: hybrid_fxup(x, u, ps, hyb_pars)
+    hyb_hx = hybrid_hx
 
     # Cost.
-    p = [20, 3200, 16000]
+    p = [20, 3000, 17000]
     cost_yu = lambda y, u: cost_yup(y, u, p, plant_pars)
     
     # Get xGuess.
     ys = plant_pars['xs'][plant_pars['yindices']]
-    us = np.array([10., 5.])
     xguess = ys
 
     # Generate data.
-    u, lyup = generate_data(fxu=hyb_fxu, hx=hyb_hx, 
-                            cost_yu=cost_yu,
-                            parameters=hyb_pars, 
-                            xguess=xguess)
+    Ndata = 4000
+    u, lyup = generate_icnn_data(fxu=hyb_fxu, hx=hyb_hx, cost_yu=cost_yu, 
+                                 parameters=hyb_pars, Ndata=Ndata, 
+                                 xguess=xguess)
     
     # Get data in dictionary.
     cstr_flash_icnndata = dict(u=u, lyup=lyup)

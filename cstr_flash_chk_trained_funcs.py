@@ -12,7 +12,8 @@ sys.path.append('lib/')
 import numpy as np
 from hybridid import PickleTool, quick_sim
 from BlackBoxFuncs import get_bbnn_pars, bbnn_fxu, bbnn_hx
-from CstrFlashHybridFuncs import get_hybrid_pars, hybrid_fxu, hybrid_hx
+from CstrFlashHybridFuncs import get_hybrid_pars, hybrid_fxup, hybrid_hx
+from InputConvexFuncs import get_icnn_pars, icnn_lyu
 
 def main():
     """ Main function to be executed. """
@@ -25,6 +26,9 @@ def main():
                                       type='read')
     cstr_flash_hybtrain = PickleTool.load(filename=
                                      'cstr_flash_hybtrain.pickle',
+                                      type='read')
+    cstr_flash_icnntrain = PickleTool.load(filename=
+                                     'cstr_flash_icnntrain.pickle',
                                       type='read')
 
     def check_bbnn(cstr_flash_parameters, cstr_flash_bbnntrain):
@@ -60,6 +64,7 @@ def main():
 
         # Get some sizes/parameters.
         hyb_greybox_pars = cstr_flash_parameters['hyb_greybox_pars']
+        ps = hyb_greybox_pars['ps']
         tthrow = 10
         Ny, Nu = hyb_greybox_pars['Ny'], hyb_greybox_pars['Nu']
 
@@ -71,7 +76,7 @@ def main():
         # Get the black-box model parameters and function handles.
         hyb_pars = get_hybrid_pars(train=cstr_flash_hybtrain, 
                                    hyb_greybox_pars=hyb_greybox_pars)
-        fxu = lambda x, u: hybrid_fxu(x, u, hyb_pars)
+        fxu = lambda x, u: hybrid_fxup(x, u, ps, hyb_pars)
         hx = hybrid_hx
 
         # CHeck black-box model validation.
@@ -81,8 +86,32 @@ def main():
         # Return 
         return 
 
+    def check_icnn(cstr_flash_parameters, cstr_flash_icnntrain):
+        """ Function to check the ICNN implementation. """
+
+        # Plant parameters.
+        plant_pars = cstr_flash_parameters['plant_pars']
+
+        # Get ICNN function handles.
+        icnn_pars = get_icnn_pars(train=cstr_flash_icnntrain, 
+                                  plant_pars=plant_pars)
+        icnn_lu = lambda u: icnn_lyu(u, icnn_pars)
+
+        # CHeck black-box model validation.
+        lyup_val = cstr_flash_icnntrain['val_predictions'][-1]['lyup']
+        uval = cstr_flash_icnntrain['val_predictions'][-1]['u']
+        
+        lyup_pred = []
+        for u in uval:
+            lyup_pred += [icnn_lu(u)]
+        lyup_pred = np.array(lyup_pred).squeeze()
+        breakpoint()
+        #Return 
+        return 
+
     # Check the different types of functions.
     check_bbnn(cstr_flash_parameters, cstr_flash_bbnntrain)
     check_hyb(cstr_flash_parameters, cstr_flash_hybtrain)
+    check_icnn(cstr_flash_parameters, cstr_flash_icnntrain)
 
 main()

@@ -22,9 +22,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 from hybridid import PickleTool, measurement
 from economicopt import get_xs_sscost, get_ss_optimum, c2dNonlin
 from BlackBoxFuncs import get_bbnn_pars, bbnn_fxu, bbnn_hx
-from CstrFlashHybridFuncs import (get_CstrFlash_hybrid_pars, 
-                                  CstrFlashHybrid_fxu, 
-                                  CstrFlashHybrid_hx)
+from CstrFlashHybridFuncs import get_hybrid_pars, hybrid_fxup, hybrid_hx
 from cstr_flash_funcs import cost_yup, plant_ode
 from plotting_funcs import CstrFlashPlots, PAPER_FIGSIZE
 from InputConvexFuncs import get_icnn_pars, icnn_lyu
@@ -37,16 +35,16 @@ def get_xuguess(*, model_type, plant_pars, Np=None):
     us = plant_pars['us']
 
     if model_type == 'Plant':
-        us = np.array([15., 2.])
+        us = np.array([5., 8.])
         xs = plant_pars['xs']
     elif model_type == 'Black-Box-NN' or model_type == 'Hybrid':
         yindices = plant_pars['yindices']
         ys = plant_pars['xs'][yindices]
-        us = np.array([5., 8.])
+        us = np.array([10., 8.])
         xs = np.concatenate((np.tile(ys, (Np+1, )), 
                              np.tile(us, (Np, ))))
     elif model_type == 'ICNN':
-        us = np.array([5., 2.])
+        us = np.array([15., 5.])
         xs = None
     else:
         pass
@@ -71,41 +69,42 @@ def main():
 
     # Get plant and grey-box model parameters.
     plant_pars = cstr_flash_parameters['plant_pars']
-    greybox_pars = cstr_flash_parameters['greybox_pars']
+    hyb_greybox_pars = cstr_flash_parameters['hyb_greybox_pars']
 
     # Get cost function handle.
-    p = [20, 2000, 12000]
+    p = [20, 3000, 17000]
     lyu = lambda y, u: cost_yup(y, u, p, plant_pars)
 
     # Get the plant function handle.
     Delta = plant_pars['Delta']
-    ps = np.array([6., 300.])
+    ps = plant_pars['ps']
     plant_fxu = lambda x, u: plant_ode(x, u, ps, plant_pars)
     plant_fxu = c2dNonlin(plant_fxu, Delta)
     plant_hx = lambda x: measurement(x, plant_pars)
 
-    # # Get the black-box model parameters and function handles.
+    # Get the black-box model parameters and function handles.
     # bbnn_pars = get_bbnn_pars(train=cstr_flash_bbnntrain, 
     #                           plant_pars=plant_pars)
     # bbnn_f = lambda x, u: bbnn_fxu(x, u, bbnn_pars)
     # bbnn_h = lambda x: bbnn_hx(x, bbnn_pars)
 
-    # # Get Hybrid model parameters and function handles.
-    # hyb_pars = get_CstrFlash_hybrid_pars(train=cstr_flash_hybtrain, 
-    #                                      greybox_pars=greybox_pars)
-    # hyb_fxu = lambda x, u: CstrFlashHybrid_fxu(x, u, hyb_pars)
-    # hyb_hx = lambda x: CstrFlashHybrid_hx(x)
+    # Get Hybrid model parameters and function handles.
+    hyb_pars = get_hybrid_pars(train=cstr_flash_hybtrain, 
+                               hyb_greybox_pars=hyb_greybox_pars)
+    hyb_fxu = lambda x, u: hybrid_fxup(x, u, ps, hyb_pars)
+    hyb_hx = hybrid_hx
 
     # # Get ICNN parameters and function.
-    # icnn_pars = get_icnn_pars(train=cstr_flash_icnntrain, plant_pars=plant_pars)
-    # icnn_lu = lambda u: icnn_lyu(u, icnn_pars)
+    icnn_pars = get_icnn_pars(train=cstr_flash_icnntrain, 
+                              plant_pars=plant_pars)
+    icnn_lu = lambda u: icnn_lyu(u, icnn_pars)
 
     # Lists to loop over for different models.
-    model_types = ['Plant']
-    fxu_list = [plant_fxu]
-    hx_list = [plant_hx]
-    par_list = [plant_pars]
-    Nps = [None, 0, 0, None]
+    model_types = ['Plant', 'Hybrid', 'ICNN']
+    fxu_list = [plant_fxu, hyb_fxu, None]
+    hx_list = [plant_hx, hyb_hx, None]
+    par_list = [plant_pars, hyb_pars, None]
+    Nps = [None, 0, None]
     opt_sscosts = []
     opt_us = []
 
@@ -123,7 +122,8 @@ def main():
                                         parameters=model_pars, guess=xuguess)
             opt_sscosts += [opt_sscost]
         else:
-            us = get_icnn_ss_optimum(lyu=icnn_lu, parameters=icnn_pars, 
+            us, opt_sscost = get_icnn_ss_optimum(lyup=icnn_lu, 
+                                      parameters=icnn_pars, 
                                       uguess=xuguess['u'])
         
         # Store the optimal us in the list.
@@ -134,20 +134,20 @@ def main():
         print('us: ' + str(us))
     
     # Check for Suboptimality loss.
-    # xuguess = get_xuguess(model_type='Plant', 
-    #                           plant_pars=plant_pars, Np=None)
-    # xs, sscost_hyb = get_xs_sscost(fxu=plant_fxu, hx=plant_hx, lyu=lyu, 
-    #                            us=opt_us[2], parameters=plant_pars, 
-    #                            xguess=xuguess['x'], 
-    #                            lbx=np.zeros((plant_pars['Nx'], )), 
-    #                            ubx=np.tile(np.inf, (plant_pars['Nx'], )))
-    # xs, sscost_icnn = get_xs_sscost(fxu=plant_fxu, hx=plant_hx, lyu=lyu, 
-    #                            us=opt_us[3], parameters=plant_pars, 
-    #                            xguess=xuguess['x'], 
-    #                            lbx=np.zeros((plant_pars['Nx'], )), 
-    #                            ubx=np.tile(np.inf, (plant_pars['Nx'], )))
-    # breakpoint()
-    # print("Hi")
+    xuguess = get_xuguess(model_type='Plant', 
+                              plant_pars=plant_pars, Np=None)
+    xs, sscost_hyb = get_xs_sscost(fxu=plant_fxu, hx=plant_hx, lyu=lyu, 
+                               us=opt_us[1], parameters=plant_pars, 
+                               xguess=xuguess['x'], 
+                               lbx=np.zeros((plant_pars['Nx'], )), 
+                               ubx=np.tile(np.inf, (plant_pars['Nx'], )))
+    xs, sscost_icnn = get_xs_sscost(fxu=plant_fxu, hx=plant_hx, lyu=lyu, 
+                               us=opt_us[2], parameters=plant_pars, 
+                               xguess=xuguess['x'], 
+                               lbx=np.zeros((plant_pars['Nx'], )), 
+                               ubx=np.tile(np.inf, (plant_pars['Nx'], )))
+    breakpoint()
+    print("Hi")
     # # Get a linspace of steady-state u values.
     # Nu = plant_pars['Nu']
     # ulb, uub = plant_pars['ulb'], plant_pars['uub']

@@ -241,7 +241,7 @@ def interpolate_pseq(pseq, p, Np):
     # Return.
     return np.concatenate(pseq_interp)
 
-def fxu(x, u, parameters, xuyscales, fNWeights):
+def fxu(x, u, p, parameters, xuyscales, fNWeights):
     """ Grey-box part of the hybrid model. """
 
     # Extract the parameters.
@@ -259,13 +259,12 @@ def fxu(x, u, parameters, xuyscales, fNWeights):
     Td = parameters['Td']
     Qr = parameters['Qr']
     Qb = parameters['Qb']
-    ps = parameters['ps']
 
     # Extract the plant states into meaningful names.
     Hr, CAr, CBr, CCr, Tr = x[0:1], x[1:2], x[2:3], x[3:4], x[4:5]
     Hb, CAb, CBb, CCb, Tb = x[5:6], x[6:7], x[7:8], x[8:9], x[9:10]
     F, D = u[0:1], u[1:2]
-    CAf, Tf = ps[0:1], ps[1:2]
+    CAf, Tf = p[0:1], p[1:2]
     
     # Get the scales.
     xmean, xstd = xuyscales['yscale']
@@ -311,7 +310,7 @@ def fxu(x, u, parameters, xuyscales, fNWeights):
     # Return.
     return xdot
 
-def hybrid_fxu(x, u, parameters):
+def hybrid_fxup(x, u, p, parameters):
     """ The augmented continuous time model. """
 
     # Sample time.
@@ -322,10 +321,10 @@ def hybrid_fxu(x, u, parameters):
     fNWeights = parameters['fNWeights']
 
     # Get k1, k2, k3, and k4.
-    k1 = fxu(x, u, parameters, xuyscales, fNWeights)
-    k2 = fxu(x + Delta*(k1/2), u, parameters, xuyscales, fNWeights)
-    k3 = fxu(x + Delta*(k2/2), u, parameters, xuyscales, fNWeights)
-    k4 = fxu(x + Delta*k3, u, parameters, xuyscales, fNWeights)
+    k1 = fxu(x, u, p, parameters, xuyscales, fNWeights)
+    k2 = fxu(x + Delta*(k1/2), u, p, parameters, xuyscales, fNWeights)
+    k3 = fxu(x + Delta*(k2/2), u, p, parameters, xuyscales, fNWeights)
+    k4 = fxu(x + Delta*k3, u, p, parameters, xuyscales, fNWeights)
     
     # Get the current output/state and the next time step.
     xplus = x + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
