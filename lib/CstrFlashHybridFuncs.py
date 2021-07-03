@@ -11,27 +11,28 @@ import mpctools as mpc
 import tensorflow as tf
 from BlackBoxFuncs import fnnTF, fnn
 from TwoReacHybridFuncs import train_model, get_val_predictions
+from TwoReacHybridFuncs import hybrid_hx
 
 class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
     """
     RNN Cell
     dxG/dt  = fG(xG, u) + f_N(xG), y = xG
     """
-    def __init__(self, fNLayers, xuyscales, greybox_pars, **kwargs):
+    def __init__(self, fNLayers, xuyscales, hyb_greybox_pars, **kwargs):
         super(CstrFlashHybridCell, self).__init__(**kwargs)
 
         # Save attributes.
         self.fNLayers = fNLayers
-        self.greybox_pars = greybox_pars
+        self.hyb_greybox_pars = hyb_greybox_pars
         self.xuyscales = xuyscales
     
     @property
     def state_size(self):
-        return self.greybox_pars['Nx']
+        return self.hyb_greybox_pars['Nx']
     
     @property
     def output_size(self):
-        return self.greybox_pars['Nx']       
+        return self.hyb_greybox_pars['Nx']       
 
     def _fxu(self, x, u):
         """ Function to compute the 
@@ -39,21 +40,21 @@ class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
             for the two reaction model. """
         
         # Extract the parameters.
-        alphaA = self.greybox_pars['alphaA']
-        alphaB = self.greybox_pars['alphaB']
-        alphaC = self.greybox_pars['alphaC']
-        pho = self.greybox_pars['pho']
-        Cp = self.greybox_pars['Cp']
-        Ar = self.greybox_pars['Ar']
-        Ab = self.greybox_pars['Ab']
-        kr = self.greybox_pars['kr']
-        kb = self.greybox_pars['kb']
-        delH1 = self.greybox_pars['delH1']
-        delH2 = self.greybox_pars['delH2']
-        Td = self.greybox_pars['Td']
-        Qr = self.greybox_pars['Qr']
-        Qb = self.greybox_pars['Qb']
-        ps = self.greybox_pars['ps']
+        alphaA = self.hyb_greybox_pars['alphaA']
+        alphaB = self.hyb_greybox_pars['alphaB']
+        alphaC = self.hyb_greybox_pars['alphaC']
+        pho = self.hyb_greybox_pars['pho']
+        Cp = self.hyb_greybox_pars['Cp']
+        Ar = self.hyb_greybox_pars['Ar']
+        Ab = self.hyb_greybox_pars['Ab']
+        kr = self.hyb_greybox_pars['kr']
+        kb = self.hyb_greybox_pars['kb']
+        delH1 = self.hyb_greybox_pars['delH1']
+        delH2 = self.hyb_greybox_pars['delH2']
+        Td = self.hyb_greybox_pars['Td']
+        Qr = self.hyb_greybox_pars['Qr']
+        Qb = self.hyb_greybox_pars['Qb']
+        ps = self.hyb_greybox_pars['ps']
 
         # Get the output of the neural network.
         nnOutput = fnnTF(x, self.fNLayers)
@@ -119,7 +120,7 @@ class CstrFlashHybridCell(tf.keras.layers.AbstractRNNCell):
         u = inputs
 
         # Sample time.
-        Delta = self.greybox_pars['Delta']        
+        Delta = self.hyb_greybox_pars['Delta']        
 
         # Get k1, k2, k3, and k4.
         k1 = self._fxu(x, u)
@@ -157,11 +158,11 @@ class InterpolationLayer(tf.keras.layers.Layer):
 
 class CstrFlashModel(tf.keras.Model):
     """ Custom model for the CSTR Flash model. """
-    def __init__(self, fNDims, xuyscales, greybox_pars):
+    def __init__(self, fNDims, xuyscales, hyb_greybox_pars):
 
         # Get the size and input layer, and initial state layer.
-        Nx, Ny = greybox_pars['Nx'], greybox_pars['Ny']
-        Nu = greybox_pars['Nu']
+        Nx, Ny = hyb_greybox_pars['Nx'], hyb_greybox_pars['Ny']
+        Nu = hyb_greybox_pars['Nu']
 
         # Create inputs to the model.
         useq = tf.keras.Input(name='u', shape=(None, Nu))
@@ -174,7 +175,8 @@ class CstrFlashModel(tf.keras.Model):
         fNLayers += [tf.keras.layers.Dense(fNDims[-1])]
 
         # Build model.
-        cstr_flash_cell = CstrFlashHybridCell(fNLayers, xuyscales, greybox_pars)
+        cstr_flash_cell = CstrFlashHybridCell(fNLayers, xuyscales, 
+                                              hyb_greybox_pars)
 
         # Construct the RNN layer and the computation graph.
         cstr_flash_layer = tf.keras.layers.RNN(cstr_flash_cell,
@@ -184,15 +186,15 @@ class CstrFlashModel(tf.keras.Model):
         # Construct model.
         super().__init__(inputs=[useq, x0], outputs=yseq)
 
-def create_model(*, fNDims, xuyscales, greybox_pars):
+def create_model(*, fNDims, xuyscales, hyb_greybox_pars):
     """ Create/compile the two reaction model for training. """
-    model = CstrFlashModel(fNDims, xuyscales, greybox_pars)
+    model = CstrFlashModel(fNDims, xuyscales, hyb_greybox_pars)
     # Compile the nn model.
     model.compile(optimizer='adam', loss='mean_squared_error')
     # Return the compiled model.
     return model
 
-def get_CstrFlash_hybrid_pars(*, train, greybox_pars):
+def get_hybrid_pars(*, train, hyb_greybox_pars):
     """ Get the hybrid model parameters. """
 
     # Get black-box model parameters.
@@ -201,31 +203,31 @@ def get_CstrFlash_hybrid_pars(*, train, greybox_pars):
     parameters['xuyscales'] = train['xuyscales']
 
     # Sizes.
-    parameters['Nx'] = greybox_pars['Nx']
-    parameters['Nu'] = greybox_pars['Nu']
-    parameters['Ny'] = greybox_pars['Ny']
+    parameters['Nx'] = hyb_greybox_pars['Nx']
+    parameters['Nu'] = hyb_greybox_pars['Nu']
+    parameters['Ny'] = hyb_greybox_pars['Ny']
 
     # Constraints.
-    parameters['ulb'] = greybox_pars['ulb']
-    parameters['uub'] = greybox_pars['uub']
+    parameters['ulb'] = hyb_greybox_pars['ulb']
+    parameters['uub'] = hyb_greybox_pars['uub']
     
     # Grey-box model parameters.
-    parameters['Delta'] = greybox_pars['Delta'] # min
-    parameters['alphaA'] = greybox_pars['alphaA']
-    parameters['alphaB'] = greybox_pars['alphaB']
-    parameters['alphaC'] = greybox_pars['alphaC']
-    parameters['pho'] = greybox_pars['pho']
-    parameters['Cp'] = greybox_pars['Cp']
-    parameters['Ar'] = greybox_pars['Ar']
-    parameters['Ab'] = greybox_pars['Ab']
-    parameters['kr'] = greybox_pars['kr']
-    parameters['kb'] = greybox_pars['kb']
-    parameters['delH1'] = greybox_pars['delH1']
-    parameters['delH2'] = greybox_pars['delH2']
-    parameters['Td'] = greybox_pars['Td']
-    parameters['Qb'] = greybox_pars['Qb']
-    parameters['Qr'] = greybox_pars['Qr']
-    parameters['ps'] = greybox_pars['ps']
+    parameters['Delta'] = hyb_greybox_pars['Delta'] # min
+    parameters['alphaA'] = hyb_greybox_pars['alphaA']
+    parameters['alphaB'] = hyb_greybox_pars['alphaB']
+    parameters['alphaC'] = hyb_greybox_pars['alphaC']
+    parameters['pho'] = hyb_greybox_pars['pho']
+    parameters['Cp'] = hyb_greybox_pars['Cp']
+    parameters['Ar'] = hyb_greybox_pars['Ar']
+    parameters['Ab'] = hyb_greybox_pars['Ab']
+    parameters['kr'] = hyb_greybox_pars['kr']
+    parameters['kb'] = hyb_greybox_pars['kb']
+    parameters['delH1'] = hyb_greybox_pars['delH1']
+    parameters['delH2'] = hyb_greybox_pars['delH2']
+    parameters['Td'] = hyb_greybox_pars['Td']
+    parameters['Qb'] = hyb_greybox_pars['Qb']
+    parameters['Qr'] = hyb_greybox_pars['Qr']
+    parameters['ps'] = hyb_greybox_pars['ps']
 
     # Return.
     return parameters
@@ -309,7 +311,7 @@ def fxu(x, u, parameters, xuyscales, fNWeights):
     # Return.
     return xdot
 
-def CstrFlashHybrid_fxu(x, u, parameters):
+def hybrid_fxu(x, u, parameters):
     """ The augmented continuous time model. """
 
     # Sample time.
@@ -330,8 +332,3 @@ def CstrFlashHybrid_fxu(x, u, parameters):
 
     # Return the sum.
     return xplus
-
-def CstrFlashHybrid_hx(x):
-    """ Measurement function. """
-    # Return only the x.
-    return x

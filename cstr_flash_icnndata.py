@@ -15,39 +15,8 @@ from hybridid import PickleTool
 from cstr_flash_funcs import cost_yup
 from economicopt import get_xs_sscost
 from BlackBoxFuncs import get_bbnn_pars, bbnn_fxu, bbnn_hx
-from CstrFlashHybridFuncs import (get_CstrFlash_hybrid_pars, 
-                                  CstrFlashHybrid_fxu, 
-                                  CstrFlashHybrid_hx)
-
-def generate_data(*, fxu, hx, cost_yu, parameters, seed=10, 
-                     xguess=None):
-    """ Function to generate data to train the ICNN. """
-
-    # Set numpy seed.
-    np.random.seed(seed)
-
-    # Get a list of random inputs.
-    Nu = parameters['Nu']
-    ulb, uub = parameters['ulb'], parameters['uub']
-    Ndata = 10000
-    us_list = list((uub-ulb)*np.random.rand(Ndata, Nu) + ulb)
-
-    # Get the corresponding steady state costs.
-    ss_costs = []
-    for us in us_list:
-        _, ss_cost = get_xs_sscost(fxu=fxu, hx=hx, lyu=cost_yu, 
-                             us=us, parameters=parameters, 
-                             xguess=xguess)
-        ss_costs += [ss_cost]
-    lyu = np.array(ss_costs)
-    u = np.array(us_list)
-
-    # Get rid of NaNs in sscost.
-    #u = np.delete(u, np.where(np.isnan(lyu)), axis=0)
-    #lyu = np.delete(lyu, np.where(np.isnan(lyu)), axis=0)
-
-    # Return.
-    return u, lyu
+from CstrFlashHybridFuncs import get_hybrid_pars, hybrid_fxu, hybrid_hx
+from InputConvexFuncs import generate_icnn_data
 
 def main():
     """ Main function to be executed. """

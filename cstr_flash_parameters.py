@@ -12,7 +12,7 @@ import numpy as np
 import scipy.linalg
 from hybridid import (PickleTool, sample_prbs_like, SimData)
 from cstr_flash_funcs import plant_ode
-from cstr_flash_funcs import get_plant_pars, get_greybox_pars
+from cstr_flash_funcs import get_plant_pars, get_hyb_greybox_pars
 from hybridid import get_rectified_xs, get_model
 
 def gen_train_val_data(*, parameters, num_traj,
@@ -194,7 +194,7 @@ def main():
     plant_pars['xs'] = get_rectified_xs(ode=plant_ode, parameters=plant_pars)
 
     # Grey-box parameters.
-    greybox_pars = get_greybox_pars(plant_pars=plant_pars)
+    hyb_greybox_pars = get_hyb_greybox_pars(plant_pars=plant_pars)
     #greybox_pars['xs'] = get_rectified_xs(ode=greybox_ode, 
     #                                      parameters=greybox_pars)
 
@@ -214,7 +214,7 @@ def main():
     
     # Collect in a dict.
     cstr_flash_parameters = dict(plant_pars=plant_pars,
-                                 greybox_pars=greybox_pars,
+                                 hyb_greybox_pars=hyb_greybox_pars,
                                  training_data=training_data)
 
     # Save data.

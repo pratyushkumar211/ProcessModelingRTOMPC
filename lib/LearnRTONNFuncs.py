@@ -1,6 +1,6 @@
 """
-Custom neural network layers for black-box modeling 
-using input convex neural networks.
+Custom neural network layers for learning RTO solutions using 
+neural networks.
 Pratyush Kumar, pratyushkumar@ucsb.edu
 """
 import sys
@@ -255,72 +255,23 @@ class PartialInputConvexLayer(tf.keras.layers.Layer):
         # Return output.
         return zplus, uplus
 
-class InputConvexModel(tf.keras.Model):
+class RTONNModel(tf.keras.Model):
 
-    """ Input convex neural network model. """
-    def __init__(self, Ny, zDims, uDims=None):
+    """ Real-time optimization and neural network model. """
+    def __init__(self, fxup, hx, lyup, fNDims):
         
-        # Get the input layers (from which convexity is required).
-        InputList = []
-        y = tf.keras.Input(name='y', shape=(Ny, ))
-        InputList += [y]
+        # Parameter shapes and sizes.
+        Nu, Np = fNDims[-1], fNDims[0]
 
-        # Get the input layer (from which convexity is not required).
-        if uDims is not None:
-            x = tf.keras.Input(name='x', shape=(uDims[0], ))
-            InputList += [x]
-        
-        # Check for no initial size in zDims.
-        assert zDims[0] is None, "Remove initial size in zDims."
+        # Get the parameter input layer.
+        p = tf.keras.Input(name='p', shape=(Np, ))
 
-        # Number of layers. 
-        numLayers = len(zDims) - 1
+        # Get the Dense neural network layers.
+        fNLayers = []
+        for dim in fNDims[1:-1]:
+            fNLayers += [tf.keras.layers.Dense(dim, activation='tanh')]
+        fNLayers += [tf.keras.layers.Dense(fNDims[-1])]
 
-        # Get the layers.
-        if uDims is not None:
-
-            # Check for at least three layer values. 
-            assert len(zDims) > 2, "Check zDims size."
-            assert len(uDims) > 2, "Check uDims size."
-            assert len(uDims) == len(zDims), """ Dimensions of zDims 
-                                                 and uDims not same. """
-            # Check for no last size in uDims.
-            assert uDims[-1] is None, "Remove last size in uDims."
-
-            # Create layers.
-            fNLayers = [PartialInputConvexLayer(zDims[1], zDims[0], Ny, 
-                                                uDims[1], uDims[0], "First", 
-                                                name='l0')]
-            for (zDim, zPlusDim, 
-                 uDim, uPlusDim, i) in zip(zDims[1:-2], zDims[2:-1], 
-                                        uDims[1:-2], uDims[2:-1], 
-                                        range(1, numLayers-1)):
-                fNLayers += [PartialInputConvexLayer(zPlusDim, zDim, Ny, 
-                                                     uPlusDim, uDim, "Mid", 
-                                                     name='l' + str(i))]
-            fNLayers += [PartialInputConvexLayer(zDims[-1], zDims[-2], Ny, 
-                                                 uDims[-1], uDims[-2], "Last", 
-                                                 name='l' + str(numLayers-1))]
-            
-            # Get symbolic output.
-            f = picnnTF(y, x, fNLayers)
-        else:
-            
-            # Check for at least three layer values. 
-            assert len(zDims) > 2, "Check zDims size."
-
-            # Create layers.
-            fNLayers = [InputConvexLayer(zDims[1], zDims[0], Ny, "First", 
-                                         name='l0')]
-            for (zDim, zPlusDim, i) in zip(zDims[1:-2], zDims[2:-1], 
-                                           range(1, numLayers-1)):
-                fNLayers += [InputConvexLayer(zPlusDim, zDim, Ny, "Mid", 
-                                              name='l' + str(i))]
-            fNLayers += [InputConvexLayer(zDims[-1], zDims[-2], Ny, "Last", 
-                                          name='l' + str(numLayers-1))]
-
-            # Get symbolic output.
-            f = icnnTF(y, fNLayers)
 
         # Construct model.
         super().__init__(inputs=InputList, outputs=f)

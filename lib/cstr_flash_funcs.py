@@ -177,12 +177,12 @@ def get_plant_pars():
     # The C matrix for the plant.
     parameters['yindices'] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
     parameters['Rv'] = np.diag([0.8, 1e-3, 1e-3, 1e-3, 1., 
-                                  0.8, 1e-3, 1e-3, 1e-3, 1.])
+                                0.8, 1e-3, 1e-3, 1e-3, 1.])
     
     # Return the parameters dict.
     return parameters
 
-def get_greybox_pars(*, plant_pars):
+def get_hyb_greybox_pars(*, plant_pars):
     """ Get the parameter values for the
         CSTRs with flash example. """
 

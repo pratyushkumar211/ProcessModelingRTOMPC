@@ -25,7 +25,7 @@ def main():
                                          type='read')
 
     # Get sizes/raw training data.
-    greybox_pars = cstr_flash_parameters['greybox_pars']
+    hyb_greybox_pars = cstr_flash_parameters['hyb_greybox_pars']
     plant_pars = cstr_flash_parameters['plant_pars']
     Ny, Nu = plant_pars['Ny'], plant_pars['Nu']
     training_data = cstr_flash_parameters['training_data']
@@ -59,7 +59,8 @@ def main():
         
         # Create model.
         model = create_model(fNDims=fNDims, 
-                             xuyscales=xuyscales, greybox_pars=greybox_pars)
+                             xuyscales=xuyscales, 
+                             hyb_greybox_pars=hyb_greybox_pars)
 
         # Use num samples to adjust here the num training samples.
         train_samples = dict(x0=train_data['x0'],
@@ -67,12 +68,12 @@ def main():
                              outputs=train_data['outputs'])
 
         # Train.
-        train_hybrid_model(model=model, epochs=6000, batch_size=4, 
+        train_model(model=model, epochs=10, batch_size=4, 
                     train_data=train_samples, trainval_data=trainval_data, 
                     stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 
         # Validate.
-        (val_prediction, val_metric) = get_hybrid_predictions(model=model,
+        (val_prediction, val_metric) = get_val_predictions(model=model,
                                     val_data=val_data, xuyscales=xuyscales, 
                                     xinsert_indices=ypred_xinsert_indices, 
                                     ckpt_path=ckpt_path)

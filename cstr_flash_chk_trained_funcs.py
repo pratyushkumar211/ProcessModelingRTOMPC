@@ -12,8 +12,7 @@ sys.path.append('lib/')
 import numpy as np
 from hybridid import PickleTool, quick_sim
 from BlackBoxFuncs import get_bbnn_pars, bbnn_fxu, bbnn_hx
-from CstrFlashHybridFuncs import (get_CstrFlash_hybrid_pars, 
-                                  CstrFlashHybrid_fxu, CstrFlashHybrid_hx)
+from CstrFlashHybridFuncs import get_hybrid_pars, hybrid_fxu, hybrid_hx
 
 def main():
     """ Main function to be executed. """
@@ -60,9 +59,9 @@ def main():
     def check_hyb(cstr_flash_parameters, cstr_flash_hybtrain):
 
         # Get some sizes/parameters.
-        greybox_pars = cstr_flash_parameters['greybox_pars']
+        hyb_greybox_pars = cstr_flash_parameters['hyb_greybox_pars']
         tthrow = 10
-        Ny, Nu = greybox_pars['Ny'], greybox_pars['Nu']
+        Ny, Nu = hyb_greybox_pars['Ny'], hyb_greybox_pars['Nu']
 
         # Get initial state for forecasting.
         training_data = cstr_flash_parameters['training_data'][-1]
@@ -70,10 +69,10 @@ def main():
         x0 = training_data.x[tthrow, :]
 
         # Get the black-box model parameters and function handles.
-        hyb_pars = get_CstrFlash_hybrid_pars(train=cstr_flash_hybtrain, 
-                                              greybox_pars=greybox_pars)
-        fxu = lambda x, u: CstrFlashHybrid_fxu(x, u, hyb_pars)
-        hx = lambda x: CstrFlashHybrid_hx(x)
+        hyb_pars = get_hybrid_pars(train=cstr_flash_hybtrain, 
+                                   hyb_greybox_pars=hyb_greybox_pars)
+        fxu = lambda x, u: hybrid_fxu(x, u, hyb_pars)
+        hx = hybrid_hx
 
         # CHeck black-box model validation.
         hyb_yval = cstr_flash_hybtrain['val_predictions'][-1].y
