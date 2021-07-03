@@ -14,6 +14,7 @@ from hybridid import PickleTool, quick_sim
 from BlackBoxFuncs import get_bbnn_pars, bbnn_fxu, bbnn_hx
 from CstrFlashHybridFuncs import get_hybrid_pars, hybrid_fxup, hybrid_hx
 from InputConvexFuncs import get_icnn_pars, icnn_lyu
+from InputConvexFuncs import get_picnn_pars, picnn_lyup
 
 def main():
     """ Main function to be executed. """
@@ -29,6 +30,9 @@ def main():
                                       type='read')
     cstr_flash_icnntrain = PickleTool.load(filename=
                                      'cstr_flash_icnntrain.pickle',
+                                      type='read')
+    cstr_flash_picnntrain = PickleTool.load(filename=
+                                     'cstr_flash_picnntrain.pickle',
                                       type='read')
 
     def check_bbnn(cstr_flash_parameters, cstr_flash_bbnntrain):
@@ -109,9 +113,34 @@ def main():
         #Return 
         return 
 
+    def check_picnn(cstr_flash_parameters, cstr_flash_picnntrain):
+        """ Check Black-box functions. """
+
+        # Plant parameters.
+        plant_pars = cstr_flash_parameters['plant_pars']
+
+        # Get ICNN function handles.
+        picnn_pars = get_picnn_pars(train=cstr_flash_picnntrain, 
+                                    plant_pars=plant_pars)
+        picnn_lup = lambda u, p: picnn_lyup(u, p, picnn_pars)
+
+        # CHeck black-box model validation.
+        lyup_val = cstr_flash_picnntrain['val_predictions'][-1]['lyup']
+        uval = cstr_flash_picnntrain['val_predictions'][-1]['u']
+        pval = cstr_flash_picnntrain['val_predictions'][-1]['p']
+
+        lyup_pred = []
+        for u, p in zip(uval, pval):
+            lyup_pred += [picnn_lup(u, p)]
+        lyup_pred = np.array(lyup_pred).squeeze()
+        breakpoint()
+        #Return 
+        return 
+
     # Check the different types of functions.
     check_bbnn(cstr_flash_parameters, cstr_flash_bbnntrain)
     check_hyb(cstr_flash_parameters, cstr_flash_hybtrain)
     check_icnn(cstr_flash_parameters, cstr_flash_icnntrain)
+    check_picnn(cstr_flash_parameters, cstr_flash_picnntrain)
 
 main()

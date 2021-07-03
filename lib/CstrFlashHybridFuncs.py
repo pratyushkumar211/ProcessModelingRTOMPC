@@ -204,6 +204,7 @@ def get_hybrid_pars(*, train, hyb_greybox_pars):
 
     # Sizes.
     parameters['Nx'] = hyb_greybox_pars['Nx']
+    parameters['Np'] = hyb_greybox_pars['Np']
     parameters['Nu'] = hyb_greybox_pars['Nu']
     parameters['Ny'] = hyb_greybox_pars['Ny']
 

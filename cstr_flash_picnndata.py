@@ -15,7 +15,7 @@ import numpy as np
 from hybridid import PickleTool
 from cstr_flash_funcs import cost_yup
 from economicopt import get_xs_sscost
-from CstrFlashHybridFuncs import get_hybrid_pars, hybrid_fxu, hybrid_hx
+from CstrFlashHybridFuncs import get_hybrid_pars, hybrid_fxup, hybrid_hx
 from InputConvexFuncs import generate_picnn_data
 
 def main():
@@ -44,30 +44,34 @@ def main():
     # Get hybrid model parameters and function handles.
     hyb_pars = get_hybrid_pars(train=cstr_flash_hybtrain, 
                                hyb_greybox_pars=hyb_greybox_pars)
-    hyb_fxu = lambda x, u: hybrid_fxu(x, u, hyb_pars)
+    hyb_fxu = lambda x, u, p: hybrid_fxup(x, u, p, hyb_pars)
     hyb_hx = hybrid_hx
 
     # Cost.
-    cost_yup = lambda y, u: cost_yup(y, u, p, plant_pars)
+    cost_up = lambda y, u, p: cost_yup(y, u, p, plant_pars)
 
-    # Range of economic parameters.
-
-    # Get xGuess.
+    # Get xguess.
     ys = plant_pars['xs'][plant_pars['yindices']]
-    us = np.array([10., 5.])
     xguess = ys
 
+    # Range of economic parameters.
+    plb = np.array([20, 2000, 12000, 6, 300])
+    pub = np.array([20, 4000, 22000, 6, 320])
+    Nsamp_us = 100
+    Nsamp_p = 100
+
     # Generate data.
-    u, lyup = generate_data(fxu=hyb_fxu, hx=hyb_hx, 
-                            cost_yu=cost_yu,
-                            parameters=hyb_pars, 
-                            xguess=xguess)
-    
+    p, u, lyup = generate_picnn_data(fxup=hyb_fxu, hx=hyb_hx, 
+                                    model_pars=hyb_pars, cost_yup=cost_up, 
+                                    Nsamp_us=Nsamp_us, plb=plb, pub=pub,
+                                    Nsamp_p=Nsamp_p, dist=True, 
+                                    xguess=xguess)     
     # Get data in dictionary.
-    cstr_flash_icnndata = dict(u=u, lyup=lyup)
+    p = p[:, (1, 2, 4)]
+    cstr_flash_picnndata = dict(p=p, u=u, lyup=lyup)
 
     # Save data.
-    PickleTool.save(data_object=cstr_flash_icnndata,
-                    filename='cstr_flash_icnndata.pickle')
+    PickleTool.save(data_object=cstr_flash_picnndata,
+                    filename='cstr_flash_picnndata.pickle')
 
 main()
