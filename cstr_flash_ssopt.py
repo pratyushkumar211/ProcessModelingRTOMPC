@@ -36,7 +36,7 @@ def get_xuguess(*, model_type, plant_pars, Np=None):
     us = plant_pars['us']
 
     if model_type == 'Plant':
-        us = np.array([5., 8.])
+        us = np.array([10., 8.])
         xs = plant_pars['xs']
     elif model_type == 'Black-Box-NN' or model_type == 'Hybrid':
         yindices = plant_pars['yindices']
@@ -82,8 +82,8 @@ def main():
     # Get the plant function handle.
     Delta = plant_pars['Delta']
     ps = np.array([6, 310])
-    plant_fxu = lambda x, u: plant_ode(x, u, ps, plant_pars)
-    plant_fxu = c2dNonlin(plant_fxu, Delta)
+    plant_f = lambda x, u: plant_ode(x, u, ps, plant_pars)
+    plant_fxu = c2dNonlin(plant_f, Delta)
     plant_hx = lambda x: measurement(x, plant_pars)
 
     # Get the black-box model parameters and function handles.
@@ -109,7 +109,7 @@ def main():
     picnn_lup = lambda u, p: picnn_lyup(u, p, picnn_pars)
 
     # Lists to loop over for different models.
-    model_types = ['Plant', 'Hybrid', 'PICNN']
+    model_types = ['Plant', 'Hybrid']
     fxu_list = [plant_fxu, hyb_fxu, None]
     hx_list = [plant_hx, hyb_hx, None]
     par_list = [plant_pars, hyb_pars, None]
@@ -129,6 +129,7 @@ def main():
         if model_type != 'PICNN':
             xs, us, ys, opt_sscost = get_ss_optimum(fxu=fxu, hx=hx, lyu=lyu, 
                                         parameters=model_pars, guess=xuguess)
+            breakpoint()
             opt_sscosts += [opt_sscost]
         else:
             us, opt_sscost = get_icnn_ss_optimum(lyup=picnn_lup, 
@@ -151,11 +152,11 @@ def main():
                                xguess=xuguess['x'], 
                                lbx=np.zeros((plant_pars['Nx'], )), 
                                ubx=np.tile(np.inf, (plant_pars['Nx'], )))
-    xs, sscost_icnn = get_xs_sscost(fxu=plant_fxu, hx=plant_hx, lyu=lyu, 
-                               us=opt_us[2], parameters=plant_pars, 
-                               xguess=xuguess['x'], 
-                               lbx=np.zeros((plant_pars['Nx'], )), 
-                               ubx=np.tile(np.inf, (plant_pars['Nx'], )))
+    # xs, sscost_icnn = get_xs_sscost(fxu=plant_fxu, hx=plant_hx, lyu=lyu, 
+    #                            us=opt_us[2], parameters=plant_pars, 
+    #                            xguess=xuguess['x'], 
+    #                            lbx=np.zeros((plant_pars['Nx'], )), 
+    #                            ubx=np.tile(np.inf, (plant_pars['Nx'], )))
     breakpoint()
     print("Hi")
     # # Get a linspace of steady-state u values.
