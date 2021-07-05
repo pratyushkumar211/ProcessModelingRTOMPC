@@ -1,17 +1,11 @@
 # [depends] hybridid.py
-"""
-Custom neural network layers for the 
-data-based completion of grey-box models 
-using neural networks.
-Pratyush Kumar, pratyushkumar@ucsb.edu
-"""
 import sys
 import numpy as np
 import casadi
 import mpctools as mpc
 from hybridid import SimData
 
-def online_simulation(plant, controller, *, plant_lyup, Nsim=None,
+def online_simulation(plant, controller, *, Nsim=None,
                       disturbances=None, stdout_filename=None):
     """ Online simulation with either the RTO controller
         or the nonlinear economic MPC controller. """
@@ -19,19 +13,18 @@ def online_simulation(plant, controller, *, plant_lyup, Nsim=None,
     sys.stdout = open(stdout_filename, 'w')
     measurement = plant.y[0] # Get the latest plant measurement.
     disturbances = disturbances[..., np.newaxis]
-    avgStageCosts = [0.]
 
     # Start simulation loop.
     for (simt, disturbance) in zip(range(Nsim), disturbances):
 
-        # Compute the control and the current stage cost.
+        # Print simulation timestep.
         print("Simulation Step:" + f"{simt}")
-        control_input = controller.control_law(simt, measurement)
-        print("Computation time:" + str(controller.computationTimes[-1]))
 
-        stageCost = plant_lyup(plant.y[-1], control_input, 
-                                controller.empcPars[simt:simt+1, :].T)[0]
-        avgStageCosts += [(avgStageCosts[-1]*simt + stageCost)/(simt+1)]
+        # Get the control input.
+        control_input = controller.control_law(simt, measurement)
+
+        # Print computation time.
+        print("Computation time:" + str(controller.computationTimes[-1]))
 
         # Inject control/disturbance to the plant.
         measurement = plant.step(control_input, disturbance)
@@ -41,7 +34,7 @@ def online_simulation(plant, controller, *, plant_lyup, Nsim=None,
                 x=np.asarray(plant.x[0:-1]).squeeze(),
                 u=np.asarray(plant.u),
                 y=np.asarray(plant.y[0:-1]).squeeze())
-    avgStageCosts = np.array(avgStageCosts[1:])
+    avgStageCosts = np.array(controller.avgStageCosts)
 
     # Return.
     return clData, avgStageCosts
@@ -122,38 +115,3 @@ def get_xs_sscost(*, fxu, hx, lyu, us, parameters,
     
     # Return the steady state cost.
     return xs, sscost
-
-def c2dNonlin(f, Delta, p=False):
-    """ Quick function to 
-        convert a ode to discrete
-        time using the RK4 method.
-        
-        fxup is a function such that 
-        dx/dt = f(x, u, p)
-        assume zero-order hold on the input.
-    """
-    if p:
-
-        # Get k1, k2, k3, k4.
-        k1 = f
-        k2 = lambda x, u, p: f(x + Delta*(k1(x, u, p)/2), u, p)
-        k3 = lambda x, u, p: f(x + Delta*(k2(x, u, p)/2), u, p)
-        k4 = lambda x, u, p: f(x + Delta*k3(x, u, p), u, p)
-
-        # Final discrete time function.
-        xplus = lambda x, u, p: x + (Delta/6)*(k1(x, u, p) + 2*k2(x, u, p) +
-                                               2*k3(x, u, p) + k4(x, u, p))
-    else:
-        
-        # Get k1, k2, k3, k4.
-        k1 = f
-        k2 = lambda x, u: f(x + Delta*(k1(x, u)/2), u)
-        k3 = lambda x, u: f(x + Delta*(k2(x, u)/2), u)
-        k4 = lambda x, u: f(x + Delta*k3(x, u), u)
-
-        # Final discrete time function.
-        xplus = lambda x, u: x + (Delta/6)*(k1(x, u) + 2*k2(x, u) + 
-                                            2*k3(x, u) + k4(x, u))
-
-    # Return.
-    return xplus
