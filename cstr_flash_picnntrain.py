@@ -31,9 +31,9 @@ def main():
     plant_pars = cstr_flash_parameters['plant_pars']
 
     # Create some parameters.
-    zDims = [None, 32, 32, 1]
+    zDims = [None, 64, 1]
     numLayers = len(zDims) - 1
-    uDims = [3, 16, 16, None]
+    uDims = [3, 32, None]
     Nu = plant_pars['Nu']
 
     # Create lists to store data.
