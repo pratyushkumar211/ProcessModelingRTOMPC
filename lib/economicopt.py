@@ -29,12 +29,12 @@ def online_simulation(plant, controller, *, Nsim=None,
         # Inject control/disturbance to the plant.
         measurement = plant.step(control_input, disturbance)
 
-    # Create a sim data/stage cost array.
+    # Create a sim data object and get the stage cost array.
     clData = SimData(t=np.asarray(plant.t[0:-1]).squeeze(),
                 x=np.asarray(plant.x[0:-1]).squeeze(),
                 u=np.asarray(plant.u),
                 y=np.asarray(plant.y[0:-1]).squeeze())
-    avgStageCosts = np.array(controller.avgStageCosts)
+    avgStageCosts = np.array(controller.avgStageCosts[1:]).squeeze()
 
     # Return.
     return clData, avgStageCosts

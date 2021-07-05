@@ -11,7 +11,6 @@ import pickle
 import plottools
 import time
 import cvxopt as cvx
-from economicopt import c2dNonlin
 
 class NonlinearPlantSimulator:
     """Custom class for simulating non-linear plants."""
@@ -99,7 +98,7 @@ class NonlinearEMPCRegulator:
         """ Construct a Nonlinear economic MPC regulator. """
 
         # Sizes and arguments.
-        N = dict(x=self.Nx, u=self.Nu, p=self.Np, t=self.N)
+        N = dict(x=self.Nx, u=self.Nu, p=self.Np, t=self.Nmpc)
         funcargs = dict(f=["x", "u", "p"], l=["x", "u", "p"])
         
         # Some parameters for the regulator.
@@ -182,7 +181,7 @@ class NonlinearMHEEstimator:
         self.Nx = Nx
         self.Nu = Nu
         self.Ny = Ny
-        self.Nmpc = Nmhe
+        self.Nmhe = Nmhe
 
         # Create lists for saving data.
         self.xhat = list(xhatPast)
@@ -275,10 +274,11 @@ class NonlinearEMPCController:
                           econPars, distPars, ulb, uub, Nmpc,
                           Qwx, Qwd, Rv, Nmhe):
         
-        # Model and stage cost.
+        # Model, stage cost, sample time.
         self.fxup = fxup
         self.hx = hx
         self.lyup = lyup
+        self.Delta = Delta
 
         # Disturbance model.
         self.Bd = Bd
@@ -302,7 +302,8 @@ class NonlinearEMPCController:
         self.ds = ds
         self.ps = ps
         self.ys = hx(xs)
-        self.uprev = us
+        self.uprev = us[:, np.newaxis]
+        self.dprev = ps[:, np.newaxis]
 
         # MPC Regulator parameters.
         self.ulb = ulb
@@ -319,6 +320,7 @@ class NonlinearEMPCController:
 
         # Parameters to save.
         self.computationTimes = []
+        self.avgStageCosts = [np.zeros((1, 1))]
         
     def _setupEstimator(self):
         """ Setup MHE. """
@@ -331,7 +333,7 @@ class NonlinearEMPCController:
                               ["x", "u"], rk4=True, Delta=self.Delta, M=1)
 
         # Measurement function.
-        hx = lambda x: self.hx(x[:self.Nx]) + Cd @ x[self.Nx:]
+        hx = lambda x: self.hx(x[:self.Nx]) + self.Cd @ x[self.Nx:]
         h = mpc.getCasadiFunc(hx, [self.Nx + self.Nd], ["x"])
 
         # Prior estimates and data.
@@ -355,9 +357,9 @@ class NonlinearEMPCController:
                                         Nu = self.Nu + self.Nmdist, 
                                         Ny = self.Ny,
                                         xhatPast = xhatPast, uPast = uPast, 
-                                        yPast = yPast, P0inv = self.P0inv, 
-                                        Qwinv = self.Qwinv, 
-                                        Rvinv = self.Rvinv)
+                                        yPast = yPast, P0inv = P0inv, 
+                                        Qwinv = Qwinv, 
+                                        Rvinv = Rvinv)
 
     def _setupRegulator(self):
         """ Setup nonlinear EMPC regulator. """
@@ -382,12 +384,12 @@ class NonlinearEMPCController:
                         ["x", "u", "p"])
 
         # Get initial guess.
-        t0Guess = dict(x=xs, u=us)
+        t0Guess = dict(x=self.xs, u=self.us)
         ds = np.repeat(self.ds[np.newaxis, :], self.Nmpc, axis=0)
-        t0EmpcPars = np.concatenate((ds, self.empcPars[:Nmpc, :]), axis=1)
+        t0EmpcPars = np.concatenate((ds, self.empcPars[:self.Nmpc, :]), axis=1)
         
         # Construct the EMPC regulator.
-        self.regulator  = NonlinearEMPCRegulator(fxu = f, lxup = l,
+        self.regulator  = NonlinearEMPCRegulator(fxup=f, lxup=l,
                                                  Nx = self.Nx, Nu = self.Nu, 
                                         Np = self.Nd + self.Nmdist + self.Necon,
                                         Nmpc = self.Nmpc, ulb = self.ulb, 
@@ -402,17 +404,25 @@ class NonlinearEMPCController:
         tstart = time.time()
 
         # Get state estimate.
-        xdhat =  self.estimator.solve(y, self.uprev)
-        xhat, dhat = xdhat[:self.Nx, :], dhat[self.Nx:, :]
+        up = np.concatenate((self.uprev, self.dprev))
+        xdhat =  self.estimator.solve(y, up)
+        xhat, dhat = xdhat[:self.Nx, :], xdhat[self.Nx:, :]
 
         # Get EMPC pars.
         mpc_N = slice(simt, simt + self.Nmpc, 1)
-        dhat = np.repeat(dhat.T, self.Nmpc, axis=0)
-        empcPars = np.concatenate((dhat, self.empcPars[mpc_N, :]), axis=1)
+        dhatEmpc = np.repeat(dhat.T, self.Nmpc, axis=0)
+        empcPars = np.concatenate((dhatEmpc, self.empcPars[mpc_N, :]), axis=1)
 
         # Solve nonlinear regulator.
         useq = self.regulator.solve(xhat, empcPars)
         self.uprev = useq[:1, :].T
+        self.dprev = self.empcPars[simt:simt+1, :self.Nmdist]
+
+        # Get the average stage cost.
+        stageCost = self.lyup(self.hx(xhat) + self.Cd @ dhat, self.uprev, 
+                              self.empcPars[simt:simt+1, -self.Necon:].T)
+        self.avgStageCosts += [(self.avgStageCosts[-1]*simt + stageCost)]
+        self.avgStageCosts[-1] /= simt+1
 
         # Get compuatation time and save.
         tend = time.time()
@@ -749,6 +759,41 @@ def c2d(A, B, Delta):
     Ad = Mexp[:Nx, :Nx]
     Bd = Mexp[:Nx, -Nu:]
     return (Ad, Bd)
+
+def c2dNonlin(f, Delta, p=False):
+    """ Quick function to 
+        convert a ode to discrete
+        time using the RK4 method.
+        
+        fxup is a function such that 
+        dx/dt = f(x, u, p)
+        assume zero-order hold on the input.
+    """
+    if p:
+
+        # Get k1, k2, k3, k4.
+        k1 = f
+        k2 = lambda x, u, p: f(x + Delta*(k1(x, u, p)/2), u, p)
+        k3 = lambda x, u, p: f(x + Delta*(k2(x, u, p)/2), u, p)
+        k4 = lambda x, u, p: f(x + Delta*k3(x, u, p), u, p)
+
+        # Final discrete time function.
+        xplus = lambda x, u, p: x + (Delta/6)*(k1(x, u, p) + 2*k2(x, u, p) +
+                                               2*k3(x, u, p) + k4(x, u, p))
+    else:
+        
+        # Get k1, k2, k3, k4.
+        k1 = f
+        k2 = lambda x, u: f(x + Delta*(k1(x, u)/2), u)
+        k3 = lambda x, u: f(x + Delta*(k2(x, u)/2), u)
+        k4 = lambda x, u: f(x + Delta*k3(x, u), u)
+
+        # Final discrete time function.
+        xplus = lambda x, u: x + (Delta/6)*(k1(x, u) + 2*k2(x, u) + 
+                                            2*k3(x, u) + k4(x, u))
+
+    # Return.
+    return xplus
 
 def eigvalEigvecTest(X, Y):
     """Return True if an eigenvector of X corresponding to 

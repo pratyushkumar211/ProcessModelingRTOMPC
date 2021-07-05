@@ -119,3 +119,25 @@ def cost_yup(y, u, p):
     CA, CB = y[0:2]
     # Compute and return cost.
     return ca*CAf - cb*CB
+
+def getEconDistPars(seed=2):
+    """ Get the economic and measured disturbance parameters. """
+
+    # Set random number seed.
+    np.random.seed(seed)
+
+    # Number of simulation steps.
+    Nsim = 48*60 # 2 days.
+
+    # Economic cost parameters.
+    NParChange = 180
+    plb = np.array([100., 120.])
+    pub = np.array([100., 240.])
+    econPars = (pub - plb)*np.random.rand(Nsim//NParChange, 2) + plb
+    econPars = np.repeat(econPars, NParChange, axis=0)
+
+    # Measured disturbance parameters.
+    distPars = np.tile(10., (Nsim, 1))
+
+    # Return. 
+    return econPars, distPars

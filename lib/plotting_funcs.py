@@ -42,21 +42,24 @@ class TwoReacPlots:
     @staticmethod
     def plot_xudata(*, t, xlist, ulist, legend_names, 
                        legend_colors, figure_size,
-                       ylabel_xcoordinate, title_loc, 
-                       font_size):
+                       ylabel_xcoordinate, title_loc):
         """ Plot the performance loss economic MPC parameters."""
-        plt.rcParams.update({'font.size': font_size})
+        
         nrow = len(TwoReacPlots.labels)
         (figure, axes) = plt.subplots(nrows=nrow, ncols=1,
                                       sharex=True, figsize=figure_size,
                                       gridspec_kw=dict(wspace=0.4))
+        
+        # Loop through all the trajectories.
         legend_handles = []
         for (x, u, color) in zip(xlist, ulist, legend_colors):
+            
             # First plot the states.
             for row in range(nrow-1):
                 handle = axes[row].plot(t, x[:, row], color)
                 axes[row].set_ylabel(TwoReacPlots.labels[row])
                 axes[row].get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
+            
             # Plot the input in the last row.
             row += 1
             axes[row].step(t, u[:, 0], color, where='post')
@@ -65,9 +68,13 @@ class TwoReacPlots:
             axes[row].set_xlabel('Time (hr)')
             axes[row].set_xlim([np.min(t), np.max(t)])
             legend_handles += handle
-        figure.legend(handles = legend_handles,
-                      labels = legend_names,
-                      loc = title_loc, ncol=len(legend_names))
+        
+        # Name legends if provided. 
+        if legend_names is not None:
+            figure.legend(handles = legend_handles,
+                          labels = legend_names,
+                          loc = title_loc, ncol=len(legend_names))
+
         # Return figure.
         return [figure]
 
