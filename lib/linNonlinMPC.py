@@ -37,8 +37,9 @@ class NonlinearPlantSimulator:
         """ Inject the control input into the plant."""
         x = np.asarray(self.fxup(self.x[-1], u, p))
         y = np.asarray(self.hx(x))
-        y = y + self.ynoise_std*np.random.randn(self.Ny, 1)
+        y += self.ynoise_std*np.random.randn(self.Ny, 1)
         self._appendData(x, u, p, y)
+        # Return.
         return y
 
     def _appendData(self, x, u, p, y):
@@ -49,13 +50,14 @@ class NonlinearPlantSimulator:
         self.u.append(u)
         self.p.append(p)
         self.y.append(y)
-        self.t.append(self.t[-1]+self.sample_time)
+        self.t.append(self.t[-1] + self.sample_time)
 
 class NonlinearEMPCRegulator:
 
-    def __init__(self, *, fxu, lxup, Nx, Nu, Np,
+    def __init__(self, *, fxup, lxup, Nx, Nu, Np,
                  Nmpc, ulb, uub, t0Guess, t0EmpcPars):
-        """ Class to construct and solve nonlinear MPC -- Regulation.
+        """ Class to construct and solve nonlinear economic model 
+            predictive control problem.
         
         Problem setup:
         The current time is T, we have x.
@@ -63,14 +65,14 @@ class NonlinearEMPCRegulator:
         Optimization problem:
         min_{u[0:N-1]} sum_{k=0^k=N-1} l(x(k), u(k), p(k))
         subject to:
-        x(k+1) = f(x(k), u(k)), k=0 to N-1, ulb <= u(k) <= uub
+        x(k+1) = f(x(k), u(k), p(k)), k=0 to N-1, ulb <= u(k) <= uub
         """
         # Model.
-        self.fxu = fxu
+        self.fxup = fxup
         self.lxup = lxup
 
         # Sizes.
-        self.N = Nmpc
+        self.Nmpc = Nmpc
         self.Nx = Nx
         self.Nu = Nu
         self.Np = Np
@@ -94,9 +96,9 @@ class NonlinearEMPCRegulator:
     def _setupRegulator(self):
         """ Construct a Nonlinear economic MPC regulator. """
 
+        # Sizes and arguments.
         N = dict(x=self.Nx, u=self.Nu, p=self.Np, t=self.N)
-        
-        funcargs = dict(f=["x", "u"], l=["x", "u", "p"])
+        funcargs = dict(f=["x", "u", "p"], l=["x", "u", "p"])
         
         # Some parameters for the regulator.
         empcPars = self.t0EmpcPars
@@ -106,9 +108,8 @@ class NonlinearEMPCRegulator:
         ub = dict(u=self.uub)
         
         # Construct the EMPC regulator.
-        self.regulator = mpc.nmpc(f=self.fxu, l=self.lxup, N=N, 
-                                  funcargs=funcargs, x0=x0, p=empcPars, lb=lb, 
-                                  ub=ub, guess=guess)
+        self.regulator = mpc.nmpc(f=self.fxup, l=self.lxup, N=N, 
+                                  funcargs=funcargs, x0=x0, p=empcPars, lb=lb, ub=ub, guess=guess)
         self.regulator.solve()
         self.regulator.saveguess()
 
@@ -123,7 +124,7 @@ class NonlinearEMPCRegulator:
         If the problem is reparametrized, go back to original
         input variable.
         """
-        self.regulator.par["p"] = list(empcPars)
+        self.regulator.par["p"] = empcPars
         self.regulator.fixvar("x", 0, x0)
         self.regulator.solve()
         self.regulator.saveguess()
@@ -132,6 +133,8 @@ class NonlinearEMPCRegulator:
         useq = np.asarray(casadi.horzcat(*self.regulator.var['u'])).T
         xseq = np.asarray(casadi.horzcat(*self.regulator.var['x'])).T
         self._saveData(x0, useq, xseq)
+
+        # Return the full sequence.
         return useq
 
     def _saveData(self, x0, useq, xseq):
@@ -177,7 +180,7 @@ class NonlinearMHEEstimator:
         self.Nx = Nx
         self.Nu = Nu
         self.Ny = Ny
-        self.N = Nmhe
+        self.Nmpc = Nmhe
 
         # Create lists for saving data.
         self.xhat = list(xhatPast)
@@ -187,17 +190,27 @@ class NonlinearMHEEstimator:
         # Build the estimator.
         self._setupMheEstimator()
 
+    def _stageCost(self, w, v):
+        """ Stage cost in moving horizon estimation. """
+        return mpc.mtimes(w.T, self.Qwinv, w) + mpc.mtimes(v.T, self.Rvinv, v)
+
+    def _priorCost(self, x, xprior):
+        """Prior cost in moving horizon estimation."""
+        dx = x - xprior
+        return mpc.mtimes(dx.T, self.P0inv, dx)
+
     def _setupMheEstimator(self):
         """ Construct a MHE solver. """
 
-        N = dict(x=self.Nx, u=self.Nu, y=self.Ny, t=self.N)
-        funcargs = dict(f=["x", "u"], h=["x"], l=["w", "v"], lx=["x", "x0bar"])
+        N = dict(x=self.Nx, u=self.Nu, y=self.Ny, t=self.Nmhe)
+        funcargs = dict(f=["x", "u"], h=["x"], l=["w", "v"], 
+                        lx=["x", "x0bar"])
         
         # Setup stage costs.
-        l = mpc.getCasadiFunc(self._stageCost, [N["x"], N["y"]],
-                              funcargs["l"])
-        lx = mpc.getCasadiFunc(self._priorCost, [N["x"], N["x"]],
-                               funcargs["lx"])
+        l = mpc.getCasadiFunc(self._stageCost, 
+                              [self.Nx, self.Ny], funcargs["l"])
+        lx = mpc.getCasadiFunc(self._priorCost, 
+                               [self.Nx, self.Nx], funcargs["lx"])
 
         # Get Guess for the NLP.
         guess = dict(x=self.xhat[-1], w=np.zeros((self.Nx,)),
@@ -215,17 +228,8 @@ class NonlinearMHEEstimator:
         self.mheEstimator.saveguess()
 
         # Get estimated state sequence.
-        xhat = np.asarray(self.mheEstimator.var["x"][-1]).squeeze(axis=-1)
+        xhat = np.asarray(self.mheEstimator.var["x"][-1]) # Check if squeeze is needed.
         self.xhat.append(xhat)
-
-    def _stageCost(self, w, v):
-        """ Stage cost in moving horizon estimation. """
-        return mpc.mtimes(w.T, self.Qwinv, w) + mpc.mtimes(v.T, self.Rvinv, v)
-
-    def _priorCost(self, x, xprior):
-        """Prior cost in moving horizon estimation."""
-        dx = x - xprior
-        return mpc.mtimes(dx.T, self.P0inv, dx)
         
     def solve(self, y, uprev):
         """ Use the new data, solve the NLP, and store data.
@@ -236,16 +240,18 @@ class NonlinearMHEEstimator:
         """
 
         # Assemble data and solve NLP.
-        N = self.N
-        self.mheEstimator.par["x0bar"] = [self.xhat[-N]]
-        self.mheEstimator.par["y"] = self.y[-N:] + [y]
-        self.mheEstimator.par["u"] = self.u[-N+1:] + [uprev]
+        Nmhe = self.Nmhe
+        self.mheEstimator.par["x0bar"] = [self.xhat[-Nmhe]]
+        self.mheEstimator.par["y"] = self.y[-Nmhe:] + [y]
+        self.mheEstimator.par["u"] = self.u[-Nmhe+1:] + [uprev]
         self.mheEstimator.solve()
         self.mheEstimator.saveguess()
 
         # Get estimated state sequence and save data.
-        xhat = np.asarray(self.mheEstimator.var["x"][-1]).squeeze(axis=-1)
+        xhat = np.asarray(self.mheEstimator.var["x"][-1])
         self._saveData(xhat, y, uprev)
+
+        # Return the state estimate.
         return xhat
 
     def _saveData(self, xhat, y, uprev):
@@ -255,22 +261,20 @@ class NonlinearMHEEstimator:
         self.u.append(uprev)
 
 class NonlinearEMPCController:
-    """ Class that instantiates a Kalman Filter, 
-        Target-selector, Tracking MPC regulator, and 
-        a steady-state nonlinear optimizer classes
-        into one and runs in real-time.
+    """ Class that instantiates a nonlinear MHE/EMPC regulator
+        and solves economic empc problems.
 
-        fxu is a continous time model.
+        fxup is a continous time model.
         hx is same in both the continous and discrete time.
         Bd is in continuous time.
     """
-    def __init__(self, *, fxu, hx, lyup, Bd, Cd,
-                          Nx, Nu, Ny, Nd, xs, us, ds,
+    def __init__(self, *, fxup, hx, lyup, Bd, Cd,
+                          Nx, Nu, Ny, Nd, Np, xs, us, ds, ps,
                           empcPars, ulb, uub, Nmpc,
                           Qwx, Qwd, Rv, Nmhe):
         
         # Model and stage cost.
-        self.fxu = fxu
+        self.fxup = fxup
         self.hx = hx
         self.lyup = lyup
 
