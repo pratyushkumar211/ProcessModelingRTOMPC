@@ -13,8 +13,8 @@ import mpctools as mpc
 import casadi
 import copy
 import numpy as np
-from hybridid import PickleTool, SimData, measurement, get_model
-from linNonlinMPC import NonlinearEMPCController, c2dNonlin
+from hybridid import PickleTool, SimData, measurement
+from linNonlinMPC import NonlinearEMPCController, c2dNonlin, get_model
 from tworeac_funcs import plant_ode, cost_yup, getEconDistPars
 from economicopt import online_simulation
 

@@ -10,7 +10,6 @@ import collections
 import pickle
 import plottools
 import time
-from linNonlinMPC import NonlinearPlantSimulator
 
 SimData = collections.namedtuple('SimData',
                                 ['t', 'x', 'u', 'y'])
@@ -190,27 +189,3 @@ def get_rectified_xs(*, ode, parameters):
         xs = model.sim(xs, us, ps)
     # Return the disturbances.
     return xs
-
-def get_model(*, ode, parameters, plant=True):
-    """ Return a nonlinear plant simulator object."""
-    
-    # Lambda functions for ODEs.
-    ode_func = lambda x, u, p: ode(x, u, p, parameters)
-    meas_func = lambda x: measurement(x, parameters)
-
-    # Get sizes. 
-    Nx, Nu = parameters['Nx'], parameters['Nu']
-    Np, Ny = parameters['Np'], parameters['Ny']
-
-    # Steady state/measurement noise/sample time.
-    xs = parameters['xs'][:, np.newaxis]
-    if plant:
-        Rv = parameters['Rv']
-    else:
-        Rv = 0*np.eye(Ny)
-    Delta = parameters['Delta']
-
-    # Return a simulator object.
-    return NonlinearPlantSimulator(fxup=ode_func, hx=meas_func,
-                                   Rv = Rv, Nx = Nx, Nu = Nu, Np = Np, Ny = Ny,
-                                   sample_time = Delta, x0 = xs)

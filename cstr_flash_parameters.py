@@ -1,4 +1,5 @@
 # [depends] %LIB%/hybridid.py %LIB%/cstr_flash_funcs.py
+# [depends] %LIB%/linNonlinMPC.py
 # [makes] pickle
 """ Script to generate the necessary
     parameters and training data for the 
@@ -13,7 +14,8 @@ import scipy.linalg
 from hybridid import (PickleTool, sample_prbs_like, SimData)
 from cstr_flash_funcs import plant_ode
 from cstr_flash_funcs import get_plant_pars, get_hyb_greybox_pars
-from hybridid import get_rectified_xs, get_model
+from hybridid import get_rectified_xs
+from linNonlinMPC import get_model
 
 def gen_train_val_data(*, parameters, num_traj,
                           Nsim_train, Nsim_trainval, 

@@ -1,6 +1,5 @@
 # [depends] economicopt.py InputConvexFuncs.py
 # Pratyush Kumar, pratyushkumar@ucsb.edu
-
 import sys
 import numpy as np
 import mpctools as mpc
@@ -11,6 +10,7 @@ import pickle
 import plottools
 import time
 import cvxopt as cvx
+from hybridid import measurement
 from economicopt import get_xs_sscost
 from economicopt import get_ss_optimum as get_dynmodel_ss_optimum
 from InputConvexFuncs import get_ss_optimum as get_picnn_ss_optimum
@@ -190,7 +190,7 @@ class NonlinearMHEEstimator:
         self.xhat = list(xhatPast)
         self.u = list(uPast)
         self.y = list(yPast)
-        
+
         # Build the estimator.
         self._setupMheEstimator()
 
@@ -232,7 +232,7 @@ class NonlinearMHEEstimator:
         self.mheEstimator.saveguess()
 
         # Get estimated state sequence.
-        xhat = np.asarray(self.mheEstimator.var["x"][-1]) # Check if squeeze is needed.
+        xhat = np.asarray(self.mheEstimator.var["x"][-1])
         self.xhat.append(xhat)
         
     def solve(self, y, uprev):
@@ -245,7 +245,7 @@ class NonlinearMHEEstimator:
 
         # Assemble data and solve NLP.
         Nmhe = self.Nmhe
-        self.mheEstimator.par["x0bar"] = [self.xhat[-Nmhe]]
+        self.mheEstimator.par["x0bar"] = self.xhat[-Nmhe]
         self.mheEstimator.par["y"] = self.y[-Nmhe:] + [y]
         self.mheEstimator.par["u"] = self.u[-Nmhe+1:] + [uprev]
         self.mheEstimator.solve()
@@ -299,14 +299,13 @@ class NonlinearEMPCController:
         self.Necon = econPars.shape[1]
 
         # Steady states of the system.
-        # Used for initial Guess/Filling MHE past window.
         self.xs = xs
         self.us = us
         self.ds = ds
         self.ps = ps
         self.ys = hx(xs)
         self.uprev = us[:, np.newaxis]
-        self.dprev = ps[:, np.newaxis]
+        self.pprev = ps[:, np.newaxis]
 
         # MPC Regulator parameters.
         self.ulb = ulb
@@ -323,46 +322,7 @@ class NonlinearEMPCController:
 
         # Parameters to save.
         self.computationTimes = []
-        self.avgStageCosts = [np.zeros((1, 1))]
-        
-    def _setupEstimator(self):
-        """ Setup MHE. """
-
-        # Dynamic model.
-        fxu = lambda x, u: mpc.vcat([self.fxup(x[:self.Nx], 
-                            u[:self.Nu], u[self.Nu:]) + self.Bd @ x[self.Nx:], 
-                                    np.zeros((self.Nd, 1))])
-        f = mpc.getCasadiFunc(fxu, [self.Nx + self.Nd, self.Nu + self.Nmdist], 
-                              ["x", "u"], rk4=True, Delta=self.Delta, M=1)
-
-        # Measurement function.
-        hx = lambda x: self.hx(x[:self.Nx]) + self.Cd @ x[self.Nx:]
-        h = mpc.getCasadiFunc(hx, [self.Nx + self.Nd], ["x"])
-
-        # Prior estimates and data.
-        xhatPast = np.concatenate((self.xs, self.ds), axis=0)[:, np.newaxis]
-        xhatPast = np.repeat(xhatPast.T, self.Nmhe, axis=0)
-        uPast = np.concatenate((self.us, self.ps), axis=0)[:, np.newaxis]
-        uPast = np.repeat(uPast.T, self.Nmhe, axis=0)
-        yPast = np.repeat(self.ys[np.newaxis, :], self.Nmhe + 1, axis=0)
-
-        # Penalty matrices.
-        Qwxinv = np.linalg.inv(self.Qwx)
-        Qwdinv = np.linalg.inv(self.Qwd)
-        Qwinv = scipy.linalg.block_diag(Qwxinv, Qwdinv)
-        P0inv = Qwinv
-        Rvinv = np.linalg.inv(self.Rv)
-
-        # Construct the MHE estimator.
-        self.estimator = NonlinearMHEEstimator(fxu = f, hx = h,
-                                        Nmhe = self.Nmhe, 
-                                        Nx = self.Nx + self.Nd, 
-                                        Nu = self.Nu + self.Nmdist, 
-                                        Ny = self.Ny,
-                                        xhatPast = xhatPast, uPast = uPast, 
-                                        yPast = yPast, P0inv = P0inv, 
-                                        Qwinv = Qwinv, 
-                                        Rvinv = Rvinv)
+        self.avgStageCosts = [0*np.eye(1)]
 
     def _setupRegulator(self):
         """ Setup nonlinear EMPC regulator. """
@@ -399,6 +359,53 @@ class NonlinearEMPCController:
                                         uub=self.uub, t0Guess=t0Guess,
                                         t0EmpcPars=t0EmpcPars)
 
+    def _setupEstimator(self):
+        """ Setup MHE. """
+
+        # Dynamic model.
+        fxu = lambda x, u: mpc.vcat([self.fxup(x[:self.Nx], 
+                            u[:self.Nu], u[self.Nu:]) + self.Bd @ x[self.Nx:], 
+                                    np.zeros((self.Nd, 1))])
+        f = mpc.getCasadiFunc(fxu, [self.Nx + self.Nd, self.Nu + self.Nmdist], 
+                              ["x", "u"], rk4=True, Delta=self.Delta, M=1)
+
+        # Measurement function.
+        hx = lambda x: self.hx(x[:self.Nx]) + self.Cd @ x[self.Nx:]
+        h = mpc.getCasadiFunc(hx, [self.Nx + self.Nd], ["x"])
+
+        # Prior estimates and data.
+        # XhatPast.
+        xhatPast = np.concatenate((self.xs, self.ds))
+        xhatPast = np.expand_dims(xhatPast, axis=(0, 2))
+        xhatPast = np.repeat(xhatPast, self.Nmhe, axis=0)
+
+        # Upast.
+        uPast = np.concatenate((self.us, self.ps))
+        uPast = np.expand_dims(uPast, axis=(0, 2))
+        uPast = np.repeat(uPast, self.Nmhe, axis=0)
+
+        # Ypast.
+        yPast = np.expand_dims(self.ys, axis=(0, 2))
+        yPast = np.repeat(yPast, self.Nmhe + 1, axis=0)
+
+        # Penalty matrices.
+        Qwxinv = np.linalg.inv(self.Qwx)
+        Qwdinv = np.linalg.inv(self.Qwd)
+        Qwinv = scipy.linalg.block_diag(Qwxinv, Qwdinv)
+        P0inv = Qwinv
+        Rvinv = np.linalg.inv(self.Rv)
+
+        # Construct the MHE estimator.
+        self.estimator = NonlinearMHEEstimator(fxu = f, hx = h,
+                                        Nmhe = self.Nmhe, 
+                                        Nx = self.Nx + self.Nd, 
+                                        Nu = self.Nu + self.Nmdist, 
+                                        Ny = self.Ny,
+                                        xhatPast = xhatPast, uPast = uPast, 
+                                        yPast = yPast, P0inv = P0inv, 
+                                        Qwinv = Qwinv, 
+                                        Rvinv = Rvinv)
+
     def control_law(self, simt, y):
         """
         Takes the measurement and the previous control input
@@ -407,7 +414,7 @@ class NonlinearEMPCController:
         tstart = time.time()
 
         # Get state estimate.
-        up = np.concatenate((self.uprev, self.dprev))
+        up = np.concatenate((self.uprev, self.pprev))
         xdhat =  self.estimator.solve(y, up)
         xhat, dhat = xdhat[:self.Nx, :], xdhat[self.Nx:, :]
 
@@ -419,7 +426,7 @@ class NonlinearEMPCController:
         # Solve nonlinear regulator.
         useq = self.regulator.solve(xhat, empcPars)
         self.uprev = useq[:1, :].T
-        self.dprev = self.empcPars[simt:simt+1, :self.Nmdist]
+        self.pprev = self.empcPars[simt:simt+1, :self.Nmdist].T
 
         # Get the average stage cost.
         stageCost = self.lyup(self.hx(xhat) + self.Cd @ dhat, self.uprev, 
@@ -534,9 +541,9 @@ class RTOLinearMPController:
         Linear MPC Regulator, and updates linear model/targets
         based on steady state optimums.
     """
-    def __init__(self, *, fxu, hx, lyup, empcPars, tSsOptFreq,
+    def __init__(self, *, fxu, hx, lyup, econPars, distPars, tssOptFreq,
                           Nx, Nu, Ny, xs, us, Q, R, S, ulb, uub, Nmpc,
-                          xhatPrior, covxPrior, Qw, Rv):
+                          xhatPrior, Qw, Rv):
         
         # Model and stage cost.
         self.fxu = fxu
@@ -570,58 +577,12 @@ class RTOLinearMPController:
         self._setupRegulator()
 
         # Setup extended Kalman filter.
-        self.estimator = ExtendedKalmanFilter(fxu=fxu, hx=hx, Nx=Nx, Nu=Nu, 
+        self.estimator = KalmanFilter(fxu=fxu, hx=hx, Nx=Nx, Nu=Nu, 
                                               Ny=Ny, Qw=Qw, Rv=Rv, 
                                             xPrior=xhatPrior, PPrior=covxPrior)
 
         # Parameters to save.
         self.computationTimes = []
-
-    def _setupSSOptimizer(self):
-        """ Setup the steady state optimization problem. """
-
-        # Extract sizes/functions.
-        Nx, Nu, Np = self.Nx, self.Nu, self.Np
-        fxu, hx, lyup = self.fxu, self.hx, self.lyup
-        ulb, uub = self.ulb, self.uub
-
-        # Setup casadi variables.
-        xs = casadi.SX.sym('xs', Nx)
-        us = casadi.SX.sym('us', Nu)
-        p = casadi.SX.sym('p', Np)
-
-        # Temporary test code to get guess.
-        utest = self.ulb[:, 0]
-        resfx = mpc.getCasadiFunc(lambda x: x - fxu(x, utest), [Nx], ["x"])
-        rootfinder = casadi.rootfinder('resfx', 'newton', resfx)
-
-        # Setup casadi functions.
-        lxup = lambda x, u, p: lyup(hx(x), u, p)
-        lxup = mpc.getCasadiFunc(lxup, [Nx, Nu, Np], ["x", "u", "p"])
-        fxu = mpc.getCasadiFunc(fxu, [Nx, Nu], ["x", "u"])
-
-        # Setup the NLP.
-        nlp = dict(x=casadi.vertcat(xs, us), f=lxup(xs, us, p),
-                   g=casadi.vertcat(xs -  fxu(xs, us), us), p=p)
-        self.ssOptimizer = casadi.nlpsol('nlp', 'ipopt', nlp)
-
-        # Get constraints. 
-        self.SsOptlbg = np.concatenate((np.zeros((Nx, 1)), ulb))
-        self.SsOptubg = np.concatenate((np.zeros((Nx, 1)), uub))
-
-        # Solve NLP.
-        nlpSoln = self.ssOptimizer(x0=self.ssOptXuguess, lbg=self.SsOptlbg, 
-                                   ubg=self.SsOptubg, p=self.empcPars[:1, :])
-
-        # Get solution.
-        xopt = np.asarray(nlpSoln['x'])
-        xs, us = xopt[:Nx, :], xopt[Nx:, :]
-        breakpoint()
-        self.xs += [xs]
-        self.us += [us]
-
-        # Set Guess for next time.
-        # self.ssOptXuguess = xopt
 
     def _getLinearizedModel(self, xs, us):
         """ Get the linearized model matrices. """
@@ -717,6 +678,30 @@ class RTOLinearMPController:
         self.us.append(us)
         self.x0.append(xhat)
         self.useq.append(useq)
+
+def get_model(*, ode, parameters, plant=True):
+    """ Return a nonlinear plant simulator object."""
+    
+    # Lambda functions for ODEs.
+    ode_func = lambda x, u, p: ode(x, u, p, parameters)
+    meas_func = lambda x: measurement(x, parameters)
+
+    # Get sizes. 
+    Nx, Nu = parameters['Nx'], parameters['Nu']
+    Np, Ny = parameters['Np'], parameters['Ny']
+
+    # Steady state/measurement noise/sample time.
+    xs = parameters['xs'][:, np.newaxis]
+    if plant:
+        Rv = parameters['Rv']
+    else:
+        Rv = 0*np.eye(Ny)
+    Delta = parameters['Delta']
+
+    # Return a simulator object.
+    return NonlinearPlantSimulator(fxup=ode_func, hx=meas_func,
+                                   Rv = Rv, Nx = Nx, Nu = Nu, Np = Np, Ny = Ny,
+                                   sample_time = Delta, x0 = xs)
 
 def arrayToMatrix(*arrays):
     """Convert nummpy arrays to cvxopt matrices."""

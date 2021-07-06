@@ -1,4 +1,5 @@
 # [depends] %LIB%/hybridid.py %LIB%/tworeac_funcs.py
+# [depends] %LIB%/linNonlinMPC.py
 # [makes] pickle
 """ Script to generate the necessary 
     parameters and training data for the 
@@ -9,7 +10,8 @@ import sys
 sys.path.append('lib/')
 import numpy as np
 from hybridid import PickleTool, sample_prbs_like, SimData
-from hybridid import get_rectified_xs, get_model
+from hybridid import get_rectified_xs
+from linNonlinMPC import get_model
 from tworeac_funcs import get_plant_pars, plant_ode, get_hyb_greybox_pars
 
 
