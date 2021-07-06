@@ -443,9 +443,8 @@ class NonlinearEMPCController:
 
 class RTOOptimizer:
 
-    def __init__(self, *, rto_type, fxu, hx, lyup,
-                          Nx, Nu, Np, ulb, uub, xguess, uguess, 
-                          picnn_lyup):
+    def __init__(self, *, rto_type, fxup, hx, lyup, Nx, Nu, Ndist, Necon, ulb, 
+                          uub, xguess, uguess, picnn_lyup, picnn_parids):
         """ Class to construct and solve steady state optimization
             problems.
                 
@@ -470,38 +469,32 @@ class RTOOptimizer:
         # RTO type. 
         if rto_type == "dynmodel_optimization":
             self.getOptimum = self.getDynModelOptimum
+            self.model_pars = dict(Nx=Nx, Nu=Nu, Np=Necon, 
+                                   ulb=ulb, uub=uub)
         elif rto_type == "picnn_optimization":
-            self.picnn_lyup = picnn_lyup
             self.getOptimum = self.getPicnnOptimum
+            self.picnn_lyup = picnn_lyup
+            self.picnn_parids = picnn_parids
+            self.model_pars = dict(Nx=Nx, Nu=Nu, Np=len(picnn_parids), 
+                                   ulb=ulb, uub=uub)
         else:
             raise ValueError("RTO type not supported yet.")
 
         # Model.
-        self.fxu = fxu
+        self.fxup = fxup
         self.hx = hx
         self.lyup = lyup
-
-        # Get the model pars. 
-        model_pars = dict(Nx=Nx, Nu=Nu, Np=Np, 
-                          ulb=ulb, uub=uub)
-
-        self.Nx = Nx
-        self.Nu = Nu
-        self.Np = Np
-
-        # Input constraints.
-        self.ulb = ulb
-        self.uub = uub
 
         # Inital guess for the optimization.
         self.guess = dict(x=xguess, u=uguess)
 
-    def getDynModelOptimum(self, p):
+    def getDynModelOptimum(self, pecon, pdist):
         """ Get the steady state optimum of the dynamic model. """
 
         # Get the stage cost. 
-        lyu = lambda y, u: self.lyup(y, u, p) 
-        
+        lyu = lambda y, u: self.lyup(y, u, pecon)            
+        fxu = lambda x, u: self.fxup(x, u, pdist)
+
         # Get the optimum.
         self.xs, self.us, ys, _ = get_dynmodel_ss_optimum(fxu=self.fxu, 
                                     hx=self.hx, 
@@ -511,20 +504,23 @@ class RTOOptimizer:
         # Return the steady state input and state.
         return self.xs, self.us
 
-    def getPicnnOptimum(self, p):
+    def getPicnnOptimum(self, pecon, pdist):
         """ Get the steady state optimum using the ICNN. """
 
+        # Get the parameter and dynamic model function.
+        p = np.concatenate((pecon, pdist))[self.picnn_parids]
+        fxu = lambda x, u: self.fxup(x, u, pdist)
+
         # Get the optimum. 
-        us, _ = get_picnn_ss_optimum(lyup=self.picnn_lyup, 
-                                     parameters=self.model_pars, 
-                                     uguess=self.guess['u'], pval=p)
+        self.us, _ = get_picnn_ss_optimum(lyup=self.picnn_lyup, 
+                                          parameters=self.model_pars, 
+                                          uguess=self.guess['u'], pval=p)
 
         # Get the corresponding xs, ys using the model.
-        lyu = lambda y, u: self.lyup(y, u, p) 
-        xs, _ = get_xs_sscost(fxu=self.fxu, hx=self.hx, lyu=lyu, 
-                              parameters=self.model_pars, 
-                              xguess=self.guess['x'])
-        self.xs, self.us = xs, us
+        lyu = lambda y, u: self.lyup(y, u, pecon) 
+        self.xs, _ = get_xs_sscost(fxu=fxu, hx=self.hx, lyu=lyu,
+                                   us=self.us, parameters=self.model_pars, 
+                                   xguess=self.guess['x'])
 
         # Return the steady state input and state.
         return self.xs, self.us
@@ -537,49 +533,57 @@ class RTOOptimizer:
             print("Optimization has not been solved yet. Did not update guess.")
 
 class RTOLinearMPController:
-    """ Class to instantiate a Kalman Filter, Target Selector,
-        Linear MPC Regulator, and updates linear model/targets
+    """ Class to instantiate a Kalman Filter
+        and Linear MPC Regulator. Updates linear model/targets
         based on steady state optimums.
     """
-    def __init__(self, *, fxu, hx, lyup, econPars, distPars, tssOptFreq,
-                          Nx, Nu, Ny, xs, us, Q, R, S, ulb, uub, Nmpc,
-                          xhatPrior, Qw, Rv):
+    def __init__(self, *, fxup, hx, lyup, econPars, distPars, rto_type, 
+                          tssOptFreq, picnn_lyup, picnn_parids,
+                          Nx, Nu, Ny, xs, us, Q, R, S, ulb, uub, Nmpc, xhatPrior, Qw, Rv):
         
         # Model and stage cost.
-        self.fxu = fxu
+        self.fxup = fxup
         self.hx = hx
         self.lyup = lyup
+
+        # Economic parameters.
+        self.empcPars = np.concatenate((distPars, econPars), axis=1)
 
         # Sizes.
         self.Nx = Nx
         self.Nu = Nu
         self.Ny = Ny
-        self.Np = empcPars.shape[1]
+        self.Nmdist = distPars.shape[1]
+        self.Necon = econPars.shape[1]
 
         # Setup lists to save data.
-        self.xs, self.us = [], []
-        self.x0, self.useq = [xs[:, np.newaxis]], []
+        self.xs, self.us = [xs], [us]
+        self.x0, self.useq = [], []
+
+        # Get the initial linearized model. 
+        self.A, self.B, self.C = self._getLinearizedModel(xs, us)
 
         # Setup steady state optimizer.
-        self.ssOptXuguess = np.concatenate((xs, us))[:, np.newaxis]
-        self.empcPars = empcPars
-        self.tSsOptFreq = tSsOptFreq
-        self.ulb = ulb[:, np.newaxis]
-        self.uub = uub[:, np.newaxis]
-        self._setupRTOOptimizer()
+        self.tssOptFreq = tssOptFreq
+        self.ulb = ulb
+        self.uub = uub
+        self.RtoOptimizer = RTOOptimizer(rto_type=rto_type, fxup=fxup, hx=hx, 
+                                         lyup=lyup, Nx=Nx, Nu=Nu, 
+                                         Nmdist=self.Nmdist, Necon=self.Necon, 
+                                         ulb=ulb, uub=uub, xguess=xs, 
+                                         uguess=us, picnn_lyup=picnn_lyup, 
+                                         picnn_parids=picnn_parids)
 
         # MPC Regulator parameters.
         self.Q = Q
         self.R = R
         self.S = S
         self.Nmpc = Nmpc
-        self.uprev = us[:, np.newaxis]
         self._setupRegulator()
 
-        # Setup extended Kalman filter.
-        self.estimator = KalmanFilter(fxu=fxu, hx=hx, Nx=Nx, Nu=Nu, 
-                                              Ny=Ny, Qw=Qw, Rv=Rv, 
-                                            xPrior=xhatPrior, PPrior=covxPrior)
+        # Setup the Kalman filter.
+        self.estimator = KalmanFilter(A=self.A, B=self.B, C=self.C, Qw=self.Qw, 
+                                      Rv=self.Rv, xPrior=xhatPrior)
 
         # Parameters to save.
         self.computationTimes = []
@@ -587,38 +591,42 @@ class RTOLinearMPController:
     def _getLinearizedModel(self, xs, us):
         """ Get the linearized model matrices. """
 
-        # Get the linearized model matrices A, B.
-        fxu, Nx, Nu = self.fxu, self.Nx, self.Nu
-        fxu = mpc.getCasadiFunc(fxu, [Nx, Nu], ["x", "u"])
+        # Get the linearized model matrices A and B.
+        fxu = mpc.getCasadiFunc(self.fxu, [self.Nx, self.Nu], ["x", "u"])
         linModel = mpc.util.getLinearizedModel(fxu, [xs, us], ["A", "B"])
         A, B = linModel["A"], linModel["B"]
+        
+        # Get the output matrix C.
+        hx = mpc.getCasadiFunc(self.hx, [self.Nx], ["x"])
+        linModel = mpc.util.getLinearizedModel(hx, [xs], ["C"])
+        C = linModel["C"]
 
         # Return.
-        return (A, B)
+        return A, B, C
 
     def _setupRegulator(self):
         """ Setup the Dense QP regulator. """
 
-        # First get the linear model.
-        xs, us = self.xs[-1], self.us[-1]
-        x0, uprev = self.x0[-1], self.uprev
-        Nx, Nu, Nmpc = self.Nx, self.Nu, self.Nmpc
-        A, B = self._getLinearizedModel(xs, us)
-
         # Get a few more parameters to setup the Dense QP.
-        Q, R, S = self.Q, self.R, self.S
-        A, B, Q, R, M = getAugMatricesForROCPenalty(A, B, Q, R, S)
+        A, B, Q, R, M = getAugMatricesForROCPenalty(self.A, self.B, 
+                                                    self.Q, self.R, self.S)
+
+        # Get input constraints in deviation variables for the regulator.
+        us = self.us[-1]
         ulb, uub = self.ulb - us, self.uub - us
 
         # Setup the regulator.
-        self.regulator  = DenseQPRegulator(A=A, B=B, Q=Q, R=R, M=M, N=Nmpc, 
-                                           ulb=ulb, uub=uub)
+        self.regulator  = DenseQPRegulator(A=A, B=B, Q=Q, R=R, M=M, 
+                                           N=self.Nmpc, ulb=ulb, uub=uub)
 
         # Solve for the initial steady state.
-        x0 = np.concatenate((x0-xs, uprev - us))
+        x0 = np.zeros((self.Nx + self.Nu, 1))
         useq = self.regulator.solve(x0)
         useq += np.tile(us, (Nmpc, 1))
         useq = np.reshape(useq, (Nmpc, Nu))
+
+        # Save data.
+        self.x0 += [xs]
         self.useq += [useq]
 
     def control_law(self, simt, y):
@@ -627,31 +635,39 @@ class RTOLinearMPController:
         and compute the current control input.
         """
         tstart = time.time()
-        tSsOptFreq = self.tSsOptFreq
         Nx, Nu, Nmpc = self.Nx, self.Nu, self.Nmpc
 
         # Solve steady-state optimization if needed.
-        if simt % tSsOptFreq == 0:
-            nlpSoln = self.ssOptimizer(x0=self.ssOptXuguess, lbg=self.SsOptlbg, 
-                               ubg=self.SsOptubg, 
-                               p=self.empcPars[simt:simt+1, :])
-            xopt = np.asarray(nlpSoln['x'])
-            xs, us = xopt[:Nx, :], xopt[Nx:, :]
-            #self.ssOptXuguess = xopt
+        if simt % self.tssOptFreq == 0:
+            
+            # Get the steady state as computed by the RTO.
+            pdist = self.empcPars[simt:simt+1, :self.Nmdist]
+            pecon = self.empcPars[simt:simt+1, self.Nmdist:]
+            xs, us = self.RtoOptimizer.getOptimum(pecon, pdist)
 
-            # Update linear model.
-            A, B = self._getLinearizedModel(xs, us)
+            # Get the updated linear model.
+            self.A, self.B, self.C = self._getLinearizedModel(xs, us)
+
+            # Update regulator parameters.
+            # Constraints.
             self.regulator.ulb = self.ulb - us
             self.regulator.uub = self.uub - us
-            Q, R, S = self.Q, self.R, self.S
-            A, B, Q, R, M = getAugMatricesForROCPenalty(A, B, Q, R, S)
-            self.regulator._updateModel(A, B)
-            breakpoint()
+            A, B, Q, R, M = getAugMatricesForROCPenalty(self.A, self.B, self.Q, 
+                                                        self.R, self.S)
+            self.regulator._updateDynModel(A, B)
+
+            # Update model used by Kalman Filter.
+            self.estimator._updateDynModel(self.A, self.B, self.C)
+
         else:
+
+            # If a fresh optimization is not solved. Then just use the 
+            # previous targets.
             xs, us = self.xs[-1], self.us[-1]
 
         # State estimation.
-        xhat =  self.estimator.solve(y, self.uprev)
+        up = np.concatenate((self.uprev, self.pprev))
+        xhat =  self.estimator.solve(y, up)
         
         # Regulation.
         x0 = np.concatenate((xhat-xs, self.uprev - us))
@@ -661,23 +677,25 @@ class RTOLinearMPController:
         
         # Save Uprev.
         self.uprev = useq[:1, :].T
+        self.pprev = self.empcPars[simt:simt+1, :self.Nmdist].T
 
         # Get computation times.
         tend = time.time()
         self.computationTimes.append(tend - tstart)
 
         # Save data. 
-        self._saveData(xs, us, xhat, useq)
+        self._saveData(xhat, useq, xs, us)
 
         # Return.
         return self.uprev
 
-    def _saveData(self, xs, us, xhat, useq):
+    def _saveData(self, xhat, useq, xs, us):
         """ Save data to lists. """
-        self.xs.append(xs)
-        self.us.append(us)
-        self.x0.append(xhat)
-        self.useq.append(useq)
+
+        self.x0 += [xhat]
+        self.useq += [useq]
+        self.xs += [xs]
+        self.us += [us]
 
 def get_model(*, ode, parameters, plant=True):
     """ Return a nonlinear plant simulator object."""
@@ -851,7 +869,7 @@ class KalmanFilter:
         self.Rv = Rv
         
         # Compute the kalman filter gain.
-        self._computeFilter()
+        self.L, _ = dlqe(self.A, self.C, self.Qw, self.Rv)
         
         # Create lists for saving data. 
         self.xhat = [xPrior]
@@ -859,27 +877,39 @@ class KalmanFilter:
         self.y = []
         self.uprev = []
 
-    def _computeFilter(self):
-        "Solve the DARE to compute the optimal L. "
-        (self.L, _) = dlqe(self.A, self.C, self.Qw, self.Rv)
+    def _updateDynModel(self, A, B, C):
+        """ Update the Dynamic model used for state 
+            estimation. """
+        self.A = A
+        self.B = B
+        self.C = C
+        self.L, _ = dlqe(self.A, self.C, self.Qw, self.Rv)
 
     def solve(self, y, uprev):
         """ Take a new measurement and do 
             the prediction and filtering steps."""
+        
+        # Prediction.
         xhat = self.xhat[-1]
         xhatPred = self.A @ xhat + self.B @ uprev
+
+        # Filtering.
         xhat = xhatPred + self.L @ (y - self.C @ xhatPred)
+
         # Save data.
         self._saveData(xhat, xhatPred, y, uprev)
+
+        # Return state estimate.
         return xhat
         
     def _saveData(self, xhat, xhatPred, y, uprev):
         """ Save the state estimates,
-            Can be used for plotting later."""
-        self.xhat.append(xhat)
-        self.xhatPred.append(xhatPred)
-        self.y.append(y)
-        self.uprev.append(uprev)
+            Can be used for plotting later. """
+
+        self.xhat += [xhat]
+        self.xhatPred += [xhatPred]
+        self.y += [y]
+        self.uprev += [uprev]
 
 # class ExtendedKalmanFilter:
 
@@ -966,193 +996,193 @@ class KalmanFilter:
 #         self.y.append(y)
 #         self.uprev.append(uprev)
 
-class TargetSelector:
+# class TargetSelector:
 
-    def __init__(self, *, A, B, C, H, Bd, Cd,
-                          Rs, Qs, ulb, uub, ylb=None, yub=None):
-        """ Class to construct and solve the following 
-            target selector problem.
+#     def __init__(self, *, A, B, C, H, Bd, Cd,
+#                           Rs, Qs, ulb, uub, ylb=None, yub=None):
+#         """ Class to construct and solve the following 
+#             target selector problem.
 
-        min_(xs, us) 1/2*(|us - usp|^2_Rs + |C*xs + Cd*dhats - ysp|^2_Qs)
+#         min_(xs, us) 1/2*(|us - usp|^2_Rs + |C*xs + Cd*dhats - ysp|^2_Qs)
 
-        s.t [I-A, -B;HC, 0][xs;us] = [Bd*dhats;H*(ysp-Cd*dhats)]
-            ylb - Cd*dhat <= C*xs <= yub - Cd*dhat
-            ulb <= us <= uub
+#         s.t [I-A, -B;HC, 0][xs;us] = [Bd*dhats;H*(ysp-Cd*dhats)]
+#             ylb - Cd*dhat <= C*xs <= yub - Cd*dhat
+#             ulb <= us <= uub
 
-        Construct the class and use the method "solve"
-        for obtaining the solution.
+#         Construct the class and use the method "solve"
+#         for obtaining the solution.
         
-        An instance of this class will also
-        store the history of the solutions obtained.
-        """
+#         An instance of this class will also
+#         store the history of the solutions obtained.
+#         """
         
-        # Model matrices.
-        self.A = A
-        self.B = B
-        self.C = C
+#         # Model matrices.
+#         self.A = A
+#         self.B = B
+#         self.C = C
 
-        # Disturbance model.
-        self.Bd = Bd
-        self.Cd = Cd
+#         # Disturbance model.
+#         self.Bd = Bd
+#         self.Cd = Cd
 
-        # QP matrices.
-        self.H = H
-        self.Qs = Qs
-        self.Rs = Rs
+#         # QP matrices.
+#         self.H = H
+#         self.Qs = Qs
+#         self.Rs = Rs
 
-        # Get the store the sizes.
-        self.Nx, self.Nu = B.shape
-        self.Ny, self.Nd = Cd.shape
-        self.Nrsp = H.shape[0]
+#         # Get the store the sizes.
+#         self.Nx, self.Nu = B.shape
+#         self.Ny, self.Nd = Cd.shape
+#         self.Nrsp = H.shape[0]
 
-        # Setup lists to store data
-        self.usp, self.ysp, self.dhat = [], [], []
-        self.xs, self.us = [], []
+#         # Setup lists to store data
+#         self.usp, self.ysp, self.dhat = [], [], []
+#         self.xs, self.us = [], []
 
-        # Get the input and output constraints.
-        self.ulb, self.uub = ulb, uub
-        self.ylb, self.yub = ylb, yub
+#         # Get the input and output constraints.
+#         self.ulb, self.uub = ulb, uub
+#         self.ylb, self.yub = ylb, yub
 
-        # Setup the fixed matrices.
-        self._setupFixedMatrices()
+#         # Setup the fixed matrices.
+#         self._setupFixedMatrices()
     
-    def _updateModel(self, A, B, C):
-        """ Update linear model. """
-        self.A, self.B, self.C = A, B, C
-        self._setupFixedMatrices()
+#     def _updateModel(self, A, B, C):
+#         """ Update linear model. """
+#         self.A, self.B, self.C = A, B, C
+#         self._setupFixedMatrices()
 
-    def _setupFixedMatrices(self):
-        """ Setup the matrices which don't change in
-            an on-line simulation.
+#     def _setupFixedMatrices(self):
+#         """ Setup the matrices which don't change in
+#             an on-line simulation.
 
-            1. Equality constraints.
-                Aeq = [I-A, -B;HC, 0], Beq = [0, Bd;H, -H*Cd]
-                Aeq = Beq*[ysp;dhat]
+#             1. Equality constraints.
+#                 Aeq = [I-A, -B;HC, 0], Beq = [0, Bd;H, -H*Cd]
+#                 Aeq = Beq*[ysp;dhat]
 
-            2. Inequality constraints.
-                Aineq = [C, 0;-C, 0;0, I_u;0, -I_u]*[xs;us]
-                Bineq = [yub;-ylb;uub;-ulb] + [-Cd;Cd;0;0]*dhat
-                Aineq <= Bineq
+#             2. Inequality constraints.
+#                 Aineq = [C, 0;-C, 0;0, I_u;0, -I_u]*[xs;us]
+#                 Bineq = [yub;-ylb;uub;-ulb] + [-Cd;Cd;0;0]*dhat
+#                 Aineq <= Bineq
 
-            3. Penalty matrices.
-                P = [C'QsC, 0;0, Rs]
-                q = [0, -C'Qs, C'*Qs*Cd;-Rs, 0, 0][usp;ysp;dhat]
-              Objective: (1/2)[xs;us]'P[xs;us] + q'*[xs;us]
+#             3. Penalty matrices.
+#                 P = [C'QsC, 0;0, Rs]
+#                 q = [0, -C'Qs, C'*Qs*Cd;-Rs, 0, 0][usp;ysp;dhat]
+#               Objective: (1/2)[xs;us]'P[xs;us] + q'*[xs;us]
 
-            """
+#             """
         
-        # Get sizes.
-        Nx, Nu, Ny, Nd, Nrsp = self.Nx, self.Nu, self.Ny, self.Nd, self.Nrsp
+#         # Get sizes.
+#         Nx, Nu, Ny, Nd, Nrsp = self.Nx, self.Nu, self.Ny, self.Nd, self.Nrsp
 
-        # Get matrices.
-        A, B, C, Bd, Cd = self.A, self.B, self.C, self.Bd, self.Cd
-        H, Qs, Rs = self.H, self.Qs, self.Rs
+#         # Get matrices.
+#         A, B, C, Bd, Cd = self.A, self.B, self.C, self.Bd, self.Cd
+#         H, Qs, Rs = self.H, self.Qs, self.Rs
 
-        # Get constraints.
-        ulb, uub = self.ulb, self.uub
-        ylb, yub = self.ylb, self.yub
+#         # Get constraints.
+#         ulb, uub = self.ulb, self.uub
+#         ylb, yub = self.ylb, self.yub
 
-        # Get the equality constraint matrices.
-        # Get Aeq.
-        Aeq11, Aeq12 = np.eye(Nx) - A, -B
-        Aeq21, Aeq22 = H @ C, np.zeros((Nrsp, Nu))
-        Aeq1 = np.concatenate((Aeq11, Aeq12), axis=1)
-        Aeq2 = np.concatenate((Aeq21, Aeq22), axis=1)
-        Aeq = np.concatenate((Aeq1, Aeq2), axis=0)
+#         # Get the equality constraint matrices.
+#         # Get Aeq.
+#         Aeq11, Aeq12 = np.eye(Nx) - A, -B
+#         Aeq21, Aeq22 = H @ C, np.zeros((Nrsp, Nu))
+#         Aeq1 = np.concatenate((Aeq11, Aeq12), axis=1)
+#         Aeq2 = np.concatenate((Aeq21, Aeq22), axis=1)
+#         Aeq = np.concatenate((Aeq1, Aeq2), axis=0)
 
-        # Get Beq.
-        Beq11, Beq12 = np.zeros((Nx, Ny)), Bd
-        Beq21, Beq22 = H, -(H @ Cd)
-        Beq1 = np.concatenate((Beq11, Beq12), axis=1)
-        Beq2 = np.concatenate((Beq21, Beq22), axis=1)
-        Beq = np.concatenate((Beq1, Beq2))
+#         # Get Beq.
+#         Beq11, Beq12 = np.zeros((Nx, Ny)), Bd
+#         Beq21, Beq22 = H, -(H @ Cd)
+#         Beq1 = np.concatenate((Beq11, Beq12), axis=1)
+#         Beq2 = np.concatenate((Beq21, Beq22), axis=1)
+#         Beq = np.concatenate((Beq1, Beq2))
 
-        # Get the inequality constraints.
-        Auineq = np.concatenate((np.eye(Nu), -np.eye(Nu)))
-        Ayineq = np.concatenate((C, -C))
+#         # Get the inequality constraints.
+#         Auineq = np.concatenate((np.eye(Nu), -np.eye(Nu)))
+#         Ayineq = np.concatenate((C, -C))
 
-        # If both input/output constraints.
-        if ylb is not None and yub is not None:
+#         # If both input/output constraints.
+#         if ylb is not None and yub is not None:
             
-            # Get Aineq.
-            Aineq1 = np.concatenate((Ayineq, np.zeros((2*Ny, Nu))), axis=1)
-            Aineq2 = np.concatenate((np.zeros((2*Nu, Nx)), Auineq), axis=1)
-            Aineq = np.concatenate((Aineq1, Aineq2))
+#             # Get Aineq.
+#             Aineq1 = np.concatenate((Ayineq, np.zeros((2*Ny, Nu))), axis=1)
+#             Aineq2 = np.concatenate((np.zeros((2*Nu, Nx)), Auineq), axis=1)
+#             Aineq = np.concatenate((Aineq1, Aineq2))
 
-            # Get Bineq1 and Bineq2.
-            Bineq1 = np.concatenate((yub, -ylb, uub, -ulb))
-            Bineq2 = np.concatenate((-Cd, Cd, np.zeros((2*Nu, Nd))))
+#             # Get Bineq1 and Bineq2.
+#             Bineq1 = np.concatenate((yub, -ylb, uub, -ulb))
+#             Bineq2 = np.concatenate((-Cd, Cd, np.zeros((2*Nu, Nd))))
 
-        else: # If only input constraints.
+#         else: # If only input constraints.
             
-            # Get Aineq.
-            Aineq = np.concatenate((np.zeros((2*Nu, Nx)), Auineq), axis=1)
+#             # Get Aineq.
+#             Aineq = np.concatenate((np.zeros((2*Nu, Nx)), Auineq), axis=1)
 
-            # Get Bineq1 and Bineq2.
-            Bineq1 = np.concatenate((uub, -ulb), axis=0)
-            Bineq2 = np.zeros((2*Nu, Nd))
+#             # Get Bineq1 and Bineq2.
+#             Bineq1 = np.concatenate((uub, -ulb), axis=0)
+#             Bineq2 = np.zeros((2*Nu, Nd))
 
-        # Get the penalty matrices.
-        # Get P.
-        P11, P22 = C.T @ (Qs @ C), Rs
-        P = scipy.linalg.block_diag(P11, P22)
+#         # Get the penalty matrices.
+#         # Get P.
+#         P11, P22 = C.T @ (Qs @ C), Rs
+#         P = scipy.linalg.block_diag(P11, P22)
         
-        # Get q.
-        q11, q12, q13 = np.zeros((Nx, Ny)), -(C.T @ Qs), C.T @ (Qs @ Cd)
-        q21, q22, q23 = -Rs, np.zeros((Nu, Ny)), np.zeros((Nu, Nd))
-        q1 = np.concatenate((q11, q12, q13), axis=1)
-        q2 = np.concatenate((q21, q22, q23), axis=1)
-        q = np.concatenate((q1, q2))
+#         # Get q.
+#         q11, q12, q13 = np.zeros((Nx, Ny)), -(C.T @ Qs), C.T @ (Qs @ Cd)
+#         q21, q22, q23 = -Rs, np.zeros((Nu, Ny)), np.zeros((Nu, Nd))
+#         q1 = np.concatenate((q11, q12, q13), axis=1)
+#         q2 = np.concatenate((q21, q22, q23), axis=1)
+#         q = np.concatenate((q1, q2))
 
-        # Save all matrices.
-        self.Aeq, self.Beq, self.Aineq = Aeq, Beq, Aineq
-        self.Bineq1, self.Bineq2 = Bineq1, Bineq2
-        self.P, self.q = P, q
+#         # Save all matrices.
+#         self.Aeq, self.Beq, self.Aineq = Aeq, Beq, Aineq
+#         self.Bineq1, self.Bineq2 = Bineq1, Bineq2
+#         self.P, self.q = P, q
 
-    def _getQPMatrices(self, usp, ysp, dhat):
-        """ Get the matrices which change in real-time."""
+#     def _getQPMatrices(self, usp, ysp, dhat):
+#         """ Get the matrices which change in real-time."""
 
-        # Get Equality constraint.
-        Aeq = self.Aeq
-        Beq = self.Beq @ np.concatenate((ysp, dhat), axis=0)
+#         # Get Equality constraint.
+#         Aeq = self.Aeq
+#         Beq = self.Beq @ np.concatenate((ysp, dhat), axis=0)
 
-        # Get Inequality constraint.
-        Aineq = self.Aineq
-        Bineq = self.Bineq1 + self.Bineq2 @ dhat
+#         # Get Inequality constraint.
+#         Aineq = self.Aineq
+#         Bineq = self.Bineq1 + self.Bineq2 @ dhat
         
-        # Get penalty matrices.
-        P = self.P
-        q = self.q @ np.concatenate((usp, ysp, dhat), axis=0)
+#         # Get penalty matrices.
+#         P = self.P
+#         q = self.q @ np.concatenate((usp, ysp, dhat), axis=0)
 
-        # Return (P, q, Aeq, Beq, Aineq, Bineq)
-        return (P, q, Aineq, Bineq, Aeq, Beq)
+#         # Return (P, q, Aeq, Beq, Aineq, Bineq)
+#         return (P, q, Aineq, Bineq, Aeq, Beq)
 
-    def solve(self, usp, ysp, dhat):
-        "Solve the target selector QP, output is the tuple (xs, us)."
+#     def solve(self, usp, ysp, dhat):
+#         "Solve the target selector QP, output is the tuple (xs, us)."
 
-        # Get the matrices for the QP which depend of ysp and dhat
-        qpMatrices = self._getQPMatrices(usp, ysp, dhat)
+#         # Get the matrices for the QP which depend of ysp and dhat
+#         qpMatrices = self._getQPMatrices(usp, ysp, dhat)
 
-        # Solve and save data.
-        solution = cvx.solvers.qp(*arrayToMatrix(*qpMatrices))
+#         # Solve and save data.
+#         solution = cvx.solvers.qp(*arrayToMatrix(*qpMatrices))
 
-        # Split solution.
-        (xs, us) = np.split(np.asarray(solution['x']), [self.Nx])
+#         # Split solution.
+#         (xs, us) = np.split(np.asarray(solution['x']), [self.Nx])
         
-        # Save Data.
-        self._saveData(xs, us, usp, ysp, dhat)
+#         # Save Data.
+#         self._saveData(xs, us, usp, ysp, dhat)
 
-        # Return the solution.
-        return (xs, us)
+#         # Return the solution.
+#         return (xs, us)
 
-    def _saveData(self, xs, us, usp, ysp, dhat):
-        """ Save the state estimates,
-            Can be used for plotting later."""
-        self.xs.append(xs)
-        self.us.append(us)
-        self.usp.append(usp)
-        self.ysp.append(ysp)
-        self.dhat.append(dhat)
+#     def _saveData(self, xs, us, usp, ysp, dhat):
+#         """ Save the state estimates,
+#             Can be used for plotting later."""
+#         self.xs.append(xs)
+#         self.us.append(us)
+#         self.usp.append(usp)
+#         self.ysp.append(ysp)
+#         self.dhat.append(dhat)
 
 class DenseQPRegulator:
     """ Class to construct and solve the linear MPC regulator QP
@@ -1197,12 +1227,11 @@ class DenseQPRegulator:
         # Create lists to save data.
         self.x0, self.useq = [], []
 
-    def _updateModel(self, A, B):
+    def _updateDynModel(self, A, B):
         """ Update linear model. """
 
         self.A, self.B = A, B
-        Q, R, M = self.Q, self.R, self.M
-        self.Krep, self.Pf = dlqr(A, B, Q, R, M)
+        self.Krep, self.Pf = dlqr(A, B, self.Q, self.R, self.M)
         self._reparameterize()
         self._setupFixedMatrices()
 
@@ -1450,166 +1479,165 @@ class DenseQPRegulator:
         self.x0.append(x0)
         self.useq.append(useq)
 
-class LinearMPCController:
-    """Class that instantiates the KalmanFilter, 
-    the TargetSelector, and the MPCRegulator classes
-    into one and solves tracking MPC problems with 
-    linear models.
-    """
-    def __init__(self, *, A, B, C, H,
-                 Qwx, Qwd, Rv, xprior, dprior,
-                 Rs, Qs, Bd, Cd, usp, uprev,
-                 Q, R, S, ulb, uub, N):
+# class LinearMPCController:
+#     """Class that instantiates the KalmanFilter, 
+#     the TargetSelector, and the MPCRegulator classes
+#     into one and solves tracking MPC problems with 
+#     linear models.
+#     """
+#     def __init__(self, *, A, B, C, H,
+#                  Qwx, Qwd, Rv, xprior, dprior,
+#                  Rs, Qs, Bd, Cd, usp, uprev,
+#                  Q, R, S, ulb, uub, N):
         
-        # Save attributes.
-        self.A = A
-        self.B = B
-        self.C = C
-        self.H = H
-        self.Qwx = Qwx
-        self.Qwd = Qwd
-        self.Rv = Rv
-        self.xprior = xprior
-        self.dprior = dprior
-        self.Rs = Rs
-        self.Qs = Qs
-        self.Bd = Bd
-        self.Cd = Cd
-        self.usp = usp
-        self.uprev = uprev
-        self.useq = np.tile(uprev, (N, 1))
-        self.Q = Q
-        self.R = R
-        self.S = S
-        self.ulb = ulb
-        self.uub = uub
-        self.N = N
+#         # Save attributes.
+#         self.A = A
+#         self.B = B
+#         self.C = C
+#         self.H = H
+#         self.Qwx = Qwx
+#         self.Qwd = Qwd
+#         self.Rv = Rv
+#         self.xprior = xprior
+#         self.dprior = dprior
+#         self.Rs = Rs
+#         self.Qs = Qs
+#         self.Bd = Bd
+#         self.Cd = Cd
+#         self.usp = usp
+#         self.uprev = uprev
+#         self.useq = np.tile(uprev, (N, 1))
+#         self.Q = Q
+#         self.R = R
+#         self.S = S
+#         self.ulb = ulb
+#         self.uub = uub
+#         self.N = N
 
-        # Sizes.
-        self.Nx = A.shape[0]
-        self.Nu = B.shape[1]
-        self.Ny = C.shape[0]
-        self.Nd = Bd.shape[1]
+#         # Sizes.
+#         self.Nx = A.shape[0]
+#         self.Nu = B.shape[1]
+#         self.Ny = C.shape[0]
+#         self.Nd = Bd.shape[1]
 
-        # Instantiate the required classes. 
-        self.filter = LinearMPCController.setup_filter(A=A, B=B, C=C, Bd=Bd, 
-                                                       Cd=Cd,
-                                                       Qwx=Qwx, Qwd=Qwd, Rv=Rv, 
-                                                       xprior=xprior, dprior=dprior)
-        self.target_selector = LinearMPCController.setup_target_selector(A=A, 
-                                                        B=B, C=C, H=H,
-                                                        Bd=Bd, Cd=Cd, 
-                                                        usp=usp, Qs=Qs, Rs=Rs, 
-                                                        ulb=ulb, uub=uub)
-        self.regulator = LinearMPCController.setup_regulator(A=A, B=B, Q=Q, 
-                                                        R=R, S=S, 
-                                                        N=N, ulb=ulb, uub=uub)
+#         # Instantiate the required classes. 
+#         self.filter = LinearMPCController.setup_filter(A=A, B=B, C=C, Bd=Bd, 
+#                                                        Cd=Cd,
+#                                                        Qwx=Qwx, Qwd=Qwd, Rv=Rv, 
+#                                                        xprior=xprior, dprior=dprior)
+#         self.target_selector = LinearMPCController.setup_target_selector(A=A, 
+#                                                         B=B, C=C, H=H,
+#                                                         Bd=Bd, Cd=Cd, 
+#                                                         usp=usp, Qs=Qs, Rs=Rs, 
+#                                                         ulb=ulb, uub=uub)
+#         self.regulator = LinearMPCController.setup_regulator(A=A, B=B, Q=Q, 
+#                                                         R=R, S=S, 
+#                                                         N=N, ulb=ulb, uub=uub)
 
-        # List object to store the average stage 
-        # costs and the average computation times.
-        aug_mats = LinearMPCController.get_augmented_matrices_for_regulator(A,  
-                                                                    B, Q, R, S)
-        (_, _, self.Qaug, self.Raug, self.Maug) = aug_mats
-        self.average_stage_costs = [np.zeros((1, 1))]
-        self.computation_times = []
+#         # List object to store the average stage 
+#         # costs and the average computation times.
+#         aug_mats = LinearMPCController.get_augmented_matrices_for_regulator(A,  
+#                                                                     B, Q, R, S)
+#         (_, _, self.Qaug, self.Raug, self.Maug) = aug_mats
+#         self.average_stage_costs = [np.zeros((1, 1))]
+#         self.computation_times = []
 
-    @staticmethod
-    def setup_filter(A, B, C, Bd, Cd, Qwx, Qwd, Rv, xprior, dprior):
-        """ Augment the system with an integrating 
-        disturbance and setup the Kalman Filter."""
-        (Aaug, Baug, Caug, Qwaug) = LinearMPCController.get_augmented_matrices_for_filter(A, B, C, Bd, Cd, Qwx, Qwd)
-        return KalmanFilter(A=Aaug, B=Baug, C=Caug, Qw=Qwaug, Rv=Rv,
-                            xprior = np.concatenate((xprior, dprior)))
+#     @staticmethod
+#     def setup_filter(A, B, C, Bd, Cd, Qwx, Qwd, Rv, xprior, dprior):
+#         """ Augment the system with an integrating 
+#         disturbance and setup the Kalman Filter."""
+#         (Aaug, Baug, Caug, Qwaug) = LinearMPCController.get_augmented_matrices_for_filter(A, B, C, Bd, Cd, Qwx, Qwd)
+#         return KalmanFilter(A=Aaug, B=Baug, C=Caug, Qw=Qwaug, Rv=Rv,
+#                             xprior = np.concatenate((xprior, dprior)))
     
-    @staticmethod
-    def setup_target_selector(A, B, C, H, Bd, Cd, usp, Qs, Rs, ulb, uub):
-        """ Setup the target selector for the MPC controller."""
-        return TargetSelector(A=A, B=B, C=C, H=H, Bd=Bd, Cd=Cd, 
-                              usp=usp, Rs=Rs, Qs=Qs, ulb=ulb, uub=uub)
+#     @staticmethod
+#     def setup_target_selector(A, B, C, H, Bd, Cd, usp, Qs, Rs, ulb, uub):
+#         """ Setup the target selector for the MPC controller."""
+#         return TargetSelector(A=A, B=B, C=C, H=H, Bd=Bd, Cd=Cd, 
+#                               usp=usp, Rs=Rs, Qs=Qs, ulb=ulb, uub=uub)
     
-    @staticmethod
-    def setup_regulator(A, B, Q, R, S, N, ulb, uub):
-        """ Augment the system for rate of change penalty and 
-        build the regulator."""
-        aug_mats = LinearMPCController.get_augmented_matrices_for_regulator(A,  
-                                                                    B, Q, R, S)
-        (Aaug, Baug, Qaug, Raug, Maug) = aug_mats
-        return DenseQPRegulator(A=Aaug, B=Baug, Q=Qaug, R=Raug, 
-                                N=N, M=Maug, ulb=ulb, uub=uub)
+#     @staticmethod
+#     def setup_regulator(A, B, Q, R, S, N, ulb, uub):
+#         """ Augment the system for rate of change penalty and 
+#         build the regulator."""
+#         aug_mats = getAugMatricesForROCPenalty(A, B, Q, R, S)
+#         (Aaug, Baug, Qaug, Raug, Maug) = aug_mats
+#         return DenseQPRegulator(A=Aaug, B=Baug, Q=Qaug, R=Raug, 
+#                                 N=N, M=Maug, ulb=ulb, uub=uub)
     
-    @staticmethod
-    def get_augmented_matrices_for_filter(A, B, C, Bd, Cd, Qwx, Qwd):
-        """ Get the Augmented A, B, C, and the noise covariance matrix."""
-        Nx = A.shape[0]
-        Nu = B.shape[1]
-        Nd = Bd.shape[1]
-        # Augmented A.
-        Aaug1 = np.concatenate((A, Bd), axis=1)
-        Aaug2 = np.concatenate((np.zeros((Nd, Nx)), np.eye(Nd)), axis=1)
-        Aaug = np.concatenate((Aaug1, Aaug2), axis=0)
-        # Augmented B.
-        Baug = np.concatenate((B, np.zeros((Nd, Nu))), axis=0)
-        # Augmented C.
-        Caug = np.concatenate((C, Cd), axis=1)
-        # Augmented Noise Covariance.
-        Qwaug = scipy.linalg.block_diag(Qwx, Qwd)
-        # Check that the augmented model is detectable. 
-        assertDetectable(Aaug, Caug)
-        return (Aaug, Baug, Caug, Qwaug)
+#     @staticmethod
+#     def get_augmented_matrices_for_filter(A, B, C, Bd, Cd, Qwx, Qwd):
+#         """ Get the Augmented A, B, C, and the noise covariance matrix."""
+#         Nx = A.shape[0]
+#         Nu = B.shape[1]
+#         Nd = Bd.shape[1]
+#         # Augmented A.
+#         Aaug1 = np.concatenate((A, Bd), axis=1)
+#         Aaug2 = np.concatenate((np.zeros((Nd, Nx)), np.eye(Nd)), axis=1)
+#         Aaug = np.concatenate((Aaug1, Aaug2), axis=0)
+#         # Augmented B.
+#         Baug = np.concatenate((B, np.zeros((Nd, Nu))), axis=0)
+#         # Augmented C.
+#         Caug = np.concatenate((C, Cd), axis=1)
+#         # Augmented Noise Covariance.
+#         Qwaug = scipy.linalg.block_diag(Qwx, Qwd)
+#         # Check that the augmented model is detectable. 
+#         assertDetectable(Aaug, Caug)
+#         return (Aaug, Baug, Caug, Qwaug)
     
-    def control_law(self, ysp, y):
-        """
-        Takes the measurement, the previous control input,
-        and compute the current control input.
+#     def control_law(self, ysp, y):
+#         """
+#         Takes the measurement, the previous control input,
+#         and compute the current control input.
 
-        Count times only for solving the regulator QP.
-        """
-        (xhat, dhat) =  LinearMPCController.get_state_estimates(self.filter, y, 
-                                                            self.uprev, self.Nx)
-        (xs, us) = LinearMPCController.get_target_pair(self.target_selector, 
-                                                       ysp, dhat)
-        tstart = time.time()
-        self.useq = LinearMPCController.get_control_sequence(self.regulator, 
-                                                    xhat, self.uprev, xs, us,
-                                                    self.ulb, self.uub)
-        tend = time.time()
-        avg_ell = LinearMPCController.get_updated_average_stage_cost(xhat, 
-                    self.uprev, xs, us, self.useq[0:self.Nu, :], 
-                    self.Qaug, self.Raug, self.Maug, 
-                    self.average_stage_costs[-1], len(self.average_stage_costs))
-        self.average_stage_costs.append(avg_ell)
-        self.uprev = self.useq[0:self.Nu, :]
-        self.computation_times.append(tend - tstart)
-        return self.uprev
+#         Count times only for solving the regulator QP.
+#         """
+#         (xhat, dhat) =  LinearMPCController.get_state_estimates(self.filter, y, 
+#                                                             self.uprev, self.Nx)
+#         (xs, us) = LinearMPCController.get_target_pair(self.target_selector, 
+#                                                        ysp, dhat)
+#         tstart = time.time()
+#         self.useq = LinearMPCController.get_control_sequence(self.regulator, 
+#                                                     xhat, self.uprev, xs, us,
+#                                                     self.ulb, self.uub)
+#         tend = time.time()
+#         avg_ell = LinearMPCController.get_updated_average_stage_cost(xhat, 
+#                     self.uprev, xs, us, self.useq[0:self.Nu, :], 
+#                     self.Qaug, self.Raug, self.Maug, 
+#                     self.average_stage_costs[-1], len(self.average_stage_costs))
+#         self.average_stage_costs.append(avg_ell)
+#         self.uprev = self.useq[0:self.Nu, :]
+#         self.computation_times.append(tend - tstart)
+#         return self.uprev
     
-    @staticmethod
-    def get_state_estimates(filter, y, uprev, Nx):
-        """Use the filter object to perform state estimation."""
-        return np.split(filter.solve(y, uprev), [Nx])
+#     @staticmethod
+#     def get_state_estimates(filter, y, uprev, Nx):
+#         """Use the filter object to perform state estimation."""
+#         return np.split(filter.solve(y, uprev), [Nx])
 
-    @staticmethod
-    def get_target_pair(target_selector, ysp, dhat):
-        """ Use the target selector object to 
-            compute the targets."""
-        return target_selector.solve(ysp, dhat)
+#     @staticmethod
+#     def get_target_pair(target_selector, ysp, dhat):
+#         """ Use the target selector object to 
+#             compute the targets."""
+#         return target_selector.solve(ysp, dhat)
 
-    @staticmethod
-    def get_control_sequence(regulator, x, uprev, xs, us, ulb, uub):
-        # Change the constraints of the regulator. 
-        regulator.ulb = ulb - us
-        regulator.uub = uub - us
-        # x0 in deviation from the steady state.
-        x0 = np.concatenate((x-xs, uprev-us))
-        return regulator.solve(x0) + np.tile(us, (regulator.N, 1))
+#     @staticmethod
+#     def get_control_sequence(regulator, x, uprev, xs, us, ulb, uub):
+#         # Change the constraints of the regulator. 
+#         regulator.ulb = ulb - us
+#         regulator.uub = uub - us
+#         # x0 in deviation from the steady state.
+#         x0 = np.concatenate((x-xs, uprev-us))
+#         return regulator.solve(x0) + np.tile(us, (regulator.N, 1))
 
-    @staticmethod
-    def get_updated_average_stage_cost(x, uprev, xs, us, u, 
-                                       Qaug, Raug, Maug, 
-                                       average_stage_cost, time_index):
-        # Get the augmented state and compute the stage cost.
-        x = np.concatenate((x-xs, uprev-us), axis=0)
-        u = u - us
-        stage_cost = x.T @ (Qaug @ x) + u.T @ (Raug @ u) 
-        stage_cost = stage_cost + x.T @ (Maug @ u) + u.T @ (Maug.T @ x)
-        # x0 in deviation from the steady state.
-        return (average_stage_cost*(time_index-1) + stage_cost)/time_index
+#     @staticmethod
+#     def get_updated_average_stage_cost(x, uprev, xs, us, u, 
+#                                        Qaug, Raug, Maug, 
+#                                        average_stage_cost, time_index):
+#         # Get the augmented state and compute the stage cost.
+#         x = np.concatenate((x-xs, uprev-us), axis=0)
+#         u = u - us
+#         stage_cost = x.T @ (Qaug @ x) + u.T @ (Raug @ u) 
+#         stage_cost = stage_cost + x.T @ (Maug @ u) + u.T @ (Maug.T @ x)
+#         # x0 in deviation from the steady state.
+#         return (average_stage_cost*(time_index-1) + stage_cost)/time_index
