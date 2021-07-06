@@ -1,4 +1,4 @@
-# [depends] economicopt.py
+# [depends] economicopt.py InputConvexFuncs.py
 # Pratyush Kumar, pratyushkumar@ucsb.edu
 
 import sys
@@ -11,6 +11,9 @@ import pickle
 import plottools
 import time
 import cvxopt as cvx
+from economicopt import get_xs_sscost
+from economicopt import get_ss_optimum as get_dynmodel_ss_optimum
+from InputConvexFuncs import get_ss_optimum as get_picnn_ss_optimum
 
 class NonlinearPlantSimulator:
     """Custom class for simulating non-linear plants."""
@@ -390,11 +393,11 @@ class NonlinearEMPCController:
         
         # Construct the EMPC regulator.
         self.regulator  = NonlinearEMPCRegulator(fxup=f, lxup=l,
-                                                 Nx = self.Nx, Nu = self.Nu, 
-                                        Np = self.Nd + self.Nmdist + self.Necon,
-                                        Nmpc = self.Nmpc, ulb = self.ulb, 
-                                        uub = self.uub, t0Guess = t0Guess,
-                                        t0EmpcPars = t0EmpcPars)
+                                                 Nx=self.Nx, Nu=self.Nu, 
+                                        Np=self.Nd + self.Nmdist + self.Necon,
+                                        Nmpc=self.Nmpc, ulb=self.ulb, 
+                                        uub=self.uub, t0Guess=t0Guess,
+                                        t0EmpcPars=t0EmpcPars)
 
     def control_law(self, simt, y):
         """
@@ -433,23 +436,48 @@ class NonlinearEMPCController:
 
 class RTOOptimizer:
 
-    def __init__(self, *, fxu, hx, lyup, Nx, Nu, Np, 
-                 ulb, uub, init_guess, opt_pars, Ntstep_solve):
+    def __init__(self, *, rto_type, fxu, hx, lyup,
+                          Nx, Nu, Np, ulb, uub, xguess, uguess, 
+                          picnn_lyup):
         """ Class to construct and solve steady state optimization
             problems.
                 
-        Optimization problem:
+        If the rto_type variable is "dynmodel_optimization".
+
+        The Optimization problem solved is:
         min_{xs, us} l(ys, us, p)
         subject to:
-        xs = f(xs, us), ys = h(xs), ulb <= us <= uub
+        xs = f(xs, us)
+        ys = h(xs)
+        ulb <= us <= uub
+        
+        If the rto_type variable is "picnn_optimization"
+        min_{us} l(us, p)
+        subject to:
+        ulb <= us <= uub
+        We still provide the fxu, hx functions to compute xs, us 
+        by solving xs = f(xs, us) and ys = h(xs).
+        
         """
+
+        # RTO type. 
+        if rto_type == "dynmodel_optimization":
+            self.getOptimum = self.getDynModelOptimum
+        elif rto_type == "picnn_optimization":
+            self.picnn_lyup = picnn_lyup
+            self.getOptimum = self.getPicnnOptimum
+        else:
+            raise ValueError("RTO type not supported yet.")
 
         # Model.
         self.fxu = fxu
         self.hx = hx
         self.lyup = lyup
 
-        # Sizes.
+        # Get the model pars. 
+        model_pars = dict(Nx=Nx, Nu=Nu, Np=Np, 
+                          ulb=ulb, uub=uub)
+
         self.Nx = Nx
         self.Nu = Nu
         self.Np = Np
@@ -458,67 +486,48 @@ class RTOOptimizer:
         self.ulb = ulb
         self.uub = uub
 
-        # Inital guess/parameters.
-        self.init_guess = init_guess
-        self.opt_pars = opt_pars
-        self.Ntstep_solve = Ntstep_solve
+        # Inital guess for the optimization.
+        self.guess = dict(x=xguess, u=uguess)
 
-        # Setup the optimization problem.
-        self._setup_ss_optimization()
+    def getDynModelOptimum(self, p):
+        """ Get the steady state optimum of the dynamic model. """
 
-        # Lists to save data.
-        self.xs = []
-        self.us = []
-        self.computation_times = []
+        # Get the stage cost. 
+        lyu = lambda y, u: self.lyup(y, u, p) 
+        
+        # Get the optimum.
+        self.xs, self.us, ys, _ = get_dynmodel_ss_optimum(fxu=self.fxu, 
+                                    hx=self.hx, 
+                                    lyu=lyu, parameters=self.model_pars, 
+                                    guess=self.guess)
+        
+        # Return the steady state input and state.
+        return self.xs, self.us
 
-    def _setup_ss_optimization(self):
-        """ Setup the steady state optimization. """
-        # Construct NLP and solve.
-        xs = casadi.SX.sym('xs', self.Nx)
-        us = casadi.SX.sym('us', self.Nu)
-        p = casadi.SX.sym('p', self.Np)
-        lyup = lambda x, u, p: self.lyup(self.hx(x), u, p)
-        lyup = mpc.getCasadiFunc(lyup,
-                          [self.Nx, self.Nu, self.Np],
-                          ["x", "u", "p"])
-        fxu = mpc.getCasadiFunc(self.fxu,
-                          [self.Nx, self.Nu],
-                          ["x", "u"])
-        nlp = dict(x=casadi.vertcat(xs, us), 
-                   f=lyup(xs, us, p),
-                   g=casadi.vertcat(xs -  fxu(xs, us), us), 
-                   p=p)
-        self.nlp = casadi.nlpsol('nlp', 'ipopt', nlp)
-        xuguess = np.concatenate((self.init_guess['x'], 
-                                  self.init_guess['u']))[:, np.newaxis]
-        self.lbg = np.concatenate((np.zeros((self.Nx,)), 
-                                   self.ulb))[:, np.newaxis]
-        self.ubg = np.concatenate((np.zeros((self.Nx,)), 
-                                   self.uub))[:, np.newaxis]
-        nlp_soln = self.nlp(x0=xuguess, lbg=self.lbg, ubg=self.ubg, 
-                            p=self.opt_pars[0:1, :])
-        self.xuguess = np.asarray(nlp_soln['x'])        
+    def getPicnnOptimum(self, p):
+        """ Get the steady state optimum using the ICNN. """
 
-    def control_law(self, simt, y):
-        """ RTO Controller, no use of feedback. 
-            Only solve every certain interval. """
+        # Get the optimum. 
+        us, _ = get_picnn_ss_optimum(lyup=self.picnn_lyup, 
+                                     parameters=self.model_pars, 
+                                     uguess=self.guess['u'], pval=p)
 
-        tstart = time.time()
-        if simt%self.Ntstep_solve == 0:
-            nlp_soln = self.nlp(x0=self.xuguess, lbg=self.lbg, ubg=self.ubg, 
-                                p=self.opt_pars[simt:simt+1, :])
-            self.xuguess = np.asarray(nlp_soln['x'])
-        xs, us = np.split(self.xuguess, [self.Nx,], axis=0)
-        tend = time.time()
-        self._append_data(xs, us)
-        self.computation_times.append(tend-tstart)
-        # Return the steady input.
-        return us
+        # Get the corresponding xs, ys using the model.
+        lyu = lambda y, u: self.lyup(y, u, p) 
+        xs, _ = get_xs_sscost(fxu=self.fxu, hx=self.hx, lyu=lyu, 
+                              parameters=self.model_pars, 
+                              xguess=self.guess['x'])
+        self.xs, self.us = xs, us
 
-    def _append_data(self, xs, us):
-        " Append data. "
-        self.xs.append(xs)
-        self.us.append(us)
+        # Return the steady state input and state.
+        return self.xs, self.us
+
+    def updateGuess(self):
+        """ Just update the guess for the RTO problem. """
+        if hasattr(self, 'xs') and hasattr(self, 'us'):
+            self.guess = dict(x=self.xs, u=self.us)
+        else:
+            print("Optimization has not been solved yet. Did not update guess.")
 
 class RTOLinearMPController:
     """ Class to instantiate a Kalman Filter, Target Selector,
@@ -550,7 +559,7 @@ class RTOLinearMPController:
         self.tSsOptFreq = tSsOptFreq
         self.ulb = ulb[:, np.newaxis]
         self.uub = uub[:, np.newaxis]
-        self._setupSSOptimizer()
+        self._setupRTOOptimizer()
 
         # MPC Regulator parameters.
         self.Q = Q
