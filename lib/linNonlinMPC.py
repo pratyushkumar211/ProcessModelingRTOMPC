@@ -322,7 +322,6 @@ class NonlinearEMPCController:
 
         # Parameters to save.
         self.computationTimes = []
-        self.avgStageCosts = [0*np.eye(1)]
 
     def _setupRegulator(self):
         """ Setup nonlinear EMPC regulator. """
@@ -415,7 +414,7 @@ class NonlinearEMPCController:
 
         # Get state estimate.
         up = np.concatenate((self.uprev, self.pprev))
-        xdhat =  self.estimator.solve(y, up)
+        xdhat = self.estimator.solve(y, up)
         xhat, dhat = xdhat[:self.Nx, :], xdhat[self.Nx:, :]
 
         # Get EMPC pars.
@@ -425,14 +424,9 @@ class NonlinearEMPCController:
 
         # Solve nonlinear regulator.
         useq = self.regulator.solve(xhat, empcPars)
+
         self.uprev = useq[:1, :].T
         self.pprev = self.empcPars[simt:simt+1, :self.Nmdist].T
-
-        # Get the average stage cost.
-        stageCost = self.lyup(self.hx(xhat) + self.Cd @ dhat, self.uprev, 
-                              self.empcPars[simt:simt+1, -self.Necon:].T)
-        self.avgStageCosts += [(self.avgStageCosts[-1]*simt + stageCost)]
-        self.avgStageCosts[-1] /= simt+1
 
         # Get compuatation time and save.
         tend = time.time()
@@ -443,7 +437,7 @@ class NonlinearEMPCController:
 
 class RTOOptimizer:
 
-    def __init__(self, *, rto_type, fxup, hx, lyup, Nx, Nu, Ndist, Necon, ulb, 
+    def __init__(self, *, rto_type, fxup, hx, lyup, Nx, Nu, Necon, ulb, 
                           uub, xguess, uguess, picnn_lyup, picnn_parids):
         """ Class to construct and solve steady state optimization
             problems.
@@ -496,7 +490,7 @@ class RTOOptimizer:
         fxu = lambda x, u: self.fxup(x, u, pdist)
 
         # Get the optimum.
-        self.xs, self.us, ys, _ = get_dynmodel_ss_optimum(fxu=self.fxu, 
+        self.xs, self.us, ys, _ = get_dynmodel_ss_optimum(fxu=fxu, 
                                     hx=self.hx, 
                                     lyu=lyu, parameters=self.model_pars, 
                                     guess=self.guess)
@@ -536,10 +530,12 @@ class RTOLinearMPController:
     """ Class to instantiate a Kalman Filter
         and Linear MPC Regulator. Updates linear model/targets
         based on steady state optimums.
+
+        fxup is in discrete-time.
     """
     def __init__(self, *, fxup, hx, lyup, econPars, distPars, rto_type, 
                           tssOptFreq, picnn_lyup, picnn_parids,
-                          Nx, Nu, Ny, xs, us, Q, R, S, ulb, uub, Nmpc, xhatPrior, Qw, Rv):
+                          Nx, Nu, Ny, xs, us, ps, Q, R, S, ulb, uub, Nmpc, Qw, Rv):
         
         # Model and stage cost.
         self.fxup = fxup
@@ -557,11 +553,12 @@ class RTOLinearMPController:
         self.Necon = econPars.shape[1]
 
         # Setup lists to save data.
+        self.ps = ps
         self.xs, self.us = [xs], [us]
         self.x0, self.useq = [], []
 
         # Get the initial linearized model. 
-        self.A, self.B, self.C = self._getLinearizedModel(xs, us)
+        self.A, self.B, self.Bp, self.C = self._getLinearizedModel(xs, us, ps)
 
         # Setup steady state optimizer.
         self.tssOptFreq = tssOptFreq
@@ -569,7 +566,7 @@ class RTOLinearMPController:
         self.uub = uub
         self.RtoOptimizer = RTOOptimizer(rto_type=rto_type, fxup=fxup, hx=hx, 
                                          lyup=lyup, Nx=Nx, Nu=Nu, 
-                                         Nmdist=self.Nmdist, Necon=self.Necon, 
+                                         Necon=self.Necon, 
                                          ulb=ulb, uub=uub, xguess=xs, 
                                          uguess=us, picnn_lyup=picnn_lyup, 
                                          picnn_parids=picnn_parids)
@@ -578,23 +575,27 @@ class RTOLinearMPController:
         self.Q = Q
         self.R = R
         self.S = S
+        self.uprev = np.zeros((Nu, 1))
         self.Nmpc = Nmpc
         self._setupRegulator()
 
         # Setup the Kalman filter.
-        self.estimator = KalmanFilter(A=self.A, B=self.B, C=self.C, Qw=self.Qw, 
-                                      Rv=self.Rv, xPrior=xhatPrior)
+        B = np.concatenate((self.B, self.Bp), axis=1)
+        self.estimator = KalmanFilter(A=self.A, B=B, C=self.C, Qw=Qw, 
+                                      Rv=Rv, xPrior=np.zeros((Nx, 1)))
 
         # Parameters to save.
         self.computationTimes = []
 
-    def _getLinearizedModel(self, xs, us):
+    def _getLinearizedModel(self, xs, us, ps):
         """ Get the linearized model matrices. """
 
         # Get the linearized model matrices A and B.
-        fxu = mpc.getCasadiFunc(self.fxu, [self.Nx, self.Nu], ["x", "u"])
-        linModel = mpc.util.getLinearizedModel(fxu, [xs, us], ["A", "B"])
-        A, B = linModel["A"], linModel["B"]
+        fxup = mpc.getCasadiFunc(self.fxup, [self.Nx, self.Nu, self.Nmdist], 
+                                 ["x", "u", "p"])
+        linModel = mpc.util.getLinearizedModel(fxup, [xs, us, ps], 
+                                               ["A", "B", "Bp"])
+        A, B, Bp = linModel["A"], linModel["B"], linModel["Bp"]
         
         # Get the output matrix C.
         hx = mpc.getCasadiFunc(self.hx, [self.Nx], ["x"])
@@ -602,7 +603,7 @@ class RTOLinearMPController:
         C = linModel["C"]
 
         # Return.
-        return A, B, C
+        return A, B, Bp, C
 
     def _setupRegulator(self):
         """ Setup the Dense QP regulator. """
@@ -612,8 +613,10 @@ class RTOLinearMPController:
                                                     self.Q, self.R, self.S)
 
         # Get input constraints in deviation variables for the regulator.
-        us = self.us[-1]
+        xs, us = self.xs[-1], self.us[-1]
         ulb, uub = self.ulb - us, self.uub - us
+        ulb = ulb[:, np.newaxis]
+        uub = uub[:, np.newaxis]
 
         # Setup the regulator.
         self.regulator  = DenseQPRegulator(A=A, B=B, Q=Q, R=R, M=M, 
@@ -622,8 +625,8 @@ class RTOLinearMPController:
         # Solve for the initial steady state.
         x0 = np.zeros((self.Nx + self.Nu, 1))
         useq = self.regulator.solve(x0)
-        useq += np.tile(us, (Nmpc, 1))
-        useq = np.reshape(useq, (Nmpc, Nu))
+        useq += np.tile(us, (self.Nmpc, 1))
+        useq = np.reshape(useq, (self.Nmpc, self.Nu))
 
         # Save data.
         self.x0 += [xs]
@@ -635,29 +638,32 @@ class RTOLinearMPController:
         and compute the current control input.
         """
         tstart = time.time()
-        Nx, Nu, Nmpc = self.Nx, self.Nu, self.Nmpc
 
         # Solve steady-state optimization if needed.
         if simt % self.tssOptFreq == 0:
             
             # Get the steady state as computed by the RTO.
-            pdist = self.empcPars[simt:simt+1, :self.Nmdist]
-            pecon = self.empcPars[simt:simt+1, self.Nmdist:]
+            pdist = self.empcPars[simt:simt+1, :self.Nmdist].T
+            pecon = self.empcPars[simt:simt+1, self.Nmdist:].T
             xs, us = self.RtoOptimizer.getOptimum(pecon, pdist)
 
             # Get the updated linear model.
-            self.A, self.B, self.C = self._getLinearizedModel(xs, us)
+            ps = pdist
+            (self.A, self.B, 
+             self.Bp, self.C) = self._getLinearizedModel(xs, us, ps)
 
             # Update regulator parameters.
             # Constraints.
-            self.regulator.ulb = self.ulb - us
-            self.regulator.uub = self.uub - us
+            ulb, uub = self.ulb - us, self.uub - us
+            self.regulator.ulb = ulb[:, np.newaxis]
+            self.regulator.uub = uub[:, np.newaxis]
             A, B, Q, R, M = getAugMatricesForROCPenalty(self.A, self.B, self.Q, 
                                                         self.R, self.S)
             self.regulator._updateDynModel(A, B)
 
             # Update model used by Kalman Filter.
-            self.estimator._updateDynModel(self.A, self.B, self.C)
+            B = np.concatenate((self.B, self.Bp), axis=1)
+            self.estimator._updateDynModel(self.A, B, self.C)
 
         else:
 
@@ -666,18 +672,19 @@ class RTOLinearMPController:
             xs, us = self.xs[-1], self.us[-1]
 
         # State estimation.
-        up = np.concatenate((self.uprev, self.pprev))
-        xhat =  self.estimator.solve(y, up)
-        
+        up = np.concatenate((self.uprev, np.zeros((self.Nmdist, 1))))
+        ys = self.C @ xs[:, np.newaxis]
+        xhat =  self.estimator.solve(y - ys, up)
+
         # Regulation.
-        x0 = np.concatenate((xhat-xs, self.uprev - us))
+        x0 = np.concatenate((xhat, self.uprev))
         useq = self.regulator.solve(x0)
-        useq += np.tile(us, (Nmpc, 1))
-        useq = np.reshape(useq, (Nmpc, Nu))
-        
+        useq += np.tile(us, (self.Nmpc, 1))
+        useq = np.reshape(useq, (self.Nmpc, self.Nu))
+
         # Save Uprev.
-        self.uprev = useq[:1, :].T
-        self.pprev = self.empcPars[simt:simt+1, :self.Nmdist].T
+        u = useq[:1, :].T
+        self.uprev = useq[:1, :].T - us[:, np.newaxis]
 
         # Get computation times.
         tend = time.time()
@@ -687,7 +694,7 @@ class RTOLinearMPController:
         self._saveData(xhat, useq, xs, us)
 
         # Return.
-        return self.uprev
+        return u
 
     def _saveData(self, xhat, useq, xs, us):
         """ Save data to lists. """
@@ -718,8 +725,8 @@ def get_model(*, ode, parameters, plant=True):
 
     # Return a simulator object.
     return NonlinearPlantSimulator(fxup=ode_func, hx=meas_func,
-                                   Rv = Rv, Nx = Nx, Nu = Nu, Np = Np, Ny = Ny,
-                                   sample_time = Delta, x0 = xs)
+                                   Rv=Rv, Nx=Nx, Nu=Nu, Np=Np, Ny=Ny,
+                                   sample_time=Delta, x0=xs)
 
 def arrayToMatrix(*arrays):
     """Convert nummpy arrays to cvxopt matrices."""

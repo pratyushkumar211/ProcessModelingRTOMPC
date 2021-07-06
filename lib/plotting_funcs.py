@@ -239,7 +239,7 @@ class CstrFlashPlots:
         axes.set_zlabel(zlabel, rotation=False)
         return [figure]
 
-def plotAvgProfits(*, t, stageCostList,
+def plotAvgCosts(*, t, stageCostList,
                       legend_colors, legend_names, 
                       figure_size=PAPER_FIGSIZE, 
                       ylabel_xcoordinate=-0.15):
@@ -252,8 +252,7 @@ def plotAvgProfits(*, t, stageCostList,
     ylabel = '$\Lambda_k$'
     for (cost, color) in zip(stageCostList, legend_colors):
         # Plot the corresponding data.
-        profit = -cost
-        axes.plot(t, profit, color)
+        axes.plot(t, cost, color)
     axes.legend(legend_names)
     axes.set_xlabel(xlabel)
     axes.set_ylabel(ylabel, rotation=True)

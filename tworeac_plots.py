@@ -13,7 +13,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from hybridid import PickleTool
-from plotting_funcs import PAPER_FIGSIZE, TwoReacPlots, plotAvgProfits
+from plotting_funcs import PAPER_FIGSIZE, TwoReacPlots, plotAvgCosts
 from plotting_funcs import get_plotting_array_list
 from tworeac_funcs import getEconDistPars
 
@@ -161,8 +161,10 @@ def main():
     # Load data for the economic MPC simulation.
     tworeac_empc = PickleTool.load(filename="tworeac_empc.pickle", 
                                     type='read')
-    clDataList = [tworeac_empc['clData']]
-    stageCostList = [tworeac_empc['avgStageCosts']]
+    tworeac_rtompc_plant = PickleTool.load(filename=
+                                   "tworeac_rtompc_plant.pickle", 
+                                    type='read')
+    clDataList = [tworeac_empc['clData'], tworeac_rtompc_plant['clData']]
 
     # # Load data for the economic MPC simulation.
     # tworeac_empc_twotier = PickleTool.load(filename=
@@ -172,8 +174,8 @@ def main():
     # stageCostListTwoTier = tworeac_empc_twotier['stageCostList']
 
     # Plot closed-loop simulation data.
-    legend_names = ['Plant']
-    legend_colors = ['b']
+    legend_names = ['Plant - EMPC', 'Plant - RTO MPC']
+    legend_colors = ['b', 'g']
     t, ulist, ylist, xlist = get_plotting_array_list(simdata_list = 
                                                 clDataList,
                                                 plot_range = (0, 12*60))
@@ -189,7 +191,9 @@ def main():
     figures += plot_cost_pars(t=t, cost_pars=econPars)
 
     # Plot profit curve.
-    figures += plotAvgProfits(t=t, stageCostList=
+    stageCostList = [tworeac_empc['avgStageCosts'], 
+                     tworeac_rtompc_plant['avgStageCosts']]
+    figures += plotAvgCosts(t=t, stageCostList=
                               stageCostList, 
                               legend_colors=legend_colors,
                               legend_names=legend_names)

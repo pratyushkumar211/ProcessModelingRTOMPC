@@ -66,7 +66,7 @@ def get_plant_pars():
     # Get the steady states.
     parameters['xs'] = np.array([1., 0.5, 0.5]) # to be updated.
     parameters['us'] = np.array([1.5]) # Ca0s
-    parameters['ps'] = np.array([10.]) # min.
+    parameters['ps'] = np.array([30.]) # min.
 
     # Get the constraints. 
     ulb = np.array([0.5])
@@ -137,7 +137,9 @@ def getEconDistPars(seed=2):
     econPars = np.repeat(econPars, NParChange, axis=0)
 
     # Measured disturbance parameters.
-    distPars = np.tile(10., (Nsim, 1))
+    ps = get_plant_pars()['ps'][:, np.newaxis]
+    distPars = np.tile(ps.T, (Nsim, 1))
+    
 
     # Return. 
     return econPars, distPars

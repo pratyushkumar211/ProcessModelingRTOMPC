@@ -85,6 +85,7 @@ def main():
     mpccontroller = getMPCController(plant_fxup, plant_hx, plant_pars)
 
     # Get plant.
+    plant_pars['Rv'] = 0*plant_pars['Rv']
     plant = get_model(ode=plant_ode, parameters=plant_pars)
 
     # Run closed-loop simulation.

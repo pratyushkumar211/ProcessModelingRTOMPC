@@ -13,6 +13,7 @@ def online_simulation(plant, controller, *, Nsim=None,
     sys.stdout = open(stdout_filename, 'w')
     measurement = plant.y[0] # Get the latest plant measurement.
     disturbances = disturbances[..., np.newaxis]
+    avgStageCosts = [0*np.eye(1)]
 
     # Start simulation loop.
     for (simt, disturbance) in zip(range(Nsim), disturbances):
@@ -26,6 +27,11 @@ def online_simulation(plant, controller, *, Nsim=None,
         # Print computation time.
         print("Computation time:" + str(controller.computationTimes[-1]))
 
+        # Compute the stage cost.
+        stageCost = controller.lyup(measurement, control_input, 
+                        controller.empcPars[simt:simt+1, -controller.Necon:].T)
+        avgStageCosts += [(avgStageCosts[-1]*simt + stageCost)/(simt + 1)]
+
         # Inject control/disturbance to the plant.
         measurement = plant.step(control_input, disturbance)
 
@@ -34,7 +40,7 @@ def online_simulation(plant, controller, *, Nsim=None,
                 x=np.asarray(plant.x[0:-1]).squeeze(),
                 u=np.asarray(plant.u),
                 y=np.asarray(plant.y[0:-1]).squeeze())
-    avgStageCosts = np.array(controller.avgStageCosts[1:]).squeeze()
+    avgStageCosts = np.array(avgStageCosts[1:]).squeeze()
 
     # Return.
     return clData, avgStageCosts
