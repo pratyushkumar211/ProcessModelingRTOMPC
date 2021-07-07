@@ -67,7 +67,7 @@ def main():
                              outputs=train_data['outputs'])
 
         # Train.
-        train_model(model=model, epochs=20000, batch_size=2, 
+        train_model(model=model, epochs=12000, batch_size=1, 
                       train_data=train_samples, trainval_data=trainval_data,
                       stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 

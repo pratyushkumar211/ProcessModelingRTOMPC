@@ -139,7 +139,6 @@ def getEconDistPars(seed=3):
     # Measured disturbance parameters.
     ps = get_plant_pars()['ps'][:, np.newaxis]
     distPars = np.tile(ps.T, (Nsim, 1))
-    
 
     # Return. 
     return econPars, distPars
