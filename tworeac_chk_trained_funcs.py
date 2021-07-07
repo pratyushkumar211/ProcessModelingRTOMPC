@@ -13,7 +13,7 @@ import numpy as np
 from hybridid import PickleTool, quick_sim
 from BlackBoxFuncs import get_bbnn_pars, bbnn_fxu, bbnn_hx
 from TwoReacHybridFuncs import (get_hybrid_pars,
-                                hybrid_fxu, hybrid_hx)
+                                hybrid_fxup, hybrid_hx)
 # from KoopmanModelFuncs import get_KoopmanModel_pars, koop_fxu, koop_hx
 from InputConvexFuncs import get_icnn_pars, icnn_lyu
 from InputConvexFuncs import get_picnn_pars, picnn_lyup
@@ -83,7 +83,8 @@ def main():
         # Get the black-box model parameters and function handles.
         hyb_pars = get_hybrid_pars(train=tworeac_hybtrain, 
                                   hyb_greybox_pars=hyb_greybox_pars)
-        fxu = lambda x, u: hybrid_fxu(x, u, hyb_pars)
+        ps = hyb_pars['ps']
+        fxu = lambda x, u: hybrid_fxup(x, u, ps, hyb_pars)
         hx = lambda x: hybrid_hx(x)
 
         # CHeck black-box model validation.

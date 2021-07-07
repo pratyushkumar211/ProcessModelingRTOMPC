@@ -17,8 +17,9 @@ from hybridid import PickleTool, SimData, measurement
 from linNonlinMPC import RTOLinearMPController, get_model, c2dNonlin
 from tworeac_funcs import plant_ode, cost_yup, getEconDistPars
 from economicopt import online_simulation
+from TwoReacHybridFuncs import get_hybrid_pars, hybrid_fxup, hybrid_hx
 
-def getMPCController(fxup, hx, model_pars):
+def getMPCController(fxup, hx, model_pars, plant_pars):
     """ Construct the controller object comprised of 
         EMPC regulator and MHE estimator. """
 
@@ -28,16 +29,13 @@ def getMPCController(fxup, hx, model_pars):
     Ny = model_pars['Ny']
     Delta = model_pars['Delta']
 
-    # Get dynamic model in discrete time.
-    f = c2dNonlin(fxup, Delta, p=True)
-
     # MHE parameters.
     Qw = 1e-4*np.eye(Nx)
-    Rv = model_pars['Rv']
+    Rv = plant_pars['Rv']
 
     # Steady states.
-    xs = model_pars['xs']
-    us = model_pars['us']
+    xs = plant_pars['xs']
+    us = plant_pars['us']
     ps = model_pars['ps']
 
     # RTO optimization parameters.
@@ -56,7 +54,7 @@ def getMPCController(fxup, hx, model_pars):
     uub = model_pars['uub']
 
     # Return the NN controller.
-    mpccontroller = RTOLinearMPController(fxup=f, hx=hx, 
+    mpccontroller = RTOLinearMPController(fxup=fxup, hx=hx, 
                                           lyup=cost_yup, econPars=econPars, 
                                           distPars=distPars, rto_type=rto_type, 
                                           tssOptFreq=tssOptFreq, 
@@ -74,31 +72,35 @@ def main():
     tworeac_parameters = PickleTool.load(filename='tworeac_parameters.pickle',
                                          type='read')
     plant_pars = tworeac_parameters['plant_pars']
+    tworeac_hybtrain = PickleTool.load(filename='tworeac_hybtrain.pickle',
+                                         type='read')
 
-    # Get the plant function handle.
-    Delta = plant_pars['Delta']
-    plant_fxup = lambda x, u, p: plant_ode(x, u, p, plant_pars)
-    plant_hx = lambda x: measurement(x, plant_pars)
+    # Get the dynamic model function handle.
+    hyb_greybox_pars = tworeac_parameters['hyb_greybox_pars']
+    hyb_pars = get_hybrid_pars(train=tworeac_hybtrain, 
+                                hyb_greybox_pars=hyb_greybox_pars)
+    fxup = lambda x, u, p: hybrid_fxup(x, u, p, hyb_pars)
+    hx = hybrid_hx
 
     # Get MPC Controller.
-    mpccontroller = getMPCController(plant_fxup, plant_hx, plant_pars)
+    mpccontroller = getMPCController(fxup, hx, hyb_pars, plant_pars)
 
     # Get plant.
     plant_pars['Rv'] = 0*plant_pars['Rv']
     plant = get_model(ode=plant_ode, parameters=plant_pars)
 
     # Run closed-loop simulation.
-    Nsim = 48*60
+    Nsim = 6*24*60
     disturbances = mpccontroller.empcPars[:Nsim, :plant_pars['Np']]
 
     # Run closed-loop simulation.
     clData, avgStageCosts = online_simulation(plant, mpccontroller,
                                         Nsim=Nsim, disturbances=disturbances,
-                                    stdout_filename='tworeac_rtompc_plant.txt')
+                                    stdout_filename='tworeac_rtompc_hybrid.txt')
 
     # Save data.
     PickleTool.save(data_object=dict(clData=clData,
                                      avgStageCosts=avgStageCosts),
-                    filename='tworeac_rtompc_plant.pickle')
+                    filename='tworeac_rtompc_hybrid.pickle')
 
 main()

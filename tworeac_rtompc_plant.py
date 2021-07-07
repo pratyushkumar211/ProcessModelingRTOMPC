@@ -88,7 +88,7 @@ def main():
     plant = get_model(ode=plant_ode, parameters=plant_pars)
 
     # Run closed-loop simulation.
-    Nsim = 48*60
+    Nsim = 6*24*60
     disturbances = mpccontroller.empcPars[:Nsim, :plant_pars['Np']]
 
     # Run closed-loop simulation.

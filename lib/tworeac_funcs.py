@@ -127,13 +127,23 @@ def getEconDistPars(seed=3):
     np.random.seed(seed)
 
     # Number of simulation steps.
-    Nsim = 48*60 # 2 days.
+    Nsim = 6*24*60 # 6 days.
 
     # Economic cost parameters.
     NParChange = 4*60
+
+    # Gather two sets of parameters.
+    # In the more constrained region.
+    plb = np.array([100., 250.])
+    pub = np.array([100., 350.])
+    econPars1 = (pub - plb)*np.random.rand(Nsim//NParChange//2, 2) + plb
     plb = np.array([100., 100.])
     pub = np.array([100., 600.])
-    econPars = (pub - plb)*np.random.rand(Nsim//NParChange, 2) + plb
+    econPars2 = (pub - plb)*np.random.rand(Nsim//NParChange//2, 2) + plb
+    econPars = np.concatenate((econPars1, econPars2), axis=0)
+    np.random.shuffle(econPars)
+
+    # Now repeat.
     econPars = np.repeat(econPars, NParChange, axis=0)
 
     # Measured disturbance parameters.

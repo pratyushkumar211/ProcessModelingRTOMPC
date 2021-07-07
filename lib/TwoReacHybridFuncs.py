@@ -211,18 +211,19 @@ def get_hybrid_pars(*, train, hyb_greybox_pars):
     parameters['uub'] = hyb_greybox_pars['uub']
     
     # Time constant/sample time.
-    parameters['tau'] = hyb_greybox_pars['ps'].squeeze()
+    parameters['ps'] = hyb_greybox_pars['ps']
     parameters['Delta'] = hyb_greybox_pars['Delta']
 
     # Return.
     return parameters
 
-def fxu(x, u, tau, xuyscales, fNWeights):
+def fxup(x, u, p, xuyscales, fNWeights):
     """ Partial grey-box ODE function. """
 
     # Extract the plant states into meaningful names.
     (Ca, Cb, Cc) = x[0:1], x[1:2], x[2:3]
     Caf = u[0:1]
+    tau = p.squeeze()
 
     # Get the scales.
     xmean, xstd = xuyscales['yscale']
@@ -248,23 +249,22 @@ def fxu(x, u, tau, xuyscales, fNWeights):
     # Return.
     return xdot
 
-def hybrid_fxu(x, u, parameters):
+def hybrid_fxup(x, u, p, parameters):
     """ Function describing the dynamics 
         of the Two reac hybrid model. """
 
     # Get NN weights.
     fNWeights = parameters['fNWeights']
-    tau = parameters['tau']
     Delta = parameters['Delta']
 
     # Get scaling.
     xuyscales = parameters['xuyscales']
 
     # Get k1, k2, k3, and k4.
-    k1 = fxu(x, u, tau, xuyscales, fNWeights)
-    k2 = fxu(x + Delta*(k1/2), u, tau, xuyscales, fNWeights)
-    k3 = fxu(x + Delta*(k2/2), u, tau, xuyscales, fNWeights)
-    k4 = fxu(x + Delta*k3, u, tau, xuyscales, fNWeights)
+    k1 = fxup(x, u, p, xuyscales, fNWeights)
+    k2 = fxup(x + Delta*(k1/2), u, p, xuyscales, fNWeights)
+    k3 = fxup(x + Delta*(k2/2), u, p, xuyscales, fNWeights)
+    k4 = fxup(x + Delta*k3, u, p, xuyscales, fNWeights)
     
     # Get the current output/state and the next time step.
     xplus = x + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)

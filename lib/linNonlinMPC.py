@@ -494,7 +494,7 @@ class RTOOptimizer:
                                     hx=self.hx, 
                                     lyu=lyu, parameters=self.model_pars, 
                                     guess=self.guess)
-        
+
         # Return the steady state input and state.
         return self.xs, self.us
 
@@ -646,6 +646,7 @@ class RTOLinearMPController:
             pdist = self.empcPars[simt:simt+1, :self.Nmdist].T
             pecon = self.empcPars[simt:simt+1, self.Nmdist:].T
             xs, us = self.RtoOptimizer.getOptimum(pecon, pdist)
+
             # Get the updated linear model.
             ps = pdist
             (self.A, self.B, 
@@ -663,6 +664,7 @@ class RTOLinearMPController:
             # Update model used by Kalman Filter.
             B = np.concatenate((self.B, self.Bp), axis=1)
             self.estimator._updateDynModel(self.A, B, self.C)
+
         else:
 
             # If a fresh optimization is not solved. Then just use the 

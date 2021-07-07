@@ -19,7 +19,7 @@ from plotting_funcs import TwoReacPlots, PAPER_FIGSIZE
 from hybridid import PickleTool, measurement
 from BlackBoxFuncs import get_bbnn_pars, bbnn_fxu, bbnn_hx
 from TwoReacHybridFuncs import (get_hybrid_pars, 
-                                hybrid_fxu, hybrid_hx)
+                                hybrid_fxup, hybrid_hx)
 from economicopt import (get_ss_optimum, get_xs_sscost)
 from linNonlinMPC import c2dNonlin
 from tworeac_funcs import cost_yup, plant_ode
@@ -83,7 +83,8 @@ def main():
     # Get the black-box model parameters and function handles.
     hyb_pars = get_hybrid_pars(train=tworeac_hybtrain, 
                                hyb_greybox_pars=hyb_greybox_pars)
-    hyb_fxu = lambda x, u: hybrid_fxu(x, u, hyb_pars)
+    ps = hyb_pars['ps']
+    hyb_fxu = lambda x, u: hybrid_fxup(x, u, ps, hyb_pars)
     hyb_hx = lambda x: hybrid_hx(x)
 
     # Get ICNN pars and function.
