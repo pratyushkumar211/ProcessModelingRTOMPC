@@ -48,8 +48,8 @@ def main():
     # bbnn_h = lambda x: bbnn_hx(x, bbnn_pars)
 
     # Range of economic parameters.
-    plb = np.array([100., 120.])
-    pub = np.array([100., 240.])
+    plb = np.array([100., 100.])
+    pub = np.array([100., 600.])
     Nsamp_us = 50
     Nsamp_p = 50
 
