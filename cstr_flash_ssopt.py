@@ -1,6 +1,7 @@
 # [depends] %LIB%/hybridid.py %LIB%/cstr_flash_funcs.py
 # [depends] %LIB%/economicopt.py %LIB%/BlackBoxFuncs.py
 # [depends] %LIB%/CstrFlashHybridFuncs.py %LIB%/InputConvexFuncs.py
+# [depends] %LIB%/linNonlinMPC.py
 # [depends] %LIB%/plotting_funcs.py 
 # [depends] cstr_flash_parameters.pickle
 # [depends] cstr_flash_bbnntrain.pickle
@@ -20,10 +21,11 @@ import mpctools as mpc
 import itertools
 from matplotlib.backends.backend_pdf import PdfPages
 from hybridid import PickleTool, measurement
-from economicopt import get_xs_sscost, get_ss_optimum, c2dNonlin
+from economicopt import get_xs_sscost, get_ss_optimum
 from BlackBoxFuncs import get_bbnn_pars, bbnn_fxu, bbnn_hx
 from CstrFlashHybridFuncs import get_hybrid_pars, hybrid_fxup, hybrid_hx
 from cstr_flash_funcs import cost_yup, plant_ode
+from linNonlinMPC import c2dNonlin
 from plotting_funcs import CstrFlashPlots, PAPER_FIGSIZE
 from InputConvexFuncs import get_icnn_pars, icnn_lyu
 from InputConvexFuncs import get_ss_optimum as get_icnn_ss_optimum
@@ -36,12 +38,12 @@ def get_xuguess(*, model_type, plant_pars, Np=None):
     us = plant_pars['us']
 
     if model_type == 'Plant':
-        us = np.array([10., 8.])
+        us = np.array([5., 8.])
         xs = plant_pars['xs']
     elif model_type == 'Black-Box-NN' or model_type == 'Hybrid':
         yindices = plant_pars['yindices']
         ys = plant_pars['xs'][yindices]
-        us = np.array([10., 8.])
+        us = np.array([15., 8.])
         xs = np.concatenate((np.tile(ys, (Np+1, )), 
                              np.tile(us, (Np, ))))
     elif model_type == 'ICNN' or model_type == 'PICNN':
@@ -76,7 +78,7 @@ def main():
     hyb_greybox_pars = cstr_flash_parameters['hyb_greybox_pars']
 
     # Get cost function handle.
-    p = [20, 3000, 18000]
+    p = [20, 3000, 14000]
     lyu = lambda y, u: cost_yup(y, u, p, plant_pars)
 
     # Get the plant function handle.
@@ -116,6 +118,7 @@ def main():
     Nps = [None, 0, None]
     opt_sscosts = []
     opt_us = []
+    opt_xs = []
 
     # Loop over the different models, and obtain SS optimums.
     for (model_type, fxu, hx, model_pars, Np) in zip(model_types, fxu_list, 
@@ -130,6 +133,7 @@ def main():
             xs, us, ys, opt_sscost = get_ss_optimum(fxu=fxu, hx=hx, lyu=lyu, 
                                         parameters=model_pars, guess=xuguess)
             opt_sscosts += [opt_sscost]
+            opt_xs += [xs]
         else:
             us, opt_sscost = get_icnn_ss_optimum(lyup=picnn_lup, 
                                       parameters=picnn_pars, 
@@ -146,6 +150,11 @@ def main():
     # Check for Suboptimality loss.
     xuguess = get_xuguess(model_type='Plant', 
                               plant_pars=plant_pars, Np=None)
+    xs_plant, sscost_plant = get_xs_sscost(fxu=plant_fxu, hx=plant_hx, lyu=lyu, 
+                               us=opt_us[0], parameters=plant_pars, 
+                               xguess=xuguess['x'], 
+                               lbx=np.zeros((plant_pars['Nx'], )), 
+                               ubx=np.tile(np.inf, (plant_pars['Nx'], )))
     xs, sscost_hyb = get_xs_sscost(fxu=plant_fxu, hx=plant_hx, lyu=lyu, 
                                us=opt_us[1], parameters=plant_pars, 
                                xguess=xuguess['x'], 

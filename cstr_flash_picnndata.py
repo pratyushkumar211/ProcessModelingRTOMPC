@@ -55,8 +55,8 @@ def main():
     xguess = ys
 
     # Range of economic parameters.
-    plb = np.array([20, 2000, 12000, 6, 300])
-    pub = np.array([20, 4000, 22000, 6, 320])
+    plb = np.array([20, 2500, 12000, 6, 300])
+    pub = np.array([20, 3500, 15000, 6, 320])
     Nsamp_us = 100
     Nsamp_p = 100
 

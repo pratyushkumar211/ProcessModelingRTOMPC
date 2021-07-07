@@ -14,7 +14,7 @@ import time
 import numpy as np
 from hybridid import PickleTool
 from tworeac_funcs import cost_yup
-from TwoReacHybridFuncs import (hybrid_fxu, hybrid_hx,
+from TwoReacHybridFuncs import (hybrid_fxup, hybrid_hx,
                                 get_hybrid_pars)         
 from BlackBoxFuncs import get_bbnn_pars, bbnn_fxu, bbnn_hx
 from InputConvexFuncs import generate_icnn_data
@@ -37,7 +37,8 @@ def main():
     # Get the Hybrid model parameters and function handles.
     hyb_pars = get_hybrid_pars(train=tworeac_hybtrain, 
                                hyb_greybox_pars=hyb_greybox_pars)
-    hyb_fxu = lambda x, u: hybrid_fxu(x, u, hyb_pars)
+    ps = hyb_pars['ps']
+    hyb_fxu = lambda x, u: hybrid_fxup(x, u, ps, hyb_pars)
     hyb_hx = lambda x: hybrid_hx(x)
 
     # Get the cost function handle.
