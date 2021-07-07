@@ -70,7 +70,7 @@ def get_plant_pars():
 
     # Get the constraints. 
     ulb = np.array([0.2])
-    uub = np.array([2.])
+    uub = np.array([1.6])
     parameters['ulb'] = ulb
     parameters['uub'] = uub
 

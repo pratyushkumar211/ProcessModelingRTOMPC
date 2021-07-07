@@ -41,7 +41,7 @@ def main():
     hyb_hx = lambda x: hybrid_hx(x)
 
     # Get the cost function handle.
-    p = [100, 180]
+    p = [100, 300]
     cost_yu = lambda y, u: cost_yup(y, u, p)
 
     # Get the black-box model parameters and function handles.

@@ -20,8 +20,8 @@ from hybridid import PickleTool, measurement
 from BlackBoxFuncs import get_bbnn_pars, bbnn_fxu, bbnn_hx
 from TwoReacHybridFuncs import (get_hybrid_pars, 
                                 hybrid_fxu, hybrid_hx)
-from economicopt import (get_ss_optimum, c2dNonlin, 
-                         get_xs_sscost)
+from economicopt import (get_ss_optimum, get_xs_sscost)
+from linNonlinMPC import c2dNonlin
 from tworeac_funcs import cost_yup, plant_ode
 from InputConvexFuncs import get_ss_optimum as get_icnn_ss_optimum
 from InputConvexFuncs import get_icnn_pars, icnn_lyu
@@ -71,7 +71,7 @@ def main():
     hyb_greybox_pars = tworeac_parameters['hyb_greybox_pars']
 
     # Get cost function handle.
-    p = [100, 200]
+    p = [100, 320]
     lyu = lambda y, u: cost_yup(y, u, p)
 
     # Get the black-box model parameters and function handles.
@@ -127,6 +127,7 @@ def main():
         # Print. 
         print("Model type: " + model_type)
         print('us: ' + str(us))
+    
     breakpoint()
     # Get a linspace of steady-state u values.
     ulb, uub = plant_pars['ulb'], plant_pars['uub']
@@ -145,11 +146,11 @@ def main():
         # Compute SS cost.
         for us in us_list:
             
-            if model_type != 'ICNN':
+            if model_type != 'PICNN':
                 _, sscost = get_xs_sscost(fxu=fxu, hx=hx, lyu=lyu, 
                                     us=us, parameters=model_pars)
             else:
-                sscost = icnn_lu(us)
+                sscost = picnn_lup(us, p[1:])
             model_sscost += [sscost]
         
         model_sscost = np.asarray(model_sscost)
