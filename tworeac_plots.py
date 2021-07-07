@@ -155,8 +155,7 @@ def main():
                                         legend_names=legend_names, 
                                         figure_size=PAPER_FIGSIZE, 
                                         ylabel_xcoordinate=-0.12, 
-                                        left_label_frac=0.15, 
-                                        font_size=12)
+                                        left_label_frac=0.15)
 
     # Load data for the economic MPC simulation.
     tworeac_empc = PickleTool.load(filename="tworeac_empc.pickle", 
@@ -192,7 +191,7 @@ def main():
                                         legend_colors=legend_colors, 
                                         figure_size=PAPER_FIGSIZE, 
                                         ylabel_xcoordinate=-0.1, 
-                                        title_loc=(0.02, 0.9))
+                                        title_loc=(0.25, 0.9))
 
     # Plot empc pars.
     econPars, _ = getEconDistPars()

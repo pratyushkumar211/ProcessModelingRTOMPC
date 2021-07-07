@@ -7,7 +7,7 @@ import itertools
 from matplotlib import cm
 
 PRESENTATION_FIGSIZE = (6, 6)
-PAPER_FIGSIZE = (6, 6)
+PAPER_FIGSIZE = (5, 5)
 
 def get_plotting_arrays(simdata, plot_range):
     """ Get data and return for plotting. """
@@ -81,10 +81,8 @@ class TwoReacPlots:
     @staticmethod
     def plot_sscosts(*, us, sscosts, legend_colors, 
                         legend_names, figure_size, 
-                        ylabel_xcoordinate, left_label_frac, 
-                        font_size):
+                        ylabel_xcoordinate, left_label_frac):
         """ Plot the profit curves. """
-        plt.rcParams.update({'font.size': font_size})
         (figure, axes) = plt.subplots(nrows=1, ncols=1, 
                                       sharex=True, 
                                       figsize=figure_size, 
