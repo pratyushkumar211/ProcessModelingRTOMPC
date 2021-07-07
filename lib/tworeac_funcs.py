@@ -50,9 +50,9 @@ def get_plant_pars():
     
     # Parameters.
     parameters = {}
-    parameters['k1'] = 1. # m^3/min.
-    parameters['k2'] = 0.01 # m^3/min.
-    parameters['k3'] = 0.05 # m^3/min.
+    parameters['k1'] = 6e-2 # m^3/min.
+    parameters['k2'] = 4e-1 # m^3/min.
+    parameters['k3'] = 8e-1 # m^3/min.
 
     # Store the dimensions.
     parameters['Nx'] = 3
@@ -65,12 +65,12 @@ def get_plant_pars():
 
     # Get the steady states.
     parameters['xs'] = np.array([1., 0.5, 0.5]) # to be updated.
-    parameters['us'] = np.array([1.5]) # Ca0s
-    parameters['ps'] = np.array([30.]) # min.
+    parameters['us'] = np.array([1.]) # Ca0s
+    parameters['ps'] = np.array([20.]) # min.
 
     # Get the constraints. 
-    ulb = np.array([0.5])
-    uub = np.array([2.5])
+    ulb = np.array([0.2])
+    uub = np.array([2.])
     parameters['ulb'] = ulb
     parameters['uub'] = uub
 
@@ -120,7 +120,7 @@ def cost_yup(y, u, p):
     # Compute and return cost.
     return ca*CAf - cb*CB
 
-def getEconDistPars(seed=2):
+def getEconDistPars(seed=3):
     """ Get the economic and measured disturbance parameters. """
 
     # Set random number seed.
@@ -130,9 +130,9 @@ def getEconDistPars(seed=2):
     Nsim = 48*60 # 2 days.
 
     # Economic cost parameters.
-    NParChange = 180
-    plb = np.array([100., 120.])
-    pub = np.array([100., 240.])
+    NParChange = 4*60
+    plb = np.array([100., 100.])
+    pub = np.array([100., 600.])
     econPars = (pub - plb)*np.random.rand(Nsim//NParChange, 2) + plb
     econPars = np.repeat(econPars, NParChange, axis=0)
 

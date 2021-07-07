@@ -424,8 +424,8 @@ class NonlinearEMPCController:
 
         # Solve nonlinear regulator.
         useq = self.regulator.solve(xhat, empcPars)
-
         self.uprev = useq[:1, :].T
+
         self.pprev = self.empcPars[simt:simt+1, :self.Nmdist].T
 
         # Get compuatation time and save.
@@ -646,7 +646,6 @@ class RTOLinearMPController:
             pdist = self.empcPars[simt:simt+1, :self.Nmdist].T
             pecon = self.empcPars[simt:simt+1, self.Nmdist:].T
             xs, us = self.RtoOptimizer.getOptimum(pecon, pdist)
-
             # Get the updated linear model.
             ps = pdist
             (self.A, self.B, 
@@ -664,7 +663,6 @@ class RTOLinearMPController:
             # Update model used by Kalman Filter.
             B = np.concatenate((self.B, self.Bp), axis=1)
             self.estimator._updateDynModel(self.A, B, self.C)
-
         else:
 
             # If a fresh optimization is not solved. Then just use the 

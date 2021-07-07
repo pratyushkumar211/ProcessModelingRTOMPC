@@ -41,7 +41,7 @@ def getMPCController(fxup, hx, model_pars):
 
     # MPC parameters.
     econPars, distPars = getEconDistPars()
-    Nmpc = 60
+    Nmpc = 120
     econPars = np.concatenate((econPars,
                 np.repeat(econPars[-1:, :], Nmpc, axis=0)))
     distPars = np.concatenate((distPars,
@@ -89,7 +89,7 @@ def main():
     plant = get_model(ode=plant_ode, parameters=plant_pars)
 
     # Run closed-loop simulation.
-    Nsim = 12*60
+    Nsim = 48*60
     disturbances = mpccontroller.empcPars[:Nsim, :plant_pars['Np']]
     clData, avgStageCosts = online_simulation(plant, mpccontroller,
                                         Nsim=Nsim, disturbances=disturbances,
