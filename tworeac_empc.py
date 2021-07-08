@@ -11,7 +11,6 @@ sys.path.append('lib/')
 import time
 import mpctools as mpc
 import casadi
-import copy
 import numpy as np
 from hybridid import PickleTool, SimData, measurement
 from linNonlinMPC import NonlinearEMPCController, c2dNonlin, get_model

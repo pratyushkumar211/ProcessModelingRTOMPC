@@ -112,6 +112,7 @@ class NonlinearEMPCRegulator:
         ub = dict(u=self.uub)
         
         # Construct the EMPC regulator.
+        breakpoint()
         self.regulator = mpc.nmpc(f=self.fxup, l=self.lxup, N=N, 
                                   funcargs=funcargs, x0=x0, p=empcPars, lb=lb, ub=ub, guess=guess)
         self.regulator.solve()
@@ -312,14 +313,14 @@ class NonlinearEMPCController:
         self.uub = uub
         self.Nmpc = Nmpc
         self._setupRegulator()
-
+        breakpoint()
         # MHE Parameters.
         self.Qwx = Qwx
         self.Qwd = Qwd
         self.Rv = Rv
         self.Nmhe = Nmhe
         self._setupEstimator()
-
+        breakpoint()
         # Parameters to save.
         self.computationTimes = []
 
@@ -625,7 +626,7 @@ class RTOLinearMPController:
         # Solve for the initial steady state.
         x0 = np.zeros((self.Nx + self.Nu, 1))
         useq = self.regulator.solve(x0)
-        useq += np.tile(us, (self.Nmpc, 1))
+        useq += np.tile(us[:, np.newaxis], (self.Nmpc, 1))
         useq = np.reshape(useq, (self.Nmpc, self.Nu))
 
         # Save data.
@@ -679,7 +680,7 @@ class RTOLinearMPController:
         # Regulation.
         x0 = np.concatenate((xhat, self.uprev))
         useq = self.regulator.solve(x0)
-        useq += np.tile(us, (self.Nmpc, 1))
+        useq += np.tile(us[:, np.newaxis], (self.Nmpc, 1))
         useq = np.reshape(useq, (self.Nmpc, self.Nu))
 
         # Save Uprev.

@@ -167,7 +167,7 @@ def get_plant_pars():
     # Get the steady states.
     parameters['xs'] = np.array([50., 1., 0., 0., 313.,
                                  50., 1., 0., 0., 313.])
-    parameters['us'] = np.array([5., 8.])
+    parameters['us'] = np.array([10., 5.])
     parameters['ps'] = np.array([6., 320.])
 
     # Get the constraints.
@@ -249,43 +249,31 @@ def cost_yup(y, u, p, pars):
     # Compute and return cost.
     return ca*F*CAf + ce*D*pho*Cp*(Tb-Td) - cb*Fb*CBb
 
-# def get_energy_price(*, num_days, sample_time):
-#     """ Get a two day heat disturbance profile. """
-#     energy_price = np.zeros((24, 1))
-#     energy_price[0:8, :] = 10*np.ones((8, 1))
-#     energy_price[8:16, :] = 70*np.ones((8, 1))
-#     energy_price[16:24, :] = 10*np.ones((8, 1))
-#     energy_price = 1e-2*np.tile(energy_price, (num_days, 1))
-#     return _resample_fast(x=energy_price,
-#                           xDelta=60,
-#                           newDelta=sample_time,
-#                           resample_type='zoh')
+def getEconDistPars(seed=2):
 
-# def get_economic_opt_pars(*, num_days, sample_time, plant_pars):
-#     """ Get the parameters for Empc and RTO simulations. """
+    """ Function to get economic and disturbance parameters 
+        for the closed-loop simulations. """
 
-#     # Get the cost parameters.
-#     energy_price = get_energy_price(num_days=num_days, sample_time=sample_time)
-#     raw_mat_price = _resample_fast(x = np.array([[1000.], [1000.], 
-#                                                  [1000.], [1000.], 
-#                                                  [1000.], [1000.], 
-#                                                  [1000.], [1000.]]), 
-#                                    xDelta=6*60,
-#                                    newDelta=sample_time,
-#                                    resample_type='zoh')
-#     product_price = _resample_fast(x = np.array([[8000.], [7000.], 
-#                                                  [5000.], [4000.], 
-#                                                  [4000.], [4000.], 
-#                                                  [4000.], [4000.]]),
-#                                    xDelta=6*60,
-#                                    newDelta=sample_time,
-#                                    resample_type='zoh')
-#     cost_pars = np.concatenate((energy_price,
-#                                 raw_mat_price, product_price), axis=1)
-    
-#     # Get the plant disturbances.
-#     ps = plant_pars['ps'][np.newaxis, :]
-#     disturbances = np.repeat(ps, num_days*24*60, axis=0)
+    # Set the random number seed.
+    np.random.seed(seed) 
 
-#     # Return as a concatenated vector.
-#     return cost_pars, disturbances
+    # Number of simulation steps. 
+    Nsim = 24*60
+
+    # Frequency at which to change the parameters.
+    NParChange = 4*60
+
+    # Economic parameters.
+    elb = np.array([20, 2000, 12000])
+    eub = np.array([20, 4000, 16000]) 
+    econPars = (eub-elb)*np.random.rand(Nsim//NParChange, 3) + elb
+    econPars = np.repeat(econPars, NParChange, axis=0)
+
+    # Disturbance parameters.
+    dlb = np.array([6, 300])
+    dub = np.array([6, 320])
+    distPars = (dub-dlb)*np.random.rand(Nsim//NParChange, 2) + dlb
+    distPars = np.repeat(distPars, NParChange, axis=0)
+
+    # Economic and disturbance parameters.
+    return econPars, distPars

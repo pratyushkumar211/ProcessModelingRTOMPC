@@ -161,9 +161,11 @@ class CstrFlashPlots:
             axes[row].set_xlabel('Time (hr)')
             axes[row].set_xlim([np.min(t), np.max(t)])
             legend_handles += handle
-        figure.legend(handles = legend_handles,
-                      labels = legend_names,
-                      loc = title_loc, ncol=len(legend_names))
+        
+        if legend_names is not None:
+            figure.legend(handles = legend_handles,
+                        labels = legend_names,
+                        loc = title_loc, ncol=len(legend_names))
         return [figure]
 
     def plot_states(t, xlist, figure_size, ylabel_xcoordinate,
@@ -186,9 +188,10 @@ class CstrFlashPlots:
                     axes[row, col].set_xlim([np.min(t), np.max(t)])
                 state_index += 1
             legend_handles += handle
-        figure.legend(handles = legend_handles,
-                    labels = legend_names,
-                    loc = title_loc, ncol=len(legend_names))
+        if legend_names is not None:
+            figure.legend(handles = legend_handles,
+                        labels = legend_names,
+                        loc = title_loc, ncol=len(legend_names))
         return [figure]
 
     @staticmethod
