@@ -126,12 +126,20 @@ def main():
     cstr_flash_rtompc_plant = PickleTool.load(filename=
                                     "cstr_flash_rtompc_plant.pickle",
                                     type='read')
-    legend_names = ['Plant']
-    legend_colors = ['b', 'orange', 'dimgrey']
-    clDataList = [cstr_flash_rtompc_plant['clData']]
+    cstr_flash_rtompc_picnn = PickleTool.load(filename=
+                                    "cstr_flash_rtompc_picnn.pickle",
+                                    type='read')
+    cstr_flash_rtompc_hybrid = PickleTool.load(filename=
+                                    "cstr_flash_rtompc_hybrid.pickle",
+                                    type='read')
+    legend_names = ['Plant', 'Hybrid', 'PICNN']
+    legend_colors = ['b', 'm','orange']
+    clDataList = [cstr_flash_rtompc_plant['clData'], 
+                  cstr_flash_rtompc_hybrid['clData'],
+                  cstr_flash_rtompc_picnn['clData']]
     (t, ulist, ylist, xlist) = get_plotting_array_list(simdata_list=
                                        clDataList,
-                                       plot_range = (0, 24*60))
+                                       plot_range = (0, 6*24*60))
     figures += CstrFlashPlots.plot_data(t=t, ulist=ulist, 
                                 ylist=ylist, xlist=xlist, 
                                 figure_size=PAPER_FIGSIZE, 
@@ -147,15 +155,18 @@ def main():
     # Plot the empc costs.
     econPars, distPars = getEconDistPars()
     ePars = np.concatenate((econPars, distPars), axis=1)[:, [1, 2, 4]]
+    t = np.arange(0, len(econPars), 1)/60
     figures += plot_cost_pars(t=t, cost_pars=ePars)
 
-    # # Plot the plant profit in time.
-    # stageCostList = cstr_flash_empc['stageCostList']
-    # stageCostList += cstr_flash_empc_twotier['stageCostList']
-    # figures += plotAvgProfits(t=t,
-    #                    stageCostList=stageCostList, 
-    #                    legend_colors=legend_colors,
-    #                    legend_names=legend_names)
+    # Plot the plant profit in time.
+    stageCostList = [cstr_flash_rtompc_plant['avgStageCosts'], 
+                     cstr_flash_rtompc_hybrid['avgStageCosts'],
+                     cstr_flash_rtompc_picnn['avgStageCosts']]
+    t = np.arange(0, len(stageCostList[0]), 1)/60
+    figures += plotAvgCosts(t=t,
+                       stageCostList=stageCostList, 
+                       legend_colors=legend_colors,
+                       legend_names=legend_names)
 
     # Save PDF.
     with PdfPages('cstr_flash_plots.pdf', 'w') as pdf_file:

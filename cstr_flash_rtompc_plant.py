@@ -41,13 +41,13 @@ def getMPCController(fxup, hx, model_pars):
 
     # RTO optimization parameters.
     rto_type = 'dynmodel_optimization'
-    tssOptFreq = 240
+    tssOptFreq = 60
     econPars, distPars = getEconDistPars()
     
     # MPC tuning.
     Q = np.eye(Nx) @ np.diag(1/xs**2)
     R = np.eye(Nu) @ np.diag(1/us**2)
-    S = 0.1*np.eye(Nu) @ np.diag(1/us**2)
+    S = 50*np.eye(Nu) @ np.diag(1/us**2)
     Nmpc = 120
 
     # Get upper and lower bounds.
@@ -88,7 +88,7 @@ def main():
     plant = get_model(ode=plant_ode, parameters=plant_pars)
 
     # Run closed-loop simulation.
-    Nsim = 24*60
+    Nsim = 6*24*60
     disturbances = mpccontroller.empcPars[:Nsim, :plant_pars['Np']]
 
     # Run closed-loop simulation.

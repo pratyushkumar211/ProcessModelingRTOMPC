@@ -78,12 +78,12 @@ def main():
     hyb_greybox_pars = cstr_flash_parameters['hyb_greybox_pars']
 
     # Get cost function handle.
-    p = [20., 2525.92623183, 13648.98743364]
+    p = [20., 2000, 12000]
     lyu = lambda y, u: cost_yup(y, u, p, plant_pars)
 
     # Get the plant function handle.
     Delta = plant_pars['Delta']
-    ps = np.array([6., 301.59290954])
+    ps = np.array([6., 310])
     plant_f = lambda x, u: plant_ode(x, u, ps, plant_pars)
     plant_fxu = c2dNonlin(plant_f, Delta)
     plant_hx = lambda x: measurement(x, plant_pars)

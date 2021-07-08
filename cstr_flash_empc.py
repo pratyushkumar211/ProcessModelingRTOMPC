@@ -82,12 +82,12 @@ def main():
     plant_hx = lambda x: measurement(x, plant_pars)
 
     # Get MPC Controller.
-    plant_pars['xs'] = np.array([ 31.96809552,   0.74100991,   1.29131313,   
-                                  0.76146605, 321.74113491,  23.7368199 ,   
-                                  0.77730877,   1.8860946 ,1.11219888, 
-                                  322.23242626])
-    plant_pars['us'] = np.array([14.6161342 ,  8.00000004])
-    plant_pars['ps'] = np.array([6., 306.9965257 ])
+    plant_pars['xs'] = np.array([ 33.06250061,   0.74028955,   1.29378651,   
+                                0.77042495,
+       318.47113593,  25.00000045,   0.77531398,   1.87503834,
+         1.11654923, 318.95422771])
+    plant_pars['us'] = np.array([15.00000013,  8.00000008])
+    plant_pars['ps'] = np.array([6., 301.59290954])
     mpccontroller = getMPCController(plant_fxup, plant_hx, plant_pars)
 
     # Get plant.
