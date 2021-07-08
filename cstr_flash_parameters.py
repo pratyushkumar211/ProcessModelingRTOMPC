@@ -44,19 +44,19 @@ def gen_train_val_data(*, parameters, num_traj,
             Nsim = Nsim_val
             u = sample_prbs_like(num_change=6, num_steps=Nsim_val,
                                  lb=ulb, ub=uub,
-                                 mean_change=60, sigma_change=10, seed=seed)
+                                 mean_change=2*60, sigma_change=10, seed=seed)
         elif traj == num_traj-2:
             "Get input for validation simulation."
             Nsim = Nsim_trainval
-            u = sample_prbs_like(num_change=8, num_steps=Nsim_trainval,
+            u = sample_prbs_like(num_change=4, num_steps=Nsim_trainval,
                                  lb=ulb, ub=uub,
-                                 mean_change=30, sigma_change=5, seed=seed)
+                                 mean_change=60, sigma_change=10, seed=seed)
         else:
             "Get input for training simulation."
             Nsim = Nsim_train
-            u = sample_prbs_like(num_change=8, num_steps=Nsim_train,
+            u = sample_prbs_like(num_change=4, num_steps=Nsim_train,
                                  lb=ulb, ub=uub,
-                                 mean_change=30, sigma_change=5, seed=seed)
+                                 mean_change=60, sigma_change=10, seed=seed)
         seed += 1
 
         # Complete input profile and run open-loop simulation.
@@ -67,6 +67,7 @@ def gen_train_val_data(*, parameters, num_traj,
                 x=np.asarray(plant.x[0:-1]).squeeze(),
                 u=np.asarray(plant.u).squeeze(),
                 y=np.asarray(plant.y[0:-1]).squeeze()))
+    
     # Return the data list.
     return data_list
 
@@ -201,9 +202,9 @@ def main():
     #                                      parameters=greybox_pars)
 
     # Generate training data.
-    training_data = gen_train_val_data(parameters=plant_pars, num_traj=6,
+    training_data = gen_train_val_data(parameters=plant_pars, num_traj=10,
                                         Nsim_train=4*60, Nsim_trainval=4*60,
-                                        Nsim_val=6*60, seed=3)
+                                        Nsim_val=12*60, seed=3)
 
     # Get processed data for initial state during training.
     #greybox_processed_data = get_gb_mhe_processed_training_data(parameters=

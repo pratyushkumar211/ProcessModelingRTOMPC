@@ -47,7 +47,7 @@ def getMPCController(fxup, hx, model_pars):
     # MPC tuning.
     Q = np.eye(Nx) @ np.diag(1/xs**2)
     R = np.eye(Nu) @ np.diag(1/us**2)
-    S = 50*np.eye(Nu) @ np.diag(1/us**2)
+    S = np.eye(Nu) @ np.diag(1/us**2)
     Nmpc = 120
 
     # Get upper and lower bounds.

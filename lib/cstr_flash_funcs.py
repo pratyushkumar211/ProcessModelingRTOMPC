@@ -138,18 +138,18 @@ def get_plant_pars():
     parameters['alphaA'] = 8.
     parameters['alphaB'] = 1.
     parameters['alphaC'] = 1.
-    parameters['pho'] = 6. # Kg/m^3
+    parameters['pho'] = 8. # Kg/m^3
     parameters['Cp'] = 3. # KJ/(Kg-K)
-    parameters['Ar'] = 3. # m^2
-    parameters['Ab'] = 3. # m^2
-    parameters['kr'] = 4. # m^2
-    parameters['kb'] = 3. # m^2
+    parameters['Ar'] = 8. # m^2
+    parameters['Ab'] = 8. # m^2
+    parameters['kr'] = 2. # m^2
+    parameters['kb'] = 1. # m^2
     parameters['delH1'] = 80. # kJ/mol
     parameters['delH2'] = 90. # kJ/mol
     parameters['E1byR'] = 200. # K
     parameters['E2byR'] = 300. # K
-    parameters['k1star'] = 2. # 1/min
-    parameters['k2star'] = 0.2 # 1/min
+    parameters['k1star'] = 8e-2 # 1/min
+    parameters['k2star'] = 1e-1 # 1/min
     parameters['Td'] = 310 # K
     parameters['Qb'] = 200 # kJ/min
     parameters['Qr'] = 2000 # kJ/min
@@ -167,17 +167,17 @@ def get_plant_pars():
     # Get the steady states.
     parameters['xs'] = np.array([50., 1., 0., 0., 313.,
                                  50., 1., 0., 0., 313.])
-    parameters['us'] = np.array([10., 5.])
-    parameters['ps'] = np.array([6., 320.])
+    parameters['us'] = np.array([6., 5.])
+    parameters['ps'] = np.array([10., 320.])
 
     # Get the constraints.
-    parameters['ulb'] = np.array([5., 2.])
-    parameters['uub'] = np.array([15., 8.])
+    parameters['ulb'] = np.array([2., 2.])
+    parameters['uub'] = np.array([10., 10.])
 
     # The C matrix for the plant.
     parameters['yindices'] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-    parameters['Rv'] = np.diag([0.8, 1e-3, 1e-3, 1e-3, 1., 
-                                0.8, 1e-3, 1e-3, 1e-3, 1.])
+    parameters['Rv'] = 0*np.diag([0.8, 1e-3, 1e-3, 1e-3, 1., 
+                                  0.8, 1e-3, 1e-3, 1e-3, 1.])
     
     # Return the parameters dict.
     return parameters
@@ -188,24 +188,24 @@ def get_hyb_greybox_pars(*, plant_pars):
 
     # Parameters.
     parameters = {}
-    parameters['alphaA'] = 8.
-    parameters['alphaB'] = 1.
-    parameters['alphaC'] = 1.
-    parameters['pho'] = 6. # Kg/m^3
-    parameters['Cp'] = 3. # KJ/(Kg-K)
-    parameters['Ar'] = 3. # m^2
-    parameters['Ab'] = 3. # m^2
-    parameters['kr'] = 4. # m^2
-    parameters['kb'] = 3. # m^2
-    parameters['delH1'] = 80. # kJ/mol
-    parameters['delH2'] = 90. # kJ/mol
+    parameters['alphaA'] = plant_pars['alphaA']
+    parameters['alphaB'] = plant_pars['alphaB']
+    parameters['alphaC'] = plant_pars['alphaC']
+    parameters['pho'] = plant_pars['pho'] # Kg/m^3
+    parameters['Cp'] = plant_pars['Cp'] # KJ/(Kg-K)
+    parameters['Ar'] = plant_pars['Ar'] # m^2
+    parameters['Ab'] = plant_pars['Ab'] # m^2
+    parameters['kr'] = plant_pars['kr'] # m^2
+    parameters['kb'] = plant_pars['kb'] # m^2
+    parameters['delH1'] = plant_pars['delH1'] # kJ/mol
+    parameters['delH2'] = plant_pars['delH2'] # kJ/mol
     # parameters['E1byR'] = 200. # K
     # parameters['E2byR'] = 300. # K
     # parameters['k1star'] = 2. # 1/min
     # parameters['k2star'] = 0.2 # 1/min
-    parameters['Td'] = 310 # K
-    parameters['Qb'] = 200 # kJ/min
-    parameters['Qr'] = 2000 # kJ/min
+    parameters['Td'] = plant_pars['Td'] # K
+    parameters['Qb'] = plant_pars['Qb'] # kJ/min
+    parameters['Qr'] = plant_pars['Qr'] # kJ/min
 
     # Store the dimensions.
     parameters['Nx'] = plant_pars['Nx']
@@ -220,7 +220,7 @@ def get_hyb_greybox_pars(*, plant_pars):
     #gb_indices = [0, 1, 2, 4, 5, 6, 7, 9]
     #parameters['xs'] = plant_pars['xs'][gb_indices]
     #parameters['us'] = plant_pars['us']
-    parameters['ps'] = np.array([6., 320.])
+    parameters['ps'] = plant_pars['ps']
 
     # The C matrix for the grey-box model.
     #parameters['yindices'] = [0, 1, 2, 3, 4, 5, 6, 7]

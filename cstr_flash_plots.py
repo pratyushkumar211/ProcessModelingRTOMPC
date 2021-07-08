@@ -139,7 +139,7 @@ def main():
                   cstr_flash_rtompc_picnn['clData']]
     (t, ulist, ylist, xlist) = get_plotting_array_list(simdata_list=
                                        clDataList,
-                                       plot_range = (0, 6*24*60))
+                                       plot_range = (0, 24*60))
     figures += CstrFlashPlots.plot_data(t=t, ulist=ulist, 
                                 ylist=ylist, xlist=xlist, 
                                 figure_size=PAPER_FIGSIZE, 
@@ -159,7 +159,7 @@ def main():
     figures += plot_cost_pars(t=t, cost_pars=ePars)
 
     # Plot the plant profit in time.
-    stageCostList = [cstr_flash_rtompc_plant['avgStageCosts'], 
+    stageCostList = [cstr_flash_rtompc_plant['avgStageCosts'],
                      cstr_flash_rtompc_hybrid['avgStageCosts'],
                      cstr_flash_rtompc_picnn['avgStageCosts']]
     t = np.arange(0, len(stageCostList[0]), 1)/60
