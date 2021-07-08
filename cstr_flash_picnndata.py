@@ -57,8 +57,8 @@ def main():
     # Range of economic parameters.
     plb = np.array([20, 2000, 12000, 6, 300])
     pub = np.array([20, 4000, 22000, 6, 320])
-    Nsamp_us = 100
-    Nsamp_p = 100
+    Nsamp_us = 250
+    Nsamp_p = 250
 
     # Generate data.
     p, u, lyup = generate_picnn_data(fxup=hyb_fxu, hx=hyb_hx, 

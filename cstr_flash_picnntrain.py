@@ -31,9 +31,9 @@ def main():
     plant_pars = cstr_flash_parameters['plant_pars']
 
     # Create some parameters.
-    zDims = [None, 64, 1]
+    zDims = [None, 32, 1]
     numLayers = len(zDims) - 1
-    uDims = [3, 32, None]
+    uDims = [3, 128, None]
     Nu = plant_pars['Nu']
 
     # Create lists to store data.
@@ -49,7 +49,7 @@ def main():
     ulpscales = get_scaling(p=cstr_flash_picnndata['p'],
                             u=cstr_flash_picnndata['u'], 
                             lyup=cstr_flash_picnndata['lyup'])
-    datasize_fracs = [0.7, 0.15, 0.15]
+    datasize_fracs = [0.8, 0.1, 0.1]
     (train_data, 
      trainval_data, val_data) = get_train_val_data(p=cstr_flash_picnndata['p'],
                                         u=cstr_flash_picnndata['u'], 
@@ -65,7 +65,7 @@ def main():
                          output=train_data['output'])
 
     # Train.
-    train_model(model=model, epochs=500, batch_size=32, 
+    train_model(model=model, epochs=200, batch_size=32, 
                       train_data=train_samples, trainval_data=trainval_data,
                       stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 

@@ -39,7 +39,7 @@ def getMPCController(fxup, hx, model_pars, plant_pars):
 
     # RTO optimization parameters.
     rto_type = 'dynmodel_optimization'
-    tssOptFreq = 60
+    tssOptFreq = 240
     econPars, distPars = getEconDistPars()
     
     # MPC tuning.

@@ -261,7 +261,7 @@ def getEconDistPars(seed=2):
     Nsim = 6*24*60
 
     # Frequency at which to change the parameters.
-    NParChange = 1*60
+    NParChange = 4*60
 
     # Economic parameters.
     elb = np.array([20, 2000, 12000])

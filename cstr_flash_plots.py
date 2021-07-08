@@ -135,7 +135,7 @@ def main():
     legend_names = ['Plant', 'Hybrid', 'PICNN']
     legend_colors = ['b', 'm','orange']
     clDataList = [cstr_flash_rtompc_plant['clData'], 
-                  cstr_flash_rtompc_hybrid['clData'],
+                  cstr_flash_rtompc_hybrid['clData'], 
                   cstr_flash_rtompc_picnn['clData']]
     (t, ulist, ylist, xlist) = get_plotting_array_list(simdata_list=
                                        clDataList,

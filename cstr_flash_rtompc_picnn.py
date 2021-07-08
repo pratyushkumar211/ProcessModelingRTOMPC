@@ -51,7 +51,7 @@ def getMPCController(fxup, hx, dynmodel_pars, picnn_pars, picnn_lup,
 
     # RTO optimization parameters.
     rto_type = 'picnn_optimization'
-    tssOptFreq = 60
+    tssOptFreq = 240
     econPars, distPars = getEconDistPars()
     
     # MPC tuning.

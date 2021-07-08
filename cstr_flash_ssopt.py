@@ -43,7 +43,7 @@ def get_xuguess(*, model_type, plant_pars, Np=None):
     elif model_type == 'Black-Box-NN' or model_type == 'Hybrid':
         yindices = plant_pars['yindices']
         ys = plant_pars['xs'][yindices]
-        us = np.array([15., 8.])
+        us = np.array([10., 5.])
         xs = np.concatenate((np.tile(ys, (Np+1, )), 
                              np.tile(us, (Np, ))))
     elif model_type == 'ICNN' or model_type == 'PICNN':
@@ -78,12 +78,12 @@ def main():
     hyb_greybox_pars = cstr_flash_parameters['hyb_greybox_pars']
 
     # Get cost function handle.
-    p = [20., 2000, 12000]
+    p = [20., 2700, 18000]
     lyu = lambda y, u: cost_yup(y, u, p, plant_pars)
 
     # Get the plant function handle.
     Delta = plant_pars['Delta']
-    ps = np.array([6., 310])
+    ps = np.array([6., 320])
     plant_f = lambda x, u: plant_ode(x, u, ps, plant_pars)
     plant_fxu = c2dNonlin(plant_f, Delta)
     plant_hx = lambda x: measurement(x, plant_pars)
