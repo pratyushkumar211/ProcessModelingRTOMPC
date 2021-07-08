@@ -78,7 +78,7 @@ def main():
     hyb_greybox_pars = cstr_flash_parameters['hyb_greybox_pars']
 
     # Get cost function handle.
-    p = [20., 2700, 18000]
+    p = [20., 2600, 15000]
     lyu = lambda y, u: cost_yup(y, u, p, plant_pars)
 
     # Get the plant function handle.
