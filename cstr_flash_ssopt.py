@@ -83,7 +83,7 @@ def main():
 
     # Get the plant function handle.
     Delta = plant_pars['Delta']
-    ps = np.array([6., 306.9965257 ])
+    ps = np.array([6., 301.59290954])
     plant_f = lambda x, u: plant_ode(x, u, ps, plant_pars)
     plant_fxu = c2dNonlin(plant_f, Delta)
     plant_hx = lambda x: measurement(x, plant_pars)
