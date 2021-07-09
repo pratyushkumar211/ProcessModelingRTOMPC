@@ -264,14 +264,14 @@ def getEconDistPars(seed=2):
     NParChange = 4*60
 
     # Economic parameters.
-    elb = np.array([20, 2000, 12000])
-    eub = np.array([20, 4000, 22000]) 
+    elb = np.array([20, 1000, 5000])
+    eub = np.array([20, 3000, 30000]) 
     econPars = (eub-elb)*np.random.rand(Nsim//NParChange, 3) + elb
     econPars = np.repeat(econPars, NParChange, axis=0)
 
     # Disturbance parameters.
-    dlb = np.array([6, 300])
-    dub = np.array([6, 320])
+    dlb = np.array([10, 300])
+    dub = np.array([10, 320])
     distPars = (dub-dlb)*np.random.rand(Nsim//NParChange, 2) + dlb
     distPars = np.repeat(distPars, NParChange, axis=0)
 
