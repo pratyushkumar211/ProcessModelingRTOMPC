@@ -83,11 +83,11 @@ def main():
     valdata_list += hyb_val_predictions
     (t, ulist, ylist, xlist) = get_plotting_array_list(simdata_list=
                                                     valdata_list[:1],
-                                                plot_range = (10, 6*60+10))
+                                                plot_range = (10, 12*60+10))
     (t, ulist_train, 
     ylist_train, xlist_train) = get_plotting_array_list(simdata_list=
                                                     valdata_list[1:],
-                                                    plot_range=(0, 6*60))
+                                                    plot_range=(0, 12*60))
     ulist += ulist_train
     ylist += ylist_train
     xlist += xlist_train

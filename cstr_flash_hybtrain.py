@@ -1,11 +1,6 @@
 # [depends] %LIB%/hybridid.py %LIB%/CstrFlashHybridFuncs.py
-# [depends] %LIB%/TwoReacHybridFuncs.py
 # [depends] cstr_flash_parameters.pickle
 # [makes] pickle
-""" Script to train the hybrid model for the 
-    three reaction system. 
-    Pratyush Kumar, pratyushkumar@ucsb.edu """
-
 import sys
 sys.path.append('lib/')
 import tensorflow as tf
@@ -37,7 +32,7 @@ def main():
     ypred_xinsert_indices = []
     tthrow = 10
     Np = 0
-    fNDims = [Ny + Np*(Ny+Nu), 16, 2]
+    fNDims = [Ny + Np*(Ny+Nu), 4, 2]
 
     # Create lists to store data.
     trained_weights = []
@@ -53,7 +48,7 @@ def main():
     (train_data, trainval_data, val_data) = get_train_val_data(tthrow=tthrow, 
                                             Np=Np, xuyscales=xuyscales, 
                                             data_list=training_data)
-
+    
     # Loop over the number of samples.
     for num_sample in num_samples:
         
@@ -68,7 +63,7 @@ def main():
                              outputs=train_data['outputs'])
 
         # Train.
-        train_model(model=model, epochs=6000, batch_size=4, 
+        train_model(model=model, epochs=20000, batch_size=8, 
                     train_data=train_samples, trainval_data=trainval_data, 
                     stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 

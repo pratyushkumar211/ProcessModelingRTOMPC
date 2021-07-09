@@ -43,7 +43,7 @@ def get_xuguess(*, model_type, plant_pars, Np=None):
     elif model_type == 'Black-Box-NN' or model_type == 'Hybrid':
         yindices = plant_pars['yindices']
         ys = plant_pars['xs'][yindices]
-        us = np.array([15., 5.])
+        us = np.array([2., 2.])
         xs = np.concatenate((np.tile(ys, (Np+1, )), 
                              np.tile(us, (Np, ))))
     elif model_type == 'ICNN' or model_type == 'PICNN':
@@ -111,7 +111,7 @@ def main():
     picnn_lup = lambda u, p: picnn_lyup(u, p, picnn_pars)
 
     # Lists to loop over for different models.
-    model_types = ['Plant']
+    model_types = ['Plant', 'Hybrid']
     fxu_list = [plant_fxu, hyb_fxu, None]
     hx_list = [plant_hx, hyb_hx, None]
     par_list = [plant_pars, hyb_pars, None]
@@ -155,11 +155,11 @@ def main():
                                xguess=xuguess['x'], 
                                lbx=np.zeros((plant_pars['Nx'], )), 
                                ubx=np.tile(np.inf, (plant_pars['Nx'], )))
-    # xs, sscost_hyb = get_xs_sscost(fxu=plant_fxu, hx=plant_hx, lyu=lyu, 
-    #                            us=opt_us[1], parameters=plant_pars, 
-    #                            xguess=xuguess['x'], 
-    #                            lbx=np.zeros((plant_pars['Nx'], )), 
-    #                            ubx=np.tile(np.inf, (plant_pars['Nx'], )))
+    xs, sscost_hyb = get_xs_sscost(fxu=plant_fxu, hx=plant_hx, lyu=lyu, 
+                               us=opt_us[1], parameters=plant_pars, 
+                               xguess=xuguess['x'], 
+                               lbx=np.zeros((plant_pars['Nx'], )), 
+                               ubx=np.tile(np.inf, (plant_pars['Nx'], )))
     # xs, sscost_icnn = get_xs_sscost(fxu=plant_fxu, hx=plant_hx, lyu=lyu, 
     #                            us=opt_us[2], parameters=plant_pars, 
     #                            xguess=xuguess['x'], 

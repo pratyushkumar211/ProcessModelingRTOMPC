@@ -167,7 +167,7 @@ def get_plant_pars():
     # Get the steady states.
     parameters['xs'] = np.array([50., 1., 0., 0., 313.,
                                  50., 1., 0., 0., 313.])
-    parameters['us'] = np.array([6., 5.])
+    parameters['us'] = np.array([6., 6.])
     parameters['ps'] = np.array([10., 320.])
 
     # Get the constraints.
@@ -176,8 +176,8 @@ def get_plant_pars():
 
     # The C matrix for the plant.
     parameters['yindices'] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-    parameters['Rv'] = 0*np.diag([0.8, 1e-3, 1e-3, 1e-3, 1., 
-                                  0.8, 1e-3, 1e-3, 1e-3, 1.])
+    parameters['Rv'] = np.diag([0.8, 1e-3, 1e-3, 1e-3, 0.8, 
+                                0.8, 1e-3, 1e-3, 1e-3, 0.8])
     
     # Return the parameters dict.
     return parameters
