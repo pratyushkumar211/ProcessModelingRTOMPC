@@ -264,8 +264,8 @@ def getEconDistPars(seed=2):
     NParChange = 4*60
 
     # Economic parameters.
-    elb = np.array([20, 1000, 5000])
-    eub = np.array([20, 3000, 30000]) 
+    elb = np.array([60, 1000, 5000])
+    eub = np.array([60, 3000, 30000]) 
     econPars = (eub-elb)*np.random.rand(Nsim//NParChange, 3) + elb
     econPars = np.repeat(econPars, NParChange, axis=0)
 

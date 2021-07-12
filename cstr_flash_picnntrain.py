@@ -31,7 +31,7 @@ def main():
     plant_pars = cstr_flash_parameters['plant_pars']
 
     # Create some parameters.
-    zDims = [None, 32, 1]
+    zDims = [None, 64, 1]
     numLayers = len(zDims) - 1
     uDims = [3, 128, None]
     Nu = plant_pars['Nu']
@@ -65,7 +65,7 @@ def main():
                          output=train_data['output'])
 
     # Train.
-    train_model(model=model, epochs=200, batch_size=32, 
+    train_model(model=model, epochs=300, batch_size=32, 
                       train_data=train_samples, trainval_data=trainval_data,
                       stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 
