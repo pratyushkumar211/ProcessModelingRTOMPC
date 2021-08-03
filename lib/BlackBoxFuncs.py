@@ -213,7 +213,10 @@ def get_bbnn_pars(*, train, plant_pars):
     # Constraints.
     parameters['ulb'] = plant_pars['ulb']
     parameters['uub'] = plant_pars['uub']
-    
+
+    # Sample time.
+    parameters['Delta'] = plant_pars['Delta']
+
     # Return.
     return parameters
 
@@ -255,7 +258,7 @@ def bbnn_fxu(yz, u, parameters):
     # Scale back.
     yzplus = yzplus*yzstd + yzmean
 
-    # Return the sum.
+    # Return.
     return yzplus
 
 def bbnn_hx(yz, parameters):
