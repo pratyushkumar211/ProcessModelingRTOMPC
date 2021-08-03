@@ -1,3 +1,4 @@
+# [depends] linNonlinMPC.py
 import sys
 import numpy as np
 import mpctools as mpc
@@ -8,6 +9,7 @@ import collections
 import pickle
 import plottools
 import time
+from linNonlinMPC import getXsYsSscost
 
 # Custom class to store datasets.
 SimData = collections.namedtuple('SimData',
@@ -184,8 +186,8 @@ def get_rectified_xs(*, ode, parameters):
     # Return.
     return xs
 
-def generatePlantSSdata(*, fxu, hx, cost_yu, parameters, Ndata, 
-                          xguess=None, seed=10):
+def genPlantSsdata(*, fxu, hx, parameters, Ndata,
+                      xguess=None, seed=10):
     """ Function to generate data to train the ICNN. """
 
     # Set numpy seed.
@@ -197,20 +199,27 @@ def generatePlantSSdata(*, fxu, hx, cost_yu, parameters, Ndata,
     us_list = list((uub-ulb)*np.random.rand(Ndata, Nu) + ulb)
 
     # Get a list to store the steady state costs.
-    ss_costs = []
+    xs_list, ys_list = [], []
 
     # Loop over all the generated us.
     for us in us_list:
 
         # Solve the steady state equation.
-        _, ss_cost = get_xs_sscost(fxu=fxu, hx=hx, lyu=cost_yu, 
-                                   us=us, parameters=parameters, 
-                                   xguess=xguess)
-        ss_costs += [ss_cost]
+        xs, ys, _ = getXsYsSscost(fxu=fxu, hx=hx, lyu=cost_yu, 
+                                  us=us, parameters=parameters, 
+                                  xguess=xguess)
+        xs_list += [xs]
+        ys_list += [ys]
 
     # Get arrays to return the generated data.
     u = np.array(us_list)
-    lyu = np.array(ss_costs)
+    x = np.array(xs_list)
+    y = np.array(ys_list)
+
+    # Add measurement noise to y.
+    Rv = parameters['Rv']
+    ynoise_std = np.sqrt(np.diag(Rv)[:, np.newaxis])
+    y += ynoise_std*np.random.randn(Ndata, Ny)
 
     # Return.
-    return u, lyu
+    return u, x, y

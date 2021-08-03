@@ -1287,7 +1287,7 @@ def getSSOptimum(*, fxu, hx, lyu, parameters, guess):
     # Return the steady state solution.
     return xs, us, ys, opt_sscost
 
-def getXsSscost(*, fxu, hx, lyu, us, parameters, 
+def getXsYsSscost(*, fxu, hx, us, parameters, lyu=None,
                    xguess=None, lbx=None, ubx=None):
     """ Setup and solve the steady state optimization. """
 
@@ -1321,9 +1321,13 @@ def getXsSscost(*, fxu, hx, lyu, us, parameters,
     # Solve.
     nlp_soln = nlp(x0=xguess, lbg=lbg, ubg=ubg, lbx=lbx, ubx=ubx)
     xs = np.asarray(nlp_soln['x'])[:, 0]
+    ys = hx(xs)
 
     # Compute the cost based on steady state.
-    sscost = lyu(hx(xs), us)
-    
+    if lyu is not None:
+        sscost = lyu(hx(xs), us)
+    else:
+        sscost = None
+
     # Return the steady state cost.
-    return xs, sscost
+    return xs, ys, sscost
