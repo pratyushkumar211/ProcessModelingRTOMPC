@@ -120,7 +120,7 @@ def cost_yup(y, u, p):
     # Compute and return cost.
     return ca*CAf - cb*CB
 
-def getEconDistPars(seed=3):
+def getEconDistPars(seed=2):
     """ Get the economic and measured disturbance parameters. """
 
     # Set random number seed.
@@ -134,8 +134,8 @@ def getEconDistPars(seed=3):
 
     # Gather two sets of parameters.
     # In the more constrained region.
-    plb = np.array([100., 250.])
-    pub = np.array([100., 350.])
+    plb = np.array([100., 200.])
+    pub = np.array([100., 400.])
     econPars1 = (pub - plb)*np.random.rand(Nsim//NParChange//2, 2) + plb
     plb = np.array([100., 100.])
     pub = np.array([100., 600.])

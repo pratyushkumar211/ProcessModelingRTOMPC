@@ -170,8 +170,7 @@ def main():
                                    "tworeac_rtompc_picnn.pickle", 
                                     type='read')
     clDataList = [tworeac_rtompc_plant['clData'], 
-                  tworeac_rtompc_hybrid['clData'],
-                  tworeac_rtompc_picnn['clData']]
+                  tworeac_rtompc_hybrid['clData']]
 
     # # Load data for the economic MPC simulation.
     # tworeac_empc_twotier = PickleTool.load(filename=
@@ -185,13 +184,13 @@ def main():
     legend_colors = ['b', 'g', 'm', 'orange']
     t, ulist, ylist, xlist = get_plotting_array_list(simdata_list = 
                                                 clDataList,
-                                                plot_range = (0, 48*60))
+                                        plot_range = (0, 2*24*60))
     figures += TwoReacPlots.plot_xudata(t=t, xlist=ylist, ulist=ulist,
                                         legend_names=legend_names,
                                         legend_colors=legend_colors, 
                                         figure_size=PAPER_FIGSIZE, 
                                         ylabel_xcoordinate=-0.1, 
-                                        title_loc=(0.25, 0.9))
+                                        title_loc=(0.32, 0.9))
 
     # Plot empc pars.
     econPars, _ = getEconDistPars()
@@ -199,8 +198,7 @@ def main():
 
     # Plot profit curve.
     stageCostList = [tworeac_rtompc_plant['avgStageCosts'], 
-                     tworeac_rtompc_hybrid['avgStageCosts'], 
-                     tworeac_rtompc_picnn['avgStageCosts']]
+                     tworeac_rtompc_hybrid['avgStageCosts']]
     t = np.arange(0, len(stageCostList[0]), 1)/60
     figures += plotAvgCosts(t=t, stageCostList=
                               stageCostList, 
