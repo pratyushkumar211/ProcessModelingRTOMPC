@@ -132,11 +132,10 @@ def main():
     cstr_flash_rtompc_hybrid = PickleTool.load(filename=
                                     "cstr_flash_rtompc_hybrid.pickle",
                                     type='read')
-    legend_names = ['Plant', 'Hybrid', 'PICNN']
-    legend_colors = ['b', 'm','orange']
+    legend_names = ['Plant', 'Hybrid']
+    legend_colors = ['b', 'm']
     clDataList = [cstr_flash_rtompc_plant['clData'], 
-                  cstr_flash_rtompc_hybrid['clData'], 
-                  cstr_flash_rtompc_picnn['clData']]
+                  cstr_flash_rtompc_hybrid['clData']]
     (t, ulist, ylist, xlist) = get_plotting_array_list(simdata_list=
                                        clDataList,
                                        plot_range = (0, 6*24*60))
@@ -160,8 +159,7 @@ def main():
 
     # Plot the plant profit in time.
     stageCostList = [cstr_flash_rtompc_plant['avgStageCosts'],
-                     cstr_flash_rtompc_hybrid['avgStageCosts'],
-                     cstr_flash_rtompc_picnn['avgStageCosts']]
+                     cstr_flash_rtompc_hybrid['avgStageCosts']]
     t = np.arange(0, len(stageCostList[0]), 1)/60
     figures += plotAvgCosts(t=t,
                        stageCostList=stageCostList, 
