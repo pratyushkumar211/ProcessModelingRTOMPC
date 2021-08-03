@@ -1,18 +1,13 @@
-# [depends] hybridid.py
-"""
-Custom neural network layers for the 
-data-based completion of grey-box models 
-using neural networks.
-Pratyush Kumar, pratyushkumar@ucsb.edu
-"""
+# [depends] hybridId.py
 import sys
 import numpy as np
 import tensorflow as tf
-from hybridid import SimData
+from hybridId import SimData
 
-def tanh(x, TF=True, a=1):
-    """ Custom tanh function. """
-    if TF:
+def tanh(x, tF=True, a=1):
+    """ Custom tanh function. The input to tanh 
+        can be scaled if required. """
+    if tF:
         num = tf.math.exp(a*x) - tf.math.exp(-a*x)
         den = tf.math.exp(a*x) + tf.math.exp(-a*x)
     else:
@@ -21,24 +16,28 @@ def tanh(x, TF=True, a=1):
     # Return.
     return num/den
 
-def fnnTF(nnInput, nnLayers):
-    """ Compute the output of the feedforward network. """
+def fnnTf(nnInput, nnLayers):
+    """ Compute the output of a feedforward network, 
+        with tensorflow inputs. """
     nnOutput = nnInput
     for layer in nnLayers:
         nnOutput = layer(nnOutput)
+    # Return the final output.
     return nnOutput
 
 def fnn(nnInput, nnWeights):
-    """ Compute the NN output. """
+    """ Compute the output of a feedforward network, 
+        with inputs and weights as numpy arrays. """
 
-    # Add one extra dimension.
+    # Check that the input has only one dimension, and add one extra.
+    assert nnInput.ndim == 1 
     nnOutput = nnInput[:, np.newaxis]
 
     # Loop over layers.
     for i in range(0, len(nnWeights)-2, 2):
         W, b = nnWeights[i:i+2]
         nnOutput = W.T @ nnOutput + b[:, np.newaxis]
-        nnOutput = tanh(nnOutput, TF=False)
+        nnOutput = tanh(nnOutput, tF=False)
     Wf, bf = nnWeights[-2:]
     
     # Return output in the same number of dimensions as input.
@@ -52,9 +51,10 @@ class BlackBoxCell(tf.keras.layers.AbstractRNNCell):
     """
     RNN Cell
     z = [y_{k-N_p:k-1}', u_{k-N_p:k-1}']'
-    x = [y', z']'
-    y^+ = f_N(x, u)
-    y  = [I, 0]x
+    yz = [y', z']'
+    y^+ = f_N(yz, u)
+    yz^+ = f_z(y, z, u) (Index shifting)
+    y  = [I, 0, 0, ...]yz
     """
     def __init__(self, Np, Ny, Nu, fNLayers, **kwargs):
         super(BlackBoxCell, self).__init__(**kwargs)
@@ -80,26 +80,28 @@ class BlackBoxCell(tf.keras.layers.AbstractRNNCell):
         # Extract important variables.
         [yz] = states
         u = inputs
-        Np, Ny, Nu = self.Np, self.Ny, self.Nu
 
         # Extract elements of the state.
         if Np > 0:
-            (y, ypseq, upseq) = tf.split(yz, [Ny, Np*Ny, Np*Nu],
+            (y, ypseq, upseq) = tf.split(yz, 
+                                         [self.Ny, self.Np*self.Ny, 
+                                          self.Np*self.Nu],
                                          axis=-1)
         else:
             y = yz
 
-        # Get the current output/state and the next time step.
+        # Get the current output/state at the next time step.
         nnInput = tf.concat((yz, u), axis=-1)
-        yplus = fnnTF(nnInput, self.fNLayers)
+        yplus = fnnTf(nnInput, self.fNLayers)
 
+        # Two cases, depending on if past data is included.
         if Np > 0:
             yzplus = tf.concat((yplus, ypseq[..., Ny:], y, upseq[..., Nu:], u),
                                axis=-1)
         else:
             yzplus = yplus
 
-        # Return output and states at the next time-step.
+        # Return output and states at the next time step.
         return (y, yzplus)
 
 class BlackBoxModel(tf.keras.Model):
@@ -129,24 +131,31 @@ class BlackBoxModel(tf.keras.Model):
         super().__init__(inputs=[useq, yz0], outputs=yseq)
 
 def create_model(*, Np, Ny, Nu, fNDims):
-    """ Create/compile the two reaction model for training. """
+    """ Create and compile model for training. """
+    
+    # Create Model.
     model = BlackBoxModel(Np, Ny, Nu, fNDims)
-    # Compile the nn model.
+    
+    # Compile the NN model.
     model.compile(optimizer='adam', loss='mean_squared_error')
-    # Return the compiled model.
+    
+    # Return.
     return model
 
 def train_model(*, model, epochs, batch_size, train_data, trainval_data, 
                    stdout_filename, ckpt_path):
-    """ Function to train the NN controller. """
+    """ Function to train model. """
+
     # Std out.
     sys.stdout = open(stdout_filename, 'w')
-    # Create the checkpoint callback.
+
+    # Create a checkpoint callback.
     checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(filepath=ckpt_path,
                                                     monitor='val_loss',
                                                     save_best_only=True,
                                                     save_weights_only=True,
                                                     verbose=1)
+
     # Call the fit method to train.
     model.fit(x=[train_data['inputs'], train_data['yz0']], 
               y=train_data['outputs'], 
@@ -155,8 +164,8 @@ def train_model(*, model, epochs, batch_size, train_data, trainval_data,
                             trainval_data['outputs']),
             callbacks = [checkpoint_callback])
 
-def get_val_predictions(*, model, val_data, xuyscales, 
-                           xinsert_indices, ckpt_path):
+def get_val_predictions(*, model, val_data, xuyscales,
+                           xinsert_indices, ckpt_path, Delta):
     """ Get the validation predictions. """
 
     # Load best weights.
@@ -168,7 +177,7 @@ def get_val_predictions(*, model, val_data, xuyscales,
     # Scale.
     ymean, ystd = xuyscales['yscale']
     umean, ustd = xuyscales['uscale']
-    ypredictions = model_predictions.squeeze()*ystd + ymean
+    ypredictions = model_predictions.squeeze(axis=0)*ystd + ymean
     uval = val_data['inputs'].squeeze(axis=0)*ustd + umean
 
     # Get xpredictions.
@@ -176,7 +185,8 @@ def get_val_predictions(*, model, val_data, xuyscales,
 
     # Collect data in a Simdata format.
     Nt = uval.shape[0]
-    val_predictions = SimData(t=np.arange(0, Nt, 1), x=xpredictions, 
+    tval = np.arange(0, Nt, Delta)
+    val_predictions = SimData(t=tval, x=xpredictions, 
                               u=uval, y=ypredictions)
 
     # Get prediction error on the validation data.
@@ -222,11 +232,9 @@ def bbnn_fxu(yz, u, parameters):
     xuyscales = parameters['xuyscales']
     ymean, ystd = xuyscales['yscale']
     umean, ustd = xuyscales['uscale']
-    yzmean = np.concatenate((ymean, 
-                             np.tile(ymean, (Np, )), 
+    yzmean = np.concatenate((np.tile(ymean, (Np + 1, )), 
                              np.tile(umean, (Np, ))))
-    yzstd = np.concatenate((ystd, 
-                            np.tile(ystd, (Np, )), 
+    yzstd = np.concatenate((np.tile(ystd, (Np + 1, )), 
                             np.tile(ustd, (Np, ))))
     
     # Scale.
@@ -253,14 +261,9 @@ def bbnn_fxu(yz, u, parameters):
 def bbnn_hx(yz, parameters):
     """ Measurement function. """
     
-    # Extract a few parameters.
-    Np, Ny = parameters['Np'], parameters['Ny']
-    
     # Exctact measurement.
-    if Np > 0:
-        y = yz[:Ny]
-    else:
-        y = yz
+    Ny = parameters['Ny']
+    y = yz[:Ny]
 
-    # Return the measurement.
+    # Return.
     return y
