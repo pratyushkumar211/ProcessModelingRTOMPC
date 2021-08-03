@@ -1,5 +1,3 @@
-# [depends] linNonlinMPC.py
-
 import sys
 import numpy as np
 import mpctools as mpc
@@ -11,12 +9,14 @@ import pickle
 import plottools
 import time
 
+# Custom class to store datasets.
 SimData = collections.namedtuple('SimData',
                                 ['t', 'x', 'u', 'y'])
 
 class PickleTool:
     """Class which contains a few static methods for saving and
     loading pkl data files conveniently."""
+
     @staticmethod
     def load(filename, type='write'):
         """Wrapper to load data."""
@@ -61,69 +61,68 @@ def sample_prbs_like(*, num_change, num_steps,
                              mean_change, sigma_change)
     return np.repeat(values, repeat, axis=0)
 
-def resample_fast(*, x, xDelta, newDelta, resample_type):
-    """ Resample with either first of zero-order hold. """
-    Delta_ratio = int(xDelta/newDelta)
-    if resample_type == 'zoh':
-        return np.repeat(x, Delta_ratio, axis=0)
-    else:
-        x = np.concatenate((x, x[-1, np.newaxis, :]), axis=0)
-        return np.concatenate([np.linspace(x[t, :], x[t+1, :], Delta_ratio)
-                               for t in range(x.shape[0]-1)], axis=0)
-
 def get_scaling(*, data):
     """ Scale the input/output. """
+    
     # Xmean.
     xmean = np.mean(data.x, axis=0)
     xstd = np.std(data.x, axis=0)
+    
     # Umean.
     umean = np.mean(data.u, axis=0)
     ustd = np.std(data.u, axis=0)
+    
     # Ymean.
     ymean = np.mean(data.y, axis=0)
     ystd = np.std(data.y, axis=0)
+    
     # Return.
     return dict(xscale = (xmean, xstd), 
                 uscale = (umean, ustd), 
                 yscale = (ymean, ystd))
 
 def quick_sim(fxu, hx, x0, u):
-    """ Do a quick open-loop simulation. """
+    """ Quick open-loop simulation. """
+
+    # Number of simulation timesteps.
     Nsim = u.shape[0]
     y, x = [], []
-    x.append(x0)
+    x += [x0]
     xt = x0
+    
+    # Run the simulation.
     for t in range(Nsim):
-        y.append(hx(xt))
+        y += [hx(xt)]
         xt = fxu(xt, u[t, :])
-        x.append(xt)
+        x += [xt]
+
+    # Get arrays for measurements and states.
     y = np.asarray(y)
     x = np.asarray(x[:-1])
+
     # Return.
     return x, y
 
 def get_train_val_data(*, tthrow, Np, xuyscales, data_list):
-    """ Get the data for training/validation in appropriate format after 
-        scaling. """
+    """ Get the data for training and validation in 
+        appropriate format after scaling. """
 
     # Get scaling pars.
-    xmean, xstd = xuyscales['xscale']
     umean, ustd = xuyscales['uscale']
     ymean, ystd = xuyscales['yscale']
     Ny, Nu = len(ymean), len(umean)
 
     # Lists to store data.
-    inputs, yz0, yz, x0, outputs = [], [], [], [], []
+    inputs, yz0, yz, outputs = [], [], [], [], []
 
     # Loop through the data list.
     for data in data_list:
         
         # Scale data.
-        x = (data.x - ymean)/ystd
         u = (data.u - umean)/ustd
         y = (data.y - ymean)/ystd
         
-        # Get input/output trajectory.
+        # Get the input and output trajectory.
         u_traj = u[tthrow:, :][np.newaxis, ...]
         y_traj = y[tthrow:, :][np.newaxis, ...]
 
@@ -132,7 +131,6 @@ def get_train_val_data(*, tthrow, Np, xuyscales, data_list):
         up0seq = u[tthrow-Np:tthrow, :].reshape(Np*Nu, )[np.newaxis, :]
         y0 = y[tthrow, np.newaxis, :]
         yz0_traj = np.concatenate((y0, yp0seq, up0seq), axis=-1)
-        x0_traj = x[tthrow, np.newaxis, :]
 
         # Get z_traj.
         Nt = u.shape[0]
@@ -148,29 +146,24 @@ def get_train_val_data(*, tthrow, Np, xuyscales, data_list):
         inputs += [u_traj]
         yz0 += [yz0_traj]
         yz += [yz_traj]
-        x0 += [x0_traj]
         outputs += [y_traj]
     
     # Get the training and validation data for training in compact dicts.
     train_data = dict(inputs=np.concatenate(inputs[:-2], axis=0),
                       yz0=np.concatenate(yz0[:-2], axis=0),
                       yz=np.concatenate(yz[:-2], axis=0),
-                      x0=np.concatenate(x0[:-2], axis=0),
                       outputs=np.concatenate(outputs[:-2], axis=0))
     trainval_data = dict(inputs=inputs[-2], yz0=yz0[-2],
-                          yz=yz[-2], x0=x0[-2], outputs=outputs[-2])
+                          yz=yz[-2], outputs=outputs[-2])
     val_data = dict(inputs=inputs[-1], yz0=yz0[-1],
-                    yz=yz[-1], x0=x0[-1], outputs=outputs[-1])
+                    yz=yz[-1], outputs=outputs[-1])
+    
     # Return.
     return (train_data, trainval_data, val_data)
 
-def measurement(x, parameters):
-    yindices = parameters['yindices']
-    # Return the measurement.
-    return x[yindices]
-
 def get_rectified_xs(*, ode, parameters):
-    """ Get the steady state of the plant. """
+    """ Get a rectified steady state of the plant
+        upto numerical precision. """
 
     # ODE Func.
     ode_func = lambda x, u, p: ode(x, u, p, parameters)
@@ -187,5 +180,6 @@ def get_rectified_xs(*, ode, parameters):
     # Steady state of the plant.
     for _ in range(360):
         xs = model.sim(xs, us, ps)
-    # Return the disturbances.
+
+    # Return.
     return xs
