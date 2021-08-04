@@ -67,6 +67,7 @@ def get_hyb_greybox_pars(*, plant_pars):
     
     # Parameters.
     parameters = {}
+    parameters['V'] = plant_pars['V'] # (volume of the reactor).
 
     # Model dimensions.
     parameters['Nx'] = 3
