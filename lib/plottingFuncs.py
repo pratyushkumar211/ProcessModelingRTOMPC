@@ -1,10 +1,6 @@
-# Pratyush Kumar, pratyushkumar@ucsb.edu
-
 import numpy as np
 import matplotlib.pyplot as plt
-import plottools
 import itertools
-from matplotlib import cm
 
 PRESENTATION_FIGSIZE = (6, 6)
 PAPER_FIGSIZE = (5, 5)
@@ -15,7 +11,7 @@ def get_plotting_arrays(simdata, plot_range):
     u = simdata.u[start:end, :]
     x = simdata.x[start:end, :]
     y = simdata.y[start:end, :]
-    t = simdata.t[start:end]/60 # Convert to hours.
+    t = simdata.t[start:end]
     # Return t, x, y, u.
     return (t, x, y, u)
 
@@ -65,9 +61,13 @@ class TwoReacPlots:
             axes[row].step(t, u[:, 0], color, where='post')
             axes[row].set_ylabel(TwoReacPlots.labels[row])
             axes[row].get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
-            axes[row].set_xlabel('Time (hr)')
-            axes[row].set_xlim([np.min(t), np.max(t)])
+
+            # Store the legend handle.
             legend_handles += handle
+
+        # Overall asthetics of the x axis.
+        axes[row].set_xlabel('Time (hr)')
+        axes[row].set_xlim([np.min(t), np.max(t)])
         
         # Name legends if provided. 
         if legend_names is not None:
@@ -82,163 +82,176 @@ class TwoReacPlots:
     def plot_sscosts(*, us, sscosts, legend_colors, 
                         legend_names, figure_size, 
                         ylabel_xcoordinate, left_label_frac):
-        """ Plot the profit curves. """
+        """ Plot the cost curves. """
+        
+        # Create figure and axes.
         (figure, axes) = plt.subplots(nrows=1, ncols=1, 
                                       sharex=True, 
                                       figsize=figure_size, 
                                       gridspec_kw=dict(left=left_label_frac))
+
+        # X and Y labels.
         xlabel = r'$C_{Afs} \ (\textnormal{mol/m}^3)$'
         ylabel = r'Cost ($\$ $)'
+
+        # Costs and legend colors.
         for (cost, color) in zip(sscosts, legend_colors):
-            # Plot the corresponding data.
+
+            # Plot costs.
             axes.plot(us, cost, color)
+
+        # Legends and labels.        
         axes.legend(legend_names)
         axes.set_xlabel(xlabel)
         axes.set_ylabel(ylabel, rotation=False)
         axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5) 
+        
+        # Limits on x axis.
         axes.set_xlim([np.min(us), np.max(us)])
-        return [figure]
-
-class CstrFlashPlots:
-
-    ylabels = [r'$H_r \ (\textnormal{m})$',
-               r'$C_{Br} \ (\textnormal{mol/m}^3)$', 
-               r'$T_r \ (K)$',
-               r'$H_b \ (\textnormal{m})$',
-               r'$C_{Bb} \ (\textnormal{mol/m}^3)$',
-               r'$T_b \ (K)$']
-
-    xlabels = [r'$H_r \ (\textnormal{m})$',
-               r'$C_{Ar} \ (\textnormal{mol/m}^3)$', 
-               r'$C_{Br} \ (\textnormal{mol/m}^3)$',
-               r'$C_{Cr} \ (\textnormal{mol/m}^3)$',
-               r'$T_r \ (K)$',
-               r'$H_b \ (\textnormal{m})$',
-               r'$C_{Ab} \ (\textnormal{mol/m}^3)$',
-               r'$C_{Bb} \ (\textnormal{mol/m}^3)$',
-               r'$C_{Cb} \ (\textnormal{mol/m}^3)$',
-               r'$T_b \ (K)$']
-
-    ulabels = [r'$F \ (\textnormal{m}^3/\textnormal{min})$',
-               r'$D \ (\textnormal{m}^3/\textnormal{min})$']
-
-    def plot_inputs(t, ulist, figure_size, ylabel_xcoordinate, 
-                    plot_ulabel, legend_names, legend_colors, 
-                    title_loc):
-        """ Plot the training input data. """
-        nrow = len(CstrFlashPlots.ulabels)
-        (figure, axes) = plt.subplots(nrows=nrow, ncols=1,
-                                      sharex=True, figsize=figure_size,
-                                      gridspec_kw=dict(wspace=0.5))
-        legend_handles = []
-        for (u, color) in zip(ulist, legend_colors):
-            for row in range(nrow):
-                handle = axes[row].step(t, u[:, row], color, where='post')
-                axes[row].set_ylabel(CstrFlashPlots.ulabels[row])
-                axes[row].get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
-            axes[row].set_xlabel('Time (hr)')
-            axes[row].set_xlim([np.min(t), np.max(t)])
-            legend_handles += handle
-        if plot_ulabel:
-            figure.legend(handles = legend_handles,
-                        labels = legend_names,
-                        loc = title_loc, ncol=len(legend_names))
-        return [figure]
-
-    def plot_outputs(t, ylist, figure_size, ylabel_xcoordinate,
-                     legend_names, legend_colors, title_loc):
-        """ Plot the training input data."""
-        nrow = len(CstrFlashPlots.ylabels)
-        (figure, axes) = plt.subplots(nrows=nrow, ncols=1,
-                                    sharex=True, figsize=figure_size,
-                                    gridspec_kw=dict(wspace=0.5))
-        legend_handles = []
-        for (y, color) in zip(ylist, legend_colors):
-            for row in range(nrow):
-                handle = axes[row].plot(t, y[:, row], color)
-                axes[row].set_ylabel(CstrFlashPlots.ylabels[row])
-                axes[row].get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
-            axes[row].set_xlabel('Time (hr)')
-            axes[row].set_xlim([np.min(t), np.max(t)])
-            legend_handles += handle
         
-        if legend_names is not None:
-            figure.legend(handles = legend_handles,
-                        labels = legend_names,
-                        loc = title_loc, ncol=len(legend_names))
+        # Return figure.
         return [figure]
 
-    def plot_states(t, xlist, figure_size, ylabel_xcoordinate,
-                    legend_names, legend_colors, title_loc):
-        """ Plot the training outputs. """
-        nrow, ncol = 5, 2
-        (figure, axes) = plt.subplots(nrows=nrow, ncols=ncol,
-                                      sharex=True, figsize=figure_size,
-                                      gridspec_kw=dict(wspace=0.5))
-        legend_handles = []
-        for (x, color) in zip(xlist, legend_colors):
-            state_index = 0
-            for row, col in itertools.product(range(nrow), range(ncol)):
-                handle = axes[row, col].plot(t, x[:, state_index], color)
-                axes[row, col].set_ylabel(CstrFlashPlots.xlabels[state_index])
-                axes[row, col].get_yaxis().set_label_coords(ylabel_xcoordinate, 
-                                                            0.5)
-                if row == nrow - 1:
-                    axes[row, col].set_xlabel('Time (hr)')
-                    axes[row, col].set_xlim([np.min(t), np.max(t)])
-                state_index += 1
-            legend_handles += handle
-        if legend_names is not None:
-            figure.legend(handles = legend_handles,
-                        labels = legend_names,
-                        loc = title_loc, ncol=len(legend_names))
-        return [figure]
+# class CstrFlashPlots:
 
-    @staticmethod
-    def plot_data(*, t, ulist, ylist, xlist,
-                     figure_size, u_ylabel_xcoordinate, 
-                     x_ylabel_xcoordinate, legend_names, 
-                     legend_colors, title_loc, y_ylabel_xcoordinate=None, 
-                     plot_y=True, plot_ulabel=True):
-        figures = []
-        figures += CstrFlashPlots.plot_inputs(t, ulist, figure_size, 
-                               u_ylabel_xcoordinate,
-                               plot_ulabel, legend_names, legend_colors, 
-                               title_loc)
-        if plot_y:
-            figures += CstrFlashPlots.plot_outputs(t, ylist, figure_size, 
-                                   y_ylabel_xcoordinate, legend_names, 
-                                   legend_colors, title_loc)
-        figures += CstrFlashPlots.plot_states(t, xlist, figure_size, 
-                               x_ylabel_xcoordinate, legend_names, 
-                               legend_colors, title_loc)
+#     ylabels = [r'$H_r \ (\textnormal{m})$',
+#                r'$C_{Br} \ (\textnormal{mol/m}^3)$', 
+#                r'$T_r \ (K)$',
+#                r'$H_b \ (\textnormal{m})$',
+#                r'$C_{Bb} \ (\textnormal{mol/m}^3)$',
+#                r'$T_b \ (K)$']
 
-        # Return the figure object.
-        return figures
+#     xlabels = [r'$H_r \ (\textnormal{m})$',
+#                r'$C_{Ar} \ (\textnormal{mol/m}^3)$', 
+#                r'$C_{Br} \ (\textnormal{mol/m}^3)$',
+#                r'$C_{Cr} \ (\textnormal{mol/m}^3)$',
+#                r'$T_r \ (K)$',
+#                r'$H_b \ (\textnormal{m})$',
+#                r'$C_{Ab} \ (\textnormal{mol/m}^3)$',
+#                r'$C_{Bb} \ (\textnormal{mol/m}^3)$',
+#                r'$C_{Cb} \ (\textnormal{mol/m}^3)$',
+#                r'$T_b \ (K)$']
 
-    @staticmethod
-    def plot_sscosts(*, us1, us2, sscost, figure_size):
-        """ Plot the profit curves. """
+#     ulabels = [r'$F \ (\textnormal{m}^3/\textnormal{min})$',
+#                r'$D \ (\textnormal{m}^3/\textnormal{min})$']
 
-        figure, axes = plt.subplots(nrows=1, ncols=1, 
-                                subplot_kw=dict(projection="3d"))
+#     def plot_inputs(t, ulist, figure_size, ylabel_xcoordinate, 
+#                     plot_ulabel, legend_names, legend_colors, 
+#                     title_loc):
+#         """ Plot the training input data. """
+#         nrow = len(CstrFlashPlots.ulabels)
+#         (figure, axes) = plt.subplots(nrows=nrow, ncols=1,
+#                                       sharex=True, figsize=figure_size,
+#                                       gridspec_kw=dict(wspace=0.5))
+#         legend_handles = []
+#         for (u, color) in zip(ulist, legend_colors):
+#             for row in range(nrow):
+#                 handle = axes[row].step(t, u[:, row], color, where='post')
+#                 axes[row].set_ylabel(CstrFlashPlots.ulabels[row])
+#                 axes[row].get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
+#             axes[row].set_xlabel('Time (hr)')
+#             axes[row].set_xlim([np.min(t), np.max(t)])
+#             legend_handles += handle
+#         if plot_ulabel:
+#             figure.legend(handles = legend_handles,
+#                         labels = legend_names,
+#                         loc = title_loc, ncol=len(legend_names))
+#         return [figure]
 
-        xlabel = r'$F \ (\textnormal{m}^3/\textnormal{min})$'
-        ylabel = r'$D \ (\textnormal{m}^3/\textnormal{min})$'
-        zlabel = r'Cost ($\$ $)'
-
-        # Make the surface plot.
-        surf = axes.plot_surface(us1, us2, sscost, 
-                                    cmap=cm.viridis, 
-                                    shade=True)
-        #axes.view_init(10, -50)
+#     def plot_outputs(t, ylist, figure_size, ylabel_xcoordinate,
+#                      legend_names, legend_colors, title_loc):
+#         """ Plot the training input data."""
+#         nrow = len(CstrFlashPlots.ylabels)
+#         (figure, axes) = plt.subplots(nrows=nrow, ncols=1,
+#                                     sharex=True, figsize=figure_size,
+#                                     gridspec_kw=dict(wspace=0.5))
+#         legend_handles = []
+#         for (y, color) in zip(ylist, legend_colors):
+#             for row in range(nrow):
+#                 handle = axes[row].plot(t, y[:, row], color)
+#                 axes[row].set_ylabel(CstrFlashPlots.ylabels[row])
+#                 axes[row].get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
+#             axes[row].set_xlabel('Time (hr)')
+#             axes[row].set_xlim([np.min(t), np.max(t)])
+#             legend_handles += handle
         
-        figure.colorbar(surf)
-        figure.tight_layout()
-        axes.set_xlabel(xlabel)
-        axes.set_ylabel(ylabel)
-        axes.set_zlabel(zlabel, rotation=False)
-        return [figure]
+#         if legend_names is not None:
+#             figure.legend(handles = legend_handles,
+#                         labels = legend_names,
+#                         loc = title_loc, ncol=len(legend_names))
+#         return [figure]
+
+#     def plot_states(t, xlist, figure_size, ylabel_xcoordinate,
+#                     legend_names, legend_colors, title_loc):
+#         """ Plot the training outputs. """
+#         nrow, ncol = 5, 2
+#         (figure, axes) = plt.subplots(nrows=nrow, ncols=ncol,
+#                                       sharex=True, figsize=figure_size,
+#                                       gridspec_kw=dict(wspace=0.5))
+#         legend_handles = []
+#         for (x, color) in zip(xlist, legend_colors):
+#             state_index = 0
+#             for row, col in itertools.product(range(nrow), range(ncol)):
+#                 handle = axes[row, col].plot(t, x[:, state_index], color)
+#                 axes[row, col].set_ylabel(CstrFlashPlots.xlabels[state_index])
+#                 axes[row, col].get_yaxis().set_label_coords(ylabel_xcoordinate, 
+#                                                             0.5)
+#                 if row == nrow - 1:
+#                     axes[row, col].set_xlabel('Time (hr)')
+#                     axes[row, col].set_xlim([np.min(t), np.max(t)])
+#                 state_index += 1
+#             legend_handles += handle
+#         if legend_names is not None:
+#             figure.legend(handles = legend_handles,
+#                         labels = legend_names,
+#                         loc = title_loc, ncol=len(legend_names))
+#         return [figure]
+
+#     @staticmethod
+#     def plot_data(*, t, ulist, ylist, xlist,
+#                      figure_size, u_ylabel_xcoordinate, 
+#                      x_ylabel_xcoordinate, legend_names, 
+#                      legend_colors, title_loc, y_ylabel_xcoordinate=None, 
+#                      plot_y=True, plot_ulabel=True):
+#         figures = []
+#         figures += CstrFlashPlots.plot_inputs(t, ulist, figure_size, 
+#                                u_ylabel_xcoordinate,
+#                                plot_ulabel, legend_names, legend_colors, 
+#                                title_loc)
+#         if plot_y:
+#             figures += CstrFlashPlots.plot_outputs(t, ylist, figure_size, 
+#                                    y_ylabel_xcoordinate, legend_names, 
+#                                    legend_colors, title_loc)
+#         figures += CstrFlashPlots.plot_states(t, xlist, figure_size, 
+#                                x_ylabel_xcoordinate, legend_names, 
+#                                legend_colors, title_loc)
+
+#         # Return the figure object.
+#         return figures
+
+#     @staticmethod
+#     def plot_sscosts(*, us1, us2, sscost, figure_size):
+#         """ Plot the profit curves. """
+
+#         figure, axes = plt.subplots(nrows=1, ncols=1, 
+#                                 subplot_kw=dict(projection="3d"))
+
+#         xlabel = r'$F \ (\textnormal{m}^3/\textnormal{min})$'
+#         ylabel = r'$D \ (\textnormal{m}^3/\textnormal{min})$'
+#         zlabel = r'Cost ($\$ $)'
+
+#         # Make the surface plot.
+#         surf = axes.plot_surface(us1, us2, sscost, 
+#                                     cmap=cm.viridis, 
+#                                     shade=True)
+#         #axes.view_init(10, -50)
+        
+#         figure.colorbar(surf)
+#         figure.tight_layout()
+#         axes.set_xlabel(xlabel)
+#         axes.set_ylabel(ylabel)
+#         axes.set_zlabel(zlabel, rotation=False)
+#         return [figure]
 
 def plotAvgCosts(*, t, stageCostList,
                       legend_colors, legend_names, 
