@@ -1,4 +1,3 @@
-# [depends] economicopt.py
 import sys
 import numpy as np
 import mpctools as mpc
@@ -1288,8 +1287,10 @@ def getSSOptimum(*, fxu, hx, lyu, parameters, guess):
     return xs, us, ys, opt_sscost
 
 def getXsYsSscost(*, fxu, hx, us, parameters, lyu=None,
-                   xguess=None, lbx=None, ubx=None):
-    """ Setup and solve the steady state optimization. """
+                     xguess=None, lbx=None, ubx=None):
+    """ Setup and solve the steady state optimization. 
+        fxu is in discrete-time.
+    """
 
     # Sizes.
     Nx, Nu = parameters['Nx'], parameters['Nu']

@@ -9,7 +9,7 @@ import collections
 import pickle
 import plottools
 import time
-from linNonlinMPC import getXsYsSscost
+from linNonlinMPC import getXsYsSscost, c2dNonlin
 
 # Custom class to store datasets.
 SimData = collections.namedtuple('SimData',
@@ -188,13 +188,19 @@ def get_rectified_xs(*, ode, parameters):
 
 def genPlantSsdata(*, fxu, hx, parameters, Ndata,
                       xguess=None, seed=10):
-    """ Function to generate data to train the ICNN. """
+    """ Function to generate steady state data for the plant model. 
+        fxu: plant model in continous time.
+    """
 
     # Set numpy seed.
     np.random.seed(seed)
 
+    # Convert plant model to discrete time. 
+    Delta = parameters['Delta']
+    fxu_dt = c2dNonlin(fxu, Delta)
+
     # Get a list of random inputs.
-    Nu = parameters['Nu']
+    Ny, Nu = parameters['Ny'], parameters['Nu']
     ulb, uub = parameters['ulb'], parameters['uub']
     us_list = list((uub-ulb)*np.random.rand(Ndata, Nu) + ulb)
 
@@ -205,7 +211,7 @@ def genPlantSsdata(*, fxu, hx, parameters, Ndata,
     for us in us_list:
 
         # Solve the steady state equation.
-        xs, ys, _ = getXsYsSscost(fxu=fxu, hx=hx, lyu=cost_yu, 
+        xs, ys, _ = getXsYsSscost(fxu=fxu_dt, hx=hx, lyu=None, 
                                   us=us, parameters=parameters, 
                                   xguess=xguess)
         xs_list += [xs]
@@ -218,8 +224,11 @@ def genPlantSsdata(*, fxu, hx, parameters, Ndata,
 
     # Add measurement noise to y.
     Rv = parameters['Rv']
-    ynoise_std = np.sqrt(np.diag(Rv)[:, np.newaxis])
+    ynoise_std = np.sqrt(np.diag(Rv))
     y += ynoise_std*np.random.randn(Ndata, Ny)
 
+    # Create a dictionary.
+    ss_data = dict(us=u, xs=x, ys=y)
+
     # Return.
-    return u, x, y
+    return ss_data
