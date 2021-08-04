@@ -77,7 +77,8 @@ def main():
     hx = lambda x: x[plant_pars['yindices']]
     fxu = lambda x, u: plant_ode(x, u, plant_pars['ps'], plant_pars)
     training_data_ss = genPlantSsdata(fxu=fxu, hx=hx, parameters=plant_pars, 
-                                 Ndata=1500, xguess=plant_pars['xs'], seed=10)
+                                      Ndata=1500, xguess=plant_pars['xs'], 
+                                      seed=10)
 
     # Generate training data.
     training_data_dyn = gen_train_val_data(parameters=plant_pars,

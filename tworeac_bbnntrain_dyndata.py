@@ -23,7 +23,8 @@ def main():
     plant_pars = tworeac_parameters['plant_pars']
     Ny, Nu = plant_pars['Ny'], plant_pars['Nu']
     training_data = tworeac_parameters['training_data_dyn']
-    
+    Delta = plant_pars['Delta']
+
     # Number of samples.
     num_samples = [hours*60 for hours in [6]]
 
@@ -48,6 +49,11 @@ def main():
                                                     Np=Np, xuyscales=xuyscales,
                                                     data_list=training_data)
 
+    # Make dictionary keys compatible with black box functions.
+    train_data['yz0'] = train_data.pop('x0')
+    trainval_data['yz0'] = trainval_data.pop('x0')
+    val_data['yz0'] = val_data.pop('x0')
+
     # Loop over the number of samples.
     for num_sample in num_samples:
         
@@ -68,7 +74,8 @@ def main():
         (val_prediction, val_metric) = get_val_predictions(model=model,
                                         val_data=val_data, xuyscales=xuyscales, 
                                         xinsert_indices=ypred_xinsert_indices, 
-                                        ckpt_path=ckpt_path)
+                                        ckpt_path=ckpt_path, 
+                                        Delta=Delta)
 
         # Get weights to store.
         fNWeights = model.get_weights()

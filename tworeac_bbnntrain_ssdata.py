@@ -31,7 +31,7 @@ def main():
     # Create some parameters.
     ypred_xinsert_indices = []
     Np = 0
-    fNDims = [Ny + Np*(Ny+Nu), 8, 8, Ny]
+    fNDims = [Ny + Nu + Np*(Ny+Nu), 16, Ny]
 
     # Create lists to store data.
     trained_weights = []
@@ -67,7 +67,7 @@ def main():
                              outputs=train_data['outputs'])
 
         # Train.
-        train_model(model=model, epochs=1000, batch_size=64, 
+        train_model(model=model, epochs=500, batch_size=64, 
                       train_data=train_samples, trainval_data=trainval_data, 
                       stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 
@@ -79,6 +79,7 @@ def main():
 
         # Get weights to store.
         fNWeights = model.get_weights()
+        breakpoint()
 
         # Save info.
         val_predictions.append(val_prediction)

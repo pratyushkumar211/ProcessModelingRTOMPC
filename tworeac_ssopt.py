@@ -42,7 +42,7 @@ def main():
                                          'tworeac_parameters.pickle',
                                          type='read')
     tworeac_bbnntrain = PickleTool.load(filename=
-                                    'tworeac_bbnntrain_ssdata.pickle',
+                                    'tworeac_bbnntrain_dyndata.pickle',
                                       type='read')
     # tworeac_hybtrain = PickleTool.load(filename=
     #                                   'tworeac_hybtrain.pickle',
