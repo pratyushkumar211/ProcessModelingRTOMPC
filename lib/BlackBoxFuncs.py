@@ -82,7 +82,7 @@ class BlackBoxCell(tf.keras.layers.AbstractRNNCell):
         u = inputs
 
         # Extract elements of the state.
-        if Np > 0:
+        if self.Np > 0:
             (y, ypseq, upseq) = tf.split(yz, 
                                          [self.Ny, self.Np*self.Ny, 
                                           self.Np*self.Nu],
@@ -95,7 +95,7 @@ class BlackBoxCell(tf.keras.layers.AbstractRNNCell):
         yplus = fnnTf(nnInput, self.fNLayers)
 
         # Two cases, depending on if past data is included.
-        if Np > 0:
+        if self.Np > 0:
             yzplus = tf.concat((yplus, ypseq[..., Ny:], y, upseq[..., Nu:], u),
                                axis=-1)
         else:
@@ -177,8 +177,8 @@ def get_val_predictions(*, model, val_data, xuyscales,
     # Scale.
     ymean, ystd = xuyscales['yscale']
     umean, ustd = xuyscales['uscale']
-    ypredictions = model_predictions.squeeze(axis=0)*ystd + ymean
-    uval = val_data['inputs'].squeeze(axis=0)*ustd + umean
+    ypredictions = model_predictions*ystd + ymean
+    uval = val_data['inputs']*ustd + umean
 
     # Get xpredictions.
     xpredictions = np.insert(ypredictions, xinsert_indices, np.nan, axis=1)

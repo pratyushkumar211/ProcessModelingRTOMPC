@@ -173,16 +173,16 @@ def get_ss_train_val_data(*, xuyscales, training_data,
     Ny, Nu = len(ymean), len(umean)
 
     # Lists to store data.
-    inputs, x0, outputs = [], [], [], []
+    inputs, x0, outputs = [], [], []
     
     # Scale data.
-    u = (data.u - umean)/ustd
-    y = (data.y - ymean)/ystd
+    u = (training_data.u - umean)/ustd
+    y = (training_data.y - ymean)/ystd
     
     # Get the input and output trajectory.
+    x0 = y
     u = np.repeat(u[:, np.newaxis, :], Nt, axis=1)
     y = np.repeat(y[:, np.newaxis, :], Nt, axis=1)
-    x0 = y
 
     # Now split the data.
     train_frac, trainval_frac, val_frac = datasize_fracs
@@ -197,9 +197,9 @@ def get_ss_train_val_data(*, xuyscales, training_data,
     x0 = np.split(x0, [Ntrain, Ntrain + Ntrainval, ], axis=0)
 
     # Get dictionaries of data.
-    train_data = dict(inputs=u[0], x0=x0[0], output=y[0])
-    trainval_data = dict(inputs=u[1], x0=x0[1], output=y[1])
-    val_data = dict(inputs=u[2], x0=x0[2], output=y[2])
+    train_data = dict(inputs=u[0], x0=x0[0], outputs=y[0])
+    trainval_data = dict(inputs=u[1], x0=x0[1], outputs=y[1])
+    val_data = dict(inputs=u[2], x0=x0[2], outputs=y[2])
     
     # Return.
     return train_data, trainval_data, val_data
@@ -247,7 +247,7 @@ def genPlantSsdata(*, fxu, hx, parameters, Ndata,
 
     # Get a list to store the steady state costs.
     xs_list, ys_list = [], []
-
+    
     # Loop over all the generated us.
     for us in us_list:
 

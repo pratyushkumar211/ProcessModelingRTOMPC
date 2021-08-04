@@ -1,16 +1,12 @@
-# [depends] %LIB%/hybridid.py %LIB%/BlackBoxFuncs.py
+# [depends] %LIB%/hybridId.py %LIB%/BlackBoxFuncs.py
 # [depends] tworeac_parameters.pickle
 # [makes] pickle
-""" Script to train the hybrid model for the 
-    three reaction system. 
-    Pratyush Kumar, pratyushkumar@ucsb.edu """
-
 import sys
 sys.path.append('lib/')
 import tensorflow as tf
 import time
 import numpy as np
-from hybridid import PickleTool, get_scaling, get_train_val_data
+from hybridId import PickleTool, get_scaling, get_train_val_data
 from BlackBoxFuncs import (create_model, train_model, 
                            get_val_predictions)
 
@@ -23,10 +19,10 @@ def main():
     tworeac_parameters = PickleTool.load(filename='tworeac_parameters.pickle',
                                          type='read')
 
-    # Get sizes/raw training data.
+    # Get sizes and raw training data.
     plant_pars = tworeac_parameters['plant_pars']
     Ny, Nu = plant_pars['Ny'], plant_pars['Nu']
-    training_data = tworeac_parameters['training_data']
+    training_data = tworeac_parameters['training_data_dyn']
     
     # Number of samples.
     num_samples = [hours*60 for hours in [6]]
@@ -43,14 +39,14 @@ def main():
     val_predictions = []
 
     # Filenames.
-    ckpt_path = 'tworeac_bbnntrain.ckpt'
-    stdout_filename = 'tworeac_bbnntrain.txt'
+    ckpt_path = 'tworeac_bbnntrain_dyndata.ckpt'
+    stdout_filename = 'tworeac_bbnntrain_dyndata.txt'
 
     # Get scaling and the training data.
     xuyscales = get_scaling(data=training_data[0])
-    (train_data, trainval_data, val_data) = get_train_val_data(tthrow=tthrow,
-                                            Np=Np, xuyscales=xuyscales,
-                                            data_list=training_data)
+    train_data, trainval_data, val_data = get_train_val_data(tthrow=tthrow,
+                                                    Np=Np, xuyscales=xuyscales,
+                                                    data_list=training_data)
 
     # Loop over the number of samples.
     for num_sample in num_samples:
@@ -95,6 +91,6 @@ def main():
     
     # Save data.
     PickleTool.save(data_object=tworeac_train,
-                    filename='tworeac_bbnntrain.pickle')
+                    filename='tworeac_bbnntrain_dyndata.pickle')
 
 main()

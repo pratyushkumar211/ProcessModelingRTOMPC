@@ -76,11 +76,11 @@ def main():
     # Get steady-state training data.
     hx = lambda x: x[plant_pars['yindices']]
     fxu = lambda x, u: plant_ode(x, u, plant_pars['ps'], plant_pars)
-    training_ss = genPlantSsdata(fxu=fxu, hx=hx, parameters=plant_pars, 
-                                 Ndata=300, xguess=plant_pars['xs'], seed=10)
+    training_data_ss = genPlantSsdata(fxu=fxu, hx=hx, parameters=plant_pars, 
+                                 Ndata=1500, xguess=plant_pars['xs'], seed=10)
 
     # Generate training data.
-    training_dyn = gen_train_val_data(parameters=plant_pars,
+    training_data_dyn = gen_train_val_data(parameters=plant_pars,
                                       num_traj=4, Nsim_train=300,
                                       Nsim_trainval=240, Nsim_val=360,
                                       seed=103)
@@ -88,8 +88,8 @@ def main():
     # Get the dictionary.
     tworeac_parameters = dict(plant_pars = plant_pars,
                               hyb_greybox_pars = hyb_greybox_pars,
-                              training_ss = training_ss, 
-                              training_dyn = training_dyn)
+                              training_data_ss = training_data_ss, 
+                              training_data_dyn = training_data_dyn)
     
     # Save data.
     PickleTool.save(data_object=tworeac_parameters,

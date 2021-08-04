@@ -1,41 +1,37 @@
-# [depends] %LIB%/hybridid.py %LIB%/BlackBoxFuncs.py
+# [depends] %LIB%/hybridId.py %LIB%/BlackBoxFuncs.py
 # [depends] tworeac_parameters.pickle
 # [makes] pickle
-""" Script to train the hybrid model for the 
-    three reaction system. 
-    Pratyush Kumar, pratyushkumar@ucsb.edu """
-
 import sys
 sys.path.append('lib/')
 import tensorflow as tf
 import time
 import numpy as np
-from hybridid import PickleTool, get_scaling, get_train_val_data
-from BlackBoxFuncs import (create_model, train_model, 
-                           get_val_predictions)
+from hybridId import PickleTool, get_scaling, get_ss_train_val_data
+from BlackBoxFuncs import create_model, train_model, get_val_predictions
 
 # Set the tensorflow global and graph-level seed.
 tf.random.set_seed(123)
 
 def main():
     """ Main function to be executed. """
+
     # Load data.
     tworeac_parameters = PickleTool.load(filename='tworeac_parameters.pickle',
                                          type='read')
 
-    # Get sizes/raw training data.
+    # Get the sizes and raw training data.
     plant_pars = tworeac_parameters['plant_pars']
     Ny, Nu = plant_pars['Ny'], plant_pars['Nu']
-    training_data = tworeac_parameters['training_data']
-    
+    training_data = tworeac_parameters['training_data_ss']
+    Delta = plant_pars['Delta']
+
     # Number of samples.
-    num_samples = [hours*60 for hours in [6]]
+    num_samples = [300]
 
     # Create some parameters.
     ypred_xinsert_indices = []
-    tthrow = 10
     Np = 0
-    fNDims = [Ny + Np*(Ny+Nu), 16, Ny]
+    fNDims = [Ny + Np*(Ny+Nu), 8, 8, Ny]
 
     # Create lists to store data.
     trained_weights = []
@@ -43,14 +39,21 @@ def main():
     val_predictions = []
 
     # Filenames.
-    ckpt_path = 'tworeac_bbnntrain.ckpt'
-    stdout_filename = 'tworeac_bbnntrain.txt'
+    ckpt_path = 'tworeac_bbnntrain_ssdata.ckpt'
+    stdout_filename = 'tworeac_bbnntrain_ssdata.txt'
 
     # Get scaling and the training data.
-    xuyscales = get_scaling(data=training_data[0])
-    (train_data, trainval_data, val_data) = get_train_val_data(tthrow=tthrow,
-                                            Np=Np, xuyscales=xuyscales,
-                                            data_list=training_data)
+    datasize_fracs = [0.7, 0.15, 0.15]
+    xuyscales = get_scaling(data=training_data)
+    (train_data, trainval_data, 
+     val_data) = get_ss_train_val_data(xuyscales=xuyscales,
+                                       training_data=training_data, 
+                                       datasize_fracs=datasize_fracs)
+
+    # Make dictionary keys compatible with black box functions.
+    train_data['yz0'] = train_data.pop('x0')
+    trainval_data['yz0'] = trainval_data.pop('x0')
+    val_data['yz0'] = val_data.pop('x0')
 
     # Loop over the number of samples.
     for num_sample in num_samples:
@@ -64,7 +67,7 @@ def main():
                              outputs=train_data['outputs'])
 
         # Train.
-        train_model(model=model, epochs=10000, batch_size=1, 
+        train_model(model=model, epochs=1000, batch_size=64, 
                       train_data=train_samples, trainval_data=trainval_data, 
                       stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 
@@ -72,7 +75,7 @@ def main():
         (val_prediction, val_metric) = get_val_predictions(model=model,
                                         val_data=val_data, xuyscales=xuyscales, 
                                         xinsert_indices=ypred_xinsert_indices, 
-                                        ckpt_path=ckpt_path)
+                                        ckpt_path=ckpt_path, Delta=Delta)
 
         # Get weights to store.
         fNWeights = model.get_weights()
@@ -95,6 +98,6 @@ def main():
     
     # Save data.
     PickleTool.save(data_object=tworeac_train,
-                    filename='tworeac_bbnntrain.pickle')
+                    filename='tworeac_bbnntrain_ssdata.pickle')
 
 main()
