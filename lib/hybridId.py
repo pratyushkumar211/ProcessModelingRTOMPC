@@ -115,7 +115,7 @@ def get_train_val_data(*, tthrow, Np, xuyscales, data_list):
     Ny, Nu = len(ymean), len(umean)
 
     # Lists to store data.
-    inputs, yz0, yz, outputs = [], [], [], [], []
+    inputs, x0, outputs = [], [], []
 
     # Loop through the data list.
     for data in data_list:
@@ -129,39 +129,80 @@ def get_train_val_data(*, tthrow, Np, xuyscales, data_list):
         y_traj = y[tthrow:, :][np.newaxis, ...]
 
         # Get initial states.
-        yp0seq = y[tthrow-Np:tthrow, :].reshape(Np*Ny, )[np.newaxis, :]
-        up0seq = u[tthrow-Np:tthrow, :].reshape(Np*Nu, )[np.newaxis, :]
-        y0 = y[tthrow, np.newaxis, :]
-        yz0_traj = np.concatenate((y0, yp0seq, up0seq), axis=-1)
+        # yp0seq = y[tthrow-Np:tthrow, :].reshape(Np*Ny, )[np.newaxis, :]
+        # up0seq = u[tthrow-Np:tthrow, :].reshape(Np*Nu, )[np.newaxis, :]
+        x0_traj = y[tthrow, np.newaxis, :]
+        # yz0_traj = np.concatenate((y0, yp0seq, up0seq), axis=-1)
 
         # Get z_traj.
-        Nt = u.shape[0]
-        z_traj = []
-        for t in range(tthrow, Nt):
-            ypseq = y[t-Np:t, :].reshape(Np*Ny, )[np.newaxis, :]
-            upseq = u[t-Np:t, :].reshape(Np*Nu, )[np.newaxis, :]
-            z_traj += [np.concatenate((ypseq, upseq), axis=-1)]
-        z_traj = np.concatenate(z_traj, axis=0)[np.newaxis, ...]
-        yz_traj = np.concatenate((y_traj, z_traj), axis=-1)
+        # Nt = u.shape[0]
+        # z_traj = []
+        # for t in range(tthrow, Nt):
+        #    ypseq = y[t-Np:t, :].reshape(Np*Ny, )[np.newaxis, :]
+        #    upseq = u[t-Np:t, :].reshape(Np*Nu, )[np.newaxis, :]
+        #    z_traj += [np.concatenate((ypseq, upseq), axis=-1)]
+        # z_traj = np.concatenate(z_traj, axis=0)[np.newaxis, ...]
+        # yz_traj = np.concatenate((y_traj, z_traj), axis=-1)
 
         # Collect the trajectories in list.
         inputs += [u_traj]
-        yz0 += [yz0_traj]
-        yz += [yz_traj]
+        x0 += [x0_traj]
+        # yz += [yz_traj]
         outputs += [y_traj]
     
     # Get the training and validation data for training in compact dicts.
     train_data = dict(inputs=np.concatenate(inputs[:-2], axis=0),
-                      yz0=np.concatenate(yz0[:-2], axis=0),
-                      yz=np.concatenate(yz[:-2], axis=0),
+                      x0=np.concatenate(x0[:-2], axis=0),
                       outputs=np.concatenate(outputs[:-2], axis=0))
-    trainval_data = dict(inputs=inputs[-2], yz0=yz0[-2],
-                          yz=yz[-2], outputs=outputs[-2])
-    val_data = dict(inputs=inputs[-1], yz0=yz0[-1],
-                    yz=yz[-1], outputs=outputs[-1])
+    trainval_data = dict(inputs=inputs[-2], x0=x0[-2],
+                          outputs=outputs[-2])
+    val_data = dict(inputs=inputs[-1], x0=x0[-1],
+                    outputs=outputs[-1])
     
     # Return.
     return (train_data, trainval_data, val_data)
+
+def get_ss_train_val_data(*, xuyscales, training_data, 
+                             datasize_fracs, Nt=2):
+    """ Get steady state-data for training and validation in 
+        appropriate format after scaling. """
+
+    # Get scaling pars.
+    umean, ustd = xuyscales['uscale']
+    ymean, ystd = xuyscales['yscale']
+    Ny, Nu = len(ymean), len(umean)
+
+    # Lists to store data.
+    inputs, x0, outputs = [], [], [], []
+    
+    # Scale data.
+    u = (data.u - umean)/ustd
+    y = (data.y - ymean)/ystd
+    
+    # Get the input and output trajectory.
+    u = np.repeat(u[:, np.newaxis, :], Nt, axis=1)
+    y = np.repeat(y[:, np.newaxis, :], Nt, axis=1)
+    x0 = y
+
+    # Now split the data.
+    train_frac, trainval_frac, val_frac = datasize_fracs
+    Ndata = u.shape[0]
+    Ntrain = int(Ndata*train_frac)
+    Ntrainval = int(Ndata*trainval_frac)
+    Nval = int(Ndata*val_frac)
+
+    # Get the three types of data.
+    u = np.split(u, [Ntrain, Ntrain + Ntrainval, ], axis=0)
+    y = np.split(y, [Ntrain, Ntrain + Ntrainval, ], axis=0)
+    x0 = np.split(x0, [Ntrain, Ntrain + Ntrainval, ], axis=0)
+
+    # Get dictionaries of data.
+    train_data = dict(inputs=u[0], x0=x0[0], output=y[0])
+    trainval_data = dict(inputs=u[1], x0=x0[1], output=y[1])
+    val_data = dict(inputs=u[2], x0=x0[2], output=y[2])
+    
+    # Return.
+    return train_data, trainval_data, val_data
 
 def get_rectified_xs(*, ode, parameters):
     """ Get a rectified steady state of the plant
@@ -228,7 +269,7 @@ def genPlantSsdata(*, fxu, hx, parameters, Ndata,
     y += ynoise_std*np.random.randn(Ndata, Ny)
 
     # Create a dictionary.
-    ss_data = dict(us=u, xs=x, ys=y)
+    ss_data = SimData(t=None, u=u, x=x, y=y)
 
     # Return.
     return ss_data
