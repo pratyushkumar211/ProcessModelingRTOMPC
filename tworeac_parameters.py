@@ -84,7 +84,7 @@ def main():
                                       num_traj=4, Nsim_train=300,
                                       Nsim_trainval=240, Nsim_val=360,
                                       seed=103)
-    breakpoint()
+
     # Get the dictionary.
     tworeac_parameters = dict(plant_pars = plant_pars,
                               hyb_greybox_pars = hyb_greybox_pars,
