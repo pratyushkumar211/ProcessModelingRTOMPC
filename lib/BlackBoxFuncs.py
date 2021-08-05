@@ -177,15 +177,15 @@ def get_val_predictions(*, model, val_data, xuyscales,
     # Scale.
     ymean, ystd = xuyscales['yscale']
     umean, ustd = xuyscales['uscale']
-    ypredictions = model_predictions*ystd + ymean
-    uval = val_data['inputs']*ustd + umean
+    ypredictions = model_predictions.squeeze(axis=0)*ystd + ymean
+    uval = val_data['inputs'].squeeze(axis=0)*ustd + umean
 
     # Get xpredictions.
     xpredictions = np.insert(ypredictions, xinsert_indices, np.nan, axis=1)
 
     # Collect data in a Simdata format.
     Nt = uval.shape[0]
-    tval = np.arange(0, Nt, Delta)
+    tval = np.arange(0, Nt*Delta, Delta)
     val_predictions = SimData(t=tval, x=xpredictions, 
                               u=uval, y=ypredictions)
 

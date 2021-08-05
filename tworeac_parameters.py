@@ -31,23 +31,23 @@ def gen_train_val_data(*, parameters, num_traj,
         if traj == num_traj-1:
             " Get input for train val simulation. "
             Nsim = Nsim_val
-            u = sample_prbs_like(num_change=6, num_steps=Nsim_val, 
+            u = sample_prbs_like(num_change=9, num_steps=Nsim_val, 
                                  lb=ulb, ub=uub,
-                                 mean_change=60, sigma_change=10, 
+                                 mean_change=40, sigma_change=10, 
                                  seed=seed+1)
         elif traj == num_traj-2:
             " Get input for validation simulation. "
             Nsim = Nsim_trainval
-            u = sample_prbs_like(num_change=8, num_steps=Nsim_trainval, 
+            u = sample_prbs_like(num_change=6, num_steps=Nsim_trainval, 
                                  lb=ulb, ub=uub,
-                                 mean_change=30, sigma_change=10, 
+                                 mean_change=40, sigma_change=10, 
                                  seed=seed+2)
         else:
             " Get input for training simulation. "
             Nsim = Nsim_train
-            u = sample_prbs_like(num_change=10, num_steps=Nsim_train, 
+            u = sample_prbs_like(num_change=6, num_steps=Nsim_train, 
                                  lb=ulb, ub=uub,
-                                 mean_change=30, sigma_change=10, 
+                                 mean_change=40, sigma_change=10, 
                                  seed=seed+3)
 
         seed += 1
@@ -74,22 +74,21 @@ def main():
     hyb_greybox_pars = get_hyb_greybox_pars(plant_pars=plant_pars)
 
     # Get steady-state training data.
-    hx = lambda x: x[plant_pars['yindices']]
-    fxu = lambda x, u: plant_ode(x, u, plant_pars['ps'], plant_pars)
-    training_data_ss = genPlantSsdata(fxu=fxu, hx=hx, parameters=plant_pars, 
-                                      Ndata=1500, xguess=plant_pars['xs'], 
-                                      seed=10)
+    # hx = lambda x: x[plant_pars['yindices']]
+    # fxu = lambda x, u: plant_ode(x, u, plant_pars['ps'], plant_pars)
+    # training_data_ss = genPlantSsdata(fxu=fxu, hx=hx, parameters=plant_pars, 
+    #                                   Ndata=1500, xguess=plant_pars['xs'], 
+    #                                   seed=10)
 
     # Generate training data.
     training_data_dyn = gen_train_val_data(parameters=plant_pars,
-                                      num_traj=4, Nsim_train=300,
+                                      num_traj=6, Nsim_train=240,
                                       Nsim_trainval=240, Nsim_val=360,
-                                      seed=103)
+                                      seed=12)
 
     # Get the dictionary.
     tworeac_parameters = dict(plant_pars = plant_pars,
                               hyb_greybox_pars = hyb_greybox_pars,
-                              training_data_ss = training_data_ss, 
                               training_data_dyn = training_data_dyn)
     
     # Save data.
