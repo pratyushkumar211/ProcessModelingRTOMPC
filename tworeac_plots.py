@@ -66,12 +66,12 @@ def main():
     tworeac_parameters = PickleTool.load(filename="tworeac_parameters.pickle",
                                          type='read')
     plant_pars = tworeac_parameters['plant_pars']
-    # training_data = tworeac_parameters['training_data']
     
-    # # Load Black-box data after training.
-    # tworeac_bbnntrain = PickleTool.load(filename="tworeac_bbnntrain.pickle",
-    #                                   type='read')
-    # bbnn_predictions = tworeac_bbnntrain['val_predictions']
+    # Load Black-Box data after training.
+    tworeac_bbnntrain = PickleTool.load(filename=
+                                      "tworeac_bbnntrain_dyndata.pickle",
+                                      type='read')
+    bbnn_predictions = tworeac_bbnntrain['val_predictions']
 
     # Load Hybrid data after training.
     # tworeac_hybtrain = PickleTool.load(filename="tworeac_hybtrain.pickle",
@@ -82,90 +82,45 @@ def main():
     tworeac_ssopt = PickleTool.load(filename="tworeac_ssopt.pickle",
                                      type='read')
 
-    # Load Koopman data after NN training.
-    # tworeac_kooptrain = PickleTool.load(filename="tworeac_kooptrain.pickle",
-    #                                   type='read')
-    # koop_predictions = tworeac_kooptrain['val_predictions']
-
-    # Load data after Koopman training.
-    #tworeac_kooptrain = PickleTool.load(filename=
-    #                                "tworeac_kooptrain_nonlin.pickle",
-    #                                type='read')
-    #koopval_predictions = tworeac_kooptrain['val_predictions']
-
-    # Load data after Koopman training.
-    #tworeac_encdeckooptrain = PickleTool.load(filename=
-    #                                "tworeac_encdeckooptrain_nonlin.pickle",
-    #                                type='read')
-    #encdeckoopval_predictions = tworeac_encde    # # Plot training data.
-    # t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
-    #                                                  [training_data[0]],
-    #                                                  plot_range=(10, 6*60+10))
-    # figures += TwoReacPlots.plot_xudata(t=t, xlist=ylist, ulist=ulist,
-    #                                 legend_names=None,
-    #                                 legend_colors=['b'], 
-    #                                 figure_size=PAPER_FIGSIZE, 
-    #                                 ylabel_xcoordinate=-0.1, 
-    #                                 title_loc=None)
-
-    # # Plot validation data.
-    # legend_names = ['Plant', 'Hybrid']
-    # legend_colors = ['b', 'm']
-    # valdata_list = [training_data[-1]]
-    # #valdata_list += bbnn_predictions
-    # valdata_list += hyb_predictions
-    # t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
-    #                                                  valdata_list[:1],
-    #                                                  plot_range=(10, 6*60+10))
-    # (t, ulist_val, 
-    #  ylist_val, xlist_val) = get_plotting_array_list(simdata_list=
-    #                                                  valdata_list[1:],
-    #                                                  plot_range=(0, 6*60))
-    # ulist += ulist_val
-    # ylist += ylist_val
-    # xlist += xlist_val
-    # figures += TwoReacPlots.plot_xudata(t=t, xlist=ylist, ulist=ulist,
-    #                                     legend_names=legend_names,
-    #                                     legend_colors=legend_colors, 
-    #                                     figure_size=PAPER_FIGSIZE, 
-    #                                     ylabel_xcoordinate=-0.1, 
-    #                                     title_loc=(0.35, 0.9))
-
+    # List to store figures.
     figures = []
 
-    # # Plot training data.
-    # t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
-    #                                                  [training_data[0]],
-    #                                                  plot_range=(10, 6*60+10))
-    # figures += TwoReacPlots.plot_xudata(t=t, xlist=ylist, ulist=ulist,
-    #                                 legend_names=None,
-    #                                 legend_colors=['b'], 
-    #                                 figure_size=PAPER_FIGSIZE, 
-    #                                 ylabel_xcoordinate=-0.1, 
-    #                                 title_loc=None)
+    # Plot training data.
+    training_data = tworeac_parameters['training_data_dyn'][:5]
+    for data in training_data:
 
-    # # Plot validation data.
-    # legend_names = ['Plant', 'Hybrid']
-    # legend_colors = ['b', 'm']
-    # valdata_list = [training_data[-1]]
-    # #valdata_list += bbnn_predictions
-    # valdata_list += hyb_predictions
-    # t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
-    #                                                  valdata_list[:1],
-    #                                                  plot_range=(10, 6*60+10))
-    # (t, ulist_val, 
-    #  ylist_val, xlist_val) = get_plotting_array_list(simdata_list=
-    #                                                  valdata_list[1:],
-    #                                                  plot_range=(0, 6*60))
-    # ulist += ulist_val
-    # ylist += ylist_val
-    # xlist += xlist_val
-    # figures += TwoReacPlots.plot_xudata(t=t, xlist=ylist, ulist=ulist,
-    #                                     legend_names=legend_names,
-    #                                     legend_colors=legend_colors, 
-    #                                     figure_size=PAPER_FIGSIZE, 
-    #                                     ylabel_xcoordinate=-0.1, 
-    #                                     title_loc=(0.35, 0.9))
+        t, ulist, ylist, xlist = get_plotting_array_list(simdata_list = [data],
+                                                     plot_range=(10, 6*60+10))
+        figures += TwoReacPlots.plot_xudata(t=t, xlist=ylist, ulist=ulist,
+                                            legend_names=None,
+                                            legend_colors=['b'], 
+                                            figure_size=PAPER_FIGSIZE, 
+                                            ylabel_xcoordinate=-0.1, 
+                                            title_loc=None)
+
+    # Plot validation data.
+    legend_names = ['Plant', 'Black-Box-NN']
+    legend_colors = ['b', 'dimgrey']
+    valdata_plant = tworeac_parameters['training_data_dyn'][-1]
+    valdata_list = [valdata_plant]
+    valdata_list += bbnn_predictions
+    #valdata_list += hyb_predictions
+    t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
+                                                     valdata_list[:1],
+                                                     plot_range=(10, 6*60+10))
+    (_, ulist_val, 
+     ylist_val, xlist_val) = get_plotting_array_list(simdata_list=
+                                                     valdata_list[1:],
+                                                     plot_range=(0, 6*60))
+    ulist += ulist_val
+    ylist += ylist_val
+    xlist += xlist_val
+    figures += TwoReacPlots.plot_xudata(t=t, xlist=ylist, ulist=ulist,
+                                        legend_names=legend_names,
+                                        legend_colors=legend_colors, 
+                                        figure_size=PAPER_FIGSIZE, 
+                                        ylabel_xcoordinate=-0.1, 
+                                        title_loc=(0.35, 0.9))
 
     # Plot validation metrics to show data requirements.
     #num_samples = tworeac_train['num_samples']
