@@ -16,8 +16,8 @@ def main():
     tworeac_bbnntrain = PickleTool.load(filename=
                                         'tworeac_bbnntrain_dyndata.pickle',
                                         type='read')
-    # tworeac_hybtrain = PickleTool.load(filename='tworeac_hybtrain.pickle',
-    #                                     type='read')
+    tworeac_hybtrain = PickleTool.load(filename='tworeac_hybtrain_dyn.pickle',
+                                        type='read')
 
     # def check_bbnn_ss(tworeac_bbnntrain, tworeac_parameters):
     #     """ Check Black-box functions. """
@@ -209,7 +209,7 @@ def main():
     #check_icnn(tworeac_icnntrain, tworeac_parameters)
     #check_picnn(tworeac_picnntrain, tworeac_parameters)
     #check_koopman(tworeac_kooptrain, tworeac_parameters)
-    #check_hybrid(tworeac_hybtrain, tworeac_parameters)
+    check_hybrid(tworeac_hybtrain, tworeac_parameters)
     print("Hi")
 
 main()

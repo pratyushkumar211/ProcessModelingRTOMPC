@@ -1,16 +1,12 @@
-# [depends] %LIB%/hybridid.py %LIB%/TwoReacHybridFuncs.py
+# [depends] %LIB%/hybridId.py %LIB%/TwoReacHybridFuncs.py
 # [depends] tworeac_parameters.pickle
 # [makes] pickle
-""" Script to train the hybrid model for the 
-    three reaction system. 
-    Pratyush Kumar, pratyushkumar@ucsb.edu """
-
 import sys
 sys.path.append('lib/')
 import tensorflow as tf
 import time
 import numpy as np
-from hybridid import PickleTool, get_scaling, get_train_val_data
+from hybridId import PickleTool, get_scaling, get_train_val_data
 from TwoReacHybridFuncs import (create_model, train_model, 
                                 get_val_predictions)         
 
@@ -25,9 +21,10 @@ def main():
                                          type='read')
 
     # Get sizes/raw training data.
+    Delta = tworeac_parameters['plant_pars']['Delta']
     hyb_greybox_pars = tworeac_parameters['hyb_greybox_pars']
     Nx, Nu = hyb_greybox_pars['Nx'], hyb_greybox_pars['Nu']
-    training_data = tworeac_parameters['training_data']
+    training_data = tworeac_parameters['training_data_dyn']
     
     # Number of samples.
     num_samples = [hours*60 for hours in [6]]
@@ -44,15 +41,15 @@ def main():
     val_predictions = []
 
     # Filenames.
-    ckpt_path = 'tworeac_hybtrain.ckpt'
-    stdout_filename = 'tworeac_hybtrain.txt'
+    ckpt_path = 'tworeac_hybtrain_dyn.ckpt'
+    stdout_filename = 'tworeac_hybtrain_dyn.txt'
 
     # Get scaling and the training data.
     xuyscales = get_scaling(data=training_data[0])
     (train_data, 
      trainval_data, val_data) = get_train_val_data(tthrow=tthrow, 
-                                            Np=Np, xuyscales=xuyscales, 
-                                            data_list=training_data)
+                                                   Np=Np, xuyscales=xuyscales, 
+                                                   data_list=training_data)
 
     # Loop over the number of samples.
     for num_sample in num_samples:
@@ -67,7 +64,7 @@ def main():
                              outputs=train_data['outputs'])
 
         # Train.
-        train_model(model=model, epochs=12000, batch_size=1, 
+        train_model(model=model, epochs=8000, batch_size=1, 
                       train_data=train_samples, trainval_data=trainval_data,
                       stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 
@@ -75,7 +72,7 @@ def main():
         (val_prediction, val_metric) = get_val_predictions(model=model,
                                     val_data=val_data, xuyscales=xuyscales, 
                                     xinsert_indices=xinsert_indices, 
-                                    ckpt_path=ckpt_path)
+                                    ckpt_path=ckpt_path, Delta=Delta)
 
         # Get weights to store.
         fNWeights = model.get_weights()
@@ -98,6 +95,6 @@ def main():
     
     # Save data.
     PickleTool.save(data_object=tworeac_train,
-                    filename='tworeac_hybtrain.pickle')
+                    filename='tworeac_hybtrain_dyndata.pickle')
 
 main()

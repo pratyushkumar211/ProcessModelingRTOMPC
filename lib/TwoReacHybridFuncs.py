@@ -37,7 +37,7 @@ class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
             """
         
         # Extract the parameters (nominal value of unmeasured disturbance).
-        F = self.hyb_greybox_pars['F'].squeeze()
+        F = self.hyb_greybox_pars['ps'].squeeze()
         V = self.hyb_greybox_pars['V']
 
         # Get the output of the neural network.

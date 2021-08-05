@@ -11,6 +11,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 from plottingFuncs import TwoReacPlots, PAPER_FIGSIZE
 from hybridId import PickleTool
 from BlackBoxFuncs import get_bbnn_pars, bbnn_fxu, bbnn_hx
+from TwoReacHybridFuncs import get_hybrid_pars, hybrid_fxup, hybrid_hx
 from linNonlinMPC import c2dNonlin, getSSOptimum, getXsYsSscost
 from tworeacFuncs import cost_yup, plant_ode
 
@@ -29,7 +30,7 @@ def get_xuguess(*, model_type, plant_pars):
 
     else:
 
-        pass
+        xs = plant_pars['xs']
 
     # Return as dict.
     return dict(x=xs, u=us)
@@ -44,13 +45,13 @@ def main():
     tworeac_bbnntrain = PickleTool.load(filename=
                                     'tworeac_bbnntrain_dyndata.pickle',
                                       type='read')
-    # tworeac_hybtrain = PickleTool.load(filename=
-    #                                   'tworeac_hybtrain.pickle',
-    #                                   type='read')
+    tworeac_hybtrain = PickleTool.load(filename=
+                                      'tworeac_hybtrain_dyndata.pickle',
+                                      type='read')
 
     # Get plant and grey-box parameters. 
     plant_pars = tworeac_parameters['plant_pars']
-    # hyb_greybox_pars = tworeac_parameters['hyb_greybox_pars']
+    hyb_greybox_pars = tworeac_parameters['hyb_greybox_pars']
 
     # Get cost function handle.
     p = [100, 800]
@@ -63,11 +64,11 @@ def main():
     bbnn_h = lambda x: bbnn_hx(x, bbnn_pars)
 
     # Get the black-box model parameters and function handles.
-    # hyb_pars = get_hybrid_pars(train=tworeac_hybtrain, 
-    #                            hyb_greybox_pars=hyb_greybox_pars)
-    # ps = hyb_pars['ps']
-    # hyb_fxu = lambda x, u: hybrid_fxup(x, u, ps, hyb_pars)
-    # hyb_hx = lambda x: hybrid_hx(x)
+    hyb_pars = get_hybrid_pars(train=tworeac_hybtrain, 
+                               hyb_greybox_pars=hyb_greybox_pars)
+    ps = hyb_pars['ps']
+    hybrid_f = lambda x, u: hybrid_fxup(x, u, ps, hyb_pars)
+    hybrid_h = lambda x: hybrid_hx(x)
     
     # Get the plant function handle.
     Delta, ps = plant_pars['Delta'], plant_pars['ps']
@@ -76,10 +77,10 @@ def main():
     plant_h = lambda x: x[plant_pars['yindices']]
 
     # Lists to loop over for different models.
-    model_types = ['Plant', 'Black-Box-NN']
-    fxu_list = [plant_f, bbnn_f]
-    hx_list = [plant_h, bbnn_h]
-    par_list = [plant_pars, bbnn_pars]
+    model_types = ['Plant', 'Black-Box-NN', 'Hybrid']
+    fxu_list = [plant_f, bbnn_f, hybrid_f]
+    hx_list = [plant_h, bbnn_h, hybrid_h]
+    par_list = [plant_pars, bbnn_pars, hyb_pars]
 
     # Loop over the different models and obtain SS optimums.
     for (model_type, fxu, hx, model_pars) in zip(model_types, fxu_list, 
