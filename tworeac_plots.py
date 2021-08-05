@@ -74,10 +74,10 @@ def main():
     bbnn_predictions = tworeac_bbnntrain['val_predictions']
 
     # Load Hybrid data after training.
-    # tworeac_hybtrain = PickleTool.load(filename=
-    #                                  "tworeac_hybtrain_dyndata.pickle",
-    #                                  type='read')
-    # hyb_predictions = tworeac_hybtrain['val_predictions']
+    tworeac_hybtrain = PickleTool.load(filename=
+                                     "tworeac_hybtrain_dyndata.pickle",
+                                     type='read')
+    hyb_predictions = tworeac_hybtrain['val_predictions']
 
     # Load the steady state cost computations.
     tworeac_ssopt = PickleTool.load(filename="tworeac_ssopt.pickle",
@@ -100,12 +100,12 @@ def main():
                                             title_loc=None)
 
     # Plot validation data.
-    legend_names = ['Plant', 'Black-Box-NN']
+    legend_names = ['Plant', 'Black-Box-NN', 'Hybrid']
     legend_colors = ['b', 'dimgrey', 'm']
     valdata_plant = tworeac_parameters['training_data_dyn'][-1]
     valdata_list = [valdata_plant]
     valdata_list += bbnn_predictions
-    # valdata_list += hyb_predictions
+    valdata_list += hyb_predictions
     t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
                                                      valdata_list[:1],
                                                      plot_range=(10, 6*60+10))
@@ -121,7 +121,7 @@ def main():
                                         legend_colors=legend_colors, 
                                         figure_size=PAPER_FIGSIZE, 
                                         ylabel_xcoordinate=-0.1, 
-                                        title_loc=(0.35, 0.9))
+                                        title_loc=(0.23, 0.9))
 
     # Plot validation metrics to show data requirements.
     #num_samples = tworeac_train['num_samples']
@@ -134,7 +134,7 @@ def main():
     # Steady state cost curves.
     us = tworeac_ssopt['us']
     sscosts = tworeac_ssopt['sscosts']
-    legend_names = ['Plant', 'Black Box NN']
+    legend_names = ['Plant', 'Black Box NN', 'Hybrid']
     legend_colors = ['b', 'dimgrey', 'm']
     figures += TwoReacPlots.plot_sscosts(us=us, sscosts=sscosts, 
                                         legend_colors=legend_colors, 
