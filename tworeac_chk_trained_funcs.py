@@ -16,7 +16,8 @@ def main():
     tworeac_bbnntrain = PickleTool.load(filename=
                                         'tworeac_bbnntrain_dyndata.pickle',
                                         type='read')
-    tworeac_hybtrain = PickleTool.load(filename='tworeac_hybtrain_dyn.pickle',
+    tworeac_hybtrain = PickleTool.load(filename=
+                                        'tworeac_hybtrain_dyndata.pickle',
                                         type='read')
 
     # def check_bbnn_ss(tworeac_bbnntrain, tworeac_parameters):
@@ -108,7 +109,7 @@ def main():
         hx = lambda x: hybrid_hx(x)
 
         # CHeck black-box model validation.
-        hyb_yval = tworeac_hybtrain['val_predictions'][-1].y
+        hyb_yval = tworeac_hybtrain['val_predictions'][-1].x
         hyb_xpred, hyb_ypred = quick_sim(fxu, hx, x0, uval)
         breakpoint()
         # Return 

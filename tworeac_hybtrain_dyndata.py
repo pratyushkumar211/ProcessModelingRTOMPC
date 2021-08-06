@@ -33,7 +33,7 @@ def main():
     xinsert_indices = []
     Np = 0
     tthrow = 10
-    fNDims = [Nx, 128, 2]
+    fNDims = [Nx, 8, 2]
 
     # Create lists to store data.
     trained_weights = []
@@ -41,8 +41,8 @@ def main():
     val_predictions = []
 
     # Filenames.
-    ckpt_path = 'tworeac_hybtrain_dyn.ckpt'
-    stdout_filename = 'tworeac_hybtrain_dyn.txt'
+    ckpt_path = 'tworeac_hybtrain_dyndata.ckpt'
+    stdout_filename = 'tworeac_hybtrain_dyndata.txt'
 
     # Get scaling and the training data.
     xuyscales = get_scaling(data=training_data[0])

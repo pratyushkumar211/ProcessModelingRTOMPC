@@ -54,7 +54,7 @@ def main():
     hyb_greybox_pars = tworeac_parameters['hyb_greybox_pars']
 
     # Get cost function handle.
-    p = [100, 600]
+    p = [100, 1000]
     lyu = lambda y, u: cost_yup(y, u, p)
 
     # Get the black-box model parameters and function handles.
@@ -119,7 +119,8 @@ def main():
         for us in us_list:
             
             _, _, sscost = getXsYsSscost(fxu=fxu, hx=hx, lyu=lyu, 
-                                         us=us, parameters=model_pars)
+                                         us=us, parameters=model_pars, 
+                                         xguess=plant_pars['xs'])
             model_sscost += [sscost]
         
         model_sscost = np.asarray(model_sscost)
