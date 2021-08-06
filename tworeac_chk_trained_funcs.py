@@ -99,7 +99,7 @@ def main():
         # Get initial state for forecasting.
         training_data = tworeac_parameters['training_data_dyn'][-1]
         uval = training_data.u[tthrow:, :]
-        x0 = training_data.x[tthrow, :]
+        x0 = training_data.y[tthrow, :]
 
         # Get the black-box model parameters and function handles.
         hyb_pars = get_hybrid_pars(train=tworeac_hybtrain, 
@@ -109,7 +109,7 @@ def main():
         hx = lambda x: hybrid_hx(x)
 
         # CHeck black-box model validation.
-        hyb_yval = tworeac_hybtrain['val_predictions'][-1].x
+        hyb_yval = tworeac_hybtrain['val_predictions'][-1].y
         hyb_xpred, hyb_ypred = quick_sim(fxu, hx, x0, uval)
         breakpoint()
         # Return 
