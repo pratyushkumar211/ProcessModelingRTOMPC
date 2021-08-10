@@ -31,8 +31,8 @@ def get_plant_pars():
     
     # Parameters.
     parameters = {}
-    parameters['k1'] = 6e-2 # m^3/min.
-    parameters['k2'] = 4e-1 # m^3/min.
+    parameters['k1'] = 6e-6 # m^3/min.
+    parameters['k2'] = 0 # m^3/min.
     parameters['V'] = 10 # m^3
 
     # Store the dimensions.
