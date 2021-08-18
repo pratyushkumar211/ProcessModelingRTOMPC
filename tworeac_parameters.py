@@ -33,22 +33,22 @@ def gen_train_val_data(*, parameters, num_traj,
             Nsim = Nsim_val
             u = sample_prbs_like(num_change=9, num_steps=Nsim_val, 
                                  lb=ulb, ub=uub,
-                                 mean_change=40, sigma_change=10, 
-                                 seed=seed+1)
+                                 mean_change=40, sigma_change=5,
+                                 num_constraint=2, seed=seed+1)
         elif traj == num_traj-2:
             " Get input for validation simulation. "
             Nsim = Nsim_trainval
             u = sample_prbs_like(num_change=6, num_steps=Nsim_trainval, 
                                  lb=ulb, ub=uub,
-                                 mean_change=40, sigma_change=10, 
-                                 seed=seed+2)
+                                 mean_change=40, sigma_change=5, 
+                                 num_constraint=2, seed=seed+4)
         else:
             " Get input for training simulation. "
             Nsim = Nsim_train
             u = sample_prbs_like(num_change=6, num_steps=Nsim_train, 
                                  lb=ulb, ub=uub,
-                                 mean_change=40, sigma_change=10, 
-                                 seed=seed+3)
+                                 mean_change=40, sigma_change=5, 
+                                 num_constraint=2, seed=seed+7)
 
         seed += 1
 
@@ -84,7 +84,7 @@ def main():
     training_data_dyn = gen_train_val_data(parameters=plant_pars,
                                       num_traj=6, Nsim_train=240,
                                       Nsim_trainval=240, Nsim_val=360,
-                                      seed=12)
+                                      seed=0)
 
     # Get the dictionary.
     tworeac_parameters = dict(plant_pars = plant_pars,

@@ -1,5 +1,6 @@
 # [depends] linNonlinMPC.py
 import sys
+import random
 import numpy as np
 import mpctools as mpc
 import scipy.linalg
@@ -46,10 +47,11 @@ def _sample_repeats(num_change, num_simulation_steps,
     return repeat.astype(int)
 
 def sample_prbs_like(*, num_change, num_steps, 
-                        lb, ub, mean_change, sigma_change, seed=1):
+                        lb, ub, mean_change, sigma_change, 
+                        num_constraint=0, seed=1):
     """Sample a PRBS like sequence.
     num_change: Number of changes in the signal.
-    num_simulation_steps: Number of steps in the signal.
+    num_steps: Number of steps in the signal.
     mean_change: mean_value after which a 
                  change in the signal is desired.
     sigma_change: standard deviation of changes in the signal.
@@ -59,6 +61,13 @@ def sample_prbs_like(*, num_change, num_steps,
     ub = ub.squeeze() # Squeeze the vectors.
     np.random.seed(seed)
     values = (ub-lb)*np.random.rand(num_change, signal_dimension) + lb
+    # Sample some values at constraints.
+    if num_constraint > 0:
+        assert num_constraint % 2 == 0
+        assert num_constraint < num_change
+        constraint_indices = random.sample(range(0, num_change), num_constraint)
+        values[constraint_indices[:num_constraint//2]] = ub
+        values[constraint_indices[num_constraint//2:]] = lb        
     repeat = _sample_repeats(num_change, num_steps,
                              mean_change, sigma_change)
     return np.repeat(values, repeat, axis=0)
