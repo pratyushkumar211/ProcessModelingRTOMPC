@@ -100,7 +100,7 @@ def main():
                                             title_loc=None)
 
     # Plot validation data.
-    legend_names = ['Plant']
+    legend_names = ['Plant', 'Black-Box-NN', 'Hybrid']
     legend_colors = ['b', 'dimgrey', 'm']
     valdata_plant = tworeac_parameters['training_data_dyn'][-1]
     valdata_list = [valdata_plant]
@@ -134,7 +134,7 @@ def main():
     # Steady state cost curves.
     us = tworeac_ssopt['us']
     sscosts = tworeac_ssopt['sscosts']
-    legend_names = ['Plant']
+    legend_names = ['Plant', 'Black-Box-NN', 'Hybrid']
     legend_colors = ['b', 'dimgrey', 'm']
     figures += TwoReacPlots.plot_sscosts(us=us, sscosts=sscosts, 
                                         legend_colors=legend_colors, 

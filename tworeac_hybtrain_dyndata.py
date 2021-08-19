@@ -33,7 +33,7 @@ def main():
     xinsert_indices = []
     Np = 0
     tthrow = 10
-    fNDims = [Nx, 8, 2]
+    fNDims = [Nx, 256, 256, 2]
 
     # Create lists to store data.
     trained_weights = []
