@@ -43,10 +43,10 @@ def main():
                                          'tworeac_parameters.pickle',
                                          type='read')
     tworeac_bbnntrain = PickleTool.load(filename=
-                                    'tworeac_bbnntrain_dyndata_4-64-3.pickle',
+                                    'tworeac_bbnntrain_dyndata.pickle',
                                       type='read')
     tworeac_hybtrain = PickleTool.load(filename=
-                                      'tworeac_hybtrain_dyndata_3-8-2.pickle',
+                                      'tworeac_hybtrain_dyndata.pickle',
                                       type='read')
 
     # Get plant and grey-box parameters. 
@@ -54,7 +54,7 @@ def main():
     hyb_greybox_pars = tworeac_parameters['hyb_greybox_pars']
 
     # Get cost function handle.
-    p = [100, 1200]
+    p = [100, 1000]
     lyu = lambda y, u: cost_yup(y, u, p)
 
     # Get the black-box model parameters and function handles.
