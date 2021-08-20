@@ -86,7 +86,7 @@ def main():
 
     # Load pickle files.
     tworeac_hybtrain = PickleTool.load(filename=
-                                      'tworeac_hybtrain_dyndata_3-16-2.pickle',
+                                      'tworeac_hybtrain_dyndata_3-8-2.pickle',
                                       type='read')
     fNWeights = tworeac_hybtrain['trained_weights'][-1]
     xuyscales = tworeac_hybtrain['xuyscales']
@@ -95,22 +95,22 @@ def main():
     figures = []
 
     # Get the neural network reaction rates.
-    Ca = np.arange(0., 0.9, 1e-2)
-    Cb = np.tile(0.4, (Ca.shape[0], ))
-    Cc = np.tile(0.3, (Ca.shape[0], ))
-    r1 = k1*Ca
-    r1NN, _ = getRNN(Ca, Cb, Cc, fNWeights, xuyscales)
-    r1NN = r1NN.squeeze()
-    figures += makeReactionPlot(Ca, r1, '$r$', '$r = k_1 C_A$', rNN=r1NN)
+    # Ca = np.arange(0., 0.9, 1e-2)
+    # Cb = np.tile(0.4, (Ca.shape[0], ))
+    # Cc = np.tile(0.3, (Ca.shape[0], ))
+    # r1 = k1*Ca
+    # r1NN, _ = getRNN(Ca, Cb, Cc, fNWeights, xuyscales)
+    # r1NN = r1NN.squeeze()
+    # figures += makeReactionPlot(Ca, r1, '$r$', '$r = k_1 C_A$', rNN=r1NN)
 
     # Get the neural network reaction rates.
-    # Cb = np.arange(0., 0.3, 1e-2)
-    # Ca = np.tile(1.0, (Cb.shape[0], ))
-    # Cc = np.tile(0.3, (Cb.shape[0], ))
-    # r2 = k2*(Cb**3)
-    # _, r2NN = getRNN(Ca, Cb, Cc, fNWeights, xuyscales)
-    # r2NN = r2NN.squeeze()
-    # figures += makeReactionPlot(Cb, r2, '$r$', '$r = k_2 C^3_B$', rNN=r2NN)
+    Cb = np.arange(0., 0.3, 1e-2)
+    Ca = np.tile(1.0, (Cb.shape[0], ))
+    Cc = np.tile(0.3, (Cb.shape[0], ))
+    r2 = k2*(Cb**3)
+    _, r2NN = getRNN(Ca, Cb, Cc, fNWeights, xuyscales)
+    r2NN = r2NN.squeeze()
+    figures += makeReactionPlot(Cb, r2, '$r$', '$r = k_2 C^3_B$', rNN=r2NN)
 
     # Make the plot.
     with PdfPages('tworeac_rateAnalysis.pdf', 'w') as pdf_file:
