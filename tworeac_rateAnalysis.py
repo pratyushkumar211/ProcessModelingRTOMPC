@@ -27,6 +27,7 @@ def getRNN(Ca, Cb, Cc, fNWeights, xuyscales):
     xmean, xstd = xuyscales['yscale']
     Castd, Cbstd, Ccstd = xstd[0:1], xstd[1:2], xstd[2:3]
     umean, ustd = xuyscales['uscale']
+    breakpoint()
     xvals = (xvals - xmean)/xstd
 
     # Get the NN outputs.
@@ -86,10 +87,12 @@ def main():
 
     # Load pickle files.
     tworeac_hybtrain = PickleTool.load(filename=
-                                      'tworeac_hybtrain_dyndata_3-8-2.pickle',
+                                      'tworeac_hybtrain_dyndata.pickle',
                                       type='read')
     fNWeights = tworeac_hybtrain['trained_weights'][-1]
     xuyscales = tworeac_hybtrain['xuyscales']
+    xmean, xstd = xuyscales['yscale']
+    umean, ustd = xuyscales['uscale']
 
     # Create a figure list.
     figures = []
@@ -104,9 +107,10 @@ def main():
     # figures += makeReactionPlot(Ca, r1, '$r$', '$r = k_1 C_A$', rNN=r1NN)
 
     # Get the neural network reaction rates.
-    Cb = np.arange(0., 0.3, 1e-2)
-    Ca = np.tile(1.0, (Cb.shape[0], ))
-    Cc = np.tile(0.3, (Cb.shape[0], ))
+    Cb = np.arange(0.15, 0.28, 1e-2)
+    Ca = np.tile(0.45, (Cb.shape[0], ))
+    Cc = np.tile(0.086, (Cb.shape[0], ))
+    breakpoint()
     r2 = k2*(Cb**3)
     _, r2NN = getRNN(Ca, Cb, Cc, fNWeights, xuyscales)
     r2NN = r2NN.squeeze()

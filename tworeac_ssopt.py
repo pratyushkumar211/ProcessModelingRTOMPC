@@ -54,7 +54,7 @@ def main():
     hyb_greybox_pars = tworeac_parameters['hyb_greybox_pars']
 
     # Get cost function handle.
-    p = [100, 800]
+    p = [100, 1000]
     lyu = lambda y, u: cost_yup(y, u, p)
 
     # Get the black-box model parameters and function handles.
@@ -77,10 +77,10 @@ def main():
     plant_h = lambda x: x[plant_pars['yindices']]
 
     # Lists to loop over for different models.
-    model_types = ['Plant']
-    fxu_list = [plant_f, bbnn_f, hybrid_f]
-    hx_list = [plant_h, bbnn_h, hybrid_h]
-    par_list = [plant_pars, bbnn_pars, hyb_pars]
+    model_types = ['Plant', 'Hybrid']
+    fxu_list = [plant_f, hybrid_f]
+    hx_list = [plant_h, hybrid_h]
+    par_list = [plant_pars, hyb_pars]
 
     # Loop over the different models and obtain SS optimums.
     for (model_type, fxu, hx, model_pars) in zip(model_types, fxu_list, 

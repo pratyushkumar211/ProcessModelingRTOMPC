@@ -82,7 +82,6 @@ def main():
         # CHeck black-box model validation.
         bb_yval = tworeac_bbnntrain['val_predictions'][-1].y
         bb_xpred, bb_ypred = quick_sim(fxu, hx, yz0, uval)
-        breakpoint()
         # Return 
         return 
 

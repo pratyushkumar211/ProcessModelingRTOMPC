@@ -68,10 +68,10 @@ def main():
     plant_pars = tworeac_parameters['plant_pars']
     
     # Load Black-Box data after training.
-    tworeac_bbnntrain = PickleTool.load(filename=
-                                      "tworeac_bbnntrain_dyndata.pickle",
-                                      type='read')
-    bbnn_predictions = tworeac_bbnntrain['val_predictions']
+    # tworeac_bbnntrain = PickleTool.load(filename=
+    #                                   "tworeac_bbnntrain_dyndata.pickle",
+    #                                   type='read')
+    # bbnn_predictions = tworeac_bbnntrain['val_predictions']
 
     # Load Hybrid data after training.
     tworeac_hybtrain = PickleTool.load(filename=
@@ -100,11 +100,11 @@ def main():
                                             title_loc=None)
 
     # Plot validation data.
-    legend_names = ['Plant', 'Black-Box-NN', 'Hybrid']
-    legend_colors = ['b', 'dimgrey', 'm']
+    legend_names = ['Plant', 'Hybrid']
+    legend_colors = ['b', 'm']
     valdata_plant = tworeac_parameters['training_data_dyn'][-1]
     valdata_list = [valdata_plant]
-    valdata_list += bbnn_predictions
+    #valdata_list += bbnn_predictions
     valdata_list += hyb_predictions
     t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
                                                      valdata_list[:1],
@@ -134,8 +134,8 @@ def main():
     # Steady state cost curves.
     us = tworeac_ssopt['us']
     sscosts = tworeac_ssopt['sscosts']
-    legend_names = ['Plant', 'Black-Box-NN', 'Hybrid']
-    legend_colors = ['b', 'dimgrey', 'm']
+    legend_names = ['Plant', 'Hybrid']
+    legend_colors = ['b', 'm']
     figures += TwoReacPlots.plot_sscosts(us=us, sscosts=sscosts, 
                                         legend_colors=legend_colors, 
                                         legend_names=legend_names, 

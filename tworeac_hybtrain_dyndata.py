@@ -33,7 +33,7 @@ def main():
     xinsert_indices = []
     Np = 0
     tthrow = 10
-    fNDims = [Nx, 512, 2]
+    fNDims = [Nx, 8, 2]
 
     # Create lists to store data.
     trained_weights = []
@@ -64,7 +64,7 @@ def main():
                              outputs=train_data['outputs'])
 
         # Train.
-        train_model(model=model, epochs=10, batch_size=1, 
+        train_model(model=model, epochs=8000, batch_size=1, 
                       train_data=train_samples, trainval_data=trainval_data,
                       stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 

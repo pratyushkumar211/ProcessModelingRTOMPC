@@ -239,7 +239,7 @@ def fxup(x, u, p, parameters, xuyscales, fNWeights):
     u = (u - umean)/ustd
     nnOutput = fnn(x, fNWeights)
     r1NN, r2NN = nnOutput[0:1], nnOutput[1:2]
-
+    breakpoint()
     # Write the ODEs.
     dCabydt = F*(Caf-Ca)/V - r1NN*Castd
     dCbbydt = -F*Cb/V + r1NN*Castd - 3*r2NN*Ccstd
