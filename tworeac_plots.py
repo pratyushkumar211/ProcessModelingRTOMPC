@@ -69,13 +69,13 @@ def main():
     
     # Load Black-Box data after training.
     tworeac_bbnntrain = PickleTool.load(filename=
-                                      "tworeac_bbnntrain_dyndata.pickle",
+                                      "tworeac_bbnntrain_dyndata_4-64-3.pickle",
                                       type='read')
     bbnn_predictions = tworeac_bbnntrain['val_predictions']
 
     # Load Hybrid data after training.
     tworeac_hybtrain = PickleTool.load(filename=
-                                     "tworeac_hybtrain_dyndata.pickle",
+                                     "tworeac_hybtrain_dyndata_3-8-2.pickle",
                                      type='read')
     hyb_predictions = tworeac_hybtrain['val_predictions']
 
