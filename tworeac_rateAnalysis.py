@@ -76,9 +76,9 @@ def main():
     k2 = tworeac_parameters['plant_pars']['k2']
 
     # Get the neural network reaction rates.
-    CcVals = [0.07, 0.09, 0.11, 0.13]
-    CaRange = np.arange(0.25, 0.60, 1e-2)
-    CbRange = np.arange(0.18, 0.28, 1e-2)
+    CcVals = [0.06, 0.09, 0.12, 0.15]
+    CaRange = np.arange(0.25, 0.65, 1e-2)
+    CbRange = np.arange(0.15, 0.35, 1e-2)
 
     # Loop over concentration of C values.
     r1, r1NN, r1Errors = [], [], []
@@ -99,11 +99,6 @@ def main():
     # r1 Analysis data.
     r1Data = dict(r=r1, rNN=r1NN, rErrors=r1Errors, 
                   xGrid=xGrid, yGrid=yGrid, CcVals=CcVals)
-
-    # Get the neural network reaction rates.
-    CcVals = [0.07, 0.09, 0.11, 0.13]
-    CaRange = np.arange(0.25, 0.60, 1e-2)
-    CbRange = np.arange(0.18, 0.28, 1e-2)
 
     # Loop over concentration of C values.
     r2, r2NN, r2Errors = [], [], []

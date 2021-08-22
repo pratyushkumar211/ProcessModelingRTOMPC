@@ -162,7 +162,7 @@ def main():
                                             rateTitle = rateTitle,
                                             figure_size=(10, 4), 
                                             ylabel_xcoordinate=None, 
-                                            left_label_frac=0.1, 
+                                            left_label_frac=0.08, 
                                             wspace=0.4)
 
     # Make a reaction rate analysis plot.
@@ -177,7 +177,7 @@ def main():
                                             rateTitle = rateTitle,
                                             figure_size=(10, 4), 
                                             ylabel_xcoordinate=None, 
-                                            left_label_frac=0.1, 
+                                            left_label_frac=0.08, 
                                             wspace=0.4)
 
     # Load data for the economic MPC simulation.
