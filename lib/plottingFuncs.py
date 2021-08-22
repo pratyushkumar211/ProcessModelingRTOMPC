@@ -67,9 +67,46 @@ class TwoReacPlots:
             legend_handles += handle
 
         # Overall asthetics of the x axis.
-        axes[row].set_xlabel('Time (hr)')
+        axes[row].set_xlabel('Time (min)')
         axes[row].set_xlim([np.min(t), np.max(t)])
         
+        # Name legends if provided. 
+        if legend_names is not None:
+            figure.legend(handles = legend_handles,
+                          labels = legend_names,
+                          loc = title_loc, ncol=len(legend_names))
+
+        # Return figure.
+        return [figure]
+
+    @staticmethod
+    def plot_xsvus(*, us, xs_list, legend_names, 
+                      legend_colors, figure_size,
+                      ylabel_xcoordinate, title_loc):
+        """ Plot steady state xs and us. """
+        
+        nrow = len(TwoReacPlots.labels) - 1
+        (figure, axes) = plt.subplots(nrows=nrow, ncols=1,
+                                      sharex=True, figsize=figure_size,
+                                      gridspec_kw=dict(wspace=0.4))
+        
+        # Loop through all the trajectories.
+        legend_handles = []
+        for xs, color in zip(xs_list, legend_colors):
+            
+            # First plot the states.
+            for row in range(nrow):
+                handle = axes[row].plot(us, xs[:, row], color)
+                axes[row].set_ylabel(TwoReacPlots.labels[row])
+                axes[row].get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
+            
+            # Store the legend handle.
+            legend_handles += handle
+
+        # Overall asthetics of the x axis.
+        axes[row].set_xlabel(r'$C_{Afs} \ (\textnormal{mol/m}^3)$')
+        axes[row].set_xlim([np.min(us), np.max(us)])
+
         # Name legends if provided. 
         if legend_names is not None:
             figure.legend(handles = legend_handles,
@@ -131,7 +168,7 @@ class TwoReacPlots:
         for col, rError, axes in zip(range(ncols), rErrors, axes_array):
 
             # Contour plot.
-            contour = axes.contourf(xGrid, yGrid, rError, cmap='viridis')
+            contour = axes.contourf(xGrid, yGrid, rError, cmap='cividis')
 
             # X and Y labels.
             axes.set_ylabel(ylabel)

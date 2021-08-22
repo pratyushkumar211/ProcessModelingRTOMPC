@@ -98,12 +98,11 @@ def main():
         # Print. 
         print("Model type: " + model_type)
         print('us: ' + str(us))
-    
-    breakpoint()
-    
+        
     # Get a linspace of steady-state u values.
     ulb, uub = plant_pars['ulb'], plant_pars['uub']
     us_list = list(np.linspace(ulb, uub, 100))
+    xs_list = []
 
     # Lists to store Steady-state cost.
     sscosts = []
@@ -114,27 +113,33 @@ def main():
 
         # List to store SS costs for one model.
         model_sscost = []
+        model_xs = []
 
         # Compute SS cost.
         for us in us_list:
             
-            _, _, sscost = getXsYsSscost(fxu=fxu, hx=hx, lyu=lyu, 
+            xs, _, sscost = getXsYsSscost(fxu=fxu, hx=hx, lyu=lyu, 
                                          us=us, parameters=model_pars, 
                                          xguess=plant_pars['xs'])
+            model_xs += [xs]
             model_sscost += [sscost]
-        
+
+        # Model steady states and costs.        
+        model_xs = np.asarray(model_xs)
         model_sscost = np.asarray(model_sscost)
+
+        # Store steady states and costs in lists.
+        xs_list += [model_xs]
         sscosts += [model_sscost]
 
     # Get us as rank 1 array.
     us = np.asarray(us_list)[:, 0]
 
     # Create data object and save.
-    tworeac_ssopt = dict(us=us, sscosts=sscosts)
+    tworeac_ssopt = dict(us=us, xs=xs_list, sscosts=sscosts)
 
     # Save.
     PickleTool.save(data_object=tworeac_ssopt,
                     filename='tworeac_ssopt.pickle')
-
 
 main()

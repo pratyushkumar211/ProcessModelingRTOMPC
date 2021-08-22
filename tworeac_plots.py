@@ -136,11 +136,20 @@ def main():
     #                            colors=['dimgray', 'm'], 
     #                            legends=['Black-box', 'Hybrid'])
 
-    # Steady state cost curves.
+    # Steady state Concentrations.
     us = tworeac_ssopt['us']
-    sscosts = tworeac_ssopt['sscosts']
+    xs_list = tworeac_ssopt['xs']
     legend_names = ['Plant', 'Hybrid']
     legend_colors = ['b', 'm']
+    figures += TwoReacPlots.plot_xsvus(us=us, xs_list=xs_list, 
+                                        legend_colors=legend_colors, 
+                                        legend_names=legend_names, 
+                                        figure_size=PAPER_FIGSIZE, 
+                                        ylabel_xcoordinate=-0.12, 
+                                        title_loc=(0.23, 0.9))
+
+    # Steady state cost curves.
+    sscosts = tworeac_ssopt['sscosts']
     figures += TwoReacPlots.plot_sscosts(us=us, sscosts=sscosts, 
                                         legend_colors=legend_colors, 
                                         legend_names=legend_names, 
