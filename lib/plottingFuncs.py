@@ -115,7 +115,7 @@ class TwoReacPlots:
 
     @staticmethod
     def plot_rPercentErrors(*, xGrid, yGrid, zvals, rErrors, 
-                                figure_size, xlabel, ylabel, 
+                                figure_size, xlabel, ylabel, rateTitle, 
                                 ylabel_xcoordinate, left_label_frac, 
                                 wspace):
         """ Make the plots. """
@@ -129,11 +129,17 @@ class TwoReacPlots:
 
         # Make plots.
         for col, rError, axes in zip(range(ncols), rErrors, axes_array):
+
+            # Contour plot.
             contour = axes.contourf(xGrid, yGrid, rError, cmap='viridis')
 
-            # Plot the control input.
+            # X and Y labels.
             axes.set_ylabel(ylabel)
             axes.set_xlabel(xlabel)
+
+            # Title.
+            title = rateTitle + str(zvals[col]) + ' mol/m$^3$' 
+            axes.set_title(title)
 
         # Make the color bar.
         figure.colorbar(contour, shrink=0.9)

@@ -49,7 +49,7 @@ def doRateAnalysis(*, xrange, yrange, zval, fNWeights, xuyscales, k, reaction):
             rNN[i, j] = nnOutput[1:2]*Ccstd
 
         # Get the error.
-        rError[i, j] = np.abs(rNN[i, j] - r[i, j])/r[i, j]
+        rError[i, j] = 100*np.abs(rNN[i, j] - r[i, j])/r[i, j]
 
     # Return the data.
     return xGrid, yGrid, r, rNN, rError
@@ -100,8 +100,33 @@ def main():
     r1Data = dict(r=r1, rNN=r1NN, rErrors=r1Errors, 
                   xGrid=xGrid, yGrid=yGrid, CcVals=CcVals)
 
+    # Get the neural network reaction rates.
+    CcVals = [0.07, 0.09, 0.11, 0.13]
+    CaRange = np.arange(0.25, 0.60, 1e-2)
+    CbRange = np.arange(0.18, 0.28, 1e-2)
+
+    # Loop over concentration of C values.
+    r2, r2NN, r2Errors = [], [], []
+    for CcVal in CcVals:
+        
+        # Do analysis.
+        (xGrid, yGrid, 
+         r, rNN, rErrors) = doRateAnalysis(xrange=CaRange, yrange=CbRange, 
+                                           zval=CcVal, fNWeights=fNWeights, 
+                                           xuyscales=xuyscales, k=k2, 
+                                           reaction='Second')
+
+        # Store data in lists.
+        r2 += [r]
+        r2NN += [rNN]
+        r2Errors += [rErrors]       
+
+    # r2 Analysis data.
+    r2Data = dict(r=r2, rNN=r2NN, rErrors=r2Errors, 
+                  xGrid=xGrid, yGrid=yGrid, CcVals=CcVals)
+
     # Create a dictionary to save.
-    rateAnalysisData = [r1Data]
+    rateAnalysisData = [r1Data, r2Data]
 
     # Make the plot.
     PickleTool.save(data_object=rateAnalysisData,
