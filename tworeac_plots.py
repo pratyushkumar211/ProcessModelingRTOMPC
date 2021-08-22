@@ -83,6 +83,11 @@ def main():
     tworeac_ssopt = PickleTool.load(filename="tworeac_ssopt.pickle",
                                      type='read')
 
+    # Load the rate analysis computations.
+    tworeac_rateAnalysis = PickleTool.load(filename=
+                                     "tworeac_rateAnalysis.pickle",
+                                     type='read')
+
     # List to store figures.
     figures = []
 
@@ -142,6 +147,20 @@ def main():
                                         figure_size=PAPER_FIGSIZE, 
                                         ylabel_xcoordinate=-0.12, 
                                         left_label_frac=0.15)
+
+    # Make a reaction rate analysis plot.
+    rErrors = tworeac_rateAnalysis[0]['rErrors']
+    xGrid = tworeac_rateAnalysis[0]['xGrid']
+    yGrid = tworeac_rateAnalysis[0]['yGrid']
+    CcVals = tworeac_rateAnalysis[0]['CcVals']
+    figures += TwoReacPlots.plot_rPercentErrors(rErrors=rErrors, xGrid=xGrid,
+                                            yGrid=yGrid, zvals=CcVals, 
+                                    xlabel=r'$C_A \ (\textnormal{mol/m}^3)$',
+                                    ylabel=r'$C_B \ (\textnormal{mol/m}^3)$',
+                                            figure_size=(10, 4), 
+                                            ylabel_xcoordinate=None, 
+                                            left_label_frac=0.1, 
+                                            wspace=0.4)
 
     # Load data for the economic MPC simulation.
     # tworeac_empc = PickleTool.load(filename="tworeac_empc.pickle", 

@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import cm
 import itertools
 
 PRESENTATION_FIGSIZE = (6, 6)
@@ -110,6 +111,34 @@ class TwoReacPlots:
         axes.set_xlim([np.min(us), np.max(us)])
         
         # Return figure.
+        return [figure]
+
+    @staticmethod
+    def plot_rPercentErrors(*, xGrid, yGrid, zvals, rErrors, 
+                                figure_size, xlabel, ylabel, 
+                                ylabel_xcoordinate, left_label_frac, 
+                                wspace):
+        """ Make the plots. """
+
+        # Create figure and axes.
+        ncols = len(zvals)
+        (figure, axes_array) = plt.subplots(nrows=1, ncols=ncols, 
+                                      sharex=True, figsize=figure_size,
+                                      gridspec_kw=dict(left=left_label_frac, 
+                                                       wspace=wspace))
+
+        # Make plots.
+        for col, rError, axes in zip(range(ncols), rErrors, axes_array):
+            contour = axes.contourf(xGrid, yGrid, rError, cmap='viridis')
+
+            # Plot the control input.
+            axes.set_ylabel(ylabel)
+            axes.set_xlabel(xlabel)
+
+        # Make the color bar.
+        figure.colorbar(contour, shrink=0.9)
+
+        # Return the figure.
         return [figure]
 
 # class CstrFlashPlots:

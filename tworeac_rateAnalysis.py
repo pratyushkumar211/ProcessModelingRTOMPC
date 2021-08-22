@@ -3,122 +3,108 @@
 
 import sys
 sys.path.append('lib/')
+import itertools
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_pdf import PdfPages
-from plottingFuncs import TwoReacPlots, PAPER_FIGSIZE
 from hybridId import PickleTool
 from BlackBoxFuncs import fnn
 
-def getRNN(Ca, Cb, Cc, fNWeights, xuyscales):
-    """ Plot the reaction rates. """
-
-    # Assert sizes.
-    assert Ca.shape[0] == Cb.shape[0]
-    assert Cb.shape[0] == Cc.shape[0]
+def doRateAnalysis(*, xrange, yrange, zval, fNWeights, xuyscales, k, reaction):
+    """ Function to do rate analysis. 
+        x: Ca, y:Cb, z:Cc
+    """
 
     # Get a concatenated set of state values.
-    Ndata = Ca.shape[0]
-    xvals = np.concatenate((Ca[:, np.newaxis], 
-                            Cb[:, np.newaxis], 
-                            Cc[:, np.newaxis]), axis=1)
+    Nx = xrange.shape[0]
+    Ny = yrange.shape[0]
+
+    # Get a meshgrid of X and Y values.
+    xGrid, yGrid = np.meshgrid(xrange, yrange)
 
     # Scale.
     xmean, xstd = xuyscales['yscale']
     Castd, Cbstd, Ccstd = xstd[0:1], xstd[1:2], xstd[2:3]
     umean, ustd = xuyscales['uscale']
-    breakpoint()
-    xvals = (xvals - xmean)/xstd
 
     # Get the NN outputs.
-    r1NN_list = []
-    r2NN_list = []
-    for samp in range(Ndata):
+    r = np.tile(np.nan, (Ny, Nx))
+    rNN = np.tile(np.nan, (Ny, Nx))
+    rError = np.tile(np.nan, (Ny, Nx))
+    for i, j in itertools.product(range(Ny), range(Nx)):
+
+        # Compute the true reaction rate.
+        if reaction == 'First':
+            r[i, j] = k*xGrid[i, j]
+        else:
+            r[i, j] = k*(yGrid[i, j]**3)
 
         # Get the NN outputs.
-        x = xvals[samp, :]
+        x = np.array([xGrid[i, j], yGrid[i, j], zval])
+        x = (x - xmean)/xstd
         nnOutput = fnn(x, fNWeights)
-        r1NN = nnOutput[0:1]*Castd
-        r2NN = nnOutput[1:2]*Ccstd
 
-        # Append to list.
-        r1NN_list += [r1NN]
-        r2NN_list += [r2NN]
+        # Get the reaction rates.
+        if reaction == 'First':
+            rNN[i, j] = nnOutput[0:1]*Castd
+        else:
+            rNN[i, j] = nnOutput[1:2]*Ccstd
 
-    # Reaction rates.
-    r1NN = np.array(r1NN_list)
-    r2NN = np.array(r2NN_list)
+        # Get the error.
+        rError[i, j] = np.abs(rNN[i, j] - r[i, j])/r[i, j]
 
-    # Return the rates computed by NNs.
-    return r1NN, r2NN
-
-def makeReactionPlot(x, r, ylabel, title, rNN=None, lw=0.5):
-    """ Make the plots. """
-
-    # Make a plot.
-    figure, axes = plt.subplots(nrows=1, ncols=1, linewidth=lw,
-                                sharex=True, figsize=(6, 4), 
-                                gridspec_kw=dict(left=0.1, wspace=0.2))
-
-    # Make plots.
-    axes.plot(x, r, 'b', linewidth=lw)
-    if rNN is not None:
-        axes.plot(x, rNN, 'g', linewidth=lw)
-        axes.legend(['True Reaction Rate', 'NN Reaction Rate'])
-
-
-    # Plot the control input.
-    axes.set_ylabel(ylabel, rotation=False)
-    axes.set_xlim([np.min(x), np.max(x)])
-    axes.set_title(label = title)
-
-    # Return the figure.
-    return [figure]
+    # Return the data.
+    return xGrid, yGrid, r, rNN, rError
 
 def main():
     """ Main function to be executed. """
 
-    # Load data.
+    # Load parameters and training data.
     tworeac_parameters = PickleTool.load(filename=
                                          'tworeac_parameters.pickle',
                                          type='read')
-    k1 = tworeac_parameters['plant_pars']['k1']
-    k2 = tworeac_parameters['plant_pars']['k2']
-
-    # Load pickle files.
     tworeac_hybtrain = PickleTool.load(filename=
                                       'tworeac_hybtrain_dyndata.pickle',
                                       type='read')
+
+    # Neural network weights and scaling.
     fNWeights = tworeac_hybtrain['trained_weights'][-1]
     xuyscales = tworeac_hybtrain['xuyscales']
     xmean, xstd = xuyscales['yscale']
     umean, ustd = xuyscales['uscale']
 
-    # Create a figure list.
-    figures = []
+    # Rate constant parameters.
+    k1 = tworeac_parameters['plant_pars']['k1']
+    k2 = tworeac_parameters['plant_pars']['k2']
 
     # Get the neural network reaction rates.
-    # Ca = np.arange(0., 0.9, 1e-2)
-    # Cb = np.tile(0.4, (Ca.shape[0], ))
-    # Cc = np.tile(0.3, (Ca.shape[0], ))
-    # r1 = k1*Ca
-    # r1NN, _ = getRNN(Ca, Cb, Cc, fNWeights, xuyscales)
-    # r1NN = r1NN.squeeze()
-    # figures += makeReactionPlot(Ca, r1, '$r$', '$r = k_1 C_A$', rNN=r1NN)
+    CcVals = [0.07, 0.09, 0.11, 0.13]
+    CaRange = np.arange(0.25, 0.60, 1e-2)
+    CbRange = np.arange(0.18, 0.28, 1e-2)
 
-    # Get the neural network reaction rates.
-    Cb = np.arange(0.15, 0.28, 1e-2)
-    Ca = np.tile(0.45, (Cb.shape[0], ))
-    Cc = np.tile(0.086, (Cb.shape[0], ))
-    breakpoint()
-    r2 = k2*(Cb**3)
-    _, r2NN = getRNN(Ca, Cb, Cc, fNWeights, xuyscales)
-    r2NN = r2NN.squeeze()
-    figures += makeReactionPlot(Cb, r2, '$r$', '$r = k_2 C^3_B$', rNN=r2NN)
+    # Loop over concentration of C values.
+    r1, r1NN, r1Errors = [], [], []
+    for CcVal in CcVals:
+        
+        # Do analysis.
+        (xGrid, yGrid, 
+         r, rNN, rErrors) = doRateAnalysis(xrange=CaRange, yrange=CbRange, 
+                                           zval=CcVal, fNWeights=fNWeights, 
+                                           xuyscales=xuyscales, k=k1, 
+                                           reaction='First')
+
+        # Store data in lists.
+        r1 += [r]
+        r1NN += [rNN]
+        r1Errors += [rErrors]       
+
+    # r1 Analysis data.
+    r1Data = dict(r=r1, rNN=r1NN, rErrors=r1Errors, 
+                  xGrid=xGrid, yGrid=yGrid, CcVals=CcVals)
+
+    # Create a dictionary to save.
+    rateAnalysisData = [r1Data]
 
     # Make the plot.
-    with PdfPages('tworeac_rateAnalysis.pdf', 'w') as pdf_file:
-        for fig in figures:
-            pdf_file.savefig(fig)
+    PickleTool.save(data_object=rateAnalysisData,
+                    filename='tworeac_rateAnalysis.pickle')
 
 main()
