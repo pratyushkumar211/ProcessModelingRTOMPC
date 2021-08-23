@@ -49,7 +49,7 @@ def doRateAnalysis(*, xrange, yrange, zval, fNWeights, xuyscales, k, reaction):
             rNN[i, j] = nnOutput[1:2]*Ccstd
 
         # Get the error.
-        rError[i, j] = 100*np.abs(rNN[i, j] - r[i, j])/r[i, j]
+        rError[i, j] = np.abs(rNN[i, j] - r[i, j])/r[i, j]
 
     # Return the data.
     return xGrid, yGrid, r, rNN, rError
@@ -76,7 +76,7 @@ def main():
     k2 = tworeac_parameters['plant_pars']['k2']
 
     # Get the neural network reaction rates.
-    CcVals = [0.06, 0.09, 0.12, 0.15]
+    CcVals = [0.09, 0.2]
     CaRange = np.arange(0.25, 0.65, 1e-2)
     CbRange = np.arange(0.15, 0.35, 1e-2)
 

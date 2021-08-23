@@ -49,7 +49,7 @@ def _sample_repeats(num_change, num_simulation_steps,
 def sample_prbs_like(*, num_change, num_steps, 
                         lb, ub, mean_change, sigma_change, 
                         num_constraint=0, seed=1):
-    """Sample a PRBS like sequence.
+    """ Sample a PRBS like sequence.
     num_change: Number of changes in the signal.
     num_steps: Number of steps in the signal.
     mean_change: mean_value after which a 
@@ -59,7 +59,8 @@ def sample_prbs_like(*, num_change, num_steps,
     signal_dimension = lb.shape[0]
     lb = lb.squeeze() # Squeeze the vectors.
     ub = ub.squeeze() # Squeeze the vectors.
-    np.random.seed(seed)
+    np.random.seed(seed) # Seed for numpy.
+    random.seed(seed) # Seed for the random package.
     values = (ub-lb)*np.random.rand(num_change, signal_dimension) + lb
     # Sample some values at constraints.
     if num_constraint > 0:

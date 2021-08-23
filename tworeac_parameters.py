@@ -19,6 +19,7 @@ def gen_train_val_data(*, parameters, num_traj,
     ulb, uub = parameters['ulb'], parameters['uub']
     tthrow = 10
     p = parameters['ps'][:, np.newaxis]
+    np.random.seed(seed) # (So that the first us is reproducible).
 
     # Start to generate data.
     for traj in range(num_traj):

@@ -68,10 +68,10 @@ def main():
     plant_pars = tworeac_parameters['plant_pars']
     
     # Load Black-Box data after training.
-    # tworeac_bbnntrain = PickleTool.load(filename=
-    #                                   "tworeac_bbnntrain_dyndata.pickle",
-    #                                   type='read')
-    # bbnn_predictions = tworeac_bbnntrain['val_predictions']
+    tworeac_bbnntrain = PickleTool.load(filename=
+                                      "tworeac_bbnntrain_dyndata.pickle",
+                                      type='read')
+    bbnn_predictions = tworeac_bbnntrain['val_predictions']
 
     # Load Hybrid data after training.
     tworeac_hybtrain = PickleTool.load(filename=
@@ -105,11 +105,11 @@ def main():
                                             title_loc=None)
 
     # Plot validation data.
-    legend_names = ['Plant', 'Hybrid']
-    legend_colors = ['b', 'm']
+    legend_names = ['Plant', 'Black-Box-NN', 'Hybrid']
+    legend_colors = ['b', 'dimgrey', 'm']
     valdata_plant = tworeac_parameters['training_data_dyn'][-1]
     valdata_list = [valdata_plant]
-    #valdata_list += bbnn_predictions
+    valdata_list += bbnn_predictions
     valdata_list += hyb_predictions
     t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
                                                      valdata_list[:1],
@@ -139,8 +139,8 @@ def main():
     # Steady state Concentrations.
     us = tworeac_ssopt['us']
     xs_list = tworeac_ssopt['xs']
-    legend_names = ['Plant', 'Hybrid']
-    legend_colors = ['b', 'm']
+    legend_names = ['Plant', 'Black-Box-NN', 'Hybrid']
+    legend_colors = ['b', 'dimgrey', 'm']
     figures += TwoReacPlots.plot_xsvus(us=us, xs_list=xs_list, 
                                         legend_colors=legend_colors, 
                                         legend_names=legend_names, 
@@ -164,30 +164,30 @@ def main():
     CcVals = tworeac_rateAnalysis[0]['CcVals']
     xlabel = r'$C_A \ (\textnormal{mol/m}^3)$'
     ylabel = r'$C_B \ (\textnormal{mol/m}^3)$'
-    rateTitle = '$\%$ Error - $r_1, C_C = $ '
+    rateTitle = '$\dfrac{|r_1 - r_{1-NN}|}{|r_1|}, C_C = $ '
     figures += TwoReacPlots.plot_rPercentErrors(rErrors=rErrors, xGrid=xGrid,
                                             yGrid=yGrid, zvals=CcVals, 
                                             xlabel=xlabel, ylabel=ylabel,
                                             rateTitle = rateTitle,
-                                            figure_size=(10, 4), 
+                                            figure_size=(8, 4), 
                                             ylabel_xcoordinate=None, 
                                             left_label_frac=0.08, 
-                                            wspace=0.4)
+                                            wspace=0.3)
 
     # Make a reaction rate analysis plot.
     rErrors = tworeac_rateAnalysis[1]['rErrors']
     xGrid = tworeac_rateAnalysis[1]['xGrid']
     yGrid = tworeac_rateAnalysis[1]['yGrid']
     CcVals = tworeac_rateAnalysis[1]['CcVals']
-    rateTitle = '$\%$ Error - $r_2, C_C = $ '
+    rateTitle = '$\dfrac{|r_2 - r_{2-NN}|}{|r_2|}, C_C = $ '
     figures += TwoReacPlots.plot_rPercentErrors(rErrors=rErrors, xGrid=xGrid,
                                             yGrid=yGrid, zvals=CcVals, 
                                             xlabel=xlabel, ylabel=ylabel,
                                             rateTitle = rateTitle,
-                                            figure_size=(10, 4), 
+                                            figure_size=(8, 4), 
                                             ylabel_xcoordinate=None, 
                                             left_label_frac=0.08, 
-                                            wspace=0.4)
+                                            wspace=0.3)
 
     # Load data for the economic MPC simulation.
     # tworeac_empc = PickleTool.load(filename="tworeac_empc.pickle", 

@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm
+import matplotlib
 import itertools
 
 PRESENTATION_FIGSIZE = (6, 6)
@@ -168,7 +169,8 @@ class TwoReacPlots:
         for col, rError, axes in zip(range(ncols), rErrors, axes_array):
 
             # Contour plot.
-            contour = axes.contourf(xGrid, yGrid, rError, cmap='cividis')
+            contour = axes.contourf(xGrid, yGrid, rError, cmap='viridis')
+            figure.colorbar(contour, ax=axes)
 
             # X and Y labels.
             axes.set_ylabel(ylabel)
@@ -179,7 +181,10 @@ class TwoReacPlots:
             axes.set_title(title)
 
         # Make the color bar.
-        figure.colorbar(contour, shrink=0.9)
+        # norm = matplotlib.colors.Normalize(vmin=contour.cvalues.min(), 
+        #                                    vmax=contour.cvalues.max())
+        # sm = plt.cm.ScalarMappable(norm=norm, cmap = contour.cmap)
+        # figure.colorbar(contour, shrink=0.9)
 
         # Return the figure.
         return [figure]
