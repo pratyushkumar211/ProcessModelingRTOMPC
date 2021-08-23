@@ -194,7 +194,7 @@ def main():
     errorsOnTrain = tworeac_rateAnalysis[2]
     xlabels = ['$\dfrac{|r_1 - r_{1-NN}|}{|r_1|}$',
                '$\dfrac{|r_2 - r_{2-NN}|}{|r_2|}$']
-    xlims_list = [[0, 0.1], [0, 0.4]]
+    xlims_list = [[0, 0.6], [0, 1.0]]
     for reaction, xlabel, xlims in zip(errorsOnTrain.keys(), 
                                        xlabels, xlims_list):
 
@@ -218,7 +218,7 @@ def main():
                                             figure_size=PAPER_FIGSIZE, 
                                             left_frac=0.12,
                                             xlims=xlims, ylims=ylims, 
-                                            zlims=zlims, markersize=0.5)
+                                            zlims=zlims, markersize=1.)
 
     # Load data for the economic MPC simulation.
     # tworeac_empc = PickleTool.load(filename="tworeac_empc.pickle", 
