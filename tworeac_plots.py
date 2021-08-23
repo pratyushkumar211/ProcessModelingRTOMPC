@@ -159,35 +159,35 @@ def main():
 
     # Make a reaction rate analysis plot.
     rErrors = tworeac_rateAnalysis[0]['rErrors']
-    xGrid = tworeac_rateAnalysis[0]['xGrid']
-    yGrid = tworeac_rateAnalysis[0]['yGrid']
+    xGrids = tworeac_rateAnalysis[0]['xGrids']
+    yGrids = tworeac_rateAnalysis[0]['yGrids']
     CcVals = tworeac_rateAnalysis[0]['CcVals']
     xlabel = r'$C_A \ (\textnormal{mol/m}^3)$'
     ylabel = r'$C_B \ (\textnormal{mol/m}^3)$'
     rateTitle = '$\dfrac{|r_1 - r_{1-NN}|}{|r_1|}, C_C = $ '
-    figures += TwoReacPlots.plot_rPercentErrors(rErrors=rErrors, xGrid=xGrid,
-                                            yGrid=yGrid, zvals=CcVals, 
-                                            xlabel=xlabel, ylabel=ylabel,
-                                            rateTitle = rateTitle,
-                                            figure_size=(8, 4), 
-                                            ylabel_xcoordinate=None, 
-                                            left_label_frac=0.08, 
-                                            wspace=0.3)
+    figures += TwoReacPlots.plot_rPercentErrors(rErrors=rErrors, xGrids=xGrids,
+                                                yGrids=yGrids, zvals=CcVals, 
+                                                xlabel=xlabel, ylabel=ylabel,
+                                                rateTitle=rateTitle,
+                                                figure_size=PAPER_FIGSIZE, 
+                                                ylabel_xcoordinate=None, 
+                                                left_frac=0.12, right_frac=0.95,
+                                                wspace=0.1)
 
     # Make a reaction rate analysis plot.
     rErrors = tworeac_rateAnalysis[1]['rErrors']
-    xGrid = tworeac_rateAnalysis[1]['xGrid']
-    yGrid = tworeac_rateAnalysis[1]['yGrid']
+    xGrids = tworeac_rateAnalysis[1]['xGrids']
+    yGrids = tworeac_rateAnalysis[1]['yGrids']
     CcVals = tworeac_rateAnalysis[1]['CcVals']
     rateTitle = '$\dfrac{|r_2 - r_{2-NN}|}{|r_2|}, C_C = $ '
-    figures += TwoReacPlots.plot_rPercentErrors(rErrors=rErrors, xGrid=xGrid,
-                                            yGrid=yGrid, zvals=CcVals, 
-                                            xlabel=xlabel, ylabel=ylabel,
-                                            rateTitle = rateTitle,
-                                            figure_size=(8, 4), 
-                                            ylabel_xcoordinate=None, 
-                                            left_label_frac=0.08, 
-                                            wspace=0.3)
+    figures += TwoReacPlots.plot_rPercentErrors(rErrors=rErrors, xGrids=xGrids,
+                                                yGrids=yGrids, zvals=CcVals, 
+                                                xlabel=xlabel, ylabel=ylabel,
+                                                rateTitle=rateTitle,
+                                                figure_size=PAPER_FIGSIZE, 
+                                                ylabel_xcoordinate=None, 
+                                                left_frac=0.12, right_frac=0.95,
+                                                wspace=0.1)
 
     # Load data for the economic MPC simulation.
     # tworeac_empc = PickleTool.load(filename="tworeac_empc.pickle", 

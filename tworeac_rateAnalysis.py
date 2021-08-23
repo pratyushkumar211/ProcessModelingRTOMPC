@@ -76,13 +76,14 @@ def main():
     k2 = tworeac_parameters['plant_pars']['k2']
 
     # Get the neural network reaction rates.
-    CcVals = [0.09, 0.2]
-    CaRange = np.arange(0.25, 0.65, 1e-2)
-    CbRange = np.arange(0.15, 0.35, 1e-2)
-
+    CcVals = [0.09, 0.4]
+    CaRanges = [np.arange(0.20, 0.70, 1e-2), np.arange(0.1, 0.80, 1e-2)]
+    CbRanges = [np.arange(0.15, 0.28, 1e-2), np.arange(0.1, 0.35, 1e-2)]
+    
     # Loop over concentration of C values.
     r1, r1NN, r1Errors = [], [], []
-    for CcVal in CcVals:
+    xGrids, yGrids = [], []
+    for CaRange, CbRange, CcVal in zip(CaRanges, CbRanges, CcVals):
         
         # Do analysis.
         (xGrid, yGrid, 
@@ -95,14 +96,21 @@ def main():
         r1 += [r]
         r1NN += [rNN]
         r1Errors += [rErrors]       
+        xGrids += [xGrid]
+        yGrids += [yGrid]
 
     # r1 Analysis data.
     r1Data = dict(r=r1, rNN=r1NN, rErrors=r1Errors, 
-                  xGrid=xGrid, yGrid=yGrid, CcVals=CcVals)
+                  xGrids=xGrids, yGrids=yGrids, CcVals=CcVals)
+
+    # Ranges of Ca and Cb.
+    CaRanges = [np.arange(0.20, 0.70, 1e-2), np.arange(0.20, 0.70, 1e-2)]
+    CbRanges = [np.arange(0.15, 0.28, 1e-2), np.arange(0.15, 0.35, 1e-2)]
 
     # Loop over concentration of C values.
     r2, r2NN, r2Errors = [], [], []
-    for CcVal in CcVals:
+    xGrids, yGrids = [], []
+    for CaRange, CbRange, CcVal in zip(CaRanges, CbRanges, CcVals):
         
         # Do analysis.
         (xGrid, yGrid, 
@@ -114,11 +122,13 @@ def main():
         # Store data in lists.
         r2 += [r]
         r2NN += [rNN]
-        r2Errors += [rErrors]       
+        r2Errors += [rErrors]
+        xGrids += [xGrid]
+        yGrids += [yGrid]
 
     # r2 Analysis data.
     r2Data = dict(r=r2, rNN=r2NN, rErrors=r2Errors, 
-                  xGrid=xGrid, yGrid=yGrid, CcVals=CcVals)
+                  xGrids=xGrids, yGrids=yGrids, CcVals=CcVals)
 
     # Create a dictionary to save.
     rateAnalysisData = [r1Data, r2Data]

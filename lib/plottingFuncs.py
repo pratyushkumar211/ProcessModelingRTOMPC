@@ -152,42 +152,44 @@ class TwoReacPlots:
         return [figure]
 
     @staticmethod
-    def plot_rPercentErrors(*, xGrid, yGrid, zvals, rErrors, 
+    def plot_rPercentErrors(*, xGrids, yGrids, zvals, rErrors, 
                                 figure_size, xlabel, ylabel, rateTitle, 
-                                ylabel_xcoordinate, left_label_frac, 
-                                wspace):
+                                ylabel_xcoordinate, left_frac, 
+                                wspace, right_frac):
         """ Make the plots. """
 
-        # Create figure and axes.
-        ncols = len(zvals)
-        (figure, axes_array) = plt.subplots(nrows=1, ncols=ncols, 
-                                      sharex=True, figsize=figure_size,
-                                      gridspec_kw=dict(left=left_label_frac, 
-                                                       wspace=wspace))
-
         # Make plots.
-        for col, rError, axes in zip(range(ncols), rErrors, axes_array):
+        figures = []
+        for (zval, xGrid, yGrid, rError) in zip(zvals, xGrids, yGrids, rErrors):
+            
+            # Create figures.
+            figure, axes = plt.subplots(nrows=1, ncols=1, 
+                                        sharex=True, figsize=figure_size,
+                                        gridspec_kw=dict(left=left_frac, 
+                                                         right=right_frac,
+                                                         wspace=wspace))
 
             # Contour plot.
-            contour = axes.contourf(xGrid, yGrid, rError, cmap='viridis')
-            figure.colorbar(contour, ax=axes)
+            mesh = axes.pcolormesh(xGrid, yGrid, rError, cmap='viridis')
+            figure.colorbar(mesh, ax=axes)
 
             # X and Y labels.
             axes.set_ylabel(ylabel)
             axes.set_xlabel(xlabel)
 
+            # Limits.
+            axes.set_xlim([np.min(xGrid), np.max(xGrid)])
+            axes.set_ylim([np.min(yGrid), np.max(yGrid)])
+
             # Title.
-            title = rateTitle + str(zvals[col]) + ' mol/m$^3$' 
+            title = rateTitle + str(zval) + ' (mol/m$^3$)' 
             axes.set_title(title)
 
-        # Make the color bar.
-        # norm = matplotlib.colors.Normalize(vmin=contour.cvalues.min(), 
-        #                                    vmax=contour.cvalues.max())
-        # sm = plt.cm.ScalarMappable(norm=norm, cmap = contour.cmap)
-        # figure.colorbar(contour, shrink=0.9)
+            # Add into the figures list.
+            figures += [figure]
 
         # Return the figure.
-        return [figure]
+        return figures
 
 # class CstrFlashPlots:
 
