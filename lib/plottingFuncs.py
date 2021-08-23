@@ -86,6 +86,11 @@ class TwoReacPlots:
                       ylabel_xcoordinate, title_loc):
         """ Plot steady state xs and us. """
         
+        # Labels.
+        labels = [r'$C_{As} \ (\textnormal{mol/m}^3)$', 
+                  r'$C_{Bs} \ (\textnormal{mol/m}^3)$',
+                  r'$C_{Cs} \ (\textnormal{mol/m}^3)$']
+
         nrow = len(TwoReacPlots.labels) - 1
         (figure, axes) = plt.subplots(nrows=nrow, ncols=1,
                                       sharex=True, figsize=figure_size,
@@ -98,7 +103,7 @@ class TwoReacPlots:
             # First plot the states.
             for row in range(nrow):
                 handle = axes[row].plot(us, xs[:, row], color)
-                axes[row].set_ylabel(TwoReacPlots.labels[row])
+                axes[row].set_ylabel(labels[row])
                 axes[row].get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
             
             # Store the legend handle.
