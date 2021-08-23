@@ -196,6 +196,46 @@ class TwoReacPlots:
         # Return the figure.
         return figures
 
+    @staticmethod
+    def plot_ErrorHistogram(*, xGrids, yGrids, zvals, rErrors, 
+                                figure_size, xlabel, ylabel, rateTitle, 
+                                ylabel_xcoordinate, left_frac, 
+                                wspace, right_frac):
+        """ Make the plots. """
+
+        # Make plots.
+        figures = []
+        for (zval, xGrid, yGrid, rError) in zip(zvals, xGrids, yGrids, rErrors):
+            
+            # Create figures.
+            figure, axes = plt.subplots(nrows=1, ncols=1, 
+                                        sharex=True, figsize=figure_size,
+                                        gridspec_kw=dict(left=left_frac, 
+                                                         right=right_frac,
+                                                         wspace=wspace))
+
+            # Contour plot.
+            mesh = axes.pcolormesh(xGrid, yGrid, rError, cmap='viridis')
+            figure.colorbar(mesh, ax=axes)
+
+            # X and Y labels.
+            axes.set_ylabel(ylabel)
+            axes.set_xlabel(xlabel)
+
+            # Limits.
+            axes.set_xlim([np.min(xGrid), np.max(xGrid)])
+            axes.set_ylim([np.min(yGrid), np.max(yGrid)])
+
+            # Title.
+            title = rateTitle + str(zval) + ' (mol/m$^3$)' 
+            axes.set_title(title)
+
+            # Add into the figures list.
+            figures += [figure]
+
+        # Return the figure.
+        return figures
+
 # class CstrFlashPlots:
 
 #     ylabels = [r'$H_r \ (\textnormal{m})$',

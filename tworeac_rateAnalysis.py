@@ -130,6 +130,9 @@ def main():
     r2Data = dict(r=r2, rNN=r2NN, rErrors=r2Errors, 
                   xGrids=xGrids, yGrids=yGrids, CcVals=CcVals)
 
+    # Errors in the rates collected over training data.
+    breakpoint()
+
     # Create a dictionary to save.
     rateAnalysisData = [r1Data, r2Data]
 
