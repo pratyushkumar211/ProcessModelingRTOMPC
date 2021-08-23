@@ -43,11 +43,11 @@ def plot_cost_pars(t, cost_pars,
                    figure_size=PAPER_FIGSIZE, 
                    ylabel_xcoordinate=-0.15):
     """ Plot the economic MPC cost parameters. """
+
     num_pars = cost_pars.shape[1]
     (figure, axes_list) = plt.subplots(nrows=num_pars, ncols=1,
-                                  sharex=True,
-                                  figsize=figure_size,
-                                  gridspec_kw=dict(left=0.18))
+                                       sharex=True, figsize=figure_size,
+                                       gridspec_kw=dict(left=0.18))
     xlabel = 'Time (hr)'
     ylabels = [r'$c_a$', r'$c_b$']
     for (axes, pari, ylabel) in zip(axes_list, range(num_pars), ylabels):
@@ -57,6 +57,7 @@ def plot_cost_pars(t, cost_pars,
         axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
     axes.set_xlabel(xlabel)
     axes.set_xlim([np.min(t), np.max(t)])
+    # Figure list.
     return [figure]
 
 def main():
@@ -188,6 +189,37 @@ def main():
                                                 ylabel_xcoordinate=None, 
                                                 left_frac=0.12, right_frac=0.95,
                                                 wspace=0.1)
+
+    # Make the histograms.
+    errorsOnTrain = tworeac_rateAnalysis[2]
+    xlabels = ['$\dfrac{|r_1 - r_{1-NN}|}{|r_1|}$',
+               '$\dfrac{|r_2 - r_{2-NN}|}{|r_2|}$']
+    xlims_list = [[0, 0.1], [0, 0.4]]
+    for reaction, xlabel, xlims in zip(errorsOnTrain.keys(), 
+                                       xlabels, xlims_list):
+
+        # Loop over the errors.
+        figures += TwoReacPlots.plot_ErrorHistogram(rError=
+                                                errorsOnTrain[reaction], 
+                                                xlabel=xlabel, ylabel='Frequency',
+                                                figure_size=PAPER_FIGSIZE, 
+                                                left_frac=0.12, nBins=100, 
+                                                xlims=xlims)
+
+    # Make the 3D scatter plot.
+    errorsOnTrain = tworeac_rateAnalysis[2]
+    xlims = [0.02, 0.8]
+    ylims = [0.02, 0.6]
+    zlims = [0.02, 0.25]
+
+    # Loop over the errors.
+    figures += TwoReacPlots.plotDataSamples3D(ydata=
+                                            errorsOnTrain['ysamples'], 
+                                            figure_size=PAPER_FIGSIZE, 
+                                            left_frac=0.12,
+                                            xlims=xlims, ylims=ylims, 
+                                            zlims=zlims)
+
 
     # Load data for the economic MPC simulation.
     # tworeac_empc = PickleTool.load(filename="tworeac_empc.pickle", 

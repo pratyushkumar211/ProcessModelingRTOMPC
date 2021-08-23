@@ -197,44 +197,55 @@ class TwoReacPlots:
         return figures
 
     @staticmethod
-    def plot_ErrorHistogram(*, xGrids, yGrids, zvals, rErrors, 
-                                figure_size, xlabel, ylabel, rateTitle, 
-                                ylabel_xcoordinate, left_frac, 
-                                wspace, right_frac):
+    def plot_ErrorHistogram(*, rError, figure_size, xlabel, ylabel, 
+                               left_frac, nBins, 
+                               xlims):
         """ Make the plots. """
+        
+        # Create figures.
+        figure, axes = plt.subplots(nrows=1, ncols=1, 
+                                    figsize=figure_size,
+                                    gridspec_kw=dict(left=left_frac))
 
-        # Make plots.
-        figures = []
-        for (zval, xGrid, yGrid, rError) in zip(zvals, xGrids, yGrids, rErrors):
-            
-            # Create figures.
-            figure, axes = plt.subplots(nrows=1, ncols=1, 
-                                        sharex=True, figsize=figure_size,
-                                        gridspec_kw=dict(left=left_frac, 
-                                                         right=right_frac,
-                                                         wspace=wspace))
+        # Contour plot.
+        axes.hist(rError, bins=nBins)
 
-            # Contour plot.
-            mesh = axes.pcolormesh(xGrid, yGrid, rError, cmap='viridis')
-            figure.colorbar(mesh, ax=axes)
+        # X and Y labels.
+        axes.set_ylabel(ylabel)
+        axes.set_xlabel(xlabel)
 
-            # X and Y labels.
-            axes.set_ylabel(ylabel)
-            axes.set_xlabel(xlabel)
-
-            # Limits.
-            axes.set_xlim([np.min(xGrid), np.max(xGrid)])
-            axes.set_ylim([np.min(yGrid), np.max(yGrid)])
-
-            # Title.
-            title = rateTitle + str(zval) + ' (mol/m$^3$)' 
-            axes.set_title(title)
-
-            # Add into the figures list.
-            figures += [figure]
+        # X and Y limits.
+        axes.set_xlim(xlims)
 
         # Return the figure.
-        return figures
+        return [figure]
+
+    @staticmethod
+    def plotDataSamples3D(*, ydata, figure_size, 
+                        left_frac, xlims, ylims, zlims):
+        """ Make the plots. """
+        
+        # Create figures.
+        figure, axes = plt.subplots(nrows=1, ncols=1, 
+                                    figsize=figure_size,
+                                    subplot_kw=dict(projection='3d'),
+                                    gridspec_kw=dict(left=left_frac))
+
+        # Contour plot.
+        axes.scatter(ydata[:, 0], ydata[:, 1], ydata[:, 2])
+
+        # X and Y labels.
+        axes.set_xlabel(TwoReacPlots.labels[0])
+        axes.set_ylabel(TwoReacPlots.labels[1])
+        axes.set_zlabel(TwoReacPlots.labels[2])
+
+        # X and Y limits.
+        axes.set_xlim(xlims)
+        axes.set_ylim(ylims)
+        axes.set_zlim(zlims)
+
+        # Return the figure.
+        return [figure]
 
 # class CstrFlashPlots:
 
