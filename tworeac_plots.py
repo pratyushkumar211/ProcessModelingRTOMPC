@@ -210,7 +210,7 @@ def main():
     errorsOnTrain = tworeac_rateAnalysis[2]
     xlims = [0.02, 0.8]
     ylims = [0.02, 0.6]
-    zlims = [0.02, 0.25]
+    zlims = [0.02, 0.2]
 
     # Loop over the errors.
     figures += TwoReacPlots.plotDataSamples3D(ydata=
@@ -218,8 +218,7 @@ def main():
                                             figure_size=PAPER_FIGSIZE, 
                                             left_frac=0.12,
                                             xlims=xlims, ylims=ylims, 
-                                            zlims=zlims)
-
+                                            zlims=zlims, markersize=0.5)
 
     # Load data for the economic MPC simulation.
     # tworeac_empc = PickleTool.load(filename="tworeac_empc.pickle", 

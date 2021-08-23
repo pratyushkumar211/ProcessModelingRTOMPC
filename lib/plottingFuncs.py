@@ -222,7 +222,8 @@ class TwoReacPlots:
 
     @staticmethod
     def plotDataSamples3D(*, ydata, figure_size, 
-                        left_frac, xlims, ylims, zlims):
+                             left_frac, xlims, ylims, zlims, 
+                             markersize):
         """ Make the plots. """
         
         # Create figures.
@@ -232,7 +233,7 @@ class TwoReacPlots:
                                     gridspec_kw=dict(left=left_frac))
 
         # Contour plot.
-        axes.scatter(ydata[:, 0], ydata[:, 1], ydata[:, 2])
+        axes.scatter(ydata[:, 0], ydata[:, 1], ydata[:, 2], s=markersize)
 
         # X and Y labels.
         axes.set_xlabel(TwoReacPlots.labels[0])
