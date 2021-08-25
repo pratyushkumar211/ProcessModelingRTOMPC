@@ -41,7 +41,7 @@ TEXSUFFIXES := .pdf .aux .log .bbl .blg .nav .out .snm .toc .synctex.gz \
 # confusing here: in the subfolders, we split paper/presentation/poster, whereas
 # these variables are article/talk/poster, so keep that in mind.
 ARTICLE_SRC := 
-TALK_SRC := group_talk_apr20_2021.tex
+TALK_SRC := paper.tex
 POSTER_SRC := 
 
 PAPER_BIB := 
@@ -89,7 +89,7 @@ STANDALONE_TEX_SRC :=
 
 ## DIA_SRC files are made in dia. They are exported as eps.
 
-DIA_SRC := cstr_flash.dia
+DIA_SRC := 
 
 ## PY_MAT_SRC, OCT_MAT_SRC. These are .py and .m files that create .mat files
 ## to be shared to make plots. Dependencies should be specified for any subsequent
@@ -101,8 +101,7 @@ DIA_SRC := cstr_flash.dia
 PY_MAT_SRC := 
 OCT_MAT_SRC := 
 MATLAB_MAT_SRC := 
-PY_PICKLE_SRC := tworeac_parameters.py tworeac_kooptrain.py \
-				 tworeac_bbNNtrain.py \
+PY_PICKLE_SRC := 
 
 ## JL_MAT_SRC. These are .jl files on which you run Julia to produce a .mat file.
 ## Note that Julia's .mat files are in an HDF5 format, so you will need to use
@@ -117,7 +116,7 @@ OCT_DAT_SRC :=
 
 ## PY_PLOT files are .py files that create .pdf plots.
 
-PY_PLOT := tworeac_plots.py tworeac_ssopt.py
+PY_PLOT := 
 
 ## PY_MOVIE files are .py files that create movies as a .pdf document.
 
