@@ -7,7 +7,8 @@ import numpy as np
 from hybridId import PickleTool, sample_prbs_like, SimData
 from hybridId import get_rectified_xs, genPlantSsdata
 from linNonlinMPC import get_model
-from tworeacFuncs import get_plant_pars, plant_ode, get_hyb_greybox_pars
+from tworeacFuncs import get_plant_pars, plant_ode
+from tworeacFuncs import get_hyb_fullgb_pars, get_hyb_partialgb_pars
 
 def gen_train_val_data(*, parameters, num_traj, 
                           Nsim_train, Nsim_trainval, 
@@ -72,24 +73,21 @@ def main():
     plant_pars = get_plant_pars()
     plant_pars['xs'] = get_rectified_xs(ode=plant_ode, 
                                         parameters=plant_pars)
-    hyb_greybox_pars = get_hyb_greybox_pars(plant_pars=plant_pars)
 
-    # Get steady-state training data.
-    # hx = lambda x: x[plant_pars['yindices']]
-    # fxu = lambda x, u: plant_ode(x, u, plant_pars['ps'], plant_pars)
-    # training_data_ss = genPlantSsdata(fxu=fxu, hx=hx, parameters=plant_pars, 
-    #                                   Ndata=1500, xguess=plant_pars['xs'], 
-    #                                   seed=10)
+    # Grey-Box model parameters.
+    hyb_fullgb_pars = get_hyb_fullgb_pars(plant_pars=plant_pars)
+    hyb_partialgb_pars = get_hyb_partialgb_pars(plant_pars=plant_pars)
 
     # Generate training data.
     training_data_dyn = gen_train_val_data(parameters=plant_pars,
-                                      num_traj=6, Nsim_train=240,
-                                      Nsim_trainval=240, Nsim_val=360,
-                                      seed=0)
-
+                                            num_traj=6, Nsim_train=240,
+                                            Nsim_trainval=240, Nsim_val=360,
+                                            seed=0)
+    
     # Get the dictionary.
     tworeac_parameters = dict(plant_pars = plant_pars,
-                              hyb_greybox_pars = hyb_greybox_pars,
+                              hyb_fullgb_pars = hyb_fullgb_pars,
+                              hyb_partialgb_pars = hyb_partialgb_pars,
                               training_data_dyn = training_data_dyn)
     
     # Save data.
