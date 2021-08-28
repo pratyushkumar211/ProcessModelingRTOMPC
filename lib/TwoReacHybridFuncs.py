@@ -32,8 +32,8 @@ class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
             for the two reaction model. 
             
             dCa/dt = F*(Caf - Ca)/V - r1
-            dCb/dt = -F*Cb/V + r1 - 3*r2
-            dCc/dt = -F*Cc/V + r2
+            dCb/dt = -F*Cb/V + r1 - 3*r2 + r3
+            dCc/dt = -F*Cc/V + r2 - r3
             """
         
         # Extract the parameters (nominal value of unmeasured disturbance).

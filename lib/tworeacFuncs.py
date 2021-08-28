@@ -7,21 +7,23 @@ def plant_ode(x, u, p, parameters):
     # Extract the parameters.
     k1 = parameters['k1']
     k2 = parameters['k2']
+    k3 = parameters['k3']
     V = parameters['V']
 
     # Extract the plant states into meaningful names.
-    Ca, Cb, Cc = x[0], x[1], x[2] 
-    Caf = u[0]
-    F = p[0]
+    Ca, Cb, Cc = x[0], x[1], x[2]
+    F = u[0]
+    Caf = p[0]
 
     # Rate laws.
     r1 = k1*Ca
     r2 = k2*(Cb**3)
+    r3 = k3*Cc
 
     # Write the ODEs.
     dCabydt = F*(Caf - Ca)/V - r1
-    dCbbydt = r1 - 3*r2 - F*Cb/V
-    dCcbydt = r2 - F*Cc/V
+    dCbbydt = -F*Cb/V + r1 - 3*r2 + r3
+    dCcbydt = -F*Cc/V + r2 - r3
 
     # Return.
     return mpc.vcat([dCabydt, dCbbydt, dCcbydt])
@@ -31,14 +33,15 @@ def get_plant_pars():
     
     # Parameters.
     parameters = {}
-    parameters['k1'] = 6e-2 # m^3/min.
-    parameters['k2'] = 4e-1 # m^3/min.
+    parameters['k1'] = 6e-2 # m^3/min
+    parameters['k2'] = 4e-1 # m^3/min
+    parameters['k3'] = 1e-1 # m^3/min
     parameters['V'] = 10 # m^3
 
     # Store the dimensions.
     parameters['Nx'] = 3
     parameters['Nu'] = 1
-    parameters['Ny'] = 3
+    parameters['Ny'] = 2
     parameters['Np'] = 1
 
     # Sample time.
@@ -46,23 +49,23 @@ def get_plant_pars():
 
     # Get the steady states.
     parameters['xs'] = np.array([1., 0.5, 0.5]) # to be rectified.
-    parameters['us'] = np.array([1.]) # mol/m^3
-    parameters['ps'] = np.array([0.5]) # m^3/min
+    parameters['us'] = np.array([0.5]) # mol/m^3
+    parameters['ps'] = np.array([1.0]) # m^3/min
 
-    # Get the constraints. 
+    # Get the constraints.
     ulb = np.array([0.2])
-    uub = np.array([1.6])
+    uub = np.array([1.8])
     parameters['ulb'] = ulb
     parameters['uub'] = uub
 
     # Measurement indices and noise.
-    parameters['yindices'] = [0, 1, 2]
-    parameters['Rv'] = 0*np.diag([1e-3, 1e-4, 1e-4])
+    parameters['yindices'] = [0, 1]
+    parameters['Rv'] = 0*np.diag([1e-3, 1e-4])
 
     # Return the parameters dict.
     return parameters
 
-def get_hyb_greybox_pars(*, plant_pars):
+def get_hyb_fullgb_pars(*, plant_pars):
     """ GreyBox parameters for the hybrid model. """
     
     # Parameters.
@@ -79,10 +82,39 @@ def get_hyb_greybox_pars(*, plant_pars):
     parameters['Delta'] = plant_pars['Delta']
 
     # Get the steady states.
-    gb_indices = [0, 1, 2]
+    gb_indices = [0, 1]
     parameters['xs'] = plant_pars['xs'][gb_indices] # to be rectified.
     parameters['us'] = plant_pars['us']
     parameters['ps'] = plant_pars['ps'] 
+
+    # Get the constraints.
+    parameters['ulb'] = plant_pars['ulb']
+    parameters['uub'] = plant_pars['uub']
+
+    # Return the parameters dict.
+    return parameters
+
+def get_hyb_partialgb_pars(*, plant_pars):
+    """ GreyBox parameters for the partial hybrid model. """
+    
+    # Parameters.
+    parameters = {}
+    parameters['V'] = plant_pars['V'] # (volume of the reactor).
+
+    # Model dimensions.
+    parameters['Nx'] = 2
+    parameters['Nu'] = plant_pars['Nu']
+    parameters['Ny'] = plant_pars['Ny']
+    parameters['Np'] = plant_pars['Np']
+
+    # Sample time.
+    parameters['Delta'] = plant_pars['Delta']
+
+    # Get the steady states.
+    gb_indices = [0, 1, 2]
+    parameters['xs'] = plant_pars['xs'][gb_indices] # to be rectified.
+    parameters['us'] = plant_pars['us']
+    parameters['ps'] = plant_pars['ps']
 
     # Get the constraints.
     parameters['ulb'] = plant_pars['ulb']
