@@ -147,7 +147,7 @@ class TwoReacPlots:
         # Legends and labels.        
         axes.legend(legend_names)
         axes.set_xlabel(xlabel)
-        axes.set_ylabel(ylabel, rotation=False)
+        axes.set_ylabel(ylabel)
         axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5) 
         
         # Limits on x axis.
