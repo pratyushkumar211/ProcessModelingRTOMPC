@@ -8,7 +8,8 @@ import numpy as np
 from hybridId import PickleTool
 from BlackBoxFuncs import fnn
 
-def doRateAnalysis(*, xrange, yrange, zval, fNWeights, xuyscales, k, reaction):
+def doRateAnalysis(*, xrange, yrange, zval, 
+                      fNWeights, xuyscales, k, reaction):
     """ Function to do rate analysis. 
         x: Ca, y:Cb, z:Cc
     """
@@ -54,6 +55,54 @@ def doRateAnalysis(*, xrange, yrange, zval, fNWeights, xuyscales, k, reaction):
     # Return the data.
     return xGrid, yGrid, r, rNN, rError
 
+def getRateErrorsOnTrainingData(*, training_data_dyn, 
+                                   fNWeights, xuyscales, 
+                                   k1, k2):
+    """ Get the relative errors on the training data. """
+
+    # Scale.
+    xmean, xstd = xuyscales['yscale']
+    Castd, Cbstd, Ccstd = xstd[0:1], xstd[1:2], xstd[2:3]
+    umean, ustd = xuyscales['uscale']
+
+    # Loop over all the collected data.
+    r1Errors, r2Errors = [], []
+    y_list = []
+    for data in training_data_dyn:
+
+        # Get the number of time steps.
+        Nt = data.t.shape[0]
+        for t in range(Nt):
+            
+            # State at the current time.
+            xt = data.y[t, :]
+            
+            # True rates.
+            r1 = k1*xt[0]
+            r2 = k2*(xt[1]**3)
+
+            # NN rates.
+            xt = (xt - xmean)/xstd
+            nnOutput = fnn(xt, fNWeights)
+
+            # Get the reaction rates.
+            r1NN = nnOutput[0:1]*Castd
+            r2NN = nnOutput[1:2]*Ccstd
+
+            # Get the errors.
+            r1Errors += [np.abs(r1 - r1NN)/r1]
+            r2Errors += [np.abs(r2 - r2NN)/r2]
+
+        # Get the ylists. 
+        y_list += [data.y]
+
+    # Make numpy arrays.
+    errorsOnTrain = dict(r1=np.array(r1Errors), r2=np.array(r2Errors), 
+                         ysamples=np.concatenate(y_list, axis=0))
+
+    # Return the training data.
+    return errorsOnTrain
+
 def main():
     """ Main function to be executed. """
 
@@ -64,7 +113,7 @@ def main():
     tworeac_hybtrain = PickleTool.load(filename=
                                       'tworeac_hybtrain_dyndata.pickle',
                                       type='read')
-
+    
     # Neural network weights and scaling.
     fNWeights = tworeac_hybtrain['trained_weights'][-1]
     xuyscales = tworeac_hybtrain['xuyscales']
@@ -130,8 +179,16 @@ def main():
     r2Data = dict(r=r2, rNN=r2NN, rErrors=r2Errors, 
                   xGrids=xGrids, yGrids=yGrids, CcVals=CcVals)
 
+    # Errors in the rates collected over training data.
+    training_data_dyn = tworeac_parameters['training_data_dyn']
+    errorsOnTrain = getRateErrorsOnTrainingData(training_data_dyn=
+                                                training_data_dyn, 
+                                                fNWeights=fNWeights, 
+                                                xuyscales=xuyscales, 
+                                                k1=k1, k2=k2)
+
     # Create a dictionary to save.
-    rateAnalysisData = [r1Data, r2Data]
+    rateAnalysisData = [r1Data, r2Data, errorsOnTrain]
 
     # Make the plot.
     PickleTool.save(data_object=rateAnalysisData,

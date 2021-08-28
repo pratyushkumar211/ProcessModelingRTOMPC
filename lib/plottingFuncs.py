@@ -196,6 +196,58 @@ class TwoReacPlots:
         # Return the figure.
         return figures
 
+    @staticmethod
+    def plot_ErrorHistogram(*, rError, figure_size, xlabel, ylabel, 
+                               left_frac, nBins, 
+                               xlims):
+        """ Make the plots. """
+        
+        # Create figures.
+        figure, axes = plt.subplots(nrows=1, ncols=1, 
+                                    figsize=figure_size,
+                                    gridspec_kw=dict(left=left_frac))
+
+        # Contour plot.
+        axes.hist(rError, bins=nBins)
+
+        # X and Y labels.
+        axes.set_ylabel(ylabel)
+        axes.set_xlabel(xlabel)
+
+        # X and Y limits.
+        axes.set_xlim(xlims)
+
+        # Return the figure.
+        return [figure]
+
+    @staticmethod
+    def plotDataSamples3D(*, ydata, figure_size, 
+                             left_frac, xlims, ylims, zlims, 
+                             markersize):
+        """ Make the plots. """
+        
+        # Create figures.
+        figure, axes = plt.subplots(nrows=1, ncols=1, 
+                                    figsize=figure_size,
+                                    subplot_kw=dict(projection='3d'),
+                                    gridspec_kw=dict(left=left_frac))
+
+        # Contour plot.
+        axes.scatter(ydata[:, 0], ydata[:, 1], ydata[:, 2], s=markersize)
+
+        # X and Y labels.
+        axes.set_xlabel(TwoReacPlots.labels[0])
+        axes.set_ylabel(TwoReacPlots.labels[1])
+        axes.set_zlabel(TwoReacPlots.labels[2])
+
+        # X and Y limits.
+        axes.set_xlim(xlims)
+        axes.set_ylim(ylims)
+        axes.set_zlim(zlims)
+
+        # Return the figure.
+        return [figure]
+
 # class CstrFlashPlots:
 
 #     ylabels = [r'$H_r \ (\textnormal{m})$',
