@@ -71,7 +71,7 @@ class BlackBoxCell(tf.keras.layers.AbstractRNNCell):
         return self.Ny
     
     def call(self, inputs, states):
-        """ Call function of the hybrid RNN cell.
+        """ Call function of the Black-Box RNN cell.
             Dimension of states: (None, Ny + Np*(Ny + Nu))
             Dimension of input: (None, Nu)
             Dimension of output: (None, Ny)
@@ -151,10 +151,10 @@ def train_model(*, model, epochs, batch_size, train_data, trainval_data,
 
     # Create a checkpoint callback.
     checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(filepath=ckpt_path,
-                                                    monitor='val_loss',
-                                                    save_best_only=True,
-                                                    save_weights_only=True,
-                                                    verbose=1)
+                                                        monitor='val_loss',
+                                                        save_best_only=True,
+                                                        save_weights_only=True,
+                                                        verbose=1)
 
     # Call the fit method to train.
     model.fit(x=[train_data['inputs'], train_data['yz0']], 
