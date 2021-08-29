@@ -6,7 +6,95 @@ import tensorflow as tf
 from BlackBoxFuncs import fnnTf, fnn
 from hybridId import SimData
 
-class TwoReacHybridCell(tf.keras.layers.AbstractRNNCell):
+class TwoReacHybridFullGbCell(tf.keras.layers.AbstractRNNCell):
+    """
+    RNN Cell
+    dx_g/dt  = f_g(x_g, u) + f_N(x_g, u)
+    y = x_g
+    """
+    def __init__(self, fNLayers, xuyscales, hyb_greybox_pars, **kwargs):
+        super(TwoReacHybridCell, self).__init__(**kwargs)
+        self.fNLayers = fNLayers
+        self.xuyscales = xuyscales
+        self.hyb_greybox_pars = hyb_greybox_pars
+
+    @property
+    def state_size(self):
+        return self.hyb_greybox_pars['Nx']
+    
+    @property
+    def output_size(self):
+        return self.hyb_greybox_pars['Ny']
+
+    def _fxu(self, x, u):
+        """ Function to compute the 
+            derivative (RHS of the ODE)
+            for the two reaction model. 
+            
+            dCa/dt = F*(Caf - Ca)/V - r1
+            dCb/dt = -F*Cb/V + r1 - 3*r2 + r3
+            dCc/dt = -F*Cc/V + r2 - r3
+            """
+        
+        # Extract the parameters (nominal value of unmeasured disturbance).
+        F = self.hyb_greybox_pars['ps'].squeeze()
+        V = self.hyb_greybox_pars['V']
+
+        # Get the output of the neural network.
+        nnOutput = fnnTf(x, self.fNLayers)
+        r1NN, r2NN = nnOutput[..., 0:1], nnOutput[..., 1:2]
+
+        # Get scaling factors.
+        # Such that scalings based on noisy measurements are used.
+        xmean, xstd = self.xuyscales['yscale']
+        Castd, Cbstd, Ccstd = xstd[0:1], xstd[1:2], xstd[2:3]
+        umean, ustd = self.xuyscales['uscale']
+
+        # Scale back to physical states and control inputs.
+        x = x*xstd + xmean
+        u = u*ustd + umean
+
+        # Get the state and control.
+        Ca, Cb, Cc = x[..., 0:1], x[..., 1:2], x[..., 2:3]
+        Caf = u[..., 0:1]
+        
+        # Write the ODEs.
+        dCabydt = F*(Caf - Ca)/V - r1NN*Castd
+        dCbbydt = -F*Cb/V + r1NN*Castd - 3*r2NN*Ccstd
+        dCcbydt = -F*Cc/V + r2NN*Ccstd
+
+        # Scaled derivate.
+        xdot = tf.concat([dCabydt, dCbbydt, dCcbydt], axis=-1)/xstd
+
+        # Return the derivative.
+        return xdot
+
+    def call(self, inputs, states):
+        """ Call function of the hybrid RNN cell.
+            Dimension of states: (None, Nx)
+            Dimension of input: (None, Nu)
+        """
+        # Extract states/inputs.
+        [x] = states
+        u = inputs
+
+        # Sample time.
+        Delta = self.hyb_greybox_pars['Delta']        
+
+        # Get k1, k2, k3, and k4.
+        k1 = self._fxu(x, u)
+        k2 = self._fxu(x + Delta*(k1/2), u)
+        k3 = self._fxu(x + Delta*(k2/2), u)
+        k4 = self._fxu(x + Delta*k3, u)
+        
+        # Get the current output/state and the next time step.
+        y = x
+        xplus = x + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
+
+        # Return output and states at the next time-step.
+        return (y, xplus)
+
+class TwoReacHybridPartialGbCell(tf.keras.layers.AbstractRNNCell):
     """
     RNN Cell
     dx_g/dt  = f_g(x_g, u) + f_N(x_g, u)

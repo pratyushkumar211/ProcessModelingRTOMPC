@@ -13,37 +13,41 @@ def get_plotting_arrays(simdata, plot_range):
     u = simdata.u[start:end, :]
     x = simdata.x[start:end, :]
     y = simdata.y[start:end, :]
+    p = simdata.p[start:end, :]
     t = simdata.t[start:end]
-    # Return t, x, y, u.
-    return (t, x, y, u)
+    # Return u, x, y, p, t.
+    return (u, x, y, p, t)
 
 def get_plotting_array_list(*, simdata_list, plot_range):
     """ Get all data as lists. """
-    ulist, xlist, ylist = [], [], []
+    ulist, xlist, ylist, plist = [], [], [], []
     for simdata in simdata_list:
-        t, x, y, u = get_plotting_arrays(simdata, plot_range)
+        u, x, y, p, t = get_plotting_arrays(simdata, plot_range)
         ulist += [u]
         xlist += [x]
         ylist += [y]
+        plist += [p]
     # Return lists.
-    return (t, ulist, ylist, xlist)
+    return (t, ulist, xlist, ylist, plist)
 
 class TwoReacPlots:
     """ Single class containing functions for the two reaction
         example system. """
 
-    labels = [r'$C_A \ (\textnormal{mol/m}^3)$', 
-              r'$C_B \ (\textnormal{mol/m}^3)$',
-              r'$C_C \ (\textnormal{mol/m}^3)$',
-              r'$C_{Af} \ (\textnormal{mol/m}^3)$']
-
     @staticmethod
     def plot_xudata(*, t, xlist, ulist, legend_names, 
                        legend_colors, figure_size,
                        ylabel_xcoordinate, title_loc):
-        """ Plot the performance loss economic MPC parameters."""
+        """ Plot the states and input trajectories. """
         
-        nrow = len(TwoReacPlots.labels)
+        # Make labels.
+        labels = [r'$C_A \ (\textnormal{mol/m}^3)$',
+                  r'$C_B \ (\textnormal{mol/m}^3)$',
+                  r'$C_C \ (\textnormal{mol/m}^3)$',
+                  r'$C_{Af} \ (\textnormal{mol/m}^3)$']
+
+        # The number of rows and labels.
+        nrow = len(labels)
         (figure, axes) = plt.subplots(nrows=nrow, ncols=1,
                                       sharex=True, figsize=figure_size,
                                       gridspec_kw=dict(wspace=0.4))
@@ -55,13 +59,13 @@ class TwoReacPlots:
             # First plot the states.
             for row in range(nrow-1):
                 handle = axes[row].plot(t, x[:, row], color)
-                axes[row].set_ylabel(TwoReacPlots.labels[row])
+                axes[row].set_ylabel(labels[row])
                 axes[row].get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
             
             # Plot the input in the last row.
             row += 1
             axes[row].step(t, u[:, 0], color, where='post')
-            axes[row].set_ylabel(TwoReacPlots.labels[row])
+            axes[row].set_ylabel(labels[row])
             axes[row].get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
 
             # Store the legend handle.
@@ -81,15 +85,67 @@ class TwoReacPlots:
         return [figure]
 
     @staticmethod
+    def plot_yupdata(*, t, ylist, ulist, plist, legend_names,
+                        legend_colors, figure_size,
+                        ylabel_xcoordinate, title_loc):
+        """ Plot y, u, p data. """
+
+        # Make labels.
+        labels = [r'$C_A \ (\textnormal{mol/m}^3)$',
+                  r'$C_B \ (\textnormal{mol/m}^3)$',
+                  r'$C_{Af} \ (\textnormal{mol/m}^3)$',
+                  r'$F \ (\textnormal{m}^3/\textnormal{min})$']
+
+        # Number of rows and plots.
+        nrow = len(labels)
+        (figure, axes) = plt.subplots(nrows=nrow, ncols=1,
+                                      sharex=True, figsize=figure_size,
+                                      gridspec_kw=dict(wspace=0.4))
+
+        # Loop through all the trajectories.
+        legend_handles = []
+        for (y, u, p, color) in zip(ylist, ulist, plist, legend_colors):
+            
+            # First plot the states.
+            for row in range(nrow):
+
+                if 0 <= row <= 1:
+                    handle = axes[row].plot(t, y[:, row], color)
+                if row == 2:
+                    handle = axes[row].plot(t, u[:, 0], color)
+                if row == 3:
+                    handle = axes[row].plot(t, p[:, 0], color)
+
+                # Axes labels.
+                axes[row].set_ylabel(labels[row])
+                axes[row].get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
+            
+            # Store the legend handle.
+            legend_handles += handle
+
+        # Overall asthetics of the x axis.
+        axes[row].set_xlabel('Time (min)')
+        axes[row].set_xlim([np.min(t), np.max(t)])
+
+        # Name legends if provided. 
+        if legend_names is not None:
+            figure.legend(handles = legend_handles,
+                          labels = legend_names,
+                          loc = title_loc, ncol=len(legend_names))
+
+        # Return figure.
+        return [figure]
+
+    @staticmethod
     def plot_xsvus(*, us, xs_list, legend_names, 
                       legend_colors, figure_size,
                       ylabel_xcoordinate, title_loc):
         """ Plot steady state xs and us. """
         
         # Labels.
-        labels = [r'$C_{As} \ (\textnormal{mol/m}^3)$', 
-                  r'$C_{Bs} \ (\textnormal{mol/m}^3)$',
-                  r'$C_{Cs} \ (\textnormal{mol/m}^3)$']
+        labels = [r'$c_{As} \ (\textnormal{mol/m}^3)$', 
+                  r'$c_{Bs} \ (\textnormal{mol/m}^3)$',
+                  r'$c_{Cs} \ (\textnormal{mol/m}^3)$']
 
         nrow = len(TwoReacPlots.labels) - 1
         (figure, axes) = plt.subplots(nrows=nrow, ncols=1,

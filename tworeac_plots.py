@@ -69,25 +69,25 @@ def main():
     plant_pars = tworeac_parameters['plant_pars']
     
     # Load Black-Box data after training.
-    tworeac_bbnntrain = PickleTool.load(filename=
-                                      "tworeac_bbnntrain_dyndata.pickle",
-                                      type='read')
-    bbnn_predictions = tworeac_bbnntrain['val_predictions']
+    # tworeac_bbnntrain = PickleTool.load(filename=
+    #                                   "tworeac_bbnntrain_dyndata.pickle",
+    #                                   type='read')
+    # bbnn_predictions = tworeac_bbnntrain['val_predictions']
 
     # Load Hybrid data after training.
-    tworeac_hybtrain = PickleTool.load(filename=
-                                     "tworeac_hybtrain_dyndata.pickle",
-                                     type='read')
-    hyb_predictions = tworeac_hybtrain['val_predictions']
+    # tworeac_hybtrain = PickleTool.load(filename=
+    #                                  "tworeac_hybtrain_dyndata.pickle",
+    #                                  type='read')
+    # hyb_predictions = tworeac_hybtrain['val_predictions']
 
     # Load the steady state cost computations.
     tworeac_ssopt = PickleTool.load(filename="tworeac_ssopt.pickle",
                                      type='read')
 
     # Load the rate analysis computations.
-    tworeac_rateAnalysis = PickleTool.load(filename=
-                                     "tworeac_rateAnalysis.pickle",
-                                     type='read')
+    # tworeac_rateAnalysis = PickleTool.load(filename=
+    #                                  "tworeac_rateAnalysis.pickle",
+    #                                  type='read')
 
     # List to store figures.
     figures = []
@@ -96,9 +96,21 @@ def main():
     training_data = tworeac_parameters['training_data_dyn'][:5]
     for data in training_data:
 
-        t, ulist, ylist, xlist = get_plotting_array_list(simdata_list = [data],
-                                                     plot_range=(10, 6*60+10))
-        figures += TwoReacPlots.plot_xudata(t=t, xlist=ylist, ulist=ulist,
+        (t, ulist, xlist, 
+         ylist, plist) = get_plotting_array_list(simdata_list = [data],
+                                                 plot_range=(10, 6*60+10))
+
+        # xu data.
+        # figures += TwoReacPlots.plot_xudata(t=t, xlist=xlist, ulist=ulist,
+        #                                     legend_names=None,
+        #                                     legend_colors=['b'], 
+        #                                     figure_size=PAPER_FIGSIZE, 
+        #                                     ylabel_xcoordinate=-0.1, 
+        #                                     title_loc=None)
+
+        # yup data.
+        figures += TwoReacPlots.plot_yupdata(t=t, ylist=ylist, ulist=ulist,
+                                             plist=plist,
                                             legend_names=None,
                                             legend_colors=['b'], 
                                             figure_size=PAPER_FIGSIZE, 
@@ -110,19 +122,20 @@ def main():
     legend_colors = ['b', 'dimgrey', 'm']
     valdata_plant = tworeac_parameters['training_data_dyn'][-1]
     valdata_list = [valdata_plant]
-    valdata_list += bbnn_predictions
-    valdata_list += hyb_predictions
-    t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
+    # valdata_list += bbnn_predictions
+    # valdata_list += hyb_predictions
+    t, ulist, xlist, ylist, plist = get_plotting_array_list(simdata_list=
                                                      valdata_list[:1],
                                                      plot_range=(10, 6*60+10))
-    (_, ulist_val, 
-     ylist_val, xlist_val) = get_plotting_array_list(simdata_list=
-                                                     valdata_list[1:],
-                                                     plot_range=(0, 6*60))
-    ulist += ulist_val
-    ylist += ylist_val
-    xlist += xlist_val
-    figures += TwoReacPlots.plot_xudata(t=t, xlist=ylist, ulist=ulist,
+    # (_, ulist_val, 
+    #  ylist_val, xlist_val) = get_plotting_array_list(simdata_list=
+    #                                                  valdata_list[1:],
+    #                                                  plot_range=(0, 6*60))
+    # ulist += ulist_val
+    # ylist += ylist_val
+    # xlist += xlist_val
+    figures += TwoReacPlots.plot_yupdata(t=t, ylist=ylist, ulist=ulist,
+                                         plist=plist,
                                         legend_names=legend_names,
                                         legend_colors=legend_colors, 
                                         figure_size=PAPER_FIGSIZE, 
@@ -139,15 +152,15 @@ def main():
 
     # Steady state Concentrations.
     us = tworeac_ssopt['us']
-    xs_list = tworeac_ssopt['xs']
-    legend_names = ['Plant', 'Black-Box-NN', 'Hybrid']
-    legend_colors = ['b', 'dimgrey', 'm']
-    figures += TwoReacPlots.plot_xsvus(us=us, xs_list=xs_list, 
-                                        legend_colors=legend_colors, 
-                                        legend_names=legend_names, 
-                                        figure_size=PAPER_FIGSIZE, 
-                                        ylabel_xcoordinate=-0.12, 
-                                        title_loc=(0.23, 0.9))
+    # xs_list = tworeac_ssopt['xs']
+    # legend_names = ['Plant', 'Black-Box-NN', 'Hybrid']
+    # legend_colors = ['b', 'dimgrey', 'm']
+    # figures += TwoReacPlots.plot_xsvus(us=us, xs_list=xs_list, 
+    #                                     legend_colors=legend_colors, 
+    #                                     legend_names=legend_names, 
+    #                                     figure_size=PAPER_FIGSIZE, 
+    #                                     ylabel_xcoordinate=-0.12, 
+    #                                     title_loc=(0.23, 0.9))
 
     # Steady state cost curves.
     sscosts = tworeac_ssopt['sscosts']
@@ -158,67 +171,67 @@ def main():
                                         ylabel_xcoordinate=-0.12, 
                                         left_label_frac=0.15)
 
-    # Make a reaction rate analysis plot.
-    rErrors = tworeac_rateAnalysis[0]['rErrors']
-    xGrids = tworeac_rateAnalysis[0]['xGrids']
-    yGrids = tworeac_rateAnalysis[0]['yGrids']
-    CcVals = tworeac_rateAnalysis[0]['CcVals']
-    xlabel = r'$C_A \ (\textnormal{mol/m}^3)$'
-    ylabel = r'$C_B \ (\textnormal{mol/m}^3)$'
-    rateTitle = '$\dfrac{|r_1 - r_{1-NN}|}{|r_1|}, C_C = $ '
-    figures += TwoReacPlots.plot_rPercentErrors(rErrors=rErrors, xGrids=xGrids,
-                                                yGrids=yGrids, zvals=CcVals, 
-                                                xlabel=xlabel, ylabel=ylabel,
-                                                rateTitle=rateTitle,
-                                                figure_size=PAPER_FIGSIZE, 
-                                                ylabel_xcoordinate=None, 
-                                                left_frac=0.12, right_frac=0.95,
-                                                wspace=0.1)
+    # # Make a reaction rate analysis plot.
+    # rErrors = tworeac_rateAnalysis[0]['rErrors']
+    # xGrids = tworeac_rateAnalysis[0]['xGrids']
+    # yGrids = tworeac_rateAnalysis[0]['yGrids']
+    # CcVals = tworeac_rateAnalysis[0]['CcVals']
+    # xlabel = r'$C_A \ (\textnormal{mol/m}^3)$'
+    # ylabel = r'$C_B \ (\textnormal{mol/m}^3)$'
+    # rateTitle = '$\dfrac{|r_1 - r_{1-NN}|}{|r_1|}, C_C = $ '
+    # figures += TwoReacPlots.plot_rPercentErrors(rErrors=rErrors, xGrids=xGrids,
+    #                                             yGrids=yGrids, zvals=CcVals, 
+    #                                             xlabel=xlabel, ylabel=ylabel,
+    #                                             rateTitle=rateTitle,
+    #                                             figure_size=PAPER_FIGSIZE, 
+    #                                             ylabel_xcoordinate=None, 
+    #                                             left_frac=0.12, right_frac=0.95,
+    #                                             wspace=0.1)
 
-    # Make a reaction rate analysis plot.
-    rErrors = tworeac_rateAnalysis[1]['rErrors']
-    xGrids = tworeac_rateAnalysis[1]['xGrids']
-    yGrids = tworeac_rateAnalysis[1]['yGrids']
-    CcVals = tworeac_rateAnalysis[1]['CcVals']
-    rateTitle = '$\dfrac{|r_2 - r_{2-NN}|}{|r_2|}, C_C = $ '
-    figures += TwoReacPlots.plot_rPercentErrors(rErrors=rErrors, xGrids=xGrids,
-                                                yGrids=yGrids, zvals=CcVals, 
-                                                xlabel=xlabel, ylabel=ylabel,
-                                                rateTitle=rateTitle,
-                                                figure_size=PAPER_FIGSIZE, 
-                                                ylabel_xcoordinate=None, 
-                                                left_frac=0.12, right_frac=0.95,
-                                                wspace=0.1)
+    # # Make a reaction rate analysis plot.
+    # rErrors = tworeac_rateAnalysis[1]['rErrors']
+    # xGrids = tworeac_rateAnalysis[1]['xGrids']
+    # yGrids = tworeac_rateAnalysis[1]['yGrids']
+    # CcVals = tworeac_rateAnalysis[1]['CcVals']
+    # rateTitle = '$\dfrac{|r_2 - r_{2-NN}|}{|r_2|}, C_C = $ '
+    # figures += TwoReacPlots.plot_rPercentErrors(rErrors=rErrors, xGrids=xGrids,
+    #                                             yGrids=yGrids, zvals=CcVals, 
+    #                                             xlabel=xlabel, ylabel=ylabel,
+    #                                             rateTitle=rateTitle,
+    #                                             figure_size=PAPER_FIGSIZE, 
+    #                                             ylabel_xcoordinate=None, 
+    #                                             left_frac=0.12, right_frac=0.95,
+    #                                             wspace=0.1)
 
-    # Make the histograms.
-    errorsOnTrain = tworeac_rateAnalysis[2]
-    xlabels = ['$\dfrac{|r_1 - r_{1-NN}|}{|r_1|}$',
-               '$\dfrac{|r_2 - r_{2-NN}|}{|r_2|}$']
-    xlims_list = [[0, 0.6], [0, 1.0]]
-    for reaction, xlabel, xlims in zip(errorsOnTrain.keys(), 
-                                       xlabels, xlims_list):
+    # # Make the histograms.
+    # errorsOnTrain = tworeac_rateAnalysis[2]
+    # xlabels = ['$\dfrac{|r_1 - r_{1-NN}|}{|r_1|}$',
+    #            '$\dfrac{|r_2 - r_{2-NN}|}{|r_2|}$']
+    # xlims_list = [[0, 0.6], [0, 1.0]]
+    # for reaction, xlabel, xlims in zip(errorsOnTrain.keys(), 
+    #                                    xlabels, xlims_list):
 
-        # Loop over the errors.
-        figures += TwoReacPlots.plot_ErrorHistogram(rError=
-                                                errorsOnTrain[reaction], 
-                                                xlabel=xlabel, ylabel='Frequency',
-                                                figure_size=PAPER_FIGSIZE, 
-                                                left_frac=0.12, nBins=100, 
-                                                xlims=xlims)
+    #     # Loop over the errors.
+    #     figures += TwoReacPlots.plot_ErrorHistogram(rError=
+    #                                             errorsOnTrain[reaction], 
+    #                                             xlabel=xlabel, ylabel='Frequency',
+    #                                             figure_size=PAPER_FIGSIZE, 
+    #                                             left_frac=0.12, nBins=100, 
+    #                                             xlims=xlims)
 
-    # Make the 3D scatter plot.
-    errorsOnTrain = tworeac_rateAnalysis[2]
-    xlims = [0.02, 0.8]
-    ylims = [0.02, 0.6]
-    zlims = [0.02, 0.2]
+    # # Make the 3D scatter plot.
+    # errorsOnTrain = tworeac_rateAnalysis[2]
+    # xlims = [0.02, 0.8]
+    # ylims = [0.02, 0.6]
+    # zlims = [0.02, 0.2]
 
-    # Loop over the errors.
-    figures += TwoReacPlots.plotDataSamples3D(ydata=
-                                            errorsOnTrain['ysamples'], 
-                                            figure_size=PAPER_FIGSIZE, 
-                                            left_frac=0.12,
-                                            xlims=xlims, ylims=ylims, 
-                                            zlims=zlims, markersize=1.)
+    # # Loop over the errors.
+    # figures += TwoReacPlots.plotDataSamples3D(ydata=
+    #                                         errorsOnTrain['ysamples'], 
+    #                                         figure_size=PAPER_FIGSIZE, 
+    #                                         left_frac=0.12,
+    #                                         xlims=xlims, ylims=ylims, 
+    #                                         zlims=zlims, markersize=1.)
 
     # Load data for the economic MPC simulation.
     # tworeac_empc = PickleTool.load(filename="tworeac_empc.pickle", 

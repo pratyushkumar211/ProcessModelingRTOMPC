@@ -5,12 +5,12 @@ import sys
 sys.path.append('lib/')
 import numpy as np
 from hybridId import PickleTool, sample_prbs_like, SimData
-from hybridId import get_rectified_xs, genPlantSsdata
+from hybridId import get_rectified_xs
 from linNonlinMPC import get_model
 from tworeacFuncs import get_plant_pars, plant_ode
-from tworeacFuncs import get_hyb_fullgb_pars, get_hyb_partialgb_pars
+from tworeacFuncs import get_hyb_pars
 
-def gen_train_val_data(*, parameters, num_traj, 
+def gen_train_val_data(*, parameters, num_traj,
                           Nsim_train, Nsim_trainval, 
                           Nsim_val, seed):
     """ Simulate the plant model and generate training and validation data."""
@@ -19,8 +19,11 @@ def gen_train_val_data(*, parameters, num_traj,
     data_list = []
     ulb, uub = parameters['ulb'], parameters['uub']
     tthrow = 10
-    p = parameters['ps'][:, np.newaxis]
     np.random.seed(seed) # (So that the first us is reproducible).
+
+    # Steady state disturbance.
+    Np = parameters['Np']
+    ps = parameters['ps'][:, np.newaxis]
 
     # Start to generate data.
     for traj in range(num_traj):
@@ -51,19 +54,24 @@ def gen_train_val_data(*, parameters, num_traj,
                                  lb=ulb, ub=uub,
                                  mean_change=40, sigma_change=5, 
                                  num_constraint=2, seed=seed+7)
-
+        
+        # Get the disturbance signal.
+        p = np.tile(ps.T, (tthrow + Nsim, Np))
         seed += 1
 
         # Complete input profile and run open-loop simulation.
         u = np.concatenate((us_init, u), axis=0)
         for t in range(tthrow + Nsim):
-            plant.step(u[t:t+1, :], p)
-        data_list.append(SimData(t=np.asarray(plant.t[0:-1]).squeeze(),
-                x=np.asarray(plant.x[0:-1]).squeeze(),
-                u=np.asarray(plant.u).squeeze(axis=-1),
-                y=np.asarray(plant.y[0:-1]).squeeze()))
+            plant.step(u[t:t+1, :], p[t:t+1, :])
 
-    # Return the data list.
+        # Create a simdata.
+        data_list.append(SimData(t=np.asarray(plant.t[0:-1]).squeeze(),
+                                x=np.asarray(plant.x[0:-1]).squeeze(),
+                                u=np.asarray(plant.u).squeeze(axis=-1),
+                                y=np.asarray(plant.y[0:-1]).squeeze(), 
+                                p=np.asarray(plant.p).squeeze(axis=-1)))
+
+    # Return.
     return data_list
 
 def main():
@@ -73,10 +81,10 @@ def main():
     plant_pars = get_plant_pars()
     plant_pars['xs'] = get_rectified_xs(ode=plant_ode, 
                                         parameters=plant_pars)
-
+    
     # Grey-Box model parameters.
-    hyb_fullgb_pars = get_hyb_fullgb_pars(plant_pars=plant_pars)
-    hyb_partialgb_pars = get_hyb_partialgb_pars(plant_pars=plant_pars)
+    hyb_fullgb_pars = get_hyb_pars(plant_pars=plant_pars, Nx=3)
+    hyb_partialgb_pars = get_hyb_pars(plant_pars=plant_pars, Nx=2)
 
     # Generate training data.
     training_data_dyn = gen_train_val_data(parameters=plant_pars,
@@ -86,8 +94,6 @@ def main():
     
     # Get the dictionary.
     tworeac_parameters = dict(plant_pars = plant_pars,
-                              hyb_fullgb_pars = hyb_fullgb_pars,
-                              hyb_partialgb_pars = hyb_partialgb_pars,
                               training_data_dyn = training_data_dyn)
     
     # Save data.

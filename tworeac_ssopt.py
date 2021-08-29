@@ -42,33 +42,33 @@ def main():
     tworeac_parameters = PickleTool.load(filename=
                                          'tworeac_parameters.pickle',
                                          type='read')
-    tworeac_bbnntrain = PickleTool.load(filename=
-                                    'tworeac_bbnntrain_dyndata.pickle',
-                                      type='read')
-    tworeac_hybtrain = PickleTool.load(filename=
-                                      'tworeac_hybtrain_dyndata.pickle',
-                                      type='read')
+    # tworeac_bbnntrain = PickleTool.load(filename=
+    #                                 'tworeac_bbnntrain_dyndata.pickle',
+    #                                   type='read')
+    # tworeac_hybtrain = PickleTool.load(filename=
+    #                                   'tworeac_hybtrain_dyndata.pickle',
+    #                                   type='read')
 
-    # Get plant and grey-box parameters. 
+    # Get plant and grey-box parameters.
     plant_pars = tworeac_parameters['plant_pars']
-    hyb_greybox_pars = tworeac_parameters['hyb_greybox_pars']
+    # hyb_greybox_pars = tworeac_parameters['hyb_greybox_pars']
 
     # Get cost function handle.
-    p = [100, 800]
+    p = [100, 1100]
     lyu = lambda y, u: cost_yup(y, u, p)
 
     # Get the black-box model parameters and function handles.
-    bbnn_pars = get_bbnn_pars(train=tworeac_bbnntrain, 
-                              plant_pars=plant_pars)
-    bbnn_f = lambda x, u: bbnn_fxu(x, u, bbnn_pars)
-    bbnn_h = lambda x: bbnn_hx(x, bbnn_pars)
+    # bbnn_pars = get_bbnn_pars(train=tworeac_bbnntrain, 
+    #                           plant_pars=plant_pars)
+    # bbnn_f = lambda x, u: bbnn_fxu(x, u, bbnn_pars)
+    # bbnn_h = lambda x: bbnn_hx(x, bbnn_pars)
 
     # Get the black-box model parameters and function handles.
-    hyb_pars = get_hybrid_pars(train=tworeac_hybtrain, 
-                               hyb_greybox_pars=hyb_greybox_pars)
-    ps = hyb_pars['ps']
-    hybrid_f = lambda x, u: hybrid_fxup(x, u, ps, hyb_pars)
-    hybrid_h = lambda x: hybrid_hx(x)
+    # hyb_pars = get_hybrid_pars(train=tworeac_hybtrain, 
+    #                            hyb_greybox_pars=hyb_greybox_pars)
+    # ps = hyb_pars['ps']
+    # hybrid_f = lambda x, u: hybrid_fxup(x, u, ps, hyb_pars)
+    # hybrid_h = lambda x: hybrid_hx(x)
     
     # Get the plant function handle.
     Delta, ps = plant_pars['Delta'], plant_pars['ps']
@@ -77,10 +77,10 @@ def main():
     plant_h = lambda x: x[plant_pars['yindices']]
 
     # Lists to loop over for different models.
-    model_types = ['Plant', 'Black-Box-NN', 'Hybrid']
-    fxu_list = [plant_f, bbnn_f, hybrid_f]
-    hx_list = [plant_h, bbnn_h, hybrid_h]
-    par_list = [plant_pars, bbnn_pars, hyb_pars]
+    model_types = ['Plant']
+    fxu_list = [plant_f]
+    hx_list = [plant_h]
+    par_list = [plant_pars]
 
     # Loop over the different models and obtain SS optimums.
     for (model_type, fxu, hx, model_pars) in zip(model_types, fxu_list, 
