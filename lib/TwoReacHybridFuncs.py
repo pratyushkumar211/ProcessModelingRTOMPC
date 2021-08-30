@@ -10,7 +10,7 @@ class InterpolationLayer(tf.keras.layers.Layer):
     """
     The layer to perform interpolation for RK4 predictions.
     Nvar: Number of variables.
-    Np + 1: Number of concatenated 
+    Np + 1: Number of variables.
     """
     def __init__(self, Nvar, Np, trainable=False, name=None):
         super(InterpolationLayer, self).__init__(trainable, name)
@@ -119,14 +119,14 @@ class TwoReacHybridFullGbCell(tf.keras.layers.AbstractRNNCell):
 
 class TwoReacHybridPartialGbCell(tf.keras.layers.AbstractRNNCell):
     """
-    RNN Cell
+    RNN Cell:
     dx_g/dt  = f_g(x_g, u) + (chosen functions).
     y = x_g
     r1 = NN1(Ca)
     r2 = NN2(Cb)
     r3 = NN3(z)
     """
-    def __init__(self, r1Layers, r2Layers, r3Layers, 
+    def __init__(self, r1Layers, r2Layers, r3Layers, Np,
                        xuyscales, hyb_greybox_pars, **kwargs):
         super(TwoReacHybridPartialGbCell, self).__init__(**kwargs)
 
@@ -134,6 +134,9 @@ class TwoReacHybridPartialGbCell(tf.keras.layers.AbstractRNNCell):
         self.r1Layers = r1Layers
         self.r2Layers = r2Layers
         self.r3Layers = r3Layers
+
+        assert Np > 0
+        self.Np = Np # Number of past measurements and controls.
 
         # xuy scales and hybrid parameters.
         self.xuyscales = xuyscales
@@ -147,7 +150,7 @@ class TwoReacHybridPartialGbCell(tf.keras.layers.AbstractRNNCell):
     def output_size(self):
         return self.hyb_greybox_pars['Ny']
 
-    def _fxu(self, y, z, u):
+    def _fyzu(self, y, z, u):
         """ dCa/dt = F*(Caf - Ca)/V - r1
             dCb/dt = -F*Cb/V + r1 - 3*r2 + f_N(z)
         """
@@ -157,34 +160,33 @@ class TwoReacHybridPartialGbCell(tf.keras.layers.AbstractRNNCell):
         V = self.hyb_greybox_pars['V']
 
         # Get the states (before scaling to physical variables).
-        Ca, Cb = x[..., 0:1], x[..., 1:2], x[..., 2:3]
+        Ca, Cb = y[..., 0:1], y[..., 1:2]
 
         # Get the output of the neural network.
         r1NN = fnnTf(Ca, self.r1Layers)
         r2NN = fnnTf(Cb, self.r2Layers)
-        r3NN = fnnTf(Cc, self.r3Layers)
+        r3NN = fnnTf(z, self.r3Layers)
 
         # Get scaling factors.
         # Such that scalings based on noisy measurements are used.
-        xmean, xstd = self.xuyscales['yscale']
-        Castd, Cbstd, Ccstd = xstd[0:1], xstd[1:2], xstd[2:3]
+        ymean, ystd = self.xuyscales['yscale']
+        Castd, Cbstd = xstd[0:1], xstd[1:2]
         umean, ustd = self.xuyscales['uscale']
 
         # Scale back to physical states and control inputs.
-        x = x*xstd + xmean
+        y = y*ystd + ymean
         u = u*ustd + umean
 
         # Get the state and control (after scaling to physical variables).
-        Ca, Cb, Cc = x[..., 0:1], x[..., 1:2], x[..., 2:3]
+        Ca, Cb = y[..., 0:1], y[..., 1:2]
         Caf = u[..., 0:1]
         
         # Write the ODEs.
         dCabydt = F*(Caf - Ca)/V - r1NN*Castd
-        dCbbydt = -F*Cb/V + r1NN*Castd - 3*r2NN*Ccstd
-        dCcbydt = -F*Cc/V + r2NN*Ccstd
+        dCbbydt = -F*Cb/V + r1NN*Castd - 3*r2NN*Cbstd + r3NN*Cbstd
 
         # Scaled derivate.
-        xdot = tf.concat([dCabydt, dCbbydt, dCcbydt], axis=-1)/xstd
+        xdot = tf.concat([dCabydt, dCbbydt], axis=-1)/ystd
 
         # Return the derivative.
         return xdot
@@ -194,30 +196,29 @@ class TwoReacHybridPartialGbCell(tf.keras.layers.AbstractRNNCell):
             Dimension of states: (None, Ny + Nz)
             Dimension of input: (None, Nu)
         """
+
         # Extract states/inputs.
         [yz] = states
         u = inputs
 
         # Extract y, ypast, and upast.
-        (y, ypseq, upseq) = tf.split(yz, 
-                                    [self.Ny, self.Np*self.Ny, 
-                                    self.Np*self.Nu],
-                                    axis=-1)
+        (y, z) = tf.split(yz, [self.Ny, self.Np*(self.Ny + self.Nu)], 
+                          axis=-1)
 
         # Sample time.
         Delta = self.hyb_greybox_pars['Delta']
 
-        # Get k1, k2, k3, and k4.
-        k1 = self._fxu(x, u)
-        k2 = self._fxu(x + Delta*(k1/2), u)
-        k3 = self._fxu(x + Delta*(k2/2), u)
-        k4 = self._fxu(x + Delta*k3, u)
+        # Get k1, k2, k3, and k4 (ToDo, do RK4 discretization).
+        k1 = self._fyzu(y, z, u)
+        k2 = self._fyzu(y + Delta*(k1/2), z, u)
+        k3 = self._fyzu(y + Delta*(k2/2), z, u)
+        k4 = self._fyzu(y + Delta*k3, z, u)
         
         # Get the current output/state and the next time step.
         y = x
         xplus = x + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
 
-        # Return output and states at the next time-step.
+        # Return output and states.
         return (y, xplus)
 
 class TwoReacModel(tf.keras.Model):
