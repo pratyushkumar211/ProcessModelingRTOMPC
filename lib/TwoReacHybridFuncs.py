@@ -89,9 +89,12 @@ class TwoReacFullGbCell(tf.keras.layers.AbstractRNNCell):
     dx_g/dt  = f_g(x_g, u) + f_N(x_g, u)
     y = x_g
     """
-    def __init__(self, fNLayers, xuyscales, hyb_greybox_pars, **kwargs):
+    def __init__(self, r1Layers, r2Layers, r3Layers, estCLayers, 
+                       xuyscales, hyb_greybox_pars, **kwargs):
         super(TwoReacHybridCell, self).__init__(**kwargs)
-        self.fNLayers = fNLayers
+        self.r1Layers = r1Layers
+        self.r2Layers = r2Layers
+        self.r3Layers = r3Layers
         self.xuyscales = xuyscales
         self.hyb_greybox_pars = hyb_greybox_pars
 
@@ -148,15 +151,26 @@ class TwoReacFullGbCell(tf.keras.layers.AbstractRNNCell):
 
     def call(self, inputs, states):
         """ Call function of the hybrid RNN cell.
-            Dimension of states: (None, Nx)
+            Dimension of states: (None, Nx + Nz)
             Dimension of input: (None, Nu)
         """
-        # Extract states/inputs.
-        [x] = states
+
+        # Extract states.
+        [xz] = states
         u = inputs
 
+        # Extract the grey-box state, past measurements and controls (z).
+        (x, z) = tf.split(yz, [self.Nx, self.Np*(self.Ny + self.Nu)], axis=-1)
+        (ypseq, upseq) = tf.split(z, [self.Np*self.Ny, self.Np*self.Nu], 
+                                axis=-1)
+        Ca, Cb, Cc = x[..., 0:1], x[..., 1:2], x[..., 2:3]
+
+        # NN predictions for the third state based on z.
+        CcNN = fnnTf(z, self.estCLayers)
+        x = tf.concat((Ca, Cb, CcNN), axis=-1)
+
         # Sample time.
-        Delta = self.hyb_greybox_pars['Delta']        
+        Delta = self.hyb_greybox_pars['Delta']
 
         # Get k1, k2, k3, and k4.
         k1 = self._fxu(x, u)
@@ -164,12 +178,17 @@ class TwoReacFullGbCell(tf.keras.layers.AbstractRNNCell):
         k3 = self._fxu(x + Delta*(k2/2), u)
         k4 = self._fxu(x + Delta*k3, u)
         
-        # Get the current output/state and the next time step.
-        y = x
+        # Get the state at the next time step.
         xplus = x + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
+        zplus = tf.concat((ypseq[..., self.Ny:], x[..., :self.Ny], 
+                           upseq[..., self.Nu:], u), axis=-1)
+        xzplus = tf.concat((xplus, zplus), axis=-1)
+
+        # Current output.
+        y = tf.concat((Ca, Cb, Cc, CcNN), axis=-1)
 
         # Return output and states at the next time-step.
-        return (y, xplus)
+        return (y, xzplus)
 
 class TwoReacFullGbModel(tf.keras.Model):
     """ Custom model for the Two reaction system. """
