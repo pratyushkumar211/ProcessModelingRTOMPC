@@ -29,7 +29,61 @@ class InterpolationLayer(tf.keras.layers.Layer):
         # Return.
         return tf.concat(yseq_interp, axis=-1)
 
-class TwoReacHybridFullGbCell(tf.keras.layers.AbstractRNNCell):
+class FullGbLoss(tf.keras.losses.Loss):
+
+    """ 
+        Loss function for the full grey-box model. 
+
+        lam: scaling factor for the extra cost term.
+
+        yi: indices relevant to predict the measurements.
+
+        unmeasGbPredi: indices relevant to predict the unmeasured grey-box
+        states by the predictor model.
+
+        unmeasGbEsti: indices relevant to predict the unmeasured grey-box states
+        by the estimator model.
+
+    """
+
+    def __init__(self, lam, yi, unmeasGbPredi, unmeasGbEsti):
+
+        # Lambda, yi, unmeasured grey-box and estimator indices.
+        self.lam = lam
+        self.yi = yi
+        self.unmeasGbPredi = unmeasGbPredi
+        self.unmeasGbEsti = unmeasGbEsti
+
+        # Initialize.
+        super(FullGbLoss, self).__init__()
+
+    def call(self, y_true, y_pred):
+        """ Write the call function. """
+        
+        # Custom MSE.
+        ei = self.yi[-1]
+        y_pred = y_pred[..., :ei+1]
+
+        # Prediction of unmeasured grey-box states 
+        # by the predictor model.
+        si, ei = self.unmeasGbPredi[0], self.unmeasGbPredi[-1]
+        y_unmeasGbPred = y_pred[..., si:ei+1]
+
+        # Prediction of unmeasured grey-box states 
+        # by the estimator model.
+        si, ei = self.unmeasGbEsti[0], self.unmeasGbEsti[-1]
+        y_unmeasGbEst = y_pred[..., si:ei+1]
+
+        # Cost terms.
+        cost_prederror = tf.math.reduce_mean(tf.square((y_true - y_pred)))
+        cost_unmeasgberror = tf.square((y_unmeasGbEst - y_unmeasGbPred))
+        cost_unmeasgberror = lam*tf.math.reduce_mean(cost_unmeasgberror)
+        cost = cost_prederror + cost_unmeasgberror
+
+        # Return.
+        return cost
+
+class TwoReacFullGbCell(tf.keras.layers.AbstractRNNCell):
     """
     RNN Cell
     dx_g/dt  = f_g(x_g, u) + f_N(x_g, u)
@@ -57,7 +111,7 @@ class TwoReacHybridFullGbCell(tf.keras.layers.AbstractRNNCell):
             dCa/dt = F*(Caf - Ca)/V - r1
             dCb/dt = -F*Cb/V + r1 - 3*r2 + r3
             dCc/dt = -F*Cc/V + r2 - r3
-            """
+        """
         
         # Extract the parameters (nominal value of unmeasured disturbance).
         F = self.hyb_greybox_pars['ps'].squeeze()
@@ -117,7 +171,37 @@ class TwoReacHybridFullGbCell(tf.keras.layers.AbstractRNNCell):
         # Return output and states at the next time-step.
         return (y, xplus)
 
-class TwoReacHybridPartialGbCell(tf.keras.layers.AbstractRNNCell):
+class TwoReacFullGbModel(tf.keras.Model):
+    """ Custom model for the Two reaction system. """
+    
+    def __init__(self, fNDims, xuyscales, hyb_greybox_pars):
+        """ Create the dense layers for the NN, and 
+            construct the overall model. """
+
+        # Sizes.
+        Nx, Nu = hyb_greybox_pars['Nx'], hyb_greybox_pars['Nu']
+        
+        # Input layers to the model.
+        useq = tf.keras.Input(name='u', shape=(None, Nu))
+        x0 = tf.keras.Input(name='x0', shape=(Nx, ))
+
+        # Dense layers for the NN.
+        fNLayers = []
+        for dim in fNDims[1:-1]:
+            fNLayers += [tf.keras.layers.Dense(dim, activation='tanh')]
+        fNLayers += [tf.keras.layers.Dense(fNDims[-1])]
+
+        # Get the tworeac cell object.
+        tworeacCell = TwoReacHybridCell(fNLayers, xuyscales, hyb_greybox_pars)
+
+        # Construct the RNN layer and get the predicted xseq.
+        tworeacLayer = tf.keras.layers.RNN(tworeacCell, return_sequences = True)
+        xseq = tworeacLayer(inputs = useq, initial_state = [x0])
+
+        # Construct model.
+        super().__init__(inputs = [useq, x0], outputs = xseq)
+
+class TwoReacPartialGbCell(tf.keras.layers.AbstractRNNCell):
     """
     RNN Cell:
     dx_g/dt  = f_g(x_g, u) + (chosen functions).
@@ -126,19 +210,21 @@ class TwoReacHybridPartialGbCell(tf.keras.layers.AbstractRNNCell):
     r2 = NN2(Cb)
     r3 = NN3(z)
     """
-    def __init__(self, r1Layers, r2Layers, r3Layers, Np,
+    def __init__(self, r1Layers, r2Layers, r3Layers, Np, interpLayer,
                        xuyscales, hyb_greybox_pars, **kwargs):
-        super(TwoReacHybridPartialGbCell, self).__init__(**kwargs)
+        super(TwoReacPartialGbCell, self).__init__(**kwargs)
 
         # r1, r2, and r3 layers.
         self.r1Layers = r1Layers
         self.r2Layers = r2Layers
         self.r3Layers = r3Layers
+        self.interpLayer = interpLayer
 
+        # Number of past measurements and controls.
         assert Np > 0
-        self.Np = Np # Number of past measurements and controls.
+        self.Np = Np
 
-        # xuy scales and hybrid parameters.
+        # xuyscales and hybrid parameters.
         self.xuyscales = xuyscales
         self.hyb_greybox_pars = hyb_greybox_pars
 
@@ -168,9 +254,8 @@ class TwoReacHybridPartialGbCell(tf.keras.layers.AbstractRNNCell):
         r3NN = fnnTf(z, self.r3Layers)
 
         # Get scaling factors.
-        # Such that scalings based on noisy measurements are used.
         ymean, ystd = self.xuyscales['yscale']
-        Castd, Cbstd = xstd[0:1], xstd[1:2]
+        Castd, Cbstd = ystd[0:1], ystd[1:2]
         umean, ustd = self.xuyscales['uscale']
 
         # Scale back to physical states and control inputs.
@@ -193,7 +278,7 @@ class TwoReacHybridPartialGbCell(tf.keras.layers.AbstractRNNCell):
 
     def call(self, inputs, states):
         """ Call function of the hybrid RNN cell.
-            Dimension of states: (None, Ny + Nz)
+            Dimension of states: (None, Ny + Np*(Ny + Nu))
             Dimension of input: (None, Nu)
         """
 
@@ -204,24 +289,37 @@ class TwoReacHybridPartialGbCell(tf.keras.layers.AbstractRNNCell):
         # Extract y, ypast, and upast.
         (y, z) = tf.split(yz, [self.Ny, self.Np*(self.Ny + self.Nu)], 
                           axis=-1)
+        (ypseq, upseq) = tf.split(z, [self.Np*self.Ny, self.Np*self.Nu],
+                                  axis=-1)
 
         # Sample time.
         Delta = self.hyb_greybox_pars['Delta']
 
-        # Get k1, k2, k3, and k4 (ToDo, do RK4 discretization).
+        # Get k1.
         k1 = self._fyzu(y, z, u)
+        
+        # Get k2.
+        ypseqInterp = self.interpLayer(tf.concat((ypseq, y), axis=-1))
+        z = tf.concat((ypseqInterp, upseq), axis=-1)
         k2 = self._fyzu(y + Delta*(k1/2), z, u)
+
+        # Get k3.
         k3 = self._fyzu(y + Delta*(k2/2), z, u)
+
+        # Get k4.
+        ypseqInterp = tf.concat((ypseq[..., self.Ny:], y), axis=-1)
+        z = tf.concat((ypseqInterp, upseq), axis=-1)
         k4 = self._fyzu(y + Delta*k3, z, u)
         
-        # Get the current output/state and the next time step.
-        y = x
-        xplus = x + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
+        # Get the yzplus at the next time step.
+        yplus = y + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
+        zplus = tf.concat((ypseq[..., self.Ny:], y, upseq[..., self.Nu:], u))
+        yzplus = tf.concat((yplus, zplus), axis=-1)
 
-        # Return output and states.
-        return (y, xplus)
+        # Return current output and states at the next time point.
+        return (y, yzplus)
 
-class TwoReacModel(tf.keras.Model):
+class TwoReacPartialGbModel(tf.keras.Model):
     """ Custom model for the Two reaction system. """
     
     def __init__(self, fNDims, xuyscales, hyb_greybox_pars):
