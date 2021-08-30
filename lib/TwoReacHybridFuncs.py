@@ -6,6 +6,29 @@ import tensorflow as tf
 from BlackBoxFuncs import fnnTf, fnn
 from hybridId import SimData
 
+class InterpolationLayer(tf.keras.layers.Layer):
+    """
+    The layer to perform interpolation for RK4 predictions.
+    Nvar: Number of variables.
+    Np + 1: Number of concatenated 
+    """
+    def __init__(self, Nvar, Np, trainable=False, name=None):
+        super(InterpolationLayer, self).__init__(trainable, name)
+        self.Nvar = Nvar
+        self.Np = Np
+
+    def call(self, yseq):
+        """ The main call function of the interpolation layer.
+            yseq is of dimension: (None, (Np+1)*Nvar)
+            Return y of dimension: (None, Np*Nvar)
+        """
+        yseq_interp = []
+        for t in range(self.Np):
+            yseq_interp += [0.5*(yseq[..., t*self.Nvar:(t+1)*self.Nvar] + 
+                                 yseq[..., (t+1)*self.Nvar:(t+2)*self.Nvar])]
+        # Return.
+        return tf.concat(yseq_interp, axis=-1)
+
 class TwoReacHybridFullGbCell(tf.keras.layers.AbstractRNNCell):
     """
     RNN Cell
@@ -97,12 +120,22 @@ class TwoReacHybridFullGbCell(tf.keras.layers.AbstractRNNCell):
 class TwoReacHybridPartialGbCell(tf.keras.layers.AbstractRNNCell):
     """
     RNN Cell
-    dx_g/dt  = f_g(x_g, u) + f_N(x_g, u)
+    dx_g/dt  = f_g(x_g, u) + (chosen functions).
     y = x_g
+    r1 = NN1(Ca)
+    r2 = NN2(Cb)
+    r3 = NN3(z)
     """
-    def __init__(self, fNLayers, xuyscales, hyb_greybox_pars, **kwargs):
-        super(TwoReacHybridCell, self).__init__(**kwargs)
-        self.fNLayers = fNLayers
+    def __init__(self, r1Layers, r2Layers, r3Layers, 
+                       xuyscales, hyb_greybox_pars, **kwargs):
+        super(TwoReacHybridPartialGbCell, self).__init__(**kwargs)
+
+        # r1, r2, and r3 layers.
+        self.r1Layers = r1Layers
+        self.r2Layers = r2Layers
+        self.r3Layers = r3Layers
+
+        # xuy scales and hybrid parameters.
         self.xuyscales = xuyscales
         self.hyb_greybox_pars = hyb_greybox_pars
 
@@ -112,25 +145,24 @@ class TwoReacHybridPartialGbCell(tf.keras.layers.AbstractRNNCell):
     
     @property
     def output_size(self):
-        return self.hyb_greybox_pars['Nx']
+        return self.hyb_greybox_pars['Ny']
 
-    def _fxu(self, x, u):
-        """ Function to compute the 
-            derivative (RHS of the ODE)
-            for the two reaction model. 
-            
-            dCa/dt = F*(Caf - Ca)/V - r1
-            dCb/dt = -F*Cb/V + r1 - 3*r2 + r3
-            dCc/dt = -F*Cc/V + r2 - r3
-            """
+    def _fxu(self, y, z, u):
+        """ dCa/dt = F*(Caf - Ca)/V - r1
+            dCb/dt = -F*Cb/V + r1 - 3*r2 + f_N(z)
+        """
         
-        # Extract the parameters (nominal value of unmeasured disturbance).
+        # Extract the parameters.
         F = self.hyb_greybox_pars['ps'].squeeze()
         V = self.hyb_greybox_pars['V']
 
+        # Get the states (before scaling to physical variables).
+        Ca, Cb = x[..., 0:1], x[..., 1:2], x[..., 2:3]
+
         # Get the output of the neural network.
-        nnOutput = fnnTf(x, self.fNLayers)
-        r1NN, r2NN = nnOutput[..., 0:1], nnOutput[..., 1:2]
+        r1NN = fnnTf(Ca, self.r1Layers)
+        r2NN = fnnTf(Cb, self.r2Layers)
+        r3NN = fnnTf(Cc, self.r3Layers)
 
         # Get scaling factors.
         # Such that scalings based on noisy measurements are used.
@@ -142,7 +174,7 @@ class TwoReacHybridPartialGbCell(tf.keras.layers.AbstractRNNCell):
         x = x*xstd + xmean
         u = u*ustd + umean
 
-        # Get the state and control.
+        # Get the state and control (after scaling to physical variables).
         Ca, Cb, Cc = x[..., 0:1], x[..., 1:2], x[..., 2:3]
         Caf = u[..., 0:1]
         
@@ -159,15 +191,21 @@ class TwoReacHybridPartialGbCell(tf.keras.layers.AbstractRNNCell):
 
     def call(self, inputs, states):
         """ Call function of the hybrid RNN cell.
-            Dimension of states: (None, Nx)
+            Dimension of states: (None, Ny + Nz)
             Dimension of input: (None, Nu)
         """
         # Extract states/inputs.
-        [x] = states
+        [yz] = states
         u = inputs
 
+        # Extract y, ypast, and upast.
+        (y, ypseq, upseq) = tf.split(yz, 
+                                    [self.Ny, self.Np*self.Ny, 
+                                    self.Np*self.Nu],
+                                    axis=-1)
+
         # Sample time.
-        Delta = self.hyb_greybox_pars['Delta']        
+        Delta = self.hyb_greybox_pars['Delta']
 
         # Get k1, k2, k3, and k4.
         k1 = self._fxu(x, u)
