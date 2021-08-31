@@ -75,10 +75,10 @@ def main():
     # bbnn_predictions = reac_bbnntrain['val_predictions']
 
     # Load Hybrid data after training.
-    # reac_hybtrain = PickleTool.load(filename=
-    #                                  "reac_hybtrain_dyndata.pickle",
-    #                                  type='read')
-    # hyb_predictions = reac_hybtrain['val_predictions']
+    reac_hybfullgbtrain = PickleTool.load(filename=
+                                     "reac_hybfullgbtrain_dyndata.pickle",
+                                     type='read')
+    hybfullgb_predictions = reac_hybfullgbtrain['val_predictions']
 
     # Load the steady state cost computations.
     # reac_ssopt = PickleTool.load(filename="reac_ssopt.pickle",
@@ -124,17 +124,17 @@ def main():
     valdata_plant = reac_parameters['training_data_dyn'][-1]
     valdata_list = [valdata_plant]
     # valdata_list += bbnn_predictions
-    # valdata_list += hyb_predictions
+    valdata_list += hybfullgb_predictions
     t, ulist, xlist, ylist, plist = get_plotting_array_list(simdata_list=
                                                      valdata_list[:1],
                                                      plot_range=(10, 6*60+10))
-    # (_, ulist_val, 
-    #  ylist_val, xlist_val) = get_plotting_array_list(simdata_list=
-    #                                                  valdata_list[1:],
-    #                                                  plot_range=(0, 6*60))
-    # ulist += ulist_val
-    # ylist += ylist_val
-    # xlist += xlist_val
+    (_, ulist_val, 
+     xlist_val, ylist_val, plist_val) = get_plotting_array_list(simdata_list=
+                                                     valdata_list[1:],
+                                                     plot_range=(0, 6*60))
+    ulist += ulist_val
+    ylist += ylist_val
+    xlist += xlist_val
     figures += ReacPlots.plot_xmudata(t=t, ylist=ylist, 
                                       xlist=xlist, ulist=ulist,
                                         legend_names=legend_names,

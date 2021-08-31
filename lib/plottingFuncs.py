@@ -13,7 +13,7 @@ def get_plotting_arrays(simdata, plot_range):
     u = simdata.u[start:end, :]
     x = simdata.x[start:end, :]
     y = simdata.y[start:end, :]
-    p = simdata.p[start:end, :]
+    p = None#simdata.p[start:end, :]
     t = simdata.t[start:end]
     # Return u, x, y, p, t.
     return (u, x, y, p, t)
