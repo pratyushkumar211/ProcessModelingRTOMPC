@@ -1,4 +1,4 @@
-# [depends] %LIB%/hybridId.py %LIB%/tworeacFuncs.py
+# [depends] %LIB%/hybridId.py %LIB%/reacFuncs.py
 # [depends] %LIB%/linNonlinMPC.py
 # [makes] pickle
 import sys
@@ -7,8 +7,8 @@ import numpy as np
 from hybridId import PickleTool, sample_prbs_like, SimData
 from hybridId import get_rectified_xs
 from linNonlinMPC import get_model
-from tworeacFuncs import get_plant_pars, plant_ode
-from tworeacFuncs import get_hyb_pars
+from reacFuncs import get_plant_pars, plant_ode
+from reacFuncs import get_hyb_pars
 
 def gen_train_val_data(*, parameters, num_traj,
                           Nsim_train, Nsim_trainval, 
@@ -93,11 +93,11 @@ def main():
                                             seed=0)
     
     # Get the dictionary.
-    tworeac_parameters = dict(plant_pars = plant_pars,
+    reac_parameters = dict(plant_pars = plant_pars,
                               training_data_dyn = training_data_dyn)
     
     # Save data.
-    PickleTool.save(data_object=tworeac_parameters,
-                    filename='tworeac_parameters.pickle')
+    PickleTool.save(data_object=reac_parameters,
+                    filename='reac_parameters.pickle')
 
 main()

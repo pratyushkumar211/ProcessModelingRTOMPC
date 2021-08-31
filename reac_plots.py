@@ -1,8 +1,8 @@
 # [depends] %LIB%/hybridId.py %LIB%/plottingFuncs.py
-# [depends] tworeac_parameters.pickle
-# [depends] tworeac_bbnntrain.pickle
-# [depends] tworeac_hybtrain.pickle
-# [depends] tworeac_ssopt.pickle
+# [depends] reac_parameters.pickle
+# [depends] reac_bbnntrain.pickle
+# [depends] reac_hybtrain.pickle
+# [depends] reac_ssopt.pickle
 """ Script to plot the training data
     and grey-box + NN model predictions on validation data.
     Pratyush Kumar, pratyushkumar@ucsb.edu """
@@ -13,7 +13,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from hybridId import PickleTool
-from plottingFuncs import PAPER_FIGSIZE, TwoReacPlots, plotAvgCosts
+from plottingFuncs import PAPER_FIGSIZE, ReacPlots, plotAvgCosts
 from plottingFuncs import get_plotting_array_list
 
 #def plot_sub_gaps(*, num_samples, sub_gaps, colors, legends, 
@@ -64,36 +64,36 @@ def main():
     """ Load the pickle files and plot. """
 
     # Load parameters.
-    tworeac_parameters = PickleTool.load(filename="tworeac_parameters.pickle",
+    reac_parameters = PickleTool.load(filename="reac_parameters.pickle",
                                          type='read')
-    plant_pars = tworeac_parameters['plant_pars']
+    plant_pars = reac_parameters['plant_pars']
     
     # Load Black-Box data after training.
-    # tworeac_bbnntrain = PickleTool.load(filename=
-    #                                   "tworeac_bbnntrain_dyndata.pickle",
+    # reac_bbnntrain = PickleTool.load(filename=
+    #                                   "reac_bbnntrain_dyndata.pickle",
     #                                   type='read')
-    # bbnn_predictions = tworeac_bbnntrain['val_predictions']
+    # bbnn_predictions = reac_bbnntrain['val_predictions']
 
     # Load Hybrid data after training.
-    # tworeac_hybtrain = PickleTool.load(filename=
-    #                                  "tworeac_hybtrain_dyndata.pickle",
+    # reac_hybtrain = PickleTool.load(filename=
+    #                                  "reac_hybtrain_dyndata.pickle",
     #                                  type='read')
-    # hyb_predictions = tworeac_hybtrain['val_predictions']
+    # hyb_predictions = reac_hybtrain['val_predictions']
 
     # Load the steady state cost computations.
-    tworeac_ssopt = PickleTool.load(filename="tworeac_ssopt.pickle",
-                                     type='read')
+    # reac_ssopt = PickleTool.load(filename="reac_ssopt.pickle",
+    #                                  type='read')
 
     # Load the rate analysis computations.
-    # tworeac_rateAnalysis = PickleTool.load(filename=
-    #                                  "tworeac_rateAnalysis.pickle",
+    # reac_rateAnalysis = PickleTool.load(filename=
+    #                                  "reac_rateAnalysis.pickle",
     #                                  type='read')
 
     # List to store figures.
     figures = []
 
     # Plot training data.
-    training_data = tworeac_parameters['training_data_dyn'][:5]
+    training_data = reac_parameters['training_data_dyn'][:5]
     for data in training_data:
 
         (t, ulist, xlist, 
@@ -101,7 +101,8 @@ def main():
                                                  plot_range=(10, 6*60+10))
 
         # xu data.
-        figures += TwoReacPlots.plot_xudata(t=t, xlist=xlist, ulist=ulist,
+        figures += ReacPlots.plot_xmudata(t=t, ylist=ylist, 
+                                            xlist=xlist, ulist=ulist,
                                             legend_names=None,
                                             legend_colors=['b'], 
                                             figure_size=PAPER_FIGSIZE, 
@@ -109,7 +110,7 @@ def main():
                                             title_loc=None)
 
         # yup data.
-        # figures += TwoReacPlots.plot_yupdata(t=t, ylist=ylist, ulist=ulist,
+        # figures += ReacPlots.plot_yupdata(t=t, ylist=ylist, ulist=ulist,
         #                                      plist=plist,
         #                                     legend_names=None,
         #                                     legend_colors=['b'], 
@@ -120,7 +121,7 @@ def main():
     # Plot validation data.
     legend_names = ['Plant', 'Black-Box-NN', 'Hybrid']
     legend_colors = ['b', 'dimgrey', 'm']
-    valdata_plant = tworeac_parameters['training_data_dyn'][-1]
+    valdata_plant = reac_parameters['training_data_dyn'][-1]
     valdata_list = [valdata_plant]
     # valdata_list += bbnn_predictions
     # valdata_list += hyb_predictions
@@ -134,8 +135,8 @@ def main():
     # ulist += ulist_val
     # ylist += ylist_val
     # xlist += xlist_val
-    figures += TwoReacPlots.plot_yupdata(t=t, ylist=ylist, ulist=ulist,
-                                         plist=plist,
+    figures += ReacPlots.plot_xmudata(t=t, ylist=ylist, 
+                                      xlist=xlist, ulist=ulist,
                                         legend_names=legend_names,
                                         legend_colors=legend_colors, 
                                         figure_size=PAPER_FIGSIZE, 
@@ -143,19 +144,19 @@ def main():
                                         title_loc=(0.23, 0.9))
 
     # Plot validation metrics to show data requirements.
-    #num_samples = tworeac_train['num_samples']
-    #val_metrics = tworeac_train['val_metrics']
+    #num_samples = reac_train['num_samples']
+    #val_metrics = reac_train['val_metrics']
     #figures += plot_val_metrics(num_samples=num_samples,
     #                            val_metrics=val_metrics, 
     #                            colors=['dimgray', 'm'], 
     #                            legends=['Black-box', 'Hybrid'])
 
     # Steady state Concentrations.
-    us = tworeac_ssopt['us']
-    # xs_list = tworeac_ssopt['xs']
+    # us = reac_ssopt['us']
+    # xs_list = reac_ssopt['xs']
     # legend_names = ['Plant', 'Black-Box-NN', 'Hybrid']
     # legend_colors = ['b', 'dimgrey', 'm']
-    # figures += TwoReacPlots.plot_xsvus(us=us, xs_list=xs_list, 
+    # figures += ReacPlots.plot_xsvus(us=us, xs_list=xs_list, 
     #                                     legend_colors=legend_colors, 
     #                                     legend_names=legend_names, 
     #                                     figure_size=PAPER_FIGSIZE, 
@@ -163,23 +164,23 @@ def main():
     #                                     title_loc=(0.23, 0.9))
 
     # Steady state cost curves.
-    sscosts = tworeac_ssopt['sscosts']
-    figures += TwoReacPlots.plot_sscosts(us=us, sscosts=sscosts, 
-                                        legend_colors=legend_colors, 
-                                        legend_names=legend_names, 
-                                        figure_size=PAPER_FIGSIZE, 
-                                        ylabel_xcoordinate=-0.12, 
-                                        left_label_frac=0.15)
+    # sscosts = reac_ssopt['sscosts']
+    # figures += ReacPlots.plot_sscosts(us=us, sscosts=sscosts, 
+    #                                     legend_colors=legend_colors, 
+    #                                     legend_names=legend_names, 
+    #                                     figure_size=PAPER_FIGSIZE, 
+    #                                     ylabel_xcoordinate=-0.12, 
+    #                                     left_label_frac=0.15)
 
     # # Make a reaction rate analysis plot.
-    # rErrors = tworeac_rateAnalysis[0]['rErrors']
-    # xGrids = tworeac_rateAnalysis[0]['xGrids']
-    # yGrids = tworeac_rateAnalysis[0]['yGrids']
-    # CcVals = tworeac_rateAnalysis[0]['CcVals']
+    # rErrors = reac_rateAnalysis[0]['rErrors']
+    # xGrids = reac_rateAnalysis[0]['xGrids']
+    # yGrids = reac_rateAnalysis[0]['yGrids']
+    # CcVals = reac_rateAnalysis[0]['CcVals']
     # xlabel = r'$C_A \ (\textnormal{mol/m}^3)$'
     # ylabel = r'$C_B \ (\textnormal{mol/m}^3)$'
     # rateTitle = '$\dfrac{|r_1 - r_{1-NN}|}{|r_1|}, C_C = $ '
-    # figures += TwoReacPlots.plot_rPercentErrors(rErrors=rErrors, xGrids=xGrids,
+    # figures += ReacPlots.plot_rPercentErrors(rErrors=rErrors, xGrids=xGrids,
     #                                             yGrids=yGrids, zvals=CcVals, 
     #                                             xlabel=xlabel, ylabel=ylabel,
     #                                             rateTitle=rateTitle,
@@ -189,12 +190,12 @@ def main():
     #                                             wspace=0.1)
 
     # # Make a reaction rate analysis plot.
-    # rErrors = tworeac_rateAnalysis[1]['rErrors']
-    # xGrids = tworeac_rateAnalysis[1]['xGrids']
-    # yGrids = tworeac_rateAnalysis[1]['yGrids']
-    # CcVals = tworeac_rateAnalysis[1]['CcVals']
+    # rErrors = reac_rateAnalysis[1]['rErrors']
+    # xGrids = reac_rateAnalysis[1]['xGrids']
+    # yGrids = reac_rateAnalysis[1]['yGrids']
+    # CcVals = reac_rateAnalysis[1]['CcVals']
     # rateTitle = '$\dfrac{|r_2 - r_{2-NN}|}{|r_2|}, C_C = $ '
-    # figures += TwoReacPlots.plot_rPercentErrors(rErrors=rErrors, xGrids=xGrids,
+    # figures += ReacPlots.plot_rPercentErrors(rErrors=rErrors, xGrids=xGrids,
     #                                             yGrids=yGrids, zvals=CcVals, 
     #                                             xlabel=xlabel, ylabel=ylabel,
     #                                             rateTitle=rateTitle,
@@ -204,7 +205,7 @@ def main():
     #                                             wspace=0.1)
 
     # # Make the histograms.
-    # errorsOnTrain = tworeac_rateAnalysis[2]
+    # errorsOnTrain = reac_rateAnalysis[2]
     # xlabels = ['$\dfrac{|r_1 - r_{1-NN}|}{|r_1|}$',
     #            '$\dfrac{|r_2 - r_{2-NN}|}{|r_2|}$']
     # xlims_list = [[0, 0.6], [0, 1.0]]
@@ -212,7 +213,7 @@ def main():
     #                                    xlabels, xlims_list):
 
     #     # Loop over the errors.
-    #     figures += TwoReacPlots.plot_ErrorHistogram(rError=
+    #     figures += ReacPlots.plot_ErrorHistogram(rError=
     #                                             errorsOnTrain[reaction], 
     #                                             xlabel=xlabel, ylabel='Frequency',
     #                                             figure_size=PAPER_FIGSIZE, 
@@ -220,13 +221,13 @@ def main():
     #                                             xlims=xlims)
 
     # # Make the 3D scatter plot.
-    # errorsOnTrain = tworeac_rateAnalysis[2]
+    # errorsOnTrain = reac_rateAnalysis[2]
     # xlims = [0.02, 0.8]
     # ylims = [0.02, 0.6]
     # zlims = [0.02, 0.2]
 
     # # Loop over the errors.
-    # figures += TwoReacPlots.plotDataSamples3D(ydata=
+    # figures += ReacPlots.plotDataSamples3D(ydata=
     #                                         errorsOnTrain['ysamples'], 
     #                                         figure_size=PAPER_FIGSIZE, 
     #                                         left_frac=0.12,
@@ -234,26 +235,26 @@ def main():
     #                                         zlims=zlims, markersize=1.)
 
     # Load data for the economic MPC simulation.
-    # tworeac_empc = PickleTool.load(filename="tworeac_empc.pickle", 
+    # reac_empc = PickleTool.load(filename="reac_empc.pickle", 
     #                                 type='read')
-    # tworeac_rtompc_plant = PickleTool.load(filename=
-    #                                "tworeac_rtompc_plant.pickle", 
+    # reac_rtompc_plant = PickleTool.load(filename=
+    #                                "reac_rtompc_plant.pickle", 
     #                                 type='read')
-    # tworeac_rtompc_hybrid = PickleTool.load(filename=
-    #                                "tworeac_rtompc_hybrid.pickle", 
+    # reac_rtompc_hybrid = PickleTool.load(filename=
+    #                                "reac_rtompc_hybrid.pickle", 
     #                                 type='read')
-    # tworeac_rtompc_picnn = PickleTool.load(filename=
-    #                                "tworeac_rtompc_picnn.pickle", 
+    # reac_rtompc_picnn = PickleTool.load(filename=
+    #                                "reac_rtompc_picnn.pickle", 
     #                                 type='read')
-    # clDataList = [tworeac_rtompc_plant['clData'], 
-    #               tworeac_rtompc_hybrid['clData']]
+    # clDataList = [reac_rtompc_plant['clData'], 
+    #               reac_rtompc_hybrid['clData']]
 
     # # Load data for the economic MPC simulation.
-    # tworeac_empc_twotier = PickleTool.load(filename=
-    #                                 "tworeac_empc_twotier.pickle", 
+    # reac_empc_twotier = PickleTool.load(filename=
+    #                                 "reac_empc_twotier.pickle", 
     #                                 type='read')
-    # clDataListTwoTier = tworeac_empc_twotier['clDataList']
-    # stageCostListTwoTier = tworeac_empc_twotier['stageCostList']
+    # clDataListTwoTier = reac_empc_twotier['clDataList']
+    # stageCostListTwoTier = reac_empc_twotier['stageCostList']
 
     # Plot closed-loop simulation data.
     # legend_names = ['Plant', 'Hybrid', 'PICNN']
@@ -261,7 +262,7 @@ def main():
     # t, ulist, ylist, xlist = get_plotting_array_list(simdata_list = 
     #                                             clDataList,
     #                                     plot_range = (0, 2*24*60))
-    # figures += TwoReacPlots.plot_xudata(t=t, xlist=ylist, ulist=ulist,
+    # figures += ReacPlots.plot_xudata(t=t, xlist=ylist, ulist=ulist,
     #                                     legend_names=legend_names,
     #                                     legend_colors=legend_colors, 
     #                                     figure_size=PAPER_FIGSIZE, 
@@ -273,8 +274,8 @@ def main():
     # figures += plot_cost_pars(t=t, cost_pars=econPars)
 
     # # Plot profit curve.
-    # stageCostList = [tworeac_rtompc_plant['avgStageCosts'], 
-    #                  tworeac_rtompc_hybrid['avgStageCosts']]
+    # stageCostList = [reac_rtompc_plant['avgStageCosts'], 
+    #                  reac_rtompc_hybrid['avgStageCosts']]
     # t = np.arange(0, len(stageCostList[0]), 1)/60
     # figures += plotAvgCosts(t=t, stageCostList=
     #                           stageCostList, 
@@ -282,7 +283,7 @@ def main():
     #                           legend_names=legend_names)
     
     # Plot the RTO simulation data.
-    #cl_data_list = tworeac_rto['cl_data_list']
+    #cl_data_list = reac_rto['cl_data_list']
     #t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
     #                                                 cl_data_list,
     #                                                 plot_range=(0, 8*60))
@@ -290,7 +291,7 @@ def main():
     #                       legend_names=legend_names,
     #                       legend_colors=legend_colors)
     #figures += plot_avg_profits(t=t,
-    #                        avg_stage_costs=tworeac_rto['avg_stage_costs'], 
+    #                        avg_stage_costs=reac_rto['avg_stage_costs'], 
     #                        legend_colors=legend_colors,
     #                        legend_names=legend_names)                     
 
@@ -331,7 +332,7 @@ def main():
     #                         colors=['dimgray', 'tomato'], 
     #                         legends=['Black-box', 'Hybrid'])
 
-    with PdfPages('tworeac_plots.pdf', 'w') as pdf_file:
+    with PdfPages('reac_plots.pdf', 'w') as pdf_file:
         for fig in figures:
             pdf_file.savefig(fig)
 

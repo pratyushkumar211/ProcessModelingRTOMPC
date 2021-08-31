@@ -36,7 +36,7 @@ def get_plant_pars():
     parameters['k1'] = 2e-1 # m^3/min
     parameters['k2'] = 5e-1 # m^3/min
     parameters['k3'] = 1e-1 # m^3/min
-    parameters['V'] = 10 # m^3
+    parameters['V'] = 15 # m^3
 
     # Store the dimensions.
     parameters['Nx'] = 3
@@ -50,7 +50,7 @@ def get_plant_pars():
     # Get the steady states.
     parameters['xs'] = np.array([1., 0.5, 0.5]) # to be rectified.
     parameters['us'] = np.array([2.0]) # mol/m^3
-    parameters['ps'] = np.array([1.0]) # m^3/min
+    parameters['ps'] = np.array([0.8]) # m^3/min
 
     # Get the constraints.
     ulb = np.array([1.0])

@@ -95,7 +95,7 @@ class FullGbLoss(tf.keras.losses.Loss):
         # Return.
         return cost
 
-class TwoReacFullGbCell(tf.keras.layers.AbstractRNNCell):
+class ReacFullGbCell(tf.keras.layers.AbstractRNNCell):
     """
     RNN Cell
     dx_g/dt  = f_g(x_g, u) + f_N(x_g, u)
@@ -103,7 +103,7 @@ class TwoReacFullGbCell(tf.keras.layers.AbstractRNNCell):
     """
     def __init__(self, r1Layers, r2Layers, r3Layers, estCLayers, 
                        Np, xuyscales, hyb_greybox_pars, **kwargs):
-        super(TwoReacHybridCell, self).__init__(**kwargs)
+        super(ReacFullGbCell, self).__init__(**kwargs)
         
         # Attributes.
         self.r1Layers = r1Layers
@@ -222,7 +222,7 @@ class TwoReacFullGbCell(tf.keras.layers.AbstractRNNCell):
         # Return output and states at the next time-step.
         return (y, xzplus)
 
-class TwoReacFullGbModel(tf.keras.Model):
+class ReacFullGbModel(tf.keras.Model):
     """ Custom model for the Two reaction system. """
     
     def __init__(self, r1Dims, r2Dims, r3Dims, estCDims, 
@@ -246,20 +246,21 @@ class TwoReacFullGbModel(tf.keras.Model):
         r3Layers = createDenseLayers(r3Dims)
         estCLayers = createDenseLayers(estCDims)
 
-        # Get the tworeac cell object.
-        tworeacCell = TwoReacFullGbCell(r1Layers, r2Layers, r3Layers, 
-                                        estCLayers, Np, xuyscales, 
-                                        hyb_greybox_pars)
+        # Get the reac cell object.
+        reacCell = ReacFullGbCell(r1Layers, r2Layers, r3Layers, 
+                                  estCLayers, Np, xuyscales, 
+                                  hyb_greybox_pars)
 
         # Construct the RNN layer and get the predicted xseq.
-        tworeacLayer = tf.keras.layers.RNN(tworeacCell, return_sequences = True)
-        xseq = tworeacLayer(inputs = useq, initial_state = [x0])
+        reacLayer = tf.keras.layers.RNN(reacCell, return_sequences = True)
+        xseq = reacLayer(inputs = useq, initial_state = [x0])
 
         # Construct model.
         super().__init__(inputs = [useq, x0], outputs = xseq)
 
-class TwoReacPartialGbCell(tf.keras.layers.AbstractRNNCell):
+class ReacPartialGbCell(tf.keras.layers.AbstractRNNCell):
     """
+    TODO: Review This class.
     RNN Cell:
     dx_g/dt  = f_g(x_g, u) + (chosen functions).
     y = x_g
@@ -269,7 +270,7 @@ class TwoReacPartialGbCell(tf.keras.layers.AbstractRNNCell):
     """
     def __init__(self, r1Layers, r2Layers, r3Layers, Np, interpLayer,
                        xuyscales, hyb_greybox_pars, **kwargs):
-        super(TwoReacPartialGbCell, self).__init__(**kwargs)
+        super(ReacPartialGbCell, self).__init__(**kwargs)
 
         # r1, r2, and r3 layers.
         self.r1Layers = r1Layers
@@ -376,8 +377,10 @@ class TwoReacPartialGbCell(tf.keras.layers.AbstractRNNCell):
         # Return current output and states at the next time point.
         return (y, yzplus)
 
-class TwoReacPartialGbModel(tf.keras.Model):
-    """ Custom model for the Two reaction system. """
+class ReacPartialGbModel(tf.keras.Model):
+    """ 
+    TODO: Review this class.
+    Custom model for the Two reaction system. """
     
     def __init__(self, fNDims, xuyscales, hyb_greybox_pars):
         """ Create the dense layers for the NN, and 
@@ -396,24 +399,24 @@ class TwoReacPartialGbModel(tf.keras.Model):
             fNLayers += [tf.keras.layers.Dense(dim, activation='tanh')]
         fNLayers += [tf.keras.layers.Dense(fNDims[-1])]
 
-        # Get the tworeac cell object.
-        tworeacCell = TwoReacHybridCell(fNLayers, xuyscales, hyb_greybox_pars)
+        # Get the reac cell object.
+        reacCell = ReacHybridCell(fNLayers, xuyscales, hyb_greybox_pars)
 
         # Construct the RNN layer and get the predicted xseq.
-        tworeacLayer = tf.keras.layers.RNN(tworeacCell, return_sequences = True)
-        xseq = tworeacLayer(inputs = useq, initial_state = [x0])
+        reacLayer = tf.keras.layers.RNN(reacCell, return_sequences = True)
+        xseq = reacLayer(inputs = useq, initial_state = [x0])
 
         # Construct model.
         super().__init__(inputs = [useq, x0], outputs = xseq)
 
-def create_fullgb_model(*, r1Layers, r2Layers, r3Layers, estCLayers, 
-                           xuyscales, hyb_greybox_pars, lam, yi, unmeasGbPredi, 
-                           unmeasGbEsti):
+def create_fullgb_model(*, r1Dims, r2Dims, r3Dims, estCDims, Np,  
+                           xuyscales, hyb_greybox_pars, 
+                           lam, yi, unmeasGbPredi, unmeasGbEsti):
     """ Create and compile the two reaction model for training. """
 
     # Create a model.
-    model = TwoReacFullGbCell(r1Layers, r2Layers, r3Layers, estCLayers, 
-                              xuyscales, hyb_greybox_pars)
+    model = ReacFullGbModel(r1Dims, r2Dims, r3Dims, estCDims, 
+                            Np, xuyscales, hyb_greybox_pars)
 
     # Create a loss.
     loss = FullGbLoss(lam, yi, unmeasGbPredi, unmeasGbEsti)
@@ -426,10 +429,12 @@ def create_fullgb_model(*, r1Layers, r2Layers, r3Layers, estCLayers,
 
 def create_partialgb_model(*, r1Layers, r2Layers, r3Layers, estCLayers, 
                     xuyscales, hyb_greybox_pars):
-    """ Create and compile the two reaction model for training. """
+    """ 
+    TODO: Review this function.
+    Create and compile the two reaction model for training. """
 
     # Create a model.
-    model = TwoReacPartialGbCell(r1Layers, r2Layers, r3Layers, Np, interpLayer, 
+    model = ReacPartialGbCell(r1Layers, r2Layers, r3Layers, Np, interpLayer, 
                                  xuyscales, hyb_greybox_pars)
 
     # Compile the model.
@@ -439,7 +444,7 @@ def create_partialgb_model(*, r1Layers, r2Layers, r3Layers, estCLayers,
     return model
 
 def train_model(*, model, epochs, batch_size, train_data, 
-                          trainval_data, stdout_filename, ckpt_path):
+                   trainval_data, stdout_filename, ckpt_path):
     """ Function to train the hybrid model. """
 
     # Std out.
@@ -447,10 +452,10 @@ def train_model(*, model, epochs, batch_size, train_data,
 
     # Create the checkpoint callback.
     checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(filepath=ckpt_path,
-                                                    monitor='val_loss',
-                                                    save_best_only=True,
-                                                    save_weights_only=True,
-                                                    verbose=1)
+                                                        monitor='val_loss',
+                                                        save_best_only=True,
+                                                        save_weights_only=True,
+                                                        verbose=1)
     
     # Call the fit method to train.
     model.fit(x = [train_data['inputs'], train_data['x0']], 
