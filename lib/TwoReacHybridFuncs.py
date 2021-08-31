@@ -36,6 +36,7 @@ class FullGbLoss(tf.keras.losses.Loss):
 
         lam: scaling factor for the extra cost term.
 
+        All the indices are lists.
         yi: indices relevant to predict the measurements.
 
         unmeasGbPredi: indices relevant to predict the unmeasured grey-box
@@ -48,7 +49,7 @@ class FullGbLoss(tf.keras.losses.Loss):
 
     def __init__(self, lam, yi, unmeasGbPredi, unmeasGbEsti):
 
-        # Lambda, yi, unmeasured grey-box and estimator indices.
+        # Lambda, yi, unmeasured grey-box, and estimator indices.
         self.lam = lam
         self.yi = yi
         self.unmeasGbPredi = unmeasGbPredi
@@ -90,21 +91,37 @@ class TwoReacFullGbCell(tf.keras.layers.AbstractRNNCell):
     y = x_g
     """
     def __init__(self, r1Layers, r2Layers, r3Layers, estCLayers, 
-                       xuyscales, hyb_greybox_pars, **kwargs):
+                       Np, xuyscales, hyb_greybox_pars, **kwargs):
         super(TwoReacHybridCell, self).__init__(**kwargs)
+        
+        # Attributes.
         self.r1Layers = r1Layers
         self.r2Layers = r2Layers
         self.r3Layers = r3Layers
+        self.estCLayers = estCLayers
+        self.Np = Np
         self.xuyscales = xuyscales
         self.hyb_greybox_pars = hyb_greybox_pars
 
+        # Number of unmeasured grey-box states.
+        self.numUnmeasGb = self.hyb_greybox_pars['Nx']
+        self.numUnmeasGb += -self.hyb_greybox_pars['Ny']
+
     @property
     def state_size(self):
-        return self.hyb_greybox_pars['Nx']
+        """ Number of states in the model. """
+        Nx = self.hyb_greybox_pars['Nx']
+        Nx += self.Np*self.hyb_greybox_pars['Ny']
+        Nx += self.Np*self.hyb_greybox_pars['Nu']
+        # Return.
+        return Nx
     
     @property
     def output_size(self):
-        return self.hyb_greybox_pars['Ny']
+        """ Number of outputs of the model. """
+        Ny = self.hyb_greybox_pars['Nx'] + self.numUnmeasGb
+        # Return.
+        return Ny
 
     def _fxu(self, x, u):
         """ Function to compute the 
@@ -120,31 +137,35 @@ class TwoReacFullGbCell(tf.keras.layers.AbstractRNNCell):
         F = self.hyb_greybox_pars['ps'].squeeze()
         V = self.hyb_greybox_pars['V']
 
-        # Get the output of the neural network.
-        nnOutput = fnnTf(x, self.fNLayers)
-        r1NN, r2NN = nnOutput[..., 0:1], nnOutput[..., 1:2]
+        # Get the states before scaling. Compute the NN reaction rates.
+        Ca, Cb, Cc = x[..., 0:1], x[..., 1:2], x[..., 2:3]
+        r1NN = fnnTf(Ca, self.r1Layers)
+        r2NN = fnnTf(Cb, self.r2Layers)
+        r3NN = fnnTf(Cc, self.r3Layers)
 
         # Get scaling factors.
-        # Such that scalings based on noisy measurements are used.
-        xmean, xstd = self.xuyscales['yscale']
-        Castd, Cbstd, Ccstd = xstd[0:1], xstd[1:2], xstd[2:3]
+        # Such that scalings based on only the measurements are used.
+        ymean, ystd = self.xuyscales['yscale']
+        Camean, Cbmean = ymean[0:1], ymean[1:2]
+        Castd, Cbstd = ystd[0:1], ystd[1:2]
         umean, ustd = self.xuyscales['uscale']
 
-        # Scale back to physical states and control inputs.
-        x = x*xstd + xmean
+        # Scale back to physical states and controls.
+        Ca = Ca*Castd + Camean
+        Cb = Cb*Castd + Cbmean
+        Cc = Cc*Cbstd + Cbmean
         u = u*ustd + umean
 
-        # Get the state and control.
-        Ca, Cb, Cc = x[..., 0:1], x[..., 1:2], x[..., 2:3]
+        # Get the control input after scaling.
         Caf = u[..., 0:1]
         
         # Write the ODEs.
         dCabydt = F*(Caf - Ca)/V - r1NN*Castd
-        dCbbydt = -F*Cb/V + r1NN*Castd - 3*r2NN*Ccstd
-        dCcbydt = -F*Cc/V + r2NN*Ccstd
+        dCbbydt = -F*Cb/V + r1NN*Castd - 3*r2NN*Cbstd + r3NN*Cbstd
+        dCcbydt = -F*Cc/V + r2NN*Cbstd - r3NN*Cbstd
 
         # Scaled derivate.
-        xdot = tf.concat([dCabydt, dCbbydt, dCcbydt], axis=-1)/xstd
+        xdot = tf.concat([dCabydt/Castd, dCbbydt/Cbstd, dCcbydt/Cbstd], axis=-1)
 
         # Return the derivative.
         return xdot
@@ -159,11 +180,11 @@ class TwoReacFullGbCell(tf.keras.layers.AbstractRNNCell):
         [xz] = states
         u = inputs
 
-        # Extract the grey-box state, past measurements and controls (z).
-        (x, z) = tf.split(yz, [self.Nx, self.Np*(self.Ny + self.Nu)], axis=-1)
+        # Extract the grey-box state, past measurements, and controls (z).
+        (x, z) = tf.split(xz, [self.Nx, self.Np*(self.Ny + self.Nu)], axis=-1)
         (ypseq, upseq) = tf.split(z, [self.Np*self.Ny, self.Np*self.Nu], 
-                                axis=-1)
-        Ca, Cb, Cc = x[..., 0:1], x[..., 1:2], x[..., 2:3]
+                                  axis=-1)
+        Ca, Cb = x[..., 0:1], x[..., 1:2]
 
         # NN predictions for the third state based on z.
         CcNN = fnnTf(z, self.estCLayers)
@@ -368,11 +389,31 @@ class TwoReacPartialGbModel(tf.keras.Model):
         # Construct model.
         super().__init__(inputs = [useq, x0], outputs = xseq)
 
-def create_model(*, fNDims, xuyscales, hyb_greybox_pars):
+def create_fullgb_model(*, r1Layers, r2Layers, r3Layers, estCLayers, 
+                           xuyscales, hyb_greybox_pars, lam, yi, unmeasGbPredi, 
+                           unmeasGbEsti):
     """ Create and compile the two reaction model for training. """
 
     # Create a model.
-    model = TwoReacModel(fNDims, xuyscales, hyb_greybox_pars)
+    model = TwoReacFullGbCell(r1Layers, r2Layers, r3Layers, estCLayers, 
+                              xuyscales, hyb_greybox_pars)
+
+    # Create a loss.
+    loss = FullGbLoss(lam, yi, unmeasGbPredi, unmeasGbEsti)
+
+    # Compile the model.
+    model.compile(optimizer='adam', loss=loss)
+
+    # Return.
+    return model
+
+def create_partialgb_model(*, r1Layers, r2Layers, r3Layers, estCLayers, 
+                    xuyscales, hyb_greybox_pars):
+    """ Create and compile the two reaction model for training. """
+
+    # Create a model.
+    model = TwoReacPartialGbCell(r1Layers, r2Layers, r3Layers, Np, interpLayer, 
+                                 xuyscales, hyb_greybox_pars)
 
     # Compile the model.
     model.compile(optimizer='adam', loss='mean_squared_error')
