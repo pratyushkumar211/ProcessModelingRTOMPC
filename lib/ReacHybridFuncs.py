@@ -6,6 +6,17 @@ import tensorflow as tf
 from BlackBoxFuncs import fnnTf, fnn
 from hybridId import SimData
 
+def createDenseLayers(nnDims):
+    """ Create dense layers based on the feed-forward NN layer dimensions.
+        nnDims: List that contains the dimensions of the forward NN.
+    """
+    nnLayers = []
+    for dim in nnDims[1:-1]:
+        nnLayers += [tf.keras.layers.Dense(dim, activation='tanh')]
+    nnLayers += [tf.keras.layers.Dense(nnDims[-1])]
+    # Return.
+    return nnLayers
+
 class InterpolationLayer(tf.keras.layers.Layer):
     """
     The layer to perform interpolation for RK4 predictions.
@@ -184,7 +195,7 @@ class TwoReacFullGbCell(tf.keras.layers.AbstractRNNCell):
         (x, z) = tf.split(xz, [self.Nx, self.Np*(self.Ny + self.Nu)], axis=-1)
         (ypseq, upseq) = tf.split(z, [self.Np*self.Ny, self.Np*self.Nu], 
                                   axis=-1)
-        Ca, Cb = x[..., 0:1], x[..., 1:2]
+        Ca, Cb, Cc = x[..., 0:1], x[..., 1:2], x[..., 2:3]
 
         # NN predictions for the third state based on z.
         CcNN = fnnTf(z, self.estCLayers)
@@ -214,25 +225,31 @@ class TwoReacFullGbCell(tf.keras.layers.AbstractRNNCell):
 class TwoReacFullGbModel(tf.keras.Model):
     """ Custom model for the Two reaction system. """
     
-    def __init__(self, fNDims, xuyscales, hyb_greybox_pars):
+    def __init__(self, r1Dims, r2Dims, r3Dims, estCDims, 
+                       Np, xuyscales, hyb_greybox_pars):
         """ Create the dense layers for the NN, and 
             construct the overall model. """
 
         # Sizes.
-        Nx, Nu = hyb_greybox_pars['Nx'], hyb_greybox_pars['Nu']
+        Nx = hyb_greybox_pars['Nx']
+        Nu = hyb_greybox_pars['Nu']
+        Ny = hyb_greybox_pars['Ny']
+        Nz = Np*(Nu + Ny)
         
         # Input layers to the model.
         useq = tf.keras.Input(name='u', shape=(None, Nu))
-        x0 = tf.keras.Input(name='x0', shape=(Nx, ))
+        x0 = tf.keras.Input(name='x0', shape=(Nx + Nz, ))
 
         # Dense layers for the NN.
-        fNLayers = []
-        for dim in fNDims[1:-1]:
-            fNLayers += [tf.keras.layers.Dense(dim, activation='tanh')]
-        fNLayers += [tf.keras.layers.Dense(fNDims[-1])]
+        r1Layers = createDenseLayers(r1Dims)
+        r2Layers = createDenseLayers(r2Dims)
+        r3Layers = createDenseLayers(r3Dims)
+        estCLayers = createDenseLayers(estCDims)
 
         # Get the tworeac cell object.
-        tworeacCell = TwoReacHybridCell(fNLayers, xuyscales, hyb_greybox_pars)
+        tworeacCell = TwoReacFullGbCell(r1Layers, r2Layers, r3Layers, 
+                                        estCLayers, Np, xuyscales, 
+                                        hyb_greybox_pars)
 
         # Construct the RNN layer and get the predicted xseq.
         tworeacLayer = tf.keras.layers.RNN(tworeacCell, return_sequences = True)
