@@ -127,7 +127,8 @@ def quick_sim(fxu, hx, x0, u):
     # Return.
     return x, y
 
-def get_train_val_data(*, tthrow, Np, xuyscales, data_list):
+def get_train_val_data(*, tthrow, Np, xuyscales, data_list, 
+                          unmeasGbx0=None):
     """ Get the data for training and validation in 
         appropriate format after scaling. """
 
@@ -135,9 +136,10 @@ def get_train_val_data(*, tthrow, Np, xuyscales, data_list):
     umean, ustd = xuyscales['uscale']
     ymean, ystd = xuyscales['yscale']
     Ny, Nu = len(ymean), len(umean)
+    unmeasGbx0 = unmeasGbx0[np.newaxis, :]
 
     # Lists to store data.
-    inputs, x0, yz0, yz, outputs = [], [], [], [], []
+    inputs, x0, outputs = [], [], []
 
     # Loop through the data list.
     for data in data_list:
@@ -153,8 +155,14 @@ def get_train_val_data(*, tthrow, Np, xuyscales, data_list):
         # Get initial states.
         yp0seq = y[tthrow-Np:tthrow, :].reshape(Np*Ny, )[np.newaxis, :]
         up0seq = u[tthrow-Np:tthrow, :].reshape(Np*Nu, )[np.newaxis, :]
-        x0_traj = y[tthrow, np.newaxis, :]
-        yz0_traj = np.concatenate((y0, yp0seq, up0seq), axis=-1)
+        y0_traj = y[tthrow, np.newaxis, :]
+        z0_traj = np.concatenate((yp0seq, up0seq), axis=-1)
+
+        # Unmeasured Grey-Box states.
+        if unmeasGbx0 is not None: # Case for the full grey-box model.
+            x0_traj = np.concatenate((y0_traj, unmeasGbx0, z0_traj), axis=-1)
+        else: # Case for the partial grey-box model.
+            x0_traj = np.concatenate((y0_traj, z0_traj), axis=-1)
 
         # Get z_traj.
         # Nt = u.shape[0]
@@ -169,7 +177,6 @@ def get_train_val_data(*, tthrow, Np, xuyscales, data_list):
         # Collect the trajectories in list.
         inputs += [u_traj]
         x0 += [x0_traj]
-        # yz += [yz_traj]
         outputs += [y_traj]
     
     # Get the training and validation data for training in compact dicts.

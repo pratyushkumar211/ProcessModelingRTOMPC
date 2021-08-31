@@ -89,7 +89,7 @@ class FullGbLoss(tf.keras.losses.Loss):
         # Cost terms.
         cost_prederror = tf.math.reduce_mean(tf.square((y_true - y_pred)))
         cost_unmeasgberror = tf.square((y_unmeasGbEst - y_unmeasGbPred))
-        cost_unmeasgberror = lam*tf.math.reduce_mean(cost_unmeasgberror)
+        cost_unmeasgberror = self.lam*tf.math.reduce_mean(cost_unmeasgberror)
         cost = cost_prederror + cost_unmeasgberror
 
         # Return.
@@ -102,7 +102,7 @@ class ReacFullGbCell(tf.keras.layers.AbstractRNNCell):
     y = x_g
     """
     def __init__(self, r1Layers, r2Layers, r3Layers, estCLayers, 
-                       Np, xuyscales, hyb_greybox_pars, **kwargs):
+                       Np, xuyscales, hyb_fullgb_pars, **kwargs):
         super(ReacFullGbCell, self).__init__(**kwargs)
         
         # Attributes.
@@ -110,29 +110,28 @@ class ReacFullGbCell(tf.keras.layers.AbstractRNNCell):
         self.r2Layers = r2Layers
         self.r3Layers = r3Layers
         self.estCLayers = estCLayers
-        self.Np = Np
         self.xuyscales = xuyscales
-        self.hyb_greybox_pars = hyb_greybox_pars
+        self.hyb_fullgb_pars = hyb_fullgb_pars
 
-        # Number of unmeasured grey-box states.
-        self.numUnmeasGb = self.hyb_greybox_pars['Nx']
-        self.numUnmeasGb += -self.hyb_greybox_pars['Ny']
+        # Sizes.
+        self.Nx = hyb_fullgb_pars['Nx']
+        self.Nu = hyb_fullgb_pars['Nu']
+        self.Ny = hyb_fullgb_pars['Ny']
+        self.Np = Np
+        self.numUnmeasGb = self.hyb_fullgb_pars['Nx']
+        self.numUnmeasGb += -self.hyb_fullgb_pars['Ny']
 
     @property
     def state_size(self):
         """ Number of states in the model. """
-        Nx = self.hyb_greybox_pars['Nx']
-        Nx += self.Np*self.hyb_greybox_pars['Ny']
-        Nx += self.Np*self.hyb_greybox_pars['Nu']
         # Return.
-        return Nx
+        return self.Nx + self.Np*(self.Ny + self.Nu)
     
     @property
     def output_size(self):
         """ Number of outputs of the model. """
-        Ny = self.hyb_greybox_pars['Nx'] + self.numUnmeasGb
         # Return.
-        return Ny
+        return self.Nx + self.numUnmeasGb
 
     def _fxu(self, x, u):
         """ Function to compute the 
@@ -145,8 +144,8 @@ class ReacFullGbCell(tf.keras.layers.AbstractRNNCell):
         """
         
         # Extract the parameters (nominal value of unmeasured disturbance).
-        F = self.hyb_greybox_pars['ps'].squeeze()
-        V = self.hyb_greybox_pars['V']
+        F = self.hyb_fullgb_pars['ps'].squeeze()
+        V = self.hyb_fullgb_pars['V']
 
         # Get the states before scaling. Compute the NN reaction rates.
         Ca, Cb, Cc = x[..., 0:1], x[..., 1:2], x[..., 2:3]
@@ -163,7 +162,7 @@ class ReacFullGbCell(tf.keras.layers.AbstractRNNCell):
 
         # Scale back to physical states and controls.
         Ca = Ca*Castd + Camean
-        Cb = Cb*Castd + Cbmean
+        Cb = Cb*Cbstd + Cbmean
         Cc = Cc*Cbstd + Cbmean
         u = u*ustd + umean
 
@@ -202,7 +201,7 @@ class ReacFullGbCell(tf.keras.layers.AbstractRNNCell):
         x = tf.concat((Ca, Cb, CcNN), axis=-1)
 
         # Sample time.
-        Delta = self.hyb_greybox_pars['Delta']
+        Delta = self.hyb_fullgb_pars['Delta']
 
         # Get k1, k2, k3, and k4.
         k1 = self._fxu(x, u)
@@ -410,16 +409,18 @@ class ReacPartialGbModel(tf.keras.Model):
         super().__init__(inputs = [useq, x0], outputs = xseq)
 
 def create_fullgb_model(*, r1Dims, r2Dims, r3Dims, estCDims, Np,  
-                           xuyscales, hyb_greybox_pars, 
-                           lam, yi, unmeasGbPredi, unmeasGbEsti):
+                           xuyscales, hyb_fullgb_pars, 
+                           extraUnmeasGbCostScale, yi, unmeasGbPredi, 
+                           unmeasGbEsti):
     """ Create and compile the two reaction model for training. """
 
     # Create a model.
     model = ReacFullGbModel(r1Dims, r2Dims, r3Dims, estCDims, 
-                            Np, xuyscales, hyb_greybox_pars)
+                            Np, xuyscales, hyb_fullgb_pars)
 
     # Create a loss.
-    loss = FullGbLoss(lam, yi, unmeasGbPredi, unmeasGbEsti)
+    loss = FullGbLoss(extraUnmeasGbCostScale, yi, 
+                      unmeasGbPredi, unmeasGbEsti)
 
     # Compile the model.
     model.compile(optimizer='adam', loss=loss)
@@ -428,14 +429,14 @@ def create_fullgb_model(*, r1Dims, r2Dims, r3Dims, estCDims, Np,
     return model
 
 def create_partialgb_model(*, r1Layers, r2Layers, r3Layers, estCLayers, 
-                    xuyscales, hyb_greybox_pars):
+                              xuyscales, hyb_greybox_pars):
     """ 
     TODO: Review this function.
     Create and compile the two reaction model for training. """
 
     # Create a model.
     model = ReacPartialGbCell(r1Layers, r2Layers, r3Layers, Np, interpLayer, 
-                                 xuyscales, hyb_greybox_pars)
+                              xuyscales, hyb_greybox_pars)
 
     # Compile the model.
     model.compile(optimizer='adam', loss='mean_squared_error')
@@ -466,7 +467,8 @@ def train_model(*, model, epochs, batch_size, train_data,
             callbacks = [checkpoint_callback])
 
 def get_val_predictions(*, model, val_data, xuyscales, 
-                           xinsert_indices, ckpt_path, Delta):
+                           xinsert_indices, ckpt_path, Delta, 
+                           fullGb=False):
     """ Get the validation predictions. """
 
     # Load best weights.
@@ -478,6 +480,13 @@ def get_val_predictions(*, model, val_data, xuyscales,
     # Scale.
     ymean, ystd = xuyscales['yscale']
     umean, ustd = xuyscales['uscale']
+
+    # Add extra terms to scaling factor.
+    if fullGb == True:
+        ymean = np.concatenate((ymean, ymean[-1:], ymean[-1:]))
+        ystd = np.concatenate((ystd, ystd[-1:], ystd[-1:]))
+
+    # Validation predictions.
     ypredictions = model_predictions.squeeze(axis=0)*ystd + ymean
     uval = val_data['inputs'].squeeze(axis=0)*ustd + umean
 
@@ -488,7 +497,7 @@ def get_val_predictions(*, model, val_data, xuyscales,
     Nt = uval.shape[0]
     tval = np.arange(0, Nt*Delta, Delta)
     val_predictions = SimData(t=tval, x=xpredictions, 
-                              u=uval, y=ypredictions)
+                              u=uval, y=ypredictions, p=None)
 
     # Get prediction error on the validation data.
     val_metric = model.evaluate(x = [val_data['inputs'], val_data['x0']], 

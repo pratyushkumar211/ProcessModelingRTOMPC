@@ -30,8 +30,8 @@ def get_plotting_array_list(*, simdata_list, plot_range):
     # Return lists.
     return (t, ulist, xlist, ylist, plist)
 
-class TwoReacPlots:
-    """ Single class containing functions for the two reaction
+class ReacPlots:
+    """ Single class containing functions for the reactor
         example system. """
 
     @staticmethod
@@ -85,16 +85,16 @@ class TwoReacPlots:
         return [figure]
 
     @staticmethod
-    def plot_yupdata(*, t, ylist, ulist, plist, legend_names,
+    def plot_xmudata(*, t, ylist, xlist, ulist, legend_names,
                         legend_colors, figure_size,
                         ylabel_xcoordinate, title_loc):
-        """ Plot y, u, p data. """
+        """ Plot xm, u, p data. """
 
         # Make labels.
         labels = [r'$C_A \ (\textnormal{mol/m}^3)$',
                   r'$C_B \ (\textnormal{mol/m}^3)$',
-                  r'$C_{Af} \ (\textnormal{mol/m}^3)$',
-                  r'$F \ (\textnormal{m}^3/\textnormal{min})$']
+                  r'$C_C \ (\textnormal{mol/m}^3)$',
+                  r'$C_{Af} \ (\textnormal{mol/m}^3)$']
 
         # Number of rows and plots.
         nrow = len(labels)
@@ -104,7 +104,7 @@ class TwoReacPlots:
 
         # Loop through all the trajectories.
         legend_handles = []
-        for (y, u, p, color) in zip(ylist, ulist, plist, legend_colors):
+        for (y, x, u, color) in zip(ylist, xlist, ulist, legend_colors):
             
             # First plot the states.
             for row in range(nrow):
@@ -112,9 +112,9 @@ class TwoReacPlots:
                 if 0 <= row <= 1:
                     handle = axes[row].plot(t, y[:, row], color)
                 if row == 2:
-                    handle = axes[row].plot(t, u[:, 0], color)
+                    handle = axes[row].plot(t, x[:, 2], color)
                 if row == 3:
-                    handle = axes[row].plot(t, p[:, 0], color)
+                    handle = axes[row].plot(t, u[:, 0], color)
 
                 # Axes labels.
                 axes[row].set_ylabel(labels[row])
@@ -147,7 +147,7 @@ class TwoReacPlots:
                   r'$c_{Bs} \ (\textnormal{mol/m}^3)$',
                   r'$c_{Cs} \ (\textnormal{mol/m}^3)$']
 
-        nrow = len(TwoReacPlots.labels) - 1
+        nrow = len(ReacPlots.labels) - 1
         (figure, axes) = plt.subplots(nrows=nrow, ncols=1,
                                       sharex=True, figsize=figure_size,
                                       gridspec_kw=dict(wspace=0.4))

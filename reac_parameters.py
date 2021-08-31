@@ -79,7 +79,7 @@ def main():
     
     # Get parameters.
     plant_pars = get_plant_pars()
-    plant_pars['xs'] = get_rectified_xs(ode=plant_ode, 
+    plant_pars['xs'] = get_rectified_xs(ode=plant_ode,
                                         parameters=plant_pars)
     
     # Grey-Box model parameters.
@@ -94,7 +94,8 @@ def main():
     
     # Get the dictionary.
     reac_parameters = dict(plant_pars = plant_pars,
-                              training_data_dyn = training_data_dyn)
+                           training_data_dyn = training_data_dyn,
+                           hyb_fullgb_pars=hyb_fullgb_pars)
     
     # Save data.
     PickleTool.save(data_object=reac_parameters,
