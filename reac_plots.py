@@ -101,21 +101,21 @@ def main():
                                                  plot_range=(10, 6*60+10))
 
         # xu data.
-        # figures += TwoReacPlots.plot_xudata(t=t, xlist=xlist, ulist=ulist,
-        #                                     legend_names=None,
-        #                                     legend_colors=['b'], 
-        #                                     figure_size=PAPER_FIGSIZE, 
-        #                                     ylabel_xcoordinate=-0.1, 
-        #                                     title_loc=None)
-
-        # yup data.
-        figures += TwoReacPlots.plot_yupdata(t=t, ylist=ylist, ulist=ulist,
-                                             plist=plist,
+        figures += TwoReacPlots.plot_xudata(t=t, xlist=xlist, ulist=ulist,
                                             legend_names=None,
                                             legend_colors=['b'], 
                                             figure_size=PAPER_FIGSIZE, 
                                             ylabel_xcoordinate=-0.1, 
                                             title_loc=None)
+
+        # yup data.
+        # figures += TwoReacPlots.plot_yupdata(t=t, ylist=ylist, ulist=ulist,
+        #                                      plist=plist,
+        #                                     legend_names=None,
+        #                                     legend_colors=['b'], 
+        #                                     figure_size=PAPER_FIGSIZE, 
+        #                                     ylabel_xcoordinate=-0.1, 
+        #                                     title_loc=None)
 
     # Plot validation data.
     legend_names = ['Plant', 'Black-Box-NN', 'Hybrid']
