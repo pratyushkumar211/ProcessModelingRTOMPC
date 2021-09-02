@@ -8,7 +8,7 @@ import time
 import numpy as np
 from hybridId import PickleTool, get_scaling, get_train_val_data
 from ReacHybridFuncs import (create_fullgb_model, 
-                             train_model, get_val_predictions)
+                             train_model, get_fullgbval_predictions)
 
 # Set the tensorflow global and graph-level seed.
 tf.random.set_seed(123)
@@ -30,13 +30,10 @@ def main():
     training_data = reac_parameters['training_data_dyn']
 
     # Indices used for the training the Full Grey-Box model.
-    extraUnmeasGbCostScale = 0
+    lamGbError = 0
     yi = reac_parameters['plant_pars']['yindices']
     unmeasGbPredi = [2]
     unmeasGbEsti = [3]
-
-    # Number of samples.
-    num_samples = [hours*60 for hours in [6]]
 
     # Create some parameters.
     xinsert_indices = []
@@ -65,39 +62,39 @@ def main():
                                                    data_list=training_data, 
                                                    unmeasGbx0=unmeasGbx0)
 
-    # Loop over the number of samples.
-    for num_sample in num_samples:
-        
-        # Create model.
-        model = create_fullgb_model(r1Dims=r1Dims, r2Dims=r2Dims, 
-                            r3Dims=r3Dims, estCDims=estCDims, Np=Np, 
-                            xuyscales=xuyscales, hyb_fullgb_pars=hyb_fullgb_pars, 
-                        extraUnmeasGbCostScale=extraUnmeasGbCostScale, yi=yi, 
-                        unmeasGbPredi=unmeasGbPredi, unmeasGbEsti=unmeasGbEsti)
+    # Create model.
+    model = create_fullgb_model(r1Dims=r1Dims, r2Dims=r2Dims, 
+                                r3Dims=r3Dims, estCDims=estCDims, Np=Np, 
+                                xuyscales=xuyscales, 
+                                hyb_fullgb_pars=hyb_fullgb_pars, 
+                                lamGbError=lamGbError, yi=yi, 
+                                unmeasGbPredi=unmeasGbPredi, 
+                                unmeasGbEsti=unmeasGbEsti)
+    breakpoint()
 
-        # Use num samples to adjust here the num training samples.
-        train_samples = dict(x0=train_data['x0'],
-                             inputs=train_data['inputs'],
-                             outputs=train_data['outputs'])
-        
-        # Train.
-        train_model(model=model, epochs=2000, batch_size=1, 
-                      train_data=train_samples, trainval_data=trainval_data,
-                      stdout_filename=stdout_filename, ckpt_path=ckpt_path)
+    # Use num samples to adjust here the num training samples.
+    train_samples = dict(x0=train_data['x0'],
+                            inputs=train_data['inputs'],
+                            outputs=train_data['outputs'])
+    
+    # Train.
+    train_model(model=model, epochs=2000, batch_size=1, 
+                    train_data=train_samples, trainval_data=trainval_data,
+                    stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 
-        # Validate.
-        (val_prediction, val_metric) = get_val_predictions(model=model,
-                                    val_data=val_data, xuyscales=xuyscales, 
-                                    xinsert_indices=xinsert_indices, 
-                                    ckpt_path=ckpt_path, Delta=Delta, fullGb=True)
+    # Validate.
+    (val_prediction, val_metric) = get_val_predictions(model=model,
+                                val_data=val_data, xuyscales=xuyscales, 
+                                xinsert_indices=xinsert_indices, 
+                                ckpt_path=ckpt_path, Delta=Delta, fullGb=True)
 
-        # Get weights to store.
-        fNWeights = model.get_weights()
+    # Get weights to store.
+    fNWeights = model.get_weights()
 
-        # Save info.
-        val_predictions.append(val_prediction)
-        val_metrics.append(val_metric)
-        trained_weights.append(fNWeights)
+    # Save info.
+    val_predictions.append(val_prediction)
+    val_metrics.append(val_metric)
+    trained_weights.append(fNWeights)
 
     # Num samples array for quick plotting.
     num_samples = np.asarray(num_samples) + trainval_data['inputs'].shape[1]

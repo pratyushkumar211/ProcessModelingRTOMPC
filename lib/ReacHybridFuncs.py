@@ -545,8 +545,7 @@ def get_fullgb_pars(*, train, hyb_greybox_pars):
     # Return.
     return parameters
 
-def fxup(x, u, p, parameters, xuyscales, 
-         r1Weights, r2Weights, r3Weights):
+def fxup(x, u, p, parameters):
     """ Partial grey-box ODE function. """
 
     # Extract the plant states into meaningful names.
@@ -556,22 +555,28 @@ def fxup(x, u, p, parameters, xuyscales,
 
     # Parameters.
     V = parameters['V']
-
+    r1Weights = parameters['r1Weights']
+    r2Weights = parameters['r2Weights']
+    r3Weights = parameters['r3Weights']
+    
     # Get the scales.
-    xmean, xstd = xuyscales['yscale']
-    Castd, Cbstd, Ccstd = xstd[0:1], xstd[1:2], xstd[2:3]
+    ymean, ystd = xuyscales['yscale']
+    Castd, Cbstd = ystd[0:1], ystd[1:2]
     umean, ustd = xuyscales['uscale']
     
-    # Scale state, inputs, for the NN.
+    # Get NN reaction rates.
+    xmean = np.concatenate((ymean, ymean[1:]))
+    xstd = np.concatenate((ystd, ystd[1:]))
     x = (x - xmean)/xstd
-    u = (u - umean)/ustd
-    nnOutput = fnn(x, fNWeights)
-    r1NN, r2NN = nnOutput[0:1], nnOutput[1:2]
+    Ca, Cb, Cc = x[0:1], x[1:2], x[2:3]
+    r1 = fnn(Ca, r1Weights)*Castd
+    r2 = fnn(Cb, r2Weights)*Cbstd
+    r3 = fnn(Cc, r3Weights)*Cbstd
 
     # Write the ODEs.
-    dCabydt = F*(Caf-Ca)/V - r1NN*Castd
-    dCbbydt = -F*Cb/V + r1NN*Castd - 3*r2NN*Ccstd
-    dCcbydt = -F*Cc/V + r2NN*Ccstd
+    dCabydt = F*(Caf-Ca)/V - r1
+    dCbbydt = -F*Cb/V + r1 - 3*r2 + r3
+    dCcbydt = -F*Cc/V + r2 - r3
 
     # Scale.
     xdot = mpc.vcat([dCabydt, dCbbydt, dCcbydt])
@@ -579,31 +584,39 @@ def fxup(x, u, p, parameters, xuyscales,
     # Return.
     return xdot
 
-def hybrid_fxup(x, u, p, parameters):
+def hybrid_fxup(xz, u, p, parameters):
     """ Hybrid model. """
 
+    # Split into states and past measurements/controls.
+    Nx = parameters['Nx']
+    x, z = xz[:Nx], xz[Nx:]
+
     # Get NN weights.
-    fNWeights = parameters['fNWeights']
     Delta = parameters['Delta']
 
-    # Get scaling.
-    xuyscales = parameters['xuyscales']
-
     # Get k1, k2, k3, and k4.
-    k1 = fxup(x, u, p, parameters, xuyscales, fNWeights)
-    k2 = fxup(x + Delta*(k1/2), u, p, parameters, xuyscales, fNWeights)
-    k3 = fxup(x + Delta*(k2/2), u, p, parameters, xuyscales, fNWeights)
-    k4 = fxup(x + Delta*k3, u, p, parameters, xuyscales, fNWeights)
+    k1 = fxup(x, u, p, parameters)
+    k2 = fxup(x + Delta*(k1/2), u, p, parameters)
+    k3 = fxup(x + Delta*(k2/2), u, p, parameters)
+    k4 = fxup(x + Delta*k3, u, p, parameters)
     
     # Get the current output/state and the next time step.
     xplus = x + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
 
-    # Return the sum.
-    return xplus
+    # Get zplus and state at the next time step.
+    Np = parameters['Np']
+    if Np > 0:
+        zplus = np.concatenate((z[Ny:], x[:Ny], z[Ny*Np+Nu:], u))
+    else:
+        zplus = z
+    xzplus = np.concatenate((xplus, zplus))
+
+    # Return.
+    return xzplus
 
 def hybrid_hx(x, parameters):
     """ Measurement function. """
     Ny = parameters['Ny']
     y = x[:Ny]
-    # Return measurement prediction.
+    # Return measurement.
     return y
