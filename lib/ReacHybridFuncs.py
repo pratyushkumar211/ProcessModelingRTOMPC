@@ -8,7 +8,7 @@ from hybridId import SimData
 
 def createDenseLayers(nnDims):
     """ Create dense layers based on the feed-forward NN layer dimensions.
-        nnDims: List that contains the dimensions of the forward NN.
+        nnDims: List that contains the dimensions of the feed forward NN.
     """
     nnLayers = []
     for dim in nnDims[1:-1]:
@@ -17,28 +17,28 @@ def createDenseLayers(nnDims):
     # Return.
     return nnLayers
 
-class InterpolationLayer(tf.keras.layers.Layer):
-    """
-    The layer to perform interpolation for RK4 predictions.
-    Nvar: Number of variables.
-    Np + 1: Number of variables.
-    """
-    def __init__(self, Nvar, Np, trainable=False, name=None):
-        super(InterpolationLayer, self).__init__(trainable, name)
-        self.Nvar = Nvar
-        self.Np = Np
+# class InterpolationLayer(tf.keras.layers.Layer):
+#     """
+#     The layer to perform interpolation for RK4 predictions.
+#     Nvar: Number of variables.
+#     Np + 1: Number of variables.
+#     """
+#     def __init__(self, Nvar, Np, trainable=False, name=None):
+#         super(InterpolationLayer, self).__init__(trainable, name)
+#         self.Nvar = Nvar
+#         self.Np = Np
 
-    def call(self, yseq):
-        """ The main call function of the interpolation layer.
-            yseq is of dimension: (None, (Np+1)*Nvar)
-            Return y of dimension: (None, Np*Nvar)
-        """
-        yseq_interp = []
-        for t in range(self.Np):
-            yseq_interp += [0.5*(yseq[..., t*self.Nvar:(t+1)*self.Nvar] + 
-                                 yseq[..., (t+1)*self.Nvar:(t+2)*self.Nvar])]
-        # Return.
-        return tf.concat(yseq_interp, axis=-1)
+#     def call(self, yseq):
+#         """ The main call function of the interpolation layer.
+#             yseq is of dimension: (None, (Np+1)*Nvar)
+#             Return y of dimension: (None, Np*Nvar)
+#         """
+#         yseq_interp = []
+#         for t in range(self.Np):
+#             yseq_interp += [0.5*(yseq[..., t*self.Nvar:(t+1)*self.Nvar] + 
+#                                  yseq[..., (t+1)*self.Nvar:(t+2)*self.Nvar])]
+#         # Return.
+#         return tf.concat(yseq_interp, axis=-1)
 
 class FullGbLoss(tf.keras.losses.Loss):
 
@@ -60,7 +60,7 @@ class FullGbLoss(tf.keras.losses.Loss):
 
     def __init__(self, lam, yi, unmeasGbPredi, unmeasGbEsti):
 
-        # Lambda, yi, unmeasured grey-box, and estimator indices.
+        # Lambda, yi, indices relevant to the unmeasured grey-box states.
         self.lam = lam
         self.yi = yi
         self.unmeasGbPredi = unmeasGbPredi
@@ -77,12 +77,12 @@ class FullGbLoss(tf.keras.losses.Loss):
         y_pred = y_pred[..., :ei+1]
 
         # Prediction of unmeasured grey-box states 
-        # by the predictor model.
+        # by the forward predictor model.
         si, ei = self.unmeasGbPredi[0], self.unmeasGbPredi[-1]
         y_unmeasGbPred = y_pred[..., si:ei+1]
 
         # Prediction of unmeasured grey-box states 
-        # by the estimator model.
+        # by the neural network.
         si, ei = self.unmeasGbEsti[0], self.unmeasGbEsti[-1]
         y_unmeasGbEst = y_pred[..., si:ei+1]
 
@@ -98,8 +98,9 @@ class FullGbLoss(tf.keras.losses.Loss):
 class ReacFullGbCell(tf.keras.layers.AbstractRNNCell):
     """
     RNN Cell
-    dx_g/dt  = f_g(x_g, u) + f_N(x_g, u)
-    y = x_g
+    x_g^+ = f_g(x_g, u; NN(x_g))
+    z = [y(k-N_p); y(k-N_p+1); ..., y(k-1); 
+         u(k-N_p); u(k-N_p+1); ... u(k-1)];
     """
     def __init__(self, r1Layers, r2Layers, r3Layers, estCLayers, 
                        Np, xuyscales, hyb_fullgb_pars, **kwargs):
@@ -130,8 +131,10 @@ class ReacFullGbCell(tf.keras.layers.AbstractRNNCell):
     @property
     def output_size(self):
         """ Number of outputs of the model. """
-        # Return.
-        return self.Nx + self.numUnmeasGb
+        if self.estCLayers is not None:
+            return self.Ny + 2*self.numUnmeasGb
+        else:
+            return self.Ny
 
     def _fxu(self, x, u):
         """ Function to compute the 
@@ -147,34 +150,33 @@ class ReacFullGbCell(tf.keras.layers.AbstractRNNCell):
         F = self.hyb_fullgb_pars['ps'].squeeze()
         V = self.hyb_fullgb_pars['V']
 
-        # Get the states before scaling. Compute the NN reaction rates.
+        # Get the states before scaling.
         Ca, Cb, Cc = x[..., 0:1], x[..., 1:2], x[..., 2:3]
-        r1NN = fnnTf(Ca, self.r1Layers)
-        r2NN = fnnTf(Cb, self.r2Layers)
-        r3NN = fnnTf(Cc, self.r3Layers)
+        Caf = u[..., 0:1]
 
         # Get scaling factors.
-        # Such that scalings based on only the measurements are used.
         ymean, ystd = self.xuyscales['yscale']
         Camean, Cbmean = ymean[0:1], ymean[1:2]
         Castd, Cbstd = ystd[0:1], ystd[1:2]
-        umean, ustd = self.xuyscales['uscale']
+        Cafmean, Cafstd = self.xuyscales['uscale']
+
+        # Compute NN reaction rates.
+        r1 = fnnTf(Ca, self.r1Layers)*Castd
+        r2 = fnnTf(Cb, self.r2Layers)*Cbstd
+        r3 = fnnTf(Cc, self.r3Layers)*Cbstd
 
         # Scale back to physical states and controls.
         Ca = Ca*Castd + Camean
         Cb = Cb*Cbstd + Cbmean
         Cc = Cc*Cbstd + Cbmean
-        u = u*ustd + umean
-
-        # Get the control input after scaling.
-        Caf = u[..., 0:1]
+        Caf = Caf*Cafstd + Cafmean
         
-        # Write the ODEs.
-        dCabydt = F*(Caf - Ca)/V - r1NN*Castd
-        dCbbydt = -F*Cb/V + r1NN*Castd - 3*r2NN*Cbstd + r3NN*Cbstd
-        dCcbydt = -F*Cc/V + r2NN*Cbstd - r3NN*Cbstd
+        # ODEs.
+        dCabydt = F*(Caf - Ca)/V - r1
+        dCbbydt = -F*Cb/V + r1 - 3*r2 + r3
+        dCcbydt = -F*Cc/V + r2 - r3
 
-        # Scaled derivate.
+        # Get scaled derivate.
         xdot = tf.concat([dCabydt/Castd, dCbbydt/Cbstd, dCcbydt/Cbstd], axis=-1)
 
         # Return the derivative.
@@ -189,16 +191,11 @@ class ReacFullGbCell(tf.keras.layers.AbstractRNNCell):
         # Extract states.
         [xz] = states
         u = inputs
-
-        # Extract the grey-box state, past measurements, and controls (z).
+        
+        # Extract the grey-box state (x), and past measurements/controls (z).
         (x, z) = tf.split(xz, [self.Nx, self.Np*(self.Ny + self.Nu)], axis=-1)
         (ypseq, upseq) = tf.split(z, [self.Np*self.Ny, self.Np*self.Nu], 
                                   axis=-1)
-        Ca, Cb, Cc = x[..., 0:1], x[..., 1:2], x[..., 2:3]
-
-        # NN predictions for the third state based on z.
-        CcNN = fnnTf(z, self.estCLayers)
-        x = tf.concat((Ca, Cb, CcNN), axis=-1)
 
         # Sample time.
         Delta = self.hyb_fullgb_pars['Delta']
@@ -211,12 +208,19 @@ class ReacFullGbCell(tf.keras.layers.AbstractRNNCell):
         
         # Get the state at the next time step.
         xplus = x + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
-        zplus = tf.concat((ypseq[..., self.Ny:], x[..., :self.Ny], 
-                           upseq[..., self.Nu:], u), axis=-1)
+        if self.Np > 0:
+            zplus = tf.concat((ypseq[..., self.Ny:], x[..., :self.Ny], 
+                               upseq[..., self.Nu:], u), axis=-1)
+        else:
+            zplus = z
         xzplus = tf.concat((xplus, zplus), axis=-1)
-
-        # Current output.
-        y = tf.concat((Ca, Cb, Cc, CcNN), axis=-1)
+        
+        # Get the current output.
+        if self.estCLayers is not None:
+            CcNN = fnnTf(z, self.estCLayers)
+            y = tf.concat((x, CcNN), axis=-1)
+        else:
+            y = x[..., :self.Ny]
 
         # Return output and states at the next time-step.
         return (y, xzplus)
@@ -243,206 +247,214 @@ class ReacFullGbModel(tf.keras.Model):
         r1Layers = createDenseLayers(r1Dims)
         r2Layers = createDenseLayers(r2Dims)
         r3Layers = createDenseLayers(r3Dims)
-        estCLayers = createDenseLayers(estCDims)
+        if estCDims is not None:
+            estCLayers = createDenseLayers(estCDims)
+        else:
+            estCLayers = None
 
         # Get the reac cell object.
-        reacCell = ReacFullGbCell(r1Layers, r2Layers, r3Layers, 
-                                  estCLayers, Np, xuyscales, 
+        reacCell = ReacFullGbCell(r1Layers, r2Layers, r3Layers,
+                                  estCLayers, Np, xuyscales,
                                   hyb_greybox_pars)
 
         # Construct the RNN layer and get the predicted xseq.
         reacLayer = tf.keras.layers.RNN(reacCell, return_sequences = True)
-        xseq = reacLayer(inputs = useq, initial_state = [x0])
+        yseq = reacLayer(inputs = useq, initial_state = [x0])
 
         # Construct model.
-        super().__init__(inputs = [useq, x0], outputs = xseq)
+        super().__init__(inputs = [useq, x0], outputs = yseq)
 
-class ReacPartialGbCell(tf.keras.layers.AbstractRNNCell):
-    """
-    TODO: Review This class.
-    RNN Cell:
-    dx_g/dt  = f_g(x_g, u) + (chosen functions).
-    y = x_g
-    r1 = NN1(Ca)
-    r2 = NN2(Cb)
-    r3 = NN3(z)
-    """
-    def __init__(self, r1Layers, r2Layers, r3Layers, Np, interpLayer,
-                       xuyscales, hyb_greybox_pars, **kwargs):
-        super(ReacPartialGbCell, self).__init__(**kwargs)
-
-        # r1, r2, and r3 layers.
+        # Store the layers (to extract weights for use in numpy).
         self.r1Layers = r1Layers
         self.r2Layers = r2Layers
         self.r3Layers = r3Layers
-        self.interpLayer = interpLayer
+        self.estCLayers = estCLayers
 
-        # Number of past measurements and controls.
-        assert Np > 0
-        self.Np = Np
+# class ReacPartialGbCell(tf.keras.layers.AbstractRNNCell):
+#     """
+#     TODO: Review This class.
+#     RNN Cell:
+#     dx_g/dt  = f_g(x_g, u) + (chosen functions).
+#     y = x_g
+#     r1 = NN1(Ca)
+#     r2 = NN2(Cb)
+#     r3 = NN3(z)
+#     """
+#     def __init__(self, r1Layers, r2Layers, r3Layers, Np, interpLayer,
+#                        xuyscales, hyb_greybox_pars, **kwargs):
+#         super(ReacPartialGbCell, self).__init__(**kwargs)
 
-        # xuyscales and hybrid parameters.
-        self.xuyscales = xuyscales
-        self.hyb_greybox_pars = hyb_greybox_pars
+#         # r1, r2, and r3 layers.
+#         self.r1Layers = r1Layers
+#         self.r2Layers = r2Layers
+#         self.r3Layers = r3Layers
+#         self.interpLayer = interpLayer
 
-    @property
-    def state_size(self):
-        return self.hyb_greybox_pars['Nx']
+#         # Number of past measurements and controls.
+#         assert Np > 0
+#         self.Np = Np
+
+#         # xuyscales and hybrid parameters.
+#         self.xuyscales = xuyscales
+#         self.hyb_greybox_pars = hyb_greybox_pars
+
+#     @property
+#     def state_size(self):
+#         return self.hyb_greybox_pars['Nx']
     
-    @property
-    def output_size(self):
-        return self.hyb_greybox_pars['Ny']
+#     @property
+#     def output_size(self):
+#         return self.hyb_greybox_pars['Ny']
 
-    def _fyzu(self, y, z, u):
-        """ dCa/dt = F*(Caf - Ca)/V - r1
-            dCb/dt = -F*Cb/V + r1 - 3*r2 + f_N(z)
-        """
+#     def _fyzu(self, y, z, u):
+#         """ dCa/dt = F*(Caf - Ca)/V - r1
+#             dCb/dt = -F*Cb/V + r1 - 3*r2 + f_N(z)
+#         """
         
-        # Extract the parameters.
-        F = self.hyb_greybox_pars['ps'].squeeze()
-        V = self.hyb_greybox_pars['V']
+#         # Extract the parameters.
+#         F = self.hyb_greybox_pars['ps'].squeeze()
+#         V = self.hyb_greybox_pars['V']
 
-        # Get the states (before scaling to physical variables).
-        Ca, Cb = y[..., 0:1], y[..., 1:2]
+#         # Get the states (before scaling to physical variables).
+#         Ca, Cb = y[..., 0:1], y[..., 1:2]
 
-        # Get the output of the neural network.
-        r1NN = fnnTf(Ca, self.r1Layers)
-        r2NN = fnnTf(Cb, self.r2Layers)
-        r3NN = fnnTf(z, self.r3Layers)
+#         # Get the output of the neural network.
+#         r1NN = fnnTf(Ca, self.r1Layers)
+#         r2NN = fnnTf(Cb, self.r2Layers)
+#         r3NN = fnnTf(z, self.r3Layers)
 
-        # Get scaling factors.
-        ymean, ystd = self.xuyscales['yscale']
-        Castd, Cbstd = ystd[0:1], ystd[1:2]
-        umean, ustd = self.xuyscales['uscale']
+#         # Get scaling factors.
+#         ymean, ystd = self.xuyscales['yscale']
+#         Castd, Cbstd = ystd[0:1], ystd[1:2]
+#         umean, ustd = self.xuyscales['uscale']
 
-        # Scale back to physical states and control inputs.
-        y = y*ystd + ymean
-        u = u*ustd + umean
+#         # Scale back to physical states and control inputs.
+#         y = y*ystd + ymean
+#         u = u*ustd + umean
 
-        # Get the state and control (after scaling to physical variables).
-        Ca, Cb = y[..., 0:1], y[..., 1:2]
-        Caf = u[..., 0:1]
+#         # Get the state and control (after scaling to physical variables).
+#         Ca, Cb = y[..., 0:1], y[..., 1:2]
+#         Caf = u[..., 0:1]
         
-        # Write the ODEs.
-        dCabydt = F*(Caf - Ca)/V - r1NN*Castd
-        dCbbydt = -F*Cb/V + r1NN*Castd - 3*r2NN*Cbstd + r3NN*Cbstd
+#         # Write the ODEs.
+#         dCabydt = F*(Caf - Ca)/V - r1NN*Castd
+#         dCbbydt = -F*Cb/V + r1NN*Castd - 3*r2NN*Cbstd + r3NN*Cbstd
 
-        # Scaled derivate.
-        xdot = tf.concat([dCabydt, dCbbydt], axis=-1)/ystd
+#         # Scaled derivate.
+#         xdot = tf.concat([dCabydt, dCbbydt], axis=-1)/ystd
 
-        # Return the derivative.
-        return xdot
+#         # Return the derivative.
+#         return xdot
 
-    def call(self, inputs, states):
-        """ Call function of the hybrid RNN cell.
-            Dimension of states: (None, Ny + Np*(Ny + Nu))
-            Dimension of input: (None, Nu)
-        """
+#     def call(self, inputs, states):
+#         """ Call function of the hybrid RNN cell.
+#             Dimension of states: (None, Ny + Np*(Ny + Nu))
+#             Dimension of input: (None, Nu)
+#         """
 
-        # Extract states/inputs.
-        [yz] = states
-        u = inputs
+#         # Extract states/inputs.
+#         [yz] = states
+#         u = inputs
 
-        # Extract y, ypast, and upast.
-        (y, z) = tf.split(yz, [self.Ny, self.Np*(self.Ny + self.Nu)], 
-                          axis=-1)
-        (ypseq, upseq) = tf.split(z, [self.Np*self.Ny, self.Np*self.Nu],
-                                  axis=-1)
+#         # Extract y, ypast, and upast.
+#         (y, z) = tf.split(yz, [self.Ny, self.Np*(self.Ny + self.Nu)], 
+#                           axis=-1)
+#         (ypseq, upseq) = tf.split(z, [self.Np*self.Ny, self.Np*self.Nu],
+#                                   axis=-1)
 
-        # Sample time.
-        Delta = self.hyb_greybox_pars['Delta']
+#         # Sample time.
+#         Delta = self.hyb_greybox_pars['Delta']
 
-        # Get k1.
-        k1 = self._fyzu(y, z, u)
+#         # Get k1.
+#         k1 = self._fyzu(y, z, u)
         
-        # Get k2.
-        ypseqInterp = self.interpLayer(tf.concat((ypseq, y), axis=-1))
-        z = tf.concat((ypseqInterp, upseq), axis=-1)
-        k2 = self._fyzu(y + Delta*(k1/2), z, u)
+#         # Get k2.
+#         ypseqInterp = self.interpLayer(tf.concat((ypseq, y), axis=-1))
+#         z = tf.concat((ypseqInterp, upseq), axis=-1)
+#         k2 = self._fyzu(y + Delta*(k1/2), z, u)
 
-        # Get k3.
-        k3 = self._fyzu(y + Delta*(k2/2), z, u)
+#         # Get k3.
+#         k3 = self._fyzu(y + Delta*(k2/2), z, u)
 
-        # Get k4.
-        ypseqInterp = tf.concat((ypseq[..., self.Ny:], y), axis=-1)
-        z = tf.concat((ypseqInterp, upseq), axis=-1)
-        k4 = self._fyzu(y + Delta*k3, z, u)
+#         # Get k4.
+#         ypseqInterp = tf.concat((ypseq[..., self.Ny:], y), axis=-1)
+#         z = tf.concat((ypseqInterp, upseq), axis=-1)
+#         k4 = self._fyzu(y + Delta*k3, z, u)
         
-        # Get the yzplus at the next time step.
-        yplus = y + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
-        zplus = tf.concat((ypseq[..., self.Ny:], y, upseq[..., self.Nu:], u))
-        yzplus = tf.concat((yplus, zplus), axis=-1)
+#         # Get the yzplus at the next time step.
+#         yplus = y + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
+#         zplus = tf.concat((ypseq[..., self.Ny:], y, upseq[..., self.Nu:], u))
+#         yzplus = tf.concat((yplus, zplus), axis=-1)
 
-        # Return current output and states at the next time point.
-        return (y, yzplus)
+#         # Return current output and states at the next time point.
+#         return (y, yzplus)
 
-class ReacPartialGbModel(tf.keras.Model):
-    """ 
-    TODO: Review this class.
-    Custom model for the Two reaction system. """
+# class ReacPartialGbModel(tf.keras.Model):
+#     """ 
+#     TODO: Review this class.
+#     Custom model for the Two reaction system. """
     
-    def __init__(self, fNDims, xuyscales, hyb_greybox_pars):
-        """ Create the dense layers for the NN, and 
-            construct the overall model. """
+#     def __init__(self, fNDims, xuyscales, hyb_greybox_pars):
+#         """ Create the dense layers for the NN, and 
+#             construct the overall model. """
 
-        # Sizes.
-        Nx, Nu = hyb_greybox_pars['Nx'], hyb_greybox_pars['Nu']
+#         # Sizes.
+#         Nx, Nu = hyb_greybox_pars['Nx'], hyb_greybox_pars['Nu']
         
-        # Input layers to the model.
-        useq = tf.keras.Input(name='u', shape=(None, Nu))
-        x0 = tf.keras.Input(name='x0', shape=(Nx, ))
+#         # Input layers to the model.
+#         useq = tf.keras.Input(name='u', shape=(None, Nu))
+#         x0 = tf.keras.Input(name='x0', shape=(Nx, ))
 
-        # Dense layers for the NN.
-        fNLayers = []
-        for dim in fNDims[1:-1]:
-            fNLayers += [tf.keras.layers.Dense(dim, activation='tanh')]
-        fNLayers += [tf.keras.layers.Dense(fNDims[-1])]
+#         # Dense layers for the NN.
+#         fNLayers = []
+#         for dim in fNDims[1:-1]:
+#             fNLayers += [tf.keras.layers.Dense(dim, activation='tanh')]
+#         fNLayers += [tf.keras.layers.Dense(fNDims[-1])]
 
-        # Get the reac cell object.
-        reacCell = ReacHybridCell(fNLayers, xuyscales, hyb_greybox_pars)
+#         # Get the reac cell object.
+#         reacCell = ReacHybridCell(fNLayers, xuyscales, hyb_greybox_pars)
 
-        # Construct the RNN layer and get the predicted xseq.
-        reacLayer = tf.keras.layers.RNN(reacCell, return_sequences = True)
-        xseq = reacLayer(inputs = useq, initial_state = [x0])
+#         # Construct the RNN layer and get the predicted xseq.
+#         reacLayer = tf.keras.layers.RNN(reacCell, return_sequences = True)
+#         xseq = reacLayer(inputs = useq, initial_state = [x0])
 
-        # Construct model.
-        super().__init__(inputs = [useq, x0], outputs = xseq)
+#         # Construct model.
+#         super().__init__(inputs = [useq, x0], outputs = xseq)
 
-def create_fullgb_model(*, r1Dims, r2Dims, r3Dims, estCDims, Np,  
-                           xuyscales, hyb_fullgb_pars, 
-                           extraUnmeasGbCostScale, yi, unmeasGbPredi, 
+def create_fullgb_model(*, r1Dims, r2Dims, r3Dims, estCDims, Np,
+                           xuyscales, hyb_fullgb_pars,
+                           lamGbError, yi, unmeasGbPredi,
                            unmeasGbEsti):
     """ Create and compile the two reaction model for training. """
 
     # Create a model.
-    model = ReacFullGbModel(r1Dims, r2Dims, r3Dims, estCDims, 
+    model = ReacFullGbModel(r1Dims, r2Dims, r3Dims, estCDims,
                             Np, xuyscales, hyb_fullgb_pars)
 
     # Create a loss.
-    loss = FullGbLoss(extraUnmeasGbCostScale, yi, 
-                      unmeasGbPredi, unmeasGbEsti)
+    loss = FullGbLoss(lamGbError, yi, unmeasGbPredi, unmeasGbEsti)
 
     # Compile the model.
     model.compile(optimizer='adam', loss=loss)
-
+    breakpoint()
     # Return.
     return model
 
-def create_partialgb_model(*, r1Layers, r2Layers, r3Layers, estCLayers, 
-                              xuyscales, hyb_greybox_pars):
-    """ 
-    TODO: Review this function.
-    Create and compile the two reaction model for training. """
+# def create_partialgb_model(*, r1Layers, r2Layers, r3Layers, estCLayers, 
+#                               xuyscales, hyb_greybox_pars):
+#     """ 
+#     TODO: Review this function.
+#     Create and compile the two reaction model for training. """
 
-    # Create a model.
-    model = ReacPartialGbCell(r1Layers, r2Layers, r3Layers, Np, interpLayer, 
-                              xuyscales, hyb_greybox_pars)
+#     # Create a model.
+#     model = ReacPartialGbCell(r1Layers, r2Layers, r3Layers, Np, interpLayer, 
+#                               xuyscales, hyb_greybox_pars)
 
-    # Compile the model.
-    model.compile(optimizer='adam', loss='mean_squared_error')
+#     # Compile the model.
+#     model.compile(optimizer='adam', loss='mean_squared_error')
 
-    # Return.
-    return model
+#     # Return.
+#     return model
 
 def train_model(*, model, epochs, batch_size, train_data, 
                    trainval_data, stdout_filename, ckpt_path):
@@ -466,9 +478,8 @@ def train_model(*, model, epochs, batch_size, train_data,
                             trainval_data['outputs']),
             callbacks = [checkpoint_callback])
 
-def get_val_predictions(*, model, val_data, xuyscales, 
-                           xinsert_indices, ckpt_path, Delta, 
-                           fullGb=False):
+def get_fullgbval_predictions(*, model, val_data, xuyscales, 
+                                 xinsert_indices, ckpt_path, Delta):
     """ Get the validation predictions. """
 
     # Load best weights.
@@ -482,9 +493,8 @@ def get_val_predictions(*, model, val_data, xuyscales,
     umean, ustd = xuyscales['uscale']
 
     # Add extra terms to scaling factor.
-    if fullGb == True:
-        ymean = np.concatenate((ymean, ymean[-1:], ymean[-1:]))
-        ystd = np.concatenate((ystd, ystd[-1:], ystd[-1:]))
+    ymean = np.concatenate((ymean, ymean[-1:], ymean[-1:]))
+    ystd = np.concatenate((ystd, ystd[-1:], ystd[-1:]))
 
     # Validation predictions.
     ypredictions = model_predictions.squeeze(axis=0)*ystd + ymean
@@ -496,8 +506,9 @@ def get_val_predictions(*, model, val_data, xuyscales,
     # Collect data in a Simdata format.
     Nt = uval.shape[0]
     tval = np.arange(0, Nt*Delta, Delta)
+    pval = np.zeros((Nt, ))
     val_predictions = SimData(t=tval, x=xpredictions, 
-                              u=uval, y=ypredictions, p=None)
+                              u=uval, y=ypredictions, p=pval)
 
     # Get prediction error on the validation data.
     val_metric = model.evaluate(x = [val_data['inputs'], val_data['x0']], 
@@ -506,7 +517,7 @@ def get_val_predictions(*, model, val_data, xuyscales,
     # Return.
     return (val_predictions, val_metric)
 
-def get_hybrid_pars(*, train, hyb_greybox_pars):
+def get_fullgb_pars(*, train, hyb_greybox_pars):
     """ Get the black-box parameter dict and function handles. """
 
     # Get black-box model parameters.
@@ -534,7 +545,8 @@ def get_hybrid_pars(*, train, hyb_greybox_pars):
     # Return.
     return parameters
 
-def fxup(x, u, p, parameters, xuyscales, fNWeights):
+def fxup(x, u, p, parameters, xuyscales, 
+         r1Weights, r2Weights, r3Weights):
     """ Partial grey-box ODE function. """
 
     # Extract the plant states into meaningful names.
@@ -589,6 +601,9 @@ def hybrid_fxup(x, u, p, parameters):
     # Return the sum.
     return xplus
 
-def hybrid_hx(x):
+def hybrid_hx(x, parameters):
     """ Measurement function. """
-    return x
+    Ny = parameters['Ny']
+    y = x[:Ny]
+    # Return measurement prediction.
+    return y
