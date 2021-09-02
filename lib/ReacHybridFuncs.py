@@ -436,7 +436,7 @@ def create_fullgb_model(*, r1Dims, r2Dims, r3Dims, estCDims, Np,
 
     # Compile the model.
     model.compile(optimizer='adam', loss=loss)
-    breakpoint()
+
     # Return.
     return model
 
@@ -517,6 +517,15 @@ def get_fullgbval_predictions(*, model, val_data, xuyscales,
     # Return.
     return (val_predictions, val_metric)
 
+def get_weights(layers):
+    """ Function to get the weights from a list 
+        of layers. """
+    Weights = []
+    for layer in layers:
+        Weights += layer.get_weights()
+    # Return weights.
+    return Weights
+
 def get_fullgb_pars(*, train, hyb_greybox_pars):
     """ Get the black-box parameter dict and function handles. """
 
@@ -558,7 +567,7 @@ def fxup(x, u, p, parameters):
     r1Weights = parameters['r1Weights']
     r2Weights = parameters['r2Weights']
     r3Weights = parameters['r3Weights']
-    
+
     # Get the scales.
     ymean, ystd = xuyscales['yscale']
     Castd, Cbstd = ystd[0:1], ystd[1:2]
