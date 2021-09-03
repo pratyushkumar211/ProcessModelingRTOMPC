@@ -85,7 +85,7 @@ def main():
     # Grey-Box model parameters.
     hyb_fullgb_pars = get_hyb_pars(plant_pars=plant_pars, Nx=3)
     hyb_partialgb_pars = get_hyb_pars(plant_pars=plant_pars, Nx=2)
-
+    
     # Generate training data.
     training_data_dyn = gen_train_val_data(parameters=plant_pars,
                                             num_traj=6, Nsim_train=240,

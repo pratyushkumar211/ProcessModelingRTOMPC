@@ -555,30 +555,33 @@ def get_weights(layers):
     # Return weights.
     return Weights
 
-def get_fullgb_pars(*, train, hyb_greybox_pars):
+def get_hybrid_pars(*, train, hyb_fullgb_pars):
     """ Get the black-box parameter dict and function handles. """
 
     # Get black-box model parameters.
     parameters = {}
-    parameters['fNWeights'] = train['trained_weights'][-1]
+    parameters['r1Weights'] = train['trained_r1Weights'][-1]
+    parameters['r2Weights'] = train['trained_r2Weights'][-1]
+    parameters['r3Weights'] = train['trained_r3Weights'][-1]
+    parameters['estCWeights'] = train['trained_estCWeights'][-1]
     parameters['xuyscales'] = train['xuyscales']
 
     # Sizes.
-    parameters['Nx'] = hyb_greybox_pars['Nx']
-    parameters['Ny'] = hyb_greybox_pars['Ny']
-    parameters['Nu'] = hyb_greybox_pars['Nu']
+    parameters['Nx'] = hyb_fullgb_pars['Nx']
+    parameters['Ny'] = hyb_fullgb_pars['Ny']
+    parameters['Nu'] = hyb_fullgb_pars['Nu']
     parameters['Np'] = train['Np']
 
     # Constraints.
-    parameters['ulb'] = hyb_greybox_pars['ulb']
-    parameters['uub'] = hyb_greybox_pars['uub']
+    parameters['ulb'] = hyb_fullgb_pars['ulb']
+    parameters['uub'] = hyb_fullgb_pars['uub']
     
     # Greybox model parameters.
-    parameters['ps'] = hyb_greybox_pars['ps']
-    parameters['V'] = hyb_greybox_pars['V']
+    parameters['ps'] = hyb_fullgb_pars['ps']
+    parameters['V'] = hyb_fullgb_pars['V']
 
     # Sample time.
-    parameters['Delta'] = hyb_greybox_pars['Delta']
+    parameters['Delta'] = hyb_fullgb_pars['Delta']
 
     # Return.
     return parameters
@@ -596,7 +599,7 @@ def fxup(x, u, p, parameters):
     r1Weights = parameters['r1Weights']
     r2Weights = parameters['r2Weights']
     r3Weights = parameters['r3Weights']
-
+    
     # Get the scales.
     ymean, ystd = xuyscales['yscale']
     Castd, Cbstd = ystd[0:1], ystd[1:2]

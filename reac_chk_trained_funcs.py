@@ -5,19 +5,20 @@ sys.path.append('lib/')
 import numpy as np
 from hybridId import PickleTool, quick_sim
 from BlackBoxFuncs import get_bbnn_pars, bbnn_fxu, bbnn_hx
-from TwoReacHybridFuncs import get_hybrid_pars, hybrid_fxup, hybrid_hx
+from ReacHybridFullGbFuncs import get_hybrid_pars, hybrid_fxup, hybrid_hx
 
 def main():
     """ Main function to be executed. """
+
     # Load data.
-    tworeac_parameters = PickleTool.load(filename=
-                                        'tworeac_parameters.pickle',
-                                         type='read')
-    tworeac_bbnntrain = PickleTool.load(filename=
-                                        'tworeac_bbnntrain_dyndata.pickle',
-                                        type='read')
-    tworeac_hybtrain = PickleTool.load(filename=
-                                        'tworeac_hybtrain_dyndata.pickle',
+    reac_parameters = PickleTool.load(filename=
+                                      'reac_parameters.pickle',
+                                      type='read')
+    # tworeac_bbnntrain = PickleTool.load(filename=
+    #                                     'tworeac_bbnntrain_dyndata.pickle',
+    #                                     type='read')
+    reac_hybfullgbtrain_dyndata = PickleTool.load(filename=
+                                        'reac_hybfullgbtrain_dyndata.pickle',
                                         type='read')
 
     # def check_bbnn_ss(tworeac_bbnntrain, tworeac_parameters):
@@ -82,21 +83,21 @@ def main():
         # CHeck black-box model validation.
         bb_yval = tworeac_bbnntrain['val_predictions'][-1].y
         bb_xpred, bb_ypred = quick_sim(fxu, hx, yz0, uval)
-        # Return 
+        # Return.
         return 
 
-    def check_hybrid(tworeac_hybtrain, tworeac_parameters):
-        """ Check Black-box functions. """
+    def check_hybridfullgb(reac_hybtrain, reac_parameters):
+        """ Check Hybrid full grey-box functions. """
 
         # Get plant parameters.
-        hyb_greybox_pars = tworeac_parameters['hyb_greybox_pars']
+        hyb_fullgb_pars = reac_parameters['hyb_fullgb_pars']
 
         # Get some sizes/parameters.
         tthrow = 10
-        Ny, Nu = hyb_greybox_pars['Ny'], hyb_greybox_pars['Nu']
+        Ny, Nu = hyb_fullgb_pars['Ny'], hyb_fullgb_pars['Nu']
 
         # Get initial state for forecasting.
-        training_data = tworeac_parameters['training_data_dyn'][-1]
+        training_data = reac_parameters['training_data_dyn'][-1]
         uval = training_data.u[tthrow:, :]
         x0 = training_data.y[tthrow, :]
 
@@ -205,11 +206,11 @@ def main():
     #     #Return 
     #     return 
 
-    check_bbnn(tworeac_bbnntrain, tworeac_parameters)
+    #check_bbnn(tworeac_bbnntrain, tworeac_parameters)
     #check_icnn(tworeac_icnntrain, tworeac_parameters)
     #check_picnn(tworeac_picnntrain, tworeac_parameters)
     #check_koopman(tworeac_kooptrain, tworeac_parameters)
-    check_hybrid(tworeac_hybtrain, tworeac_parameters)
+    check_hybridfullgb(reac_hybfullgbtrain_dyndata, reac_parameters)
     print("Hi")
 
 main()
