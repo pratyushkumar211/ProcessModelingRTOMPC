@@ -7,7 +7,7 @@ import tensorflow as tf
 import time
 import numpy as np
 from hybridId import PickleTool, get_scaling, get_train_val_data
-from ReacHybridFuncs import (create_fullgb_model, 
+from ReacHybridFuncs import (create_fullgb_model, get_weights,
                              train_model, get_fullgbval_predictions)
 
 # Set the tensorflow global and graph-level seed.
@@ -44,10 +44,13 @@ def main():
     r3Dims = [1, 8, 1]
     estCDims = [Np*(Ny + Nu), 8, 1]
 
-    # Create lists to store data.
-    trained_weights = []
-    val_metrics = []
+    # Lists.
     val_predictions = []
+    val_metrics = []
+    trained_r1Weights = []
+    trained_r2Weights = []
+    trained_r3Weights = []
+    trained_estCWeights = []
 
     # Filenames.
     ckpt_path = 'reac_hybfullgbtrain_dyndata.ckpt'
@@ -70,7 +73,6 @@ def main():
                                 lamGbError=lamGbError, yi=yi, 
                                 unmeasGbPredi=unmeasGbPredi, 
                                 unmeasGbEsti=unmeasGbEsti)
-    breakpoint()
 
     # Use num samples to adjust here the num training samples.
     train_samples = dict(x0=train_data['x0'],
@@ -78,34 +80,43 @@ def main():
                             outputs=train_data['outputs'])
     
     # Train.
-    train_model(model=model, epochs=2000, batch_size=1, 
+    train_model(model=model, epochs=5, batch_size=1, 
                     train_data=train_samples, trainval_data=trainval_data,
                     stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 
     # Validate.
-    (val_prediction, val_metric) = get_val_predictions(model=model,
-                                val_data=val_data, xuyscales=xuyscales, 
-                                xinsert_indices=xinsert_indices, 
-                                ckpt_path=ckpt_path, Delta=Delta, fullGb=True)
+    (val_prediction, val_metric) = get_fullgbval_predictions(model=model,
+                                    val_data=val_data, xuyscales=xuyscales,
+                                    xinsert_indices=xinsert_indices,
+                                    ckpt_path=ckpt_path, Delta=Delta, fullGb=True)
 
     # Get weights to store.
-    fNWeights = model.get_weights()
+    r1Weights = get_weights(model.r1Layers)
+    r2Weights = get_weights(model.r2Layers)
+    r3Weights = get_weights(model.r3Layers)
+    if estCDims is not None:
+        estWeights = get_weights(model.estCLayers)
+    else:
+        estWeights = None
 
     # Save info.
     val_predictions.append(val_prediction)
     val_metrics.append(val_metric)
-    trained_weights.append(fNWeights)
-
-    # Num samples array for quick plotting.
-    num_samples = np.asarray(num_samples) + trainval_data['inputs'].shape[1]
+    trained_r1Weights.append(r1Weights)
+    trained_r2Weights.append(r2Weights)
+    trained_r3Weights.append(r3Weights)
+    trained_estCWeights.append(estCWeights)
+    breakpoint()
 
     # Save the weights.
     reac_train = dict(Np=Np, r1Dims=r1Dims, r2Dims=r2Dims, 
                       r3Dims=r3Dims, estCDims=estCDims,
-                      trained_weights=trained_weights,
+                      trained_r1Weights=trained_r1Weights,
+                      trained_r2Weights=trained_r2Weights,
+                      trained_r3Weights=trained_r3Weights,
+                      trained_estCWeights=trained_estCWeights,
                       val_predictions=val_predictions,
                       val_metrics=val_metrics,
-                      num_samples=num_samples,
                       xuyscales=xuyscales)
     
     # Save data.
