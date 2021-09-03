@@ -423,7 +423,7 @@ class ReacFullGbModel(tf.keras.Model):
 #         # Construct model.
 #         super().__init__(inputs = [useq, x0], outputs = xseq)
 
-def create_fullgb_model(*, r1Dims, r2Dims, r3Dims, estCDims, Np,
+def create_model(*, r1Dims, r2Dims, r3Dims, estCDims, Np,
                            xuyscales, hyb_fullgb_pars,
                            lamGbError, yi, unmeasGbPredi,
                            unmeasGbEsti):
@@ -515,8 +515,8 @@ def get_val_predictions_for_plotting(*, model, val_data, xuyscales,
         ystd = np.concatenate((ystd, ystd[-1:], ystd[-1:]))
         ypredictions = model_predictions.squeeze(axis=0)*ystd + ymean
         xpredictions = ypredictions[:, :Nx]
-        xpredictions_Cc = np.concatenate((np.tile(np.nan, (Nt, Ny), 
-                                          ypredictions[:, -1:])), axis=1)
+        xpredictions_Cc = np.concatenate((np.tile(np.nan, (Nt, Ny)), 
+                                          ypredictions[:, -1:]), axis=1)
         ypredictions = ypredictions[:, :Ny]
         
     else:
@@ -528,20 +528,19 @@ def get_val_predictions_for_plotting(*, model, val_data, xuyscales,
     tval = np.arange(0, Nt*Delta, Delta)
     pval = np.tile(np.nan, (Nt, 1))
     val_prediction_list = [SimData(t=tval, x=xpredictions, 
-                                   u=uval, y=ypredictions_withoutCc, p=pval)]
+                                   u=uval, y=ypredictions, p=pval)]
 
     # Create one more Simdata object to plot the Cc predictions 
     # using the estimator NN.
     if model.estCLayers is not None:
 
         # Sizes.
-        Ny = model.reacCell.hyb_greybox_pars['Ny']
-        Nu = model.reacCell.hyb_greybox_pars['Nu']
+        Nu = model.reacCell.hyb_fullgb_pars['Nu']
         
         # Model predictions.
         uval = np.tile(np.nan, (Nt, Nu))
         ypredictions = np.tile(np.nan, (Nt, Ny))
-        val_prediction_list += [SimData(t=tval, x=ypredictions_Cc,
+        val_prediction_list += [SimData(t=tval, x=xpredictions_Cc,
                                         u=uval, y=ypredictions, p=pval)]
 
     # Return.

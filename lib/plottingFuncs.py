@@ -85,7 +85,7 @@ class ReacPlots:
         return [figure]
 
     @staticmethod
-    def plot_xmudata(*, t, ylist, xlist, ulist, legend_names,
+    def plot_yxudata(*, t, ylist, xlist, ulist, legend_names,
                         legend_colors, figure_size,
                         ylabel_xcoordinate, title_loc):
         """ Plot xm, u, p data. """

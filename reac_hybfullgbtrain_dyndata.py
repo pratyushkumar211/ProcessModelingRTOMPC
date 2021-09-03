@@ -7,8 +7,9 @@ import tensorflow as tf
 import time
 import numpy as np
 from hybridId import PickleTool, get_scaling, get_train_val_data
-from ReacHybridFuncs import (create_fullgb_model, get_weights,
-                             train_model, get_fullgbval_predictions)
+from ReacHybridFullGbFuncs import (create_model, get_weights,
+                                   train_model, 
+                                   get_val_predictions_for_plotting)
 
 # Set the tensorflow global and graph-level seed.
 tf.random.set_seed(123)
@@ -36,7 +37,6 @@ def main():
     unmeasGbEsti = [3]
 
     # Create some parameters.
-    xinsert_indices = []
     Np = 2
     tthrow = 10
     r1Dims = [1, 8, 1]
@@ -66,13 +66,13 @@ def main():
                                                    unmeasGbx0=unmeasGbx0)
 
     # Create model.
-    model = create_fullgb_model(r1Dims=r1Dims, r2Dims=r2Dims, 
-                                r3Dims=r3Dims, estCDims=estCDims, Np=Np, 
-                                xuyscales=xuyscales, 
-                                hyb_fullgb_pars=hyb_fullgb_pars, 
-                                lamGbError=lamGbError, yi=yi, 
-                                unmeasGbPredi=unmeasGbPredi, 
-                                unmeasGbEsti=unmeasGbEsti)
+    model = create_model(r1Dims=r1Dims, r2Dims=r2Dims, 
+                        r3Dims=r3Dims, estCDims=estCDims, Np=Np, 
+                        xuyscales=xuyscales, 
+                        hyb_fullgb_pars=hyb_fullgb_pars, 
+                        lamGbError=lamGbError, yi=yi, 
+                        unmeasGbPredi=unmeasGbPredi, 
+                        unmeasGbEsti=unmeasGbEsti)
 
     # Use num samples to adjust here the num training samples.
     train_samples = dict(x0=train_data['x0'],
@@ -85,28 +85,27 @@ def main():
                     stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 
     # Validate.
-    (val_prediction, val_metric) = get_fullgbval_predictions(model=model,
+    (val_prediction_list, 
+     val_metric) = get_val_predictions_for_plotting(model=model,
                                     val_data=val_data, xuyscales=xuyscales,
-                                    xinsert_indices=xinsert_indices,
-                                    ckpt_path=ckpt_path, Delta=Delta, fullGb=True)
+                                    ckpt_path=ckpt_path, Delta=Delta)
 
     # Get weights to store.
     r1Weights = get_weights(model.r1Layers)
     r2Weights = get_weights(model.r2Layers)
     r3Weights = get_weights(model.r3Layers)
     if estCDims is not None:
-        estWeights = get_weights(model.estCLayers)
+        estCWeights = get_weights(model.estCLayers)
     else:
-        estWeights = None
+        estCWeights = None
 
     # Save info.
-    val_predictions.append(val_prediction)
+    val_predictions += val_prediction_list
     val_metrics.append(val_metric)
     trained_r1Weights.append(r1Weights)
     trained_r2Weights.append(r2Weights)
     trained_r3Weights.append(r3Weights)
     trained_estCWeights.append(estCWeights)
-    breakpoint()
 
     # Save the weights.
     reac_train = dict(Np=Np, r1Dims=r1Dims, r2Dims=r2Dims, 

@@ -101,7 +101,7 @@ def main():
                                                  plot_range=(10, 6*60+10))
 
         # xu data.
-        figures += ReacPlots.plot_xmudata(t=t, ylist=ylist, 
+        figures += ReacPlots.plot_yxudata(t=t, ylist=ylist, 
                                             xlist=xlist, ulist=ulist,
                                             legend_names=None,
                                             legend_colors=['b'], 
@@ -119,8 +119,8 @@ def main():
         #                                     title_loc=None)
 
     # Plot validation data.
-    legend_names = ['Plant', 'Black-Box-NN', 'Hybrid']
-    legend_colors = ['b', 'dimgrey', 'm']
+    legend_names = ['Plant', 'Hybrid', 'Hybrid-Cc']
+    legend_colors = ['b', 'm', 'orange']
     valdata_plant = reac_parameters['training_data_dyn'][-1]
     valdata_list = [valdata_plant]
     # valdata_list += bbnn_predictions
@@ -136,7 +136,7 @@ def main():
     ulist += ulist_val
     ylist += ylist_val
     xlist += xlist_val
-    figures += ReacPlots.plot_xmudata(t=t, ylist=ylist, 
+    figures += ReacPlots.plot_yxudata(t=t, ylist=ylist, 
                                       xlist=xlist, ulist=ulist,
                                         legend_names=legend_names,
                                         legend_colors=legend_colors, 
