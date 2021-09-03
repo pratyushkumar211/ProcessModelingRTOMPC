@@ -95,11 +95,14 @@ def main():
         # Get some sizes/parameters.
         tthrow = 10
         Ny, Nu = hyb_fullgb_pars['Ny'], hyb_fullgb_pars['Nu']
+        Np = reac_hybtrain['Np']
 
         # Get initial state for forecasting.
         training_data = reac_parameters['training_data_dyn'][-1]
         uval = training_data.u[tthrow:, :]
         x0 = training_data.y[tthrow, :]
+        ypseq0 = training_data.y
+        upseq0 = training_data.u
 
         # Get the black-box model parameters and function handles.
         hyb_pars = get_hybrid_pars(train=tworeac_hybtrain, 
