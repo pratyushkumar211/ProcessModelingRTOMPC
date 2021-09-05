@@ -194,10 +194,10 @@ def train_model(*, model, epochs, batch_size, train_data,
     
     # Call the fit method to train.
     model.fit(x = [train_data['inputs'], train_data['xz0']], 
-              y = [train_data['outputs'], train_data['x']],
+              y = [train_data['outputs'], train_data['xseq']],
               epochs = epochs, batch_size = batch_size,
         validation_data = ([trainval_data['inputs'], trainval_data['xz0']], 
-                            [trainval_data['outputs'], train_data['x']]),
+                            [trainval_data['outputs'], trainval_data['xseq']]),
             callbacks = [checkpoint_callback])
 
 def get_val_predictions(*, model, val_data, xuyscales,
@@ -209,15 +209,16 @@ def get_val_predictions(*, model, val_data, xuyscales,
 
     # Predict.
     ypredictions, xpredictions = model.predict(x=[val_data['inputs'], 
-                                                  val_data['x0']])
+                                                  val_data['xz0']])
 
     # Compute val metric.
-    val_metric = model.evaluate(x = [val_data['inputs'], val_data['x0']], 
-                                y = val_data['outputs'])[0]
+    val_metric = model.evaluate(x = [val_data['inputs'], val_data['xz0']], 
+                                y = [val_data['outputs'], val_data['xseq']])[0]
 
     # Scale.
-    ymean, ystd = xuyscales['yscale']
+    xmean, xstd = xuyscales['xscale']
     umean, ustd = xuyscales['uscale']
+    ymean, ystd = xuyscales['yscale']
 
     # Validation input sequence.
     uval = val_data['inputs'].squeeze(axis=0)*ustd + umean
@@ -225,8 +226,6 @@ def get_val_predictions(*, model, val_data, xuyscales,
 
     # Get scaled predictions.
     ypredictions = ypredictions.squeeze(axis=0)*ystd + ymean
-    xmean = np.concatenate((ymean, ymean[-1:]))
-    xstd = np.concatenate((ystd, ystd[-1:]))
     xpredictions = xpredictions.squeeze(axis=0)*xstd + xmean
 
     # Collect data in a Simdata format.
