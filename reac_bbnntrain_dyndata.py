@@ -29,7 +29,7 @@ def main():
     num_samples = [hours*60 for hours in [6]]
 
     # Create some parameters.
-    ypred_xinsert_indices = []
+    ypred_xinsert_indices = [2]
     tthrow = 10
     Np = 0
     fNDims = [Ny + Nu + Np*(Ny+Nu), 32, Ny]
