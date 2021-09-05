@@ -144,7 +144,7 @@ class ReacFullGbModel(tf.keras.Model):
             estCLayers = None
 
         # Get the reac cell object.
-        reacCell = ReacFullGbCell(r1Layers, r2Layers, r3Layers, 
+        reacCell = ReacFullGbCell(r1Layers, r2Layers, r3Layers,
                                   xuyscales, hyb_greybox_pars)
 
         # Construct the RNN layer and get the predicted xseq.

@@ -88,7 +88,7 @@ def main():
 
     def check_hybridfullgb(reac_hybtrain, reac_parameters):
         """ Check Hybrid full grey-box functions. """
-
+        
         # Get plant parameters.
         hyb_fullgb_pars = reac_parameters['hyb_fullgb_pars']
 
@@ -116,16 +116,16 @@ def main():
         hyb_pars = get_hybrid_pars(train=reac_hybtrain, 
                                    hyb_fullgb_pars=hyb_fullgb_pars)
 
-        # # Get initial concentration of C.
-        # Cc0 = fnn(z0, hyb_pars['estCWeights'])
+        # Get initial concentration of C.
+        Cc0 = fnn(z0, hyb_pars['estCWeights'])
 
-        # # Initial state.
-        # x0 = np.concatenate((y0, Cc0))
+        # Initial state.
+        x0 = np.concatenate((y0, Cc0))
 
         # If initial state was chosen randomly.
-        unmeasGbx0 = reac_hybtrain['unmeasGbx0_list'][-1][:, 0]
-        unmeasGbx0 = unmeasGbx0*ystd[-1] + ymean[-1]
-        x0 = np.concatenate((y0, unmeasGbx0))
+        # unmeasGbx0 = reac_hybtrain['unmeasGbx0_list'][-1][:, 0]
+        # unmeasGbx0 = unmeasGbx0*ystd[-1] + ymean[-1]
+        # x0 = np.concatenate((y0, unmeasGbx0))
 
         # Steady state disturbance.
         ps = hyb_pars['ps']
