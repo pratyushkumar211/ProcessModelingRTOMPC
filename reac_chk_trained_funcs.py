@@ -4,7 +4,7 @@ import sys
 sys.path.append('lib/')
 import numpy as np
 from hybridId import PickleTool, quick_sim
-from BlackBoxFuncs import get_bbnn_pars, bbnn_fxu, bbnn_hx
+from BlackBoxFuncs import get_bbnn_pars, bbnn_fxu, bbnn_hx, fnn
 from ReacHybridFullGbFuncs import get_hybrid_pars, hybrid_fxup, hybrid_hx
 
 def main():
@@ -97,25 +97,46 @@ def main():
         Ny, Nu = hyb_fullgb_pars['Ny'], hyb_fullgb_pars['Nu']
         Np = reac_hybtrain['Np']
 
+        # Get scaling.
+        xmean, xstd = reac_hybtrain['xuyscales']['xscale']
+        umean, ustd = reac_hybtrain['xuyscales']['uscale']
+        ymean, ystd = reac_hybtrain['xuyscales']['yscale']
+
         # Get initial state for forecasting.
         training_data = reac_parameters['training_data_dyn'][-1]
         uval = training_data.u[tthrow:, :]
-        x0 = training_data.y[tthrow, :]
-        ypseq0 = training_data.y
-        upseq0 = training_data.u
+        y0 = training_data.y[tthrow, :]
+        yp0seq = (training_data.y[tthrow-Np:tthrow, :] - ymean)/ystd
+        yp0seq = yp0seq.reshape(Np*Ny, )
+        up0seq = (training_data.u[tthrow-Np:tthrow, :] - umean)/ustd
+        up0seq = up0seq.reshape(Np*Nu, )
+        z0 = np.concatenate((yp0seq, up0seq))
 
         # Get the black-box model parameters and function handles.
-        hyb_pars = get_hybrid_pars(train=tworeac_hybtrain, 
-                                  hyb_greybox_pars=hyb_greybox_pars)
+        hyb_pars = get_hybrid_pars(train=reac_hybtrain, 
+                                   hyb_fullgb_pars=hyb_fullgb_pars)
+
+        # Get initial concentration of C.
+        Cc0 = fnn(z0, hyb_pars['estCWeights'])
+
+        # Initial state.
+        x0 = np.concatenate((y0, Cc0))
+        breakpoint()
+        # If initial state was chosen randomly.
+        # unmeasGbx0 = reac_hybtrain['unmeasGbx0_list'][-1][:, 0]
+        # unmeasGbx0 = unmeasGbx0*ystd[-1] + ymean[-1]
+        # x0 = np.concatenate((y0, unmeasGbx0))
+
         ps = hyb_pars['ps']
         fxu = lambda x, u: hybrid_fxup(x, u, ps, hyb_pars)
-        hx = lambda x: hybrid_hx(x)
+        hx = lambda x: hybrid_hx(x, hyb_pars)
 
         # CHeck black-box model validation.
-        hyb_yval = tworeac_hybtrain['val_predictions'][-1].y
+        hyb_yval = reac_hybtrain['val_predictions'][-1].y
+        hyb_xval = reac_hybtrain['val_predictions'][-1].x
         hyb_xpred, hyb_ypred = quick_sim(fxu, hx, x0, uval)
         breakpoint()
-        # Return 
+        # Return.
         return 
 
     # def check_koopman(tworeac_kooptrain, tworeac_parameters):

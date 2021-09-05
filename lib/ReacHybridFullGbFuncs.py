@@ -293,13 +293,13 @@ def fxup(x, u, p, parameters):
     r3Weights = parameters['r3Weights']
     
     # Get the scales.
+    xuyscales = parameters['xuyscales']
+    xmean, xstd = xuyscales['xscale']
     ymean, ystd = xuyscales['yscale']
     Castd, Cbstd = ystd[0:1], ystd[1:2]
     umean, ustd = xuyscales['uscale']
     
     # Get NN reaction rates.
-    xmean = np.concatenate((ymean, ymean[1:]))
-    xstd = np.concatenate((ystd, ystd[1:]))
     x = (x - xmean)/xstd
     Ca, Cb, Cc = x[0:1], x[1:2], x[2:3]
     r1 = fnn(Ca, r1Weights)*Castd
@@ -317,12 +317,11 @@ def fxup(x, u, p, parameters):
     # Return.
     return xdot
 
-def hybrid_fxup(xz, u, p, parameters):
+def hybrid_fxup(x, u, p, parameters):
     """ Hybrid model. """
 
     # Split into states and past measurements/controls.
     Nx = parameters['Nx']
-    x, z = xz[:Nx], xz[Nx:]
 
     # Get NN weights.
     Delta = parameters['Delta']
@@ -336,16 +335,8 @@ def hybrid_fxup(xz, u, p, parameters):
     # Get the current output/state and the next time step.
     xplus = x + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
 
-    # Get zplus and state at the next time step.
-    Np = parameters['Np']
-    if Np > 0:
-        zplus = np.concatenate((z[Ny:], x[:Ny], z[Ny*Np+Nu:], u))
-    else:
-        zplus = z
-    xzplus = np.concatenate((xplus, zplus))
-
     # Return.
-    return xzplus
+    return xplus
 
 def hybrid_hx(x, parameters):
     """ Measurement function. """
