@@ -29,6 +29,16 @@ class InterpolationLayer(tf.keras.layers.Layer):
         # Return.
         return tf.concat(yseq_interp, axis=-1)
 
+def getInterpolatedVals(yseq, Nvar, Np):
+    """ y is of dimension: (None, (Np+1)*Nvar)
+        Return y of dimension: (None, Np*Nvar). """
+    yseq_interp = []
+    for t in range(Np):
+        yseq_interp += [0.5*(yseq[t*Nvar:(t+1)*Nvar] + 
+                             yseq[(t+1)*Nvar:(t+2)*Nvar])]
+    # Return.
+    return np.concatenate(yseq_interp)
+
 class ReacPartialGbCell(tf.keras.layers.AbstractRNNCell):
     """
     RNN Cell:
@@ -344,7 +354,7 @@ def fxup(x, z, u, p, parameters):
     x = (x - ymean)/ystd
     Np = parameters['Np']
     zmean = np.concatenate((np.tile(ymean, (Np, )), 
-                           np.tile(ustd, (Np, ))))
+                            np.tile(ustd, (Np, ))))
     zstd = np.concatenate((np.tile(ystd, (Np, )), 
                            np.tile(ustd, (Np, ))))
     z = (z - zmean)/zstd
@@ -363,10 +373,9 @@ def fxup(x, z, u, p, parameters):
     # Write the ODEs.
     dCabydt = F*(Caf-Ca)/V - r1
     dCbbydt = -F*Cb/V + r1 - 3*r2 + r3
-    dCcbydt = -F*Cc/V + r2 - r3
 
-    # Scale.
-    xdot = mpc.vcat([dCabydt, dCbbydt, dCcbydt])
+    # xdot.
+    xdot = mpc.vcat([dCabydt, dCbbydt])
 
     # Return.
     return xdot
@@ -374,18 +383,30 @@ def fxup(x, z, u, p, parameters):
 def hybrid_fxup(xz, u, p, parameters):
     """ Hybrid model. """
 
-    # Split into states and past measurements/controls.
+    # Sizes.
     Nx = parameters['Nx']
+    Nu = parameters['Nu']
+    Np = parameters['Np']
+
+    # x, z, xpseq, and upseq.
     x, z = xz[:Nx], xz[Nx:]
+    xpseq, upseq = z[:Nx*Np], z[Nx*Np:]
 
     # Get NN weights.
     Delta = parameters['Delta']
 
-    # Get k1, k2, k3, and k4.
-    k1 = fxup(x, u, p, parameters)
-    k2 = fxup(x + Delta*(k1/2), u, p, parameters)
-    k3 = fxup(x + Delta*(k2/2), u, p, parameters)
-    k4 = fxup(x + Delta*k3, u, p, parameters)
+    # Get k1.
+    k1 = fxup(x, z, u, p, parameters)
+
+    # Get k2.
+    xpseq_k2k3 = None
+    k2 = fxup(x + Delta*(k1/2), z, u, p, parameters)
+
+    # Get k3.
+    k3 = fxup(x + Delta*(k2/2), z, u, p, parameters)
+
+    # Get k4.
+    k4 = fxup(x + Delta*k3, z, u, p, parameters)
     
     # Get the current output/state and the next time step.
     xplus = x + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
