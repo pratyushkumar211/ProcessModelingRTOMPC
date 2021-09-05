@@ -88,7 +88,7 @@ def main():
 
     def check_hybridfullgb(reac_hybtrain, reac_parameters):
         """ Check Hybrid full grey-box functions. """
-        
+
         # Get plant parameters.
         hyb_fullgb_pars = reac_parameters['hyb_fullgb_pars']
 
@@ -106,26 +106,29 @@ def main():
         training_data = reac_parameters['training_data_dyn'][-1]
         uval = training_data.u[tthrow:, :]
         y0 = training_data.y[tthrow, :]
-        yp0seq = (training_data.y[tthrow-Np:tthrow, :] - ymean)/ystd
-        yp0seq = yp0seq.reshape(Np*Ny, )
-        up0seq = (training_data.u[tthrow-Np:tthrow, :] - umean)/ustd
-        up0seq = up0seq.reshape(Np*Nu, )
-        z0 = np.concatenate((yp0seq, up0seq))
+
+        # Get initial z0.
+        # yp0seq = (training_data.y[tthrow-Np:tthrow, :] - ymean)/ystd
+        # yp0seq = yp0seq.reshape(Np*Ny, )
+        # up0seq = (training_data.u[tthrow-Np:tthrow, :] - umean)/ustd
+        # up0seq = up0seq.reshape(Np*Nu, )
+        # z0 = np.concatenate((yp0seq, up0seq))
 
         # Get the black-box model parameters and function handles.
         hyb_pars = get_hybrid_pars(train=reac_hybtrain, 
                                    hyb_fullgb_pars=hyb_fullgb_pars)
 
         # Get initial concentration of C.
-        Cc0 = fnn(z0, hyb_pars['estCWeights'])
+        # Cbmean, Cbstd = ymean[-1:], ystd[-1:]
+        # Cc0 = fnn(z0, hyb_pars['estCWeights'])*Cbstd + Cbmean
 
         # Initial state.
-        x0 = np.concatenate((y0, Cc0))
+        # x0 = np.concatenate((y0, Cc0))
 
         # If initial state was chosen randomly.
-        # unmeasGbx0 = reac_hybtrain['unmeasGbx0_list'][-1][:, 0]
-        # unmeasGbx0 = unmeasGbx0*ystd[-1] + ymean[-1]
-        # x0 = np.concatenate((y0, unmeasGbx0))
+        unmeasGbx0 = reac_hybtrain['unmeasGbx0_list'][-1][:, 0]
+        unmeasGbx0 = unmeasGbx0*ystd[-1] + ymean[-1]
+        x0 = np.concatenate((y0, unmeasGbx0))
 
         # Steady state disturbance.
         ps = hyb_pars['ps']
@@ -139,7 +142,6 @@ def main():
         breakpoint()
         # Return.
         return 
-
 
     #check_bbnn(tworeac_bbnntrain, tworeac_parameters)
     check_hybridfullgb(reac_hybfullgbtrain_dyndata, reac_parameters)
