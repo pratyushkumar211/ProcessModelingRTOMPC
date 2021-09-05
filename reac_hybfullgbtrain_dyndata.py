@@ -12,6 +12,7 @@ from ReacHybridFullGbFuncs import (create_model, get_weights,
 
 # Set the tensorflow global and graph-level seed.
 tf.random.set_seed(123)
+np.random.seed(2)
 
 def main():
     """ Main function to be executed. """
