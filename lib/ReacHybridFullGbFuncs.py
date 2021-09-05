@@ -281,9 +281,7 @@ def get_hybrid_pars(*, train, hyb_fullgb_pars):
 def fxup(x, u, p, parameters):
     """ Partial grey-box ODE function. """
 
-    # Extract the plant states into meaningful names.
-    Ca, Cb, Cc = x[0:1], x[1:2], x[2:3]
-    Caf = u[0:1]
+    # Extract the disturbance.
     F = p.squeeze()
 
     # Parameters.
@@ -305,6 +303,12 @@ def fxup(x, u, p, parameters):
     r1 = fnn(Ca, r1Weights)*Castd
     r2 = fnn(Cb, r2Weights)*Cbstd
     r3 = fnn(Cc, r3Weights)*Cbstd
+
+    # Scale the states back to physical variables 
+    # and extract control input.
+    x = x*xstd + xmean
+    Ca, Cb, Cc = x[0:1], x[1:2], x[2:3]
+    Caf = u[0:1]
 
     # Write the ODEs.
     dCabydt = F*(Caf-Ca)/V - r1

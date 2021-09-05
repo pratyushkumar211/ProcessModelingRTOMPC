@@ -127,6 +127,7 @@ def main():
         unmeasGbx0 = unmeasGbx0*ystd[-1] + ymean[-1]
         x0 = np.concatenate((y0, unmeasGbx0))
 
+        # Steady state disturbance.
         ps = hyb_pars['ps']
         fxu = lambda x, u: hybrid_fxup(x, u, ps, hyb_pars)
         hx = lambda x: hybrid_hx(x, hyb_pars)
