@@ -260,48 +260,18 @@ def get_val_predictions(*, model, val_data, xuyscales,
     uval = val_data['inputs'].squeeze(axis=0)*ustd + umean
     Nt = uval.shape[0]
 
-    # Get y and x predictions.
-    if model.estCLayers is not None:
-
-        # Sizes. 
-        Nx = model.reacCell.hyb_fullgb_pars['Nx']
-        Ny = model.reacCell.hyb_fullgb_pars['Ny']
-
-        # Get the y predictions.
-        ymean = np.concatenate((ymean, ymean[-1:], ymean[-1:]))
-        ystd = np.concatenate((ystd, ystd[-1:], ystd[-1:]))
-        ypredictions = model_predictions.squeeze(axis=0)*ystd + ymean
-        xpredictions = ypredictions[:, :Nx]
-        xpredictions_Cc = np.concatenate((np.tile(np.nan, (Nt, Ny)), 
-                                          ypredictions[:, -1:]), axis=1)
-        ypredictions = ypredictions[:, :Ny]
-        
-    else:
-        ypredictions = model_predictions.squeeze(axis=0)*ystd + ymean
-        xpredictions = np.insert(ypredictions, [2], np.nan, axis=1)
+    ypredictions = model_predictions.squeeze(axis=0)*ystd + ymean
+    xpredictions = np.insert(ypredictions, [2], np.nan, axis=1)
 
     # Collect data in a Simdata format.
     Nt = uval.shape[0]
     tval = np.arange(0, Nt*Delta, Delta)
     pval = np.tile(np.nan, (Nt, 1))
-    val_prediction_list = [SimData(t=tval, x=xpredictions, 
-                                   u=uval, y=ypredictions, p=pval)]
-
-    # Create one more Simdata object to plot the Cc predictions 
-    # using the estimator NN.
-    if model.estCLayers is not None:
-
-        # Sizes.
-        Nu = model.reacCell.hyb_fullgb_pars['Nu']
-        
-        # Model predictions.
-        uval = np.tile(np.nan, (Nt, Nu))
-        ypredictions = np.tile(np.nan, (Nt, Ny))
-        val_prediction_list += [SimData(t=tval, x=xpredictions_Cc,
-                                        u=uval, y=ypredictions, p=pval)]
+    val_prediction = SimData(t=tval, x=xpredictions, 
+                             u=uval, y=ypredictions, p=pval)
 
     # Return.
-    return (val_prediction_list, val_metric)
+    return (val_prediction, val_metric)
 
 def get_hybrid_pars(*, train, hyb_partialgb_pars):
     """ Get the black-box parameter dict and function handles. """
@@ -388,7 +358,7 @@ def hybrid_fxup(xz, u, p, parameters):
     Nu = parameters['Nu']
     Np = parameters['Np']
 
-    # x, z, xpseq, and upseq.
+    # x, z, xpseq and upseq.
     x, z = xz[:Nx], xz[Nx:]
     xpseq, upseq = z[:Nx*Np], z[Nx*Np:]
 
