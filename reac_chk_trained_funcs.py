@@ -5,7 +5,14 @@ sys.path.append('lib/')
 import numpy as np
 from hybridId import PickleTool, quick_sim
 from BlackBoxFuncs import get_bbnn_pars, bbnn_fxu, bbnn_hx, fnn
-from ReacHybridFullGbFuncs import get_hybrid_pars, hybrid_fxup, hybrid_hx
+
+from ReacHybridFullGbFuncs import get_hybrid_pars as get_fullhybrid_pars
+from ReacHybridFullGbFuncs import hybrid_fxup as fullhybrid_fxup
+from ReacHybridFullGbFuncs import hybrid_hx as fullhybrid_hx
+
+from ReacHybridPartialGbFuncs import get_hybrid_pars as get_partialhybrid_pars
+from ReacHybridPartialGbFuncs import hybrid_fxup as partialhybrid_fxup
+from ReacHybridPartialGbFuncs import hybrid_hx as partialhybrid_hx
 
 def main():
     """ Main function to be executed. """
@@ -19,6 +26,9 @@ def main():
                                         type='read')
     reac_hybfullgbtrain_dyndata = PickleTool.load(filename=
                                         'reac_hybfullgbtrain_dyndata.pickle',
+                                        type='read')
+    reac_hybpartialgbtrain_dyndata = PickleTool.load(filename=
+                                        'reac_hybpartialgbtrain_dyndata.pickle',
                                         type='read')
 
     def check_bbnn(reac_bbnntrain, reac_parameters):
@@ -82,7 +92,7 @@ def main():
         # z0 = np.concatenate((yp0seq, up0seq))
 
         # Get the black-box model parameters and function handles.
-        hyb_pars = get_hybrid_pars(train=reac_hybtrain, 
+        hyb_pars = get_fullhybrid_pars(train=reac_hybtrain, 
                                    hyb_fullgb_pars=hyb_fullgb_pars)
 
         # Get initial concentration of C.
@@ -99,8 +109,8 @@ def main():
 
         # Steady state disturbance.
         ps = hyb_pars['ps']
-        fxu = lambda x, u: hybrid_fxup(x, u, ps, hyb_pars)
-        hx = lambda x: hybrid_hx(x, hyb_pars)
+        fxu = lambda x, u: fullhybrid_fxup(x, u, ps, hyb_pars)
+        hx = lambda x: fullhybrid_hx(x, hyb_pars)
 
         # CHeck black-box model validation.
         hyb_yval = reac_hybtrain['val_predictions'][-1].y
@@ -110,8 +120,49 @@ def main():
         # Return.
         return 
 
+    def check_hybridpartialgb(reac_hybtrain, reac_parameters):
+        """ Check Hybrid full grey-box functions. """
+
+        # Get plant parameters.
+        hyb_partialgb_pars = reac_parameters['hyb_partialgb_pars']
+
+        # Get some sizes/parameters.
+        tthrow = 10
+        Ny, Nu = hyb_partialgb_pars['Ny'], hyb_partialgb_pars['Nu']
+        Np = reac_hybtrain['Np']
+
+        # Get scaling.
+        umean, ustd = reac_hybtrain['xuyscales']['uscale']
+        ymean, ystd = reac_hybtrain['xuyscales']['yscale']
+
+        # Get initial state for forecasting.
+        training_data = reac_parameters['training_data_dyn'][-1]
+        uval = training_data.u[tthrow:, :]
+        y0 = training_data.y[tthrow, :]
+        yp0seq = training_data.y[tthrow-Np:tthrow, :].reshape(Np*Ny, )
+        up0seq = training_data.u[tthrow-Np:tthrow, :].reshape(Np*Nu, )
+        xz0 = np.concatenate((y0, yp0seq, up0seq))
+
+        # Get the black-box model parameters and function handles.
+        hyb_pars = get_partialhybrid_pars(train=reac_hybtrain, 
+                                          hyb_partialgb_pars=hyb_partialgb_pars)
+
+        # Steady state disturbance.
+        ps = hyb_pars['ps']
+        fxu = lambda x, u: partialhybrid_fxup(x, u, ps, hyb_pars)
+        hx = lambda x: partialhybrid_hx(x, hyb_pars)
+
+        # CHeck black-box model validation.
+        hyb_yval = reac_hybtrain['val_predictions'][-1].y
+        hyb_xval = reac_hybtrain['val_predictions'][-1].x
+        hyb_xpred, hyb_ypred = quick_sim(fxu, hx, xz0, uval)
+        breakpoint()
+        # Return.
+        return 
+
     check_bbnn(reac_bbnntrain, reac_parameters)
     check_hybridfullgb(reac_hybfullgbtrain_dyndata, reac_parameters)
+    check_hybridpartialgb(reac_hybpartialgbtrain_dyndata, reac_parameters)
     print("Hi")
 
 main()

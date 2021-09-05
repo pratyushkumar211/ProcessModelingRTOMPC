@@ -317,6 +317,7 @@ def fxup(x, z, u, p, parameters):
     r3Weights = parameters['r3Weights']
     
     # Get the scales.
+    xuyscales = parameters['xuyscales']
     ymean, ystd = xuyscales['yscale']
     Castd, Cbstd = ystd[0:1], ystd[1:2]
     umean, ustd = xuyscales['uscale']
@@ -384,13 +385,13 @@ def hybrid_fxup(xz, u, p, parameters):
     xplus = x + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
 
     # Get zplus and state at the next time step.
-    zplus = np.concatenate((z[Nx:], x, z[Nx*Np+Nu:], u))
+    zplus = np.concatenate((z[Nx:Nx*Np], x, z[Nx*Np+Nu:], u))
     xzplus = np.concatenate((xplus, zplus))
 
     # Return.
     return xzplus
 
-def hybrid_hx(xz):
+def hybrid_hx(xz, parameters):
     """ Measurement function. """
     Ny = parameters['Ny']
     y = xz[:Ny]
