@@ -116,17 +116,16 @@ def main():
         hyb_pars = get_hybrid_pars(train=reac_hybtrain, 
                                    hyb_fullgb_pars=hyb_fullgb_pars)
 
-        # Get initial concentration of C.
-        Cc0 = fnn(z0, hyb_pars['estCWeights'])
+        # # Get initial concentration of C.
+        # Cc0 = fnn(z0, hyb_pars['estCWeights'])
 
-        # Initial state.
-        x0 = np.concatenate((y0, Cc0))
+        # # Initial state.
+        # x0 = np.concatenate((y0, Cc0))
 
         # If initial state was chosen randomly.
         unmeasGbx0 = reac_hybtrain['unmeasGbx0_list'][-1][:, 0]
         unmeasGbx0 = unmeasGbx0*ystd[-1] + ymean[-1]
-        breakpoint()
-        # x0 = np.concatenate((y0, unmeasGbx0))
+        x0 = np.concatenate((y0, unmeasGbx0))
 
         ps = hyb_pars['ps']
         fxu = lambda x, u: hybrid_fxup(x, u, ps, hyb_pars)

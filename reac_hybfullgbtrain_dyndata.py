@@ -58,7 +58,7 @@ def main():
     xuyscales['xscale'] = (xmean, xstd)
 
     # Scaled unmeasured grey-box state.
-    unmeasGbx0_list = [(np.random.randn(1, 1)-ymean[-1])/ystd[-1] 
+    unmeasGbx0_list = [(np.random.rand(1, 1)-ymean[-1])/ystd[-1] 
                         for _ in range(len(training_data))]
     
     # Get the the three types of data.
