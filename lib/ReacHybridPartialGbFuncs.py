@@ -85,8 +85,8 @@ class ReacPartialGbCell(tf.keras.layers.AbstractRNNCell):
         """
         
         # Extract the parameters.
-        F = self.hyb_greybox_pars['ps'].squeeze()
-        V = self.hyb_greybox_pars['V']
+        F = self.hyb_partialgb_pars['ps'].squeeze()
+        V = self.hyb_partialgb_pars['V']
 
         # Get scaling factors.
         ymean, ystd = self.xuyscales['yscale']
@@ -134,7 +134,7 @@ class ReacPartialGbCell(tf.keras.layers.AbstractRNNCell):
                                   axis=-1)
 
         # Sample time.
-        Delta = self.hyb_greybox_pars['Delta']
+        Delta = self.hyb_partialgb_pars['Delta']
         
         # Get k1.
         k1 = self._fxzu(x, z, u)
@@ -154,7 +154,8 @@ class ReacPartialGbCell(tf.keras.layers.AbstractRNNCell):
         
         # Get the xzplus at the next time step.
         xplus = x + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
-        zplus = tf.concat((xpseq[..., self.Nx:], x, upseq[..., self.Nu:], u))
+        zplus = tf.concat((xpseq[..., self.Nx:], x, 
+                           upseq[..., self.Nu:], u), axis=-1)
         xzplus = tf.concat((xplus, zplus), axis=-1)
 
         # Return current output and states at the next time point.
@@ -192,10 +193,10 @@ class ReacPartialGbModel(tf.keras.Model):
 
         # Construct the RNN layer and get the predicted xseq.
         reacLayer = tf.keras.layers.RNN(reacCell, return_sequences = True)
-        yseq = reacLayer(inputs = useq, initial_state = [x0])
+        yseq = reacLayer(inputs = useq, initial_state = [xz0])
 
         # Construct model.
-        super().__init__(inputs = [useq, x0], outputs = yseq)
+        super().__init__(inputs = [useq, xz0], outputs = yseq)
 
         # Store the layers (to extract weights for use in numpy).
         self.r1Layers = r1Layers

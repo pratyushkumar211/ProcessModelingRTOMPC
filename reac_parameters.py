@@ -95,7 +95,8 @@ def main():
     # Get the dictionary.
     reac_parameters = dict(plant_pars = plant_pars,
                            training_data_dyn = training_data_dyn,
-                           hyb_fullgb_pars=hyb_fullgb_pars)
+                           hyb_fullgb_pars=hyb_fullgb_pars,
+                           hyb_partialgb_pars=hyb_partialgb_pars)
     
     # Save data.
     PickleTool.save(data_object=reac_parameters,
