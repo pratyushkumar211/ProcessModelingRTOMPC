@@ -121,10 +121,11 @@ def main():
 
         # Initial state.
         x0 = np.concatenate((y0, Cc0))
-        breakpoint()
+
         # If initial state was chosen randomly.
-        # unmeasGbx0 = reac_hybtrain['unmeasGbx0_list'][-1][:, 0]
-        # unmeasGbx0 = unmeasGbx0*ystd[-1] + ymean[-1]
+        unmeasGbx0 = reac_hybtrain['unmeasGbx0_list'][-1][:, 0]
+        unmeasGbx0 = unmeasGbx0*ystd[-1] + ymean[-1]
+        breakpoint()
         # x0 = np.concatenate((y0, unmeasGbx0))
 
         ps = hyb_pars['ps']
@@ -139,135 +140,9 @@ def main():
         # Return.
         return 
 
-    # def check_koopman(tworeac_kooptrain, tworeac_parameters):
-    #     """ Check Black-box functions. """
-    #     plant_pars = tworeac_parameters['plant_pars']
-
-    #     # Get some sizes/parameters.
-    #     tthrow = 10
-    #     Np = tworeac_kooptrain['Np']
-    #     Ny, Nu = plant_pars['Ny'], plant_pars['Nu']
-
-    #     # Get initial state for forecasting.
-    #     training_data = tworeac_parameters['training_data'][-1]
-    #     uval = training_data.u[tthrow:, :]
-    #     y0 = training_data.y[tthrow, :]
-    #     yp0seq = training_data.y[tthrow-Np:tthrow, :].reshape(Np*Ny, )
-    #     up0seq = training_data.u[tthrow-Np:tthrow, :].reshape(Np*Ny, )
-    #     yz0 = np.concatenate((y0, yp0seq, up0seq))
-
-    #     # Scale initial state and get the lifted state.
-    #     fNWeights = tworeac_kooptrain['trained_weights'][-1][:-2]
-    #     xuyscales = tworeac_kooptrain['xuyscales']
-    #     ymean, ystd = xuyscales['yscale']
-    #     umean, ustd = xuyscales['uscale']
-    #     yzmean = np.concatenate((np.tile(ymean, (Np+1, )), 
-    #                             np.tile(umean, (Np, ))))
-    #     yzstd = np.concatenate((np.tile(ystd, (Np+1, )), 
-    #                         np.tile(ustd, (Np, ))))
-    #     yz0 = (yz0 - yzmean)/yzstd
-    #     xkp0 = np.concatenate((yz0, fnn(yz0, fNWeights, 1.)))
-
-    #     # Get the black-box model parameters and function handles.
-    #     koop_pars = get_KoopmanModel_pars(train=tworeac_kooptrain, 
-    #                                       plant_pars=plant_pars)
-
-    #     # Get function handles.
-    #     fxu = lambda x, u: koop_fxu(x, u, koop_pars)
-    #     hx = lambda x: koop_hx(x, koop_pars)
-
-    #     # CHeck black-box model validation.
-    #     koop_yval = tworeac_kooptrain['val_predictions'][-1].y
-    #     koop_xpred, koop_ypred = quick_sim(fxu, hx, xkp0, uval)
-    #     breakpoint()
-    #     #Return 
-    #     return 
-
-    # def check_icnn(tworeac_icnntrain, tworeac_parameters):
-    #     """ Check Black-box functions. """
-
-    #     # Plant parameters.
-    #     plant_pars = tworeac_parameters['plant_pars']
-
-    #     # Get ICNN function handles.
-    #     icnn_pars = get_icnn_pars(train=tworeac_icnntrain, 
-    #                               plant_pars=plant_pars)
-    #     icnn_lu = lambda u: icnn_lyu(u, icnn_pars)
-
-    #     # CHeck black-box model validation.
-    #     lyup_val = tworeac_icnntrain['val_predictions'][-1]['lyup']
-    #     uval = tworeac_icnntrain['val_predictions'][-1]['u']
-        
-    #     lyup_pred = []
-    #     for u in uval:
-    #         lyup_pred += [icnn_lu(u)]
-    #     lyup_pred = np.array(lyup_pred).squeeze()
-    #     breakpoint()
-    #     #Return 
-    #     return 
-
-    # def check_picnn(tworeac_picnntrain, tworeac_parameters):
-    #     """ Check Black-box functions. """
-
-    #     # Plant parameters.
-    #     plant_pars = tworeac_parameters['plant_pars']
-
-    #     # Get ICNN function handles.
-    #     picnn_pars = get_picnn_pars(train=tworeac_picnntrain, 
-    #                                 plant_pars=plant_pars)
-    #     picnn_lup = lambda u, p: picnn_lyup(u, p, picnn_pars)
-
-    #     # CHeck black-box model validation.
-    #     lyup_val = tworeac_picnntrain['val_predictions'][-1]['lyup']
-    #     uval = tworeac_picnntrain['val_predictions'][-1]['u']
-    #     pval = tworeac_picnntrain['val_predictions'][-1]['p']
-
-    #     lyup_pred = []
-    #     for u, p in zip(uval, pval):
-    #         lyup_pred += [picnn_lup(u, p)]
-    #     lyup_pred = np.array(lyup_pred).squeeze()
-    #     breakpoint()
-    #     #Return 
-    #     return 
 
     #check_bbnn(tworeac_bbnntrain, tworeac_parameters)
-    #check_icnn(tworeac_icnntrain, tworeac_parameters)
-    #check_picnn(tworeac_picnntrain, tworeac_parameters)
-    #check_koopman(tworeac_kooptrain, tworeac_parameters)
     check_hybridfullgb(reac_hybfullgbtrain_dyndata, reac_parameters)
     print("Hi")
 
 main()
-
-
-# def check_iCNN(tworeac_iCNNtrain, tworeac_parameters):
-#     """ Check Black-box functions. """
-
-#     # Get plant parameters.
-#     plant_pars = tworeac_parameters['plant_pars']
-
-#     # Get some sizes/parameters.
-#     tthrow = 10
-#     Np = tworeac_iCNNtrain['Np']
-#     Ny, Nu = plant_pars['Ny'], plant_pars['Nu']
-
-#     # Get initial state for forecasting.
-#     training_data = tworeac_parameters['training_data'][-1]
-#     uval = training_data.u[tthrow:, :]
-#     y0 = training_data.y[tthrow, :]
-#     yp0seq = training_data.y[tthrow-Np:tthrow, :].reshape(Np*Ny, )
-#     up0seq = training_data.u[tthrow-Np:tthrow, :].reshape(Np*Ny, )
-#     yz0 = np.concatenate((y0, yp0seq, up0seq))
-
-#     # Get the black-box model parameters and function handles.
-#     iCNN_pars = get_iCNN_pars(train=tworeac_iCNNtrain, 
-#                               plant_pars=plant_pars)
-#     fxu = lambda x, u: iCNN_fxu(x, u, iCNN_pars)
-#     hx = lambda x: bb_hx(x, iCNN_pars)
-
-#     # CHeck black-box model validation.
-#     iCNN_yval = tworeac_iCNNtrain['val_predictions'][-1].y
-#     iCNN_xpred, iCNN_ypred = quick_sim(fxu, hx, yz0, uval)
-#     breakpoint()
-#     # Return 
-#     return 

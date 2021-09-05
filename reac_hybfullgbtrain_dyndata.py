@@ -30,12 +30,12 @@ def main():
     training_data = reac_parameters['training_data_dyn']
 
     # Create some parameters.
-    Np = 2
+    Np = 0
     tthrow = 10
     r1Dims = [1, 8, 1]
     r2Dims = [1, 8, 1]
     r3Dims = [1, 8, 1]
-    estCDims = [Np*(Ny + Nu), 8, 1]
+    estCDims = None #[Np*(Ny + Nu), 8, 1]
 
     # Lists.
     val_predictions = []
@@ -59,7 +59,7 @@ def main():
 
     # Scaled unmeasured grey-box state.
     unmeasGbx0_list = [(np.random.randn(1, 1)-ymean[-1])/ystd[-1] 
-                   for _ in range(len(training_data))]
+                        for _ in range(len(training_data))]
     
     # Get the the three types of data.
     (train_data, 
