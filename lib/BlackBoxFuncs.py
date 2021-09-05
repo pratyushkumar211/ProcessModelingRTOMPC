@@ -32,7 +32,7 @@ def createDenseLayers(nnDims):
     """
     nnLayers = []
     for dim in nnDims[1:-1]:
-        nnLayers += [tf.keras.layers.Dense(dim, activation='tanh')]
+        nnLayers += [tf.keras.layers.Dense(dim, activation=tanh)]
     nnLayers += [tf.keras.layers.Dense(nnDims[-1])]
     # Return.
     return nnLayers
@@ -198,8 +198,9 @@ def get_val_predictions(*, model, val_data, xuyscales,
     # Collect data in a Simdata format.
     Nt = uval.shape[0]
     tval = np.arange(0, Nt*Delta, Delta)
+    pval = np.tile(np.nan, (Nt, 1))    
     val_predictions = SimData(t=tval, x=xpredictions, 
-                              u=uval, y=ypredictions)
+                              u=uval, y=ypredictions, p=pval)
 
     # Get prediction error on the validation data.
     val_metric = model.evaluate(x=[val_data['inputs'], val_data['yz0']], 
