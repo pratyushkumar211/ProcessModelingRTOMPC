@@ -151,53 +151,57 @@ class ReacPartialGbCell(tf.keras.layers.AbstractRNNCell):
         return (x, xzplus)
 
 class ReacPartialGbModel(tf.keras.Model):
-    """ 
-    TODO: Review this class.
-    Custom model for the Two reaction system. """
+    """
+    Partial model for the reaction system.
+    """
     
-    def __init__(self, fNDims, xuyscales, hyb_greybox_pars):
+    def __init__(self, r1Dims, r2Dims, r3Dims,
+                       Np, xuyscales, hyb_partialgb_pars):
         """ Create the dense layers for the NN, and 
             construct the overall model. """
 
         # Sizes.
-        Nx, Nu = hyb_greybox_pars['Nx'], hyb_greybox_pars['Nu']
-        
+        Nx, Nu = hyb_partialgb_pars['Nx'], hyb_partialgb_pars['Nu']
+        Nz = Np*(Nx + Nu)
+
         # Input layers to the model.
         useq = tf.keras.Input(name='u', shape=(None, Nu))
-        x0 = tf.keras.Input(name='x0', shape=(Nx, ))
+        xz0 = tf.keras.Input(name='xz0', shape=(Nx + Nz, ))
 
-        # Dense layers for the NN.
-        fNLayers = []
-        for dim in fNDims[1:-1]:
-            fNLayers += [tf.keras.layers.Dense(dim, activation='tanh')]
-        fNLayers += [tf.keras.layers.Dense(fNDims[-1])]
+        # Layers for the reactions.
+        r1Layers = createDenseLayers(r1Dims)
+        r2Layers = createDenseLayers(r2Dims)
+        r3Layers = createDenseLayers(r3Dims)
+
+        # Interpolation layer for RK4 predictions.
+        interpLayer = InterpolationLayer(Nx, Np)
 
         # Get the reac cell object.
-        reacCell = ReacHybridCell(fNLayers, xuyscales, hyb_greybox_pars)
+        reacCell = ReacPartialGbCell(r1Layers, r2Layers, r3Layers, Np,
+                                     interpLayer, xuyscales, hyb_partialgb_pars)
 
         # Construct the RNN layer and get the predicted xseq.
         reacLayer = tf.keras.layers.RNN(reacCell, return_sequences = True)
-        xseq = reacLayer(inputs = useq, initial_state = [x0])
+        yseq = reacLayer(inputs = useq, initial_state = [x0])
 
         # Construct model.
-        super().__init__(inputs = [useq, x0], outputs = xseq)
+        super().__init__(inputs = [useq, x0], outputs = yseq)
 
-def create_model(*, r1Dims, r2Dims, r3Dims, estCDims, Np,
-                    xuyscales, hyb_fullgb_pars,
-                    lamGbError, yi, unmeasGbPredi,
-                    unmeasGbEsti):
+        # Store the layers (to extract weights for use in numpy).
+        self.r1Layers = r1Layers
+        self.r2Layers = r2Layers
+        self.r3Layers = r3Layers
+
+def create_model(*, r1Dims, r2Dims, r3Dims, Np,
+                    xuyscales, hyb_partialgb_pars):
     """ Create and compile the two reaction model for training. """
 
     # Create a model.
-    model = ReacFullGbModel(r1Dims, r2Dims, r3Dims, estCDims,
-                            Np, xuyscales, hyb_fullgb_pars)
+    model = ReacPartialGbModel(r1Dims, r2Dims, r3Dims, Np, xuyscales,
+                               hyb_partialgb_pars)
 
     # Create a loss function and compile the model.
-    if estCDims is not None:
-        loss = FullGbLoss(lamGbError, yi, unmeasGbPredi, unmeasGbEsti)
-        model.compile(optimizer='adam', loss=loss)
-    else:
-        model.compile(optimizer='adam', loss='mean_squared_error')
+    model.compile(optimizer='adam', loss='mean_squared_error')
 
     # Return.
     return model
@@ -217,10 +221,10 @@ def train_model(*, model, epochs, batch_size, train_data,
                                                         verbose=1)
     
     # Call the fit method to train.
-    model.fit(x = [train_data['inputs'], train_data['x0']], 
+    model.fit(x = [train_data['inputs'], train_data['xz0']], 
               y = train_data['outputs'], 
               epochs = epochs, batch_size = batch_size,
-        validation_data = ([trainval_data['inputs'], trainval_data['x0']], 
+        validation_data = ([trainval_data['inputs'], trainval_data['xz0']], 
                             trainval_data['outputs']),
             callbacks = [checkpoint_callback])
 
@@ -232,10 +236,10 @@ def get_val_predictions(*, model, val_data, xuyscales,
     model.load_weights(ckpt_path)
 
     # Predict.
-    model_predictions = model.predict(x=[val_data['inputs'], val_data['x0']])
+    model_predictions = model.predict(x=[val_data['inputs'], val_data['xz0']])
 
     # Compute val metric.
-    val_metric = model.evaluate(x = [val_data['inputs'], val_data['x0']], 
+    val_metric = model.evaluate(x = [val_data['inputs'], val_data['xz0']], 
                                 y = val_data['outputs'])
 
     # Scale.
@@ -297,35 +301,32 @@ def get_hybrid_pars(*, train, hyb_partialgb_pars):
     parameters['r1Weights'] = train['trained_r1Weights'][-1]
     parameters['r2Weights'] = train['trained_r2Weights'][-1]
     parameters['r3Weights'] = train['trained_r3Weights'][-1]
-    parameters['estCWeights'] = train['trained_estCWeights'][-1]
     parameters['xuyscales'] = train['xuyscales']
 
     # Sizes.
-    parameters['Nx'] = hyb_fullgb_pars['Nx']
-    parameters['Ny'] = hyb_fullgb_pars['Ny']
-    parameters['Nu'] = hyb_fullgb_pars['Nu']
+    parameters['Nx'] = hyb_partialgb_pars['Nx']
+    parameters['Ny'] = hyb_partialgb_pars['Ny']
+    parameters['Nu'] = hyb_partialgb_pars['Nu']
     parameters['Np'] = train['Np']
 
     # Constraints.
-    parameters['ulb'] = hyb_fullgb_pars['ulb']
-    parameters['uub'] = hyb_fullgb_pars['uub']
+    parameters['ulb'] = hyb_partialgb_pars['ulb']
+    parameters['uub'] = hyb_partialgb_pars['uub']
     
     # Greybox model parameters.
-    parameters['ps'] = hyb_fullgb_pars['ps']
-    parameters['V'] = hyb_fullgb_pars['V']
+    parameters['ps'] = hyb_partialgb_pars['ps']
+    parameters['V'] = hyb_partialgb_pars['V']
 
     # Sample time.
-    parameters['Delta'] = hyb_fullgb_pars['Delta']
+    parameters['Delta'] = hyb_partialgb_pars['Delta']
 
     # Return.
     return parameters
 
-def fxup(x, u, p, parameters):
+def fxup(x, z, u, p, parameters):
     """ Partial grey-box ODE function. """
 
-    # Extract the plant states into meaningful names.
-    Ca, Cb, Cc = x[0:1], x[1:2], x[2:3]
-    Caf = u[0:1]
+    # Extract disturbance.
     F = p.squeeze()
 
     # Parameters.
@@ -339,14 +340,25 @@ def fxup(x, u, p, parameters):
     Castd, Cbstd = ystd[0:1], ystd[1:2]
     umean, ustd = xuyscales['uscale']
     
+    # Scale states and z for NNs.
+    x = (x - ymean)/ystd
+    Np = parameters['Np']
+    zmean = np.concatenate((np.tile(ymean, (Np, )), 
+                           np.tile(ustd, (Np, ))))
+    zstd = np.concatenate((np.tile(ystd, (Np, )), 
+                           np.tile(ustd, (Np, ))))
+    z = (z - zmean)/zstd
+
     # Get NN reaction rates.
-    xmean = np.concatenate((ymean, ymean[1:]))
-    xstd = np.concatenate((ystd, ystd[1:]))
-    x = (x - xmean)/xstd
-    Ca, Cb, Cc = x[0:1], x[1:2], x[2:3]
+    Ca, Cb = x[0:1], x[1:2]
     r1 = fnn(Ca, r1Weights)*Castd
     r2 = fnn(Cb, r2Weights)*Cbstd
-    r3 = fnn(Cc, r3Weights)*Cbstd
+    r3 = fnn(z, r3Weights)*Cbstd
+
+    # Scale states back to physical.
+    x = x*ystd + ymean
+    Ca, Cb = x[0:1], x[1:2]
+    Caf = u[0:1]
 
     # Write the ODEs.
     dCabydt = F*(Caf-Ca)/V - r1
