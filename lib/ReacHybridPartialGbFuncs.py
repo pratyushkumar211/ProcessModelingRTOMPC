@@ -125,27 +125,27 @@ class ReacPartialGbCell(tf.keras.layers.AbstractRNNCell):
 
         # Sample time.
         Delta = self.hyb_greybox_pars['Delta']
-
+        
         # Get k1.
         k1 = self._fxzu(x, z, u)
         
         # Get k2.
-        ypseqInterp = self.interpLayer(tf.concat((xpseq, x), axis=-1))
-        z = tf.concat((ypseqInterp, upseq), axis=-1)
+        xpseq_k2k3 = self.interpLayer(tf.concat((xpseq, x), axis=-1))
+        z = tf.concat((xpseq_k2k3, upseq), axis=-1)
         k2 = self._fxzu(x + Delta*(k1/2), z, u)
 
         # Get k3.
         k3 = self._fxzu(x + Delta*(k2/2), z, u)
 
         # Get k4.
-        ypseqInterp = tf.concat((ypseq[..., self.Ny:], y), axis=-1)
-        z = tf.concat((ypseqInterp, upseq), axis=-1)
-        k4 = self._fyzu(y + Delta*k3, z, u)
+        xpseq_k4 = tf.concat((xpseq[..., self.Nx:], x), axis=-1)
+        z = tf.concat((xpseq_k4, upseq), axis=-1)
+        k4 = self._fxzu(x + Delta*k3, z, u)
         
-        # Get the yzplus at the next time step.
+        # Get the xzplus at the next time step.
         xplus = x + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
-        zplus = tf.concat((ypseq[..., self.Ny:], y, upseq[..., self.Nu:], u))
-        yzplus = tf.concat((yplus, zplus), axis=-1)
+        zplus = tf.concat((xpseq[..., self.Nx:], x, upseq[..., self.Nu:], u))
+        xzplus = tf.concat((xplus, zplus), axis=-1)
 
         # Return current output and states at the next time point.
         return (x, xzplus)
