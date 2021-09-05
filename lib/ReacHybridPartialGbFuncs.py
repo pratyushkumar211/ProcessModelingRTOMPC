@@ -57,7 +57,7 @@ class ReacPartialGbCell(tf.keras.layers.AbstractRNNCell):
 
         # xuyscales and hybrid parameters.
         self.xuyscales = xuyscales
-        self.hyb_greybox_pars = hyb_greybox_pars
+        self.hyb_partialgb_pars = hyb_partialgb_pars
 
     @property
     def state_size(self):
@@ -69,7 +69,7 @@ class ReacPartialGbCell(tf.keras.layers.AbstractRNNCell):
         """ Number of outputs of the model. """
         return self.Ny
 
-    def _fyzu(self, y, z, u):
+    def _fxzu(self, x, z, u):
         """ dCa/dt = F*(Caf - Ca)/V - r1
             dCb/dt = -F*Cb/V + r1 - 3*r2 + f_N(z)
         """
@@ -78,30 +78,28 @@ class ReacPartialGbCell(tf.keras.layers.AbstractRNNCell):
         F = self.hyb_greybox_pars['ps'].squeeze()
         V = self.hyb_greybox_pars['V']
 
-        # Get the states (before scaling to physical variables).
-        Ca, Cb = y[..., 0:1], y[..., 1:2]
-
-        # Get the output of the neural network.
-        r1NN = fnnTf(Ca, self.r1Layers)
-        r2NN = fnnTf(Cb, self.r2Layers)
-        r3NN = fnnTf(z, self.r3Layers)
-
         # Get scaling factors.
         ymean, ystd = self.xuyscales['yscale']
         Castd, Cbstd = ystd[0:1], ystd[1:2]
         umean, ustd = self.xuyscales['uscale']
 
+        # Get the output of the neural network.
+        Ca, Cb = x[..., 0:1], x[..., 1:2]
+        r1 = fnnTf(Ca, self.r1Layers)*Castd
+        r2 = fnnTf(Cb, self.r2Layers)*Cbstd
+        r3 = fnnTf(z, self.r3Layers)*Cbstd
+
         # Scale back to physical states and control inputs.
-        y = y*ystd + ymean
+        x = x*ystd + ymean
         u = u*ustd + umean
 
         # Get the state and control (after scaling to physical variables).
-        Ca, Cb = y[..., 0:1], y[..., 1:2]
+        Ca, Cb = x[..., 0:1], x[..., 1:2]
         Caf = u[..., 0:1]
         
         # Write the ODEs.
-        dCabydt = F*(Caf - Ca)/V - r1NN*Castd
-        dCbbydt = -F*Cb/V + r1NN*Castd - 3*r2NN*Cbstd + r3NN*Cbstd
+        dCabydt = F*(Caf - Ca)/V - r1
+        dCbbydt = -F*Cb/V + r1 - 3*r2 + r3
 
         # Scaled derivate.
         xdot = tf.concat([dCabydt, dCbbydt], axis=-1)/ystd
@@ -111,33 +109,33 @@ class ReacPartialGbCell(tf.keras.layers.AbstractRNNCell):
 
     def call(self, inputs, states):
         """ Call function of the hybrid RNN cell.
-            Dimension of states: (None, Ny + Np*(Ny + Nu))
+            Dimension of states: (None, Nx + Np*(Ny + Nu))
             Dimension of input: (None, Nu)
         """
 
         # Extract states/inputs.
-        [yz] = states
+        [xz] = states
         u = inputs
 
         # Extract y, ypast, and upast.
-        (y, z) = tf.split(yz, [self.Ny, self.Np*(self.Ny + self.Nu)], 
+        (x, z) = tf.split(xz, [self.Nx, self.Np*(self.Nx + self.Nu)], 
                           axis=-1)
-        (ypseq, upseq) = tf.split(z, [self.Np*self.Ny, self.Np*self.Nu],
+        (xpseq, upseq) = tf.split(z, [self.Np*self.Nx, self.Np*self.Nu],
                                   axis=-1)
 
         # Sample time.
         Delta = self.hyb_greybox_pars['Delta']
 
         # Get k1.
-        k1 = self._fyzu(y, z, u)
+        k1 = self._fxzu(x, z, u)
         
         # Get k2.
-        ypseqInterp = self.interpLayer(tf.concat((ypseq, y), axis=-1))
+        ypseqInterp = self.interpLayer(tf.concat((xpseq, x), axis=-1))
         z = tf.concat((ypseqInterp, upseq), axis=-1)
-        k2 = self._fyzu(y + Delta*(k1/2), z, u)
+        k2 = self._fxzu(x + Delta*(k1/2), z, u)
 
         # Get k3.
-        k3 = self._fyzu(y + Delta*(k2/2), z, u)
+        k3 = self._fxzu(x + Delta*(k2/2), z, u)
 
         # Get k4.
         ypseqInterp = tf.concat((ypseq[..., self.Ny:], y), axis=-1)
@@ -145,12 +143,12 @@ class ReacPartialGbCell(tf.keras.layers.AbstractRNNCell):
         k4 = self._fyzu(y + Delta*k3, z, u)
         
         # Get the yzplus at the next time step.
-        yplus = y + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
+        xplus = x + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
         zplus = tf.concat((ypseq[..., self.Ny:], y, upseq[..., self.Nu:], u))
         yzplus = tf.concat((yplus, zplus), axis=-1)
 
         # Return current output and states at the next time point.
-        return (y, yzplus)
+        return (x, xzplus)
 
 class ReacPartialGbModel(tf.keras.Model):
     """ 
