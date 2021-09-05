@@ -14,60 +14,26 @@ def main():
     reac_parameters = PickleTool.load(filename=
                                       'reac_parameters.pickle',
                                       type='read')
-    # tworeac_bbnntrain = PickleTool.load(filename=
-    #                                     'tworeac_bbnntrain_dyndata.pickle',
-    #                                     type='read')
+    reac_bbnntrain = PickleTool.load(filename=
+                                        'reac_bbnntrain_dyndata.pickle',
+                                        type='read')
     reac_hybfullgbtrain_dyndata = PickleTool.load(filename=
                                         'reac_hybfullgbtrain_dyndata.pickle',
                                         type='read')
 
-    # def check_bbnn_ss(tworeac_bbnntrain, tworeac_parameters):
-    #     """ Check Black-box functions. """
-
-    #     # Get plant parameters.
-    #     plant_pars = tworeac_parameters['plant_pars']
-
-    #     # Get some sizes/parameters.
-    #     Ny = plant_pars['Ny'] 
-    #     Nu = plant_pars['Nu']
-
-    #     # Get initial state for forecasting.
-    #     training_data = tworeac_parameters['training_data_ss']
-    #     Nval = 45
-    #     uval = training_data.u[-Nval:, np.newaxis, :]
-    #     uval_list = list(np.repeat(uval, 2, axis=1))
-    #     x0_list = list(training_data.y[-Nval:, :])
-
-    #     # Get the black-box model parameters and function handles.
-    #     bbnn_pars = get_bbnn_pars(train=tworeac_bbnntrain, 
-    #                               plant_pars=plant_pars)
-    #     fxu = lambda x, u: bbnn_fxu(x, u, bbnn_pars)
-    #     hx = lambda x: bbnn_hx(x, bbnn_pars)
-
-    #     # CHeck black-box model validation.
-    #     bb_yval = tworeac_bbnntrain['val_predictions'][-1].y
-    #     bb_ypred_list = []
-    #     for x0, uval in zip(x0_list, uval_list):
-    #         _, bb_ypred = quick_sim(fxu, hx, x0, uval)
-    #         bb_ypred_list += [bb_ypred]
-    #     bb_ypred = np.asarray(bb_ypred_list)
-
-    #     # Return.
-    #     return 
-
-    def check_bbnn(tworeac_bbnntrain, tworeac_parameters):
+    def check_bbnn(reac_bbnntrain, reac_parameters):
         """ Check Black-box functions. """
 
         # Get plant parameters.
-        plant_pars = tworeac_parameters['plant_pars']
+        plant_pars = reac_parameters['plant_pars']
 
         # Get some sizes/parameters.
         tthrow = 10
-        Np = tworeac_bbnntrain['Np']
+        Np = reac_bbnntrain['Np']
         Ny, Nu = plant_pars['Ny'], plant_pars['Nu']
 
         # Get initial state for forecasting.
-        training_data = tworeac_parameters['training_data_dyn'][-1]
+        training_data = reac_parameters['training_data_dyn'][-1]
         uval = training_data.u[tthrow:, :]
         y0 = training_data.y[tthrow, :]
         yp0seq = training_data.y[tthrow-Np:tthrow, :].reshape(Np*Ny, )
@@ -75,14 +41,15 @@ def main():
         yz0 = np.concatenate((y0, yp0seq, up0seq))
 
         # Get the black-box model parameters and function handles.
-        bbnn_pars = get_bbnn_pars(train=tworeac_bbnntrain, 
+        bbnn_pars = get_bbnn_pars(train=reac_bbnntrain, 
                                   plant_pars=plant_pars)
         fxu = lambda x, u: bbnn_fxu(x, u, bbnn_pars)
         hx = lambda x: bbnn_hx(x, bbnn_pars)
 
         # CHeck black-box model validation.
-        bb_yval = tworeac_bbnntrain['val_predictions'][-1].y
+        bb_yval = reac_bbnntrain['val_predictions'][-1].y
         bb_xpred, bb_ypred = quick_sim(fxu, hx, yz0, uval)
+        breakpoint()
         # Return.
         return 
 
@@ -143,7 +110,7 @@ def main():
         # Return.
         return 
 
-    #check_bbnn(tworeac_bbnntrain, tworeac_parameters)
+    check_bbnn(reac_bbnntrain, reac_parameters)
     check_hybridfullgb(reac_hybfullgbtrain_dyndata, reac_parameters)
     print("Hi")
 
