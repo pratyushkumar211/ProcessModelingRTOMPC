@@ -399,32 +399,29 @@ def hybrid_fxup(xz, u, p, parameters):
     k1 = fxup(x, z, u, p, parameters)
 
     # Get k2.
-    xpseq_k2k3 = None
+    xpseq_k2k3 = getInterpolatedVals(np.concatenate((xpseq, x)), Nx, Np)
     k2 = fxup(x + Delta*(k1/2), z, u, p, parameters)
 
     # Get k3.
     k3 = fxup(x + Delta*(k2/2), z, u, p, parameters)
 
     # Get k4.
+    xpseq_k4 = np.concatenate((xpseq[Nx:], x))
     k4 = fxup(x + Delta*k3, z, u, p, parameters)
     
     # Get the current output/state and the next time step.
     xplus = x + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
 
     # Get zplus and state at the next time step.
-    Np = parameters['Np']
-    if Np > 0:
-        zplus = np.concatenate((z[Ny:], x[:Ny], z[Ny*Np+Nu:], u))
-    else:
-        zplus = z
+    zplus = np.concatenate((z[Nx:], x, z[Nx*Np+Nu:], u))
     xzplus = np.concatenate((xplus, zplus))
 
     # Return.
     return xzplus
 
-def hybrid_hx(x, parameters):
+def hybrid_hx(xz):
     """ Measurement function. """
     Ny = parameters['Ny']
-    y = x[:Ny]
+    y = xz[:Ny]
     # Return measurement.
     return y
