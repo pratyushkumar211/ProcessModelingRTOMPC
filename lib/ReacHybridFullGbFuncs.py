@@ -106,11 +106,8 @@ class ReacFullGbCell(tf.keras.layers.AbstractRNNCell):
         # Get the state at the next time step.
         xplus = x + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
 
-        # Measurement.
-        y = x[..., :self.Ny]
-
         # Return output and states at the next time-step.
-        return (y, xplus)
+        return (x, xplus)
 
 class ReacFullGbModel(tf.keras.Model):
     """ Custom model for the Two reaction system. """
@@ -138,6 +135,9 @@ class ReacFullGbModel(tf.keras.Model):
         r1Layers = createDenseLayers(r1Dims)
         r2Layers = createDenseLayers(r2Dims)
         r3Layers = createDenseLayers(r3Dims)
+
+        # Check if dimensions of a NN to estimate the initial 
+        # condition of Cc is provided.
         if estCDims is not None:
             estCLayers = createDenseLayers(estCDims)
             y0, _, z0 = tf.split(xz0, [Ny, Nx-Ny, Nz], axis=1)
@@ -153,10 +153,13 @@ class ReacFullGbModel(tf.keras.Model):
 
         # Construct the RNN layer and get the predicted xseq.
         reacLayer = tf.keras.layers.RNN(reacCell, return_sequences = True)
-        yseq = reacLayer(inputs = useq, initial_state = [x0])
+        xseq = reacLayer(inputs = useq, initial_state = [x0])
+
+        # Just get the yseq.
+        yseq, _ = tf.split(xseq, [Ny, Nx-Ny], axis=-1)
 
         # Construct model.
-        super().__init__(inputs = [useq, xz0], outputs = yseq)
+        super().__init__(inputs = [useq, xz0], outputs = [yseq, xseq])
 
         # Store the layers (to extract weights for use in numpy).
         self.r1Layers = r1Layers
@@ -173,31 +176,11 @@ def create_model(*, r1Dims, r2Dims, r3Dims, estCDims, Np,
     model = ReacFullGbModel(r1Dims, r2Dims, r3Dims, estCDims,
                             Np, xuyscales, hyb_fullgb_pars)
 
-    # Create a loss function and compile the model.
-    if estCDims is not None:
-        loss = FullGbLoss(lamGbError, yi, unmeasGbPredi, unmeasGbEsti)
-        model.compile(optimizer='adam', loss=loss)
-    else:
-        model.compile(optimizer='adam', loss='mean_squared_error')
+    # Compile.
+    model.compile(optimizer='adam', loss='mean_squared_error')
 
     # Return.
     return model
-
-# def create_partialgb_model(*, r1Layers, r2Layers, r3Layers, estCLayers, 
-#                               xuyscales, hyb_greybox_pars):
-#     """ 
-#     TODO: Review this function.
-#     Create and compile the two reaction model for training. """
-
-#     # Create a model.
-#     model = ReacPartialGbCell(r1Layers, r2Layers, r3Layers, Np, interpLayer, 
-#                               xuyscales, hyb_greybox_pars)
-
-#     # Compile the model.
-#     model.compile(optimizer='adam', loss='mean_squared_error')
-
-#     # Return.
-#     return model
 
 def train_model(*, model, epochs, batch_size, train_data, 
                    trainval_data, stdout_filename, ckpt_path):
@@ -214,10 +197,10 @@ def train_model(*, model, epochs, batch_size, train_data,
                                                         verbose=1)
     
     # Call the fit method to train.
-    model.fit(x = [train_data['inputs'], train_data['x0']], 
+    model.fit(x = [train_data['inputs'], train_data['xz0']], 
               y = train_data['outputs'], 
               epochs = epochs, batch_size = batch_size,
-        validation_data = ([trainval_data['inputs'], trainval_data['x0']], 
+        validation_data = ([trainval_data['inputs'], trainval_data['xz0']], 
                             trainval_data['outputs']),
             callbacks = [checkpoint_callback])
 
