@@ -22,21 +22,17 @@ class ReacFullGbCell(tf.keras.layers.AbstractRNNCell):
         self.xuyscales = xuyscales
         self.hyb_fullgb_pars = hyb_fullgb_pars
 
-        # Sizes.
-        self.Nx = hyb_fullgb_pars['Nx']
-        self.Nu = hyb_fullgb_pars['Nu']
-
     @property
     def state_size(self):
         """ Number of states in the model. """
         # Return.
-        return self.Nx
+        return self.hyb_fullgb_pars['Nx']
     
     @property
     def output_size(self):
         """ Number of outputs of the model. """
         # Return.
-        return self.Ny
+        return self.hyb_fullgb_pars['Nx']
 
     def _fxu(self, x, u):
         """ Function to compute the 
@@ -166,7 +162,6 @@ class ReacFullGbModel(tf.keras.Model):
         self.r2Layers = r2Layers
         self.r3Layers = r3Layers
         self.estCLayers = estCLayers
-        self.reacCell = reacCell
 
 def create_model(*, r1Dims, r2Dims, r3Dims, estCDims, Np,
                     xuyscales, hyb_fullgb_pars):
@@ -177,7 +172,8 @@ def create_model(*, r1Dims, r2Dims, r3Dims, estCDims, Np,
                             Np, xuyscales, hyb_fullgb_pars)
 
     # Compile.
-    model.compile(optimizer='adam', loss='mean_squared_error')
+    model.compile(optimizer='adam', loss='mean_squared_error', 
+                  loss_weights=[1., 0.])
 
     # Return.
     return model
@@ -198,13 +194,13 @@ def train_model(*, model, epochs, batch_size, train_data,
     
     # Call the fit method to train.
     model.fit(x = [train_data['inputs'], train_data['xz0']], 
-              y = train_data['outputs'], 
+              y = [train_data['outputs'], train_data['x']],
               epochs = epochs, batch_size = batch_size,
         validation_data = ([trainval_data['inputs'], trainval_data['xz0']], 
-                            trainval_data['outputs']),
+                            [trainval_data['outputs'], train_data['x']]),
             callbacks = [checkpoint_callback])
 
-def get_val_predictions_for_plotting(*, model, val_data, xuyscales,
+def get_val_predictions(*, model, val_data, xuyscales,
                                         ckpt_path, Delta):
     """ Get the validation predictions. """
 
@@ -212,11 +208,12 @@ def get_val_predictions_for_plotting(*, model, val_data, xuyscales,
     model.load_weights(ckpt_path)
 
     # Predict.
-    model_predictions = model.predict(x=[val_data['inputs'], val_data['x0']])
+    ypredictions, xpredictions = model.predict(x=[val_data['inputs'], 
+                                                  val_data['x0']])
 
     # Compute val metric.
     val_metric = model.evaluate(x = [val_data['inputs'], val_data['x0']], 
-                                y = val_data['outputs'])
+                                y = val_data['outputs'])[0]
 
     # Scale.
     ymean, ystd = xuyscales['yscale']
@@ -226,48 +223,21 @@ def get_val_predictions_for_plotting(*, model, val_data, xuyscales,
     uval = val_data['inputs'].squeeze(axis=0)*ustd + umean
     Nt = uval.shape[0]
 
-    # Get y and x predictions.
-    if model.estCLayers is not None:
-
-        # Sizes. 
-        Nx = model.reacCell.hyb_fullgb_pars['Nx']
-        Ny = model.reacCell.hyb_fullgb_pars['Ny']
-
-        # Get the y predictions.
-        ymean = np.concatenate((ymean, ymean[-1:], ymean[-1:]))
-        ystd = np.concatenate((ystd, ystd[-1:], ystd[-1:]))
-        ypredictions = model_predictions.squeeze(axis=0)*ystd + ymean
-        xpredictions = ypredictions[:, :Nx]
-        xpredictions_Cc = np.concatenate((np.tile(np.nan, (Nt, Ny)), 
-                                          ypredictions[:, -1:]), axis=1)
-        ypredictions = ypredictions[:, :Ny]
-        
-    else:
-        ypredictions = model_predictions.squeeze(axis=0)*ystd + ymean
-        xpredictions = np.insert(ypredictions, [2], np.nan, axis=1)
+    # Get scaled predictions.
+    ypredictions = ypredictions.squeeze(axis=0)*ystd + ymean
+    xmean = np.concatenate((ymean, ymean[-1:]))
+    xstd = np.concatenate((ystd, ystd[-1:]))
+    xpredictions = xpredictions.squeeze(axis=0)*xstd + xmean
 
     # Collect data in a Simdata format.
     Nt = uval.shape[0]
     tval = np.arange(0, Nt*Delta, Delta)
     pval = np.tile(np.nan, (Nt, 1))
-    val_prediction_list = [SimData(t=tval, x=xpredictions, 
-                                   u=uval, y=ypredictions, p=pval)]
-
-    # Create one more Simdata object to plot the Cc predictions 
-    # using the estimator NN.
-    if model.estCLayers is not None:
-
-        # Sizes.
-        Nu = model.reacCell.hyb_fullgb_pars['Nu']
-        
-        # Model predictions.
-        uval = np.tile(np.nan, (Nt, Nu))
-        ypredictions = np.tile(np.nan, (Nt, Ny))
-        val_prediction_list += [SimData(t=tval, x=xpredictions_Cc,
-                                        u=uval, y=ypredictions, p=pval)]
+    val_predictions = SimData(t=tval, x=xpredictions, 
+                              u=uval, y=ypredictions, p=pval)
 
     # Return.
-    return (val_prediction_list, val_metric)
+    return (val_predictions, val_metric)
 
 def get_weights(layers):
     """ Function to get the weights from a list 

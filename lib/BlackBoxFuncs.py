@@ -25,6 +25,18 @@ def fnnTf(nnInput, nnLayers):
     # Return the final output.
     return nnOutput
 
+def createDenseLayers(nnDims):
+    """ Create dense layers based on the feed-forward NN layer dimensions.
+        nnDims: List that contains the dimensions of the feed forward NN.
+        nnLayers: Output of the feedforward NN.
+    """
+    nnLayers = []
+    for dim in nnDims[1:-1]:
+        nnLayers += [tf.keras.layers.Dense(dim, activation='tanh')]
+    nnLayers += [tf.keras.layers.Dense(nnDims[-1])]
+    # Return.
+    return nnLayers
+
 def fnn(nnInput, nnWeights):
     """ Compute the output of a feedforward network, 
         with inputs and weights as numpy arrays. """

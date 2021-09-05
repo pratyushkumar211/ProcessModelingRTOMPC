@@ -8,8 +8,7 @@ import time
 import numpy as np
 from hybridId import PickleTool, get_scaling, get_train_val_data
 from ReacHybridFullGbFuncs import (create_model, get_weights,
-                                   train_model, 
-                                   get_val_predictions_for_plotting)
+                                   train_model, get_val_predictions)
 
 # Set the tensorflow global and graph-level seed.
 tf.random.set_seed(123)
@@ -29,12 +28,6 @@ def main():
     Nu = hyb_fullgb_pars['Nu']
     Ny = hyb_fullgb_pars['Ny']
     training_data = reac_parameters['training_data_dyn']
-
-    # Indices used for the training the Full Grey-Box model.
-    lamGbError = 0
-    yi = reac_parameters['plant_pars']['yindices']
-    unmeasGbPredi = [2]
-    unmeasGbEsti = [3]
 
     # Create some parameters.
     Np = 2
@@ -62,17 +55,13 @@ def main():
     (train_data, 
      trainval_data, val_data) = get_train_val_data(tthrow=tthrow, 
                                                    Np=Np, xuyscales=xuyscales, 
-                                                   data_list=training_data, 
-                                                   unmeasGbx0=unmeasGbx0)
+                                                   data_list=training_data)
 
     # Create model.
     model = create_model(r1Dims=r1Dims, r2Dims=r2Dims, 
                         r3Dims=r3Dims, estCDims=estCDims, Np=Np, 
                         xuyscales=xuyscales, 
-                        hyb_fullgb_pars=hyb_fullgb_pars, 
-                        lamGbError=lamGbError, yi=yi, 
-                        unmeasGbPredi=unmeasGbPredi, 
-                        unmeasGbEsti=unmeasGbEsti)
+                        hyb_fullgb_pars=hyb_fullgb_pars)
 
     # Use num samples to adjust here the num training samples.
     train_samples = dict(x0=train_data['x0'],

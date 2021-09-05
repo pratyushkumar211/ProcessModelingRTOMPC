@@ -127,42 +127,42 @@ def quick_sim(fxu, hx, x0, u):
     # Return.
     return x, y
 
-def get_train_val_data(*, tthrow, Np, xuyscales, data_list, 
-                          unmeasGbx0=None):
+def get_train_val_data(*, tthrow, Np, xuyscales, data_list,
+                          unmeasGbx0_list):
     """ Get the data for training and validation in 
-        appropriate format after scaling. """
-
-    # Get scaling pars.
+        appropriate format for training. 
+        All data are already scaled.
+    """
+    
+    # Get scaling parameters.
+    xmean, xstd = xuyscales['xscale']
     umean, ustd = xuyscales['uscale']
     ymean, ystd = xuyscales['yscale']
-    Ny, Nu = len(ymean), len(umean)
-    unmeasGbx0 = unmeasGbx0[np.newaxis, :]
+    Nx, Ny, Nu = len(xmean), len(ymean), len(umean)
 
     # Lists to store data.
-    inputs, x0, outputs = [], [], []
+    inuputs, outputs = [], []
+    xseq = []
+    y0, z0 = [], []
 
     # Loop through the data list.
     for data in data_list:
         
         # Scale data.
+        x = (data.x - xmean)/xstd
         u = (data.u - umean)/ustd
         y = (data.y - ymean)/ystd
-        
+
         # Get the input and output trajectory.
         u_traj = u[tthrow:, :][np.newaxis, ...]
         y_traj = y[tthrow:, :][np.newaxis, ...]
+        x_traj = x[tthrow:, :][np.newaxis, ...]
 
         # Get initial states.
         yp0seq = y[tthrow-Np:tthrow, :].reshape(Np*Ny, )[np.newaxis, :]
         up0seq = u[tthrow-Np:tthrow, :].reshape(Np*Nu, )[np.newaxis, :]
         y0_traj = y[tthrow, np.newaxis, :]
         z0_traj = np.concatenate((yp0seq, up0seq), axis=-1)
-
-        # Unmeasured Grey-Box states.
-        if unmeasGbx0 is not None: # Case for the full grey-box model.
-            x0_traj = np.concatenate((y0_traj, unmeasGbx0, z0_traj), axis=-1)
-        else: # Case for the partial grey-box model.
-            x0_traj = np.concatenate((y0_traj, z0_traj), axis=-1)
 
         # Get z_traj.
         # Nt = u.shape[0]
@@ -176,17 +176,21 @@ def get_train_val_data(*, tthrow, Np, xuyscales, data_list,
 
         # Collect the trajectories in list.
         inputs += [u_traj]
-        x0 += [x0_traj]
+        xseq += [x_traj]
+        y0 += [y0_traj]
+        z0 += [z0_traj]
         outputs += [y_traj]
     
     # Get the training and validation data for training in compact dicts.
     train_data = dict(inputs=np.concatenate(inputs[:-2], axis=0),
-                      x0=np.concatenate(x0[:-2], axis=0),
+                      xseq=np.concatenate(xseq[:-2], axis=0),
+                      y0=np.concatenate(y0[:-2], axis=0),
+                      z0=np.concatenate(z0[:-2], axis=0),   
                       outputs=np.concatenate(outputs[:-2], axis=0))
-    trainval_data = dict(inputs=inputs[-2], x0=x0[-2],
-                          outputs=outputs[-2])
-    val_data = dict(inputs=inputs[-1], x0=x0[-1],
-                    outputs=outputs[-1])
+    trainval_data = dict(inputs=inputs[-2], xseq=xseq[-2], y0=y0[-2],
+                         z0=z0[-2], outputs=outputs[-2])
+    val_data = dict(inputs=inputs[-1], xseq=xseq[-1], y0=y0[-1],
+                    z0=z0[-1], outputs=outputs[-1])
     
     # Return.
     return (train_data, trainval_data, val_data)
