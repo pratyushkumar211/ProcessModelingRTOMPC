@@ -108,7 +108,8 @@ class BlackBoxCell(tf.keras.layers.AbstractRNNCell):
 
         # Two cases, depending on if past data is included.
         if self.Np > 0:
-            yzplus = tf.concat((yplus, ypseq[..., Ny:], y, upseq[..., Nu:], u),
+            yzplus = tf.concat((yplus, ypseq[..., self.Ny:], y, 
+                                upseq[..., self.Nu:], u),
                                axis=-1)
         else:
             yzplus = yplus
@@ -264,7 +265,7 @@ def bbnn_fxu(yz, u, parameters):
     # Concatenate.
     if Np > 0:
         yzplus = np.concatenate((yplus, yz[2*Ny:(Np+1)*Ny], yz[0:Ny], 
-                                 yz[-(Np-1)*Nu:], u))
+                                 yz[(Np+1)*Ny+Nu:], u))
     else:
         yzplus = yplus
 
