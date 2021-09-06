@@ -85,7 +85,7 @@ class ReacFullGbCell(tf.keras.layers.AbstractRNNCell):
             Dimension of states: (None, Nx)
             Dimension of input: (None, Nu)
         """
-
+        
         # Extract states.
         [x] = states
         u = inputs

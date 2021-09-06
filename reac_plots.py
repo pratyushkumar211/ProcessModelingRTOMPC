@@ -69,10 +69,10 @@ def main():
     plant_pars = reac_parameters['plant_pars']
     
     # Load Black-Box data after training.
-    # reac_bbnntrain = PickleTool.load(filename=
-    #                                   "reac_bbnntrain_dyndata.pickle",
-    #                                   type='read')
-    # bbnn_predictions = reac_bbnntrain['val_predictions']
+    reac_bbnntrain = PickleTool.load(filename=
+                                      "reac_bbnntrain_dyndata.pickle",
+                                      type='read')
+    bbnn_predictions = reac_bbnntrain['val_predictions']
 
     # Load Hybrid data after training.
     reac_hybfullgbtrain = PickleTool.load(filename=
@@ -119,13 +119,12 @@ def main():
         #                                     title_loc=None)
 
     # Plot validation data.
-    legend_names = ['Plant', 'Hybrid', 'Hybrid-Cc']
-    legend_colors = ['b', 'm', 'orange']
+    legend_names = ['Plant', 'Black-Box-NN', 'Hybrid']
+    legend_colors = ['b', 'dimgrey', 'm']
     valdata_plant = reac_parameters['training_data_dyn'][-1]
     valdata_list = [valdata_plant]
-    # valdata_list += bbnn_predictions
+    valdata_list += bbnn_predictions
     valdata_list += hybfullgb_predictions
-    breakpoint()
     t, ulist, xlist, ylist, plist = get_plotting_array_list(simdata_list=
                                                      valdata_list[:1],
                                                      plot_range=(10, 6*60+10))

@@ -47,7 +47,7 @@ def main():
         uval = training_data.u[tthrow:, :]
         y0 = training_data.y[tthrow, :]
         yp0seq = training_data.y[tthrow-Np:tthrow, :].reshape(Np*Ny, )
-        up0seq = training_data.u[tthrow-Np:tthrow, :].reshape(Np*Ny, )
+        up0seq = training_data.u[tthrow-Np:tthrow, :].reshape(Np*Nu, )
         yz0 = np.concatenate((y0, yp0seq, up0seq))
 
         # Get the black-box model parameters and function handles.
