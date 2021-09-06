@@ -89,7 +89,7 @@ def main():
     trained_r1Weights.append(r1Weights)
     trained_r2Weights.append(r2Weights)
     trained_r3Weights.append(r3Weights)
-
+    
     # Save the weights.
     reac_train = dict(Np=Np, r1Dims=r1Dims, r2Dims=r2Dims, r3Dims=r3Dims,
                       trained_r1Weights=trained_r1Weights,

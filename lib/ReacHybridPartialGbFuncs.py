@@ -305,7 +305,9 @@ def get_hybrid_pars(*, train, hyb_partialgb_pars):
     return parameters
 
 def fxup(x, z, u, p, parameters):
-    """ Partial grey-box ODE function. """
+    """ Partial grey-box ODE function. 
+        x, z, and, u are scaled quantities.
+    """
 
     # Extract disturbance.
     F = p.squeeze()
@@ -322,23 +324,15 @@ def fxup(x, z, u, p, parameters):
     Castd, Cbstd = ystd[0:1], ystd[1:2]
     umean, ustd = xuyscales['uscale']
     
-    # Scale states and z for NNs.
-    x = (x - ymean)/ystd
-    Np = parameters['Np']
-    zmean = np.concatenate((np.tile(ymean, (Np, )), 
-                            np.tile(ustd, (Np, ))))
-    zstd = np.concatenate((np.tile(ystd, (Np, )), 
-                           np.tile(ustd, (Np, ))))
-    z = (z - zmean)/zstd
-
     # Get NN reaction rates.
     Ca, Cb = x[0:1], x[1:2]
     r1 = fnn(Ca, r1Weights)*Castd
     r2 = fnn(Cb, r2Weights)*Cbstd
     r3 = fnn(z, r3Weights)*Cbstd
 
-    # Scale states back to physical.
+    # Scale states back to their physical values.
     x = x*ystd + ymean
+    u = u*ustd + umean
     Ca, Cb = x[0:1], x[1:2]
     Caf = u[0:1]
 
@@ -347,7 +341,7 @@ def fxup(x, z, u, p, parameters):
     dCbbydt = -F*Cb/V + r1 - 3*r2 + r3
 
     # xdot.
-    xdot = mpc.vcat([dCabydt, dCbbydt])
+    xdot = mpc.vcat([dCabydt, dCbbydt])/ystd
 
     # Return.
     return xdot
@@ -359,6 +353,18 @@ def hybrid_fxup(xz, u, p, parameters):
     Nx = parameters['Nx']
     Nu = parameters['Nu']
     Np = parameters['Np']
+
+    # Get scaling.
+    xuyscales = parameters['xuyscales']
+    xmean, xstd = xuyscales['xscale']
+    umean, ustd = xuyscales['uscale']
+    ymean, ystd = xuyscales['yscale']
+    xzmean = np.concatenate((np.tile(ymean, (Np + 1, )), 
+                             np.tile(umean, (Np, ))))
+    xzstd = np.concatenate((np.tile(ystd, (Np + 1, )), 
+                            np.tile(ustd, (Np, ))))
+    xz = (xz - xzmean)/xzstd
+    u = (u - umean)/ustd
 
     # x, z, xpseq and upseq.
     x, z = xz[:Nx], xz[Nx:]
@@ -387,6 +393,9 @@ def hybrid_fxup(xz, u, p, parameters):
     # Get zplus and state at the next time step.
     zplus = np.concatenate((z[Nx:Nx*Np], x, z[Nx*Np+Nu:], u))
     xzplus = np.concatenate((xplus, zplus))
+
+    # Scale back to physical quantity.
+    xzplus = xzplus*xzstd + xzmean
 
     # Return.
     return xzplus
