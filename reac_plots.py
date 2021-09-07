@@ -80,6 +80,13 @@ def main():
                                      type='read')
     hybfullgb_predictions = reac_hybfullgbtrain['val_predictions']
 
+    # Load Hybrid data after training.
+    reac_hybpartialgbtrain = PickleTool.load(filename=
+                                     "reac_hybpartialgbtrain_dyndata.pickle",
+                                     type='read')
+    hybpartialgb_predictions = reac_hybpartialgbtrain['val_predictions']
+
+
     # Load the steady state cost computations.
     # reac_ssopt = PickleTool.load(filename="reac_ssopt.pickle",
     #                                  type='read')
@@ -119,12 +126,13 @@ def main():
         #                                     title_loc=None)
 
     # Plot validation data.
-    legend_names = ['Plant', 'Black-Box-NN', 'Hybrid']
-    legend_colors = ['b', 'dimgrey', 'm']
+    legend_names = ['Plant', 'Black-Box-NN', 'Hybrid - 1', 'Hybrid - 2']
+    legend_colors = ['b', 'dimgrey', 'm', 'tomato']
     valdata_plant = reac_parameters['training_data_dyn'][-1]
     valdata_list = [valdata_plant]
     valdata_list += bbnn_predictions
     valdata_list += hybfullgb_predictions
+    valdata_list += hybpartialgb_predictions
     t, ulist, xlist, ylist, plist = get_plotting_array_list(simdata_list=
                                                      valdata_list[:1],
                                                      plot_range=(10, 6*60+10))
@@ -141,7 +149,7 @@ def main():
                                         legend_colors=legend_colors, 
                                         figure_size=PAPER_FIGSIZE, 
                                         ylabel_xcoordinate=-0.1, 
-                                        title_loc=(0.23, 0.9))
+                                        title_loc=(0.1, 0.9))
 
     # Plot validation metrics to show data requirements.
     #num_samples = reac_train['num_samples']

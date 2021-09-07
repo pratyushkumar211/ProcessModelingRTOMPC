@@ -68,7 +68,7 @@ def main():
                         hyb_partialgb_pars=hyb_partialgb_pars)
 
     # Train.
-    train_model(model=model, epochs=5, batch_size=1, 
+    train_model(model=model, epochs=8000, batch_size=1, 
                     train_data=train_data, trainval_data=trainval_data,
                     stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 
@@ -89,7 +89,7 @@ def main():
     trained_r1Weights.append(r1Weights)
     trained_r2Weights.append(r2Weights)
     trained_r3Weights.append(r3Weights)
-    
+
     # Save the weights.
     reac_train = dict(Np=Np, r1Dims=r1Dims, r2Dims=r2Dims, r3Dims=r3Dims,
                       trained_r1Weights=trained_r1Weights,
