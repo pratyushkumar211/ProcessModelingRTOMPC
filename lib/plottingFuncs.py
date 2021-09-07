@@ -143,11 +143,11 @@ class ReacPlots:
         """ Plot steady state xs and us. """
         
         # Labels.
-        labels = [r'$c_{As} \ (\textnormal{mol/m}^3)$', 
-                  r'$c_{Bs} \ (\textnormal{mol/m}^3)$',
-                  r'$c_{Cs} \ (\textnormal{mol/m}^3)$']
+        labels = [r'$C_{As} \ (\textnormal{mol/m}^3)$', 
+                  r'$C_{Bs} \ (\textnormal{mol/m}^3)$',
+                  r'$C_{Cs} \ (\textnormal{mol/m}^3)$']
 
-        nrow = len(ReacPlots.labels) - 1
+        nrow = len(labels)
         (figure, axes) = plt.subplots(nrows=nrow, ncols=1,
                                       sharex=True, figsize=figure_size,
                                       gridspec_kw=dict(wspace=0.4))
@@ -253,8 +253,8 @@ class ReacPlots:
         return figures
 
     @staticmethod
-    def plot_ErrorHistogram(*, rError, figure_size, xlabel, ylabel, 
-                               left_frac, nBins, 
+    def plot_ErrorHistogram(*, rErrors, figure_size, xlabel, ylabel, 
+                               left_frac, nBins, legend_names,
                                xlims):
         """ Make the plots. """
         
@@ -264,7 +264,12 @@ class ReacPlots:
                                     gridspec_kw=dict(left=left_frac))
 
         # Contour plot.
-        axes.hist(rError, bins=nBins)
+        for rError in rErrors:
+            axes.hist(rError, bins=nBins)
+
+        # Legend. 
+        if legend_names is not None:
+            axes.legend(legend_names)
 
         # X and Y labels.
         axes.set_ylabel(ylabel)

@@ -285,10 +285,11 @@ def get_hybrid_pars(*, train, hyb_partialgb_pars):
     parameters['xuyscales'] = train['xuyscales']
 
     # Sizes.
-    parameters['Nx'] = hyb_partialgb_pars['Nx']
     parameters['Ny'] = hyb_partialgb_pars['Ny']
     parameters['Nu'] = hyb_partialgb_pars['Nu']
     parameters['Np'] = train['Np']
+    parameters['Nx'] = hyb_partialgb_pars['Nx']
+    parameters['Nx'] += parameters['Np']*(parameters['Ny'] + parameters['Nu'])
 
     # Constraints.
     parameters['ulb'] = hyb_partialgb_pars['ulb']
@@ -350,7 +351,7 @@ def hybrid_fxup(xz, u, p, parameters):
     """ Hybrid model. """
 
     # Sizes.
-    Nx = parameters['Nx']
+    Ny = parameters['Ny']
     Nu = parameters['Nu']
     Np = parameters['Np']
 
@@ -367,8 +368,8 @@ def hybrid_fxup(xz, u, p, parameters):
     u = (u - umean)/ustd
 
     # x, z, xpseq and upseq.
-    x, z = xz[:Nx], xz[Nx:]
-    xpseq, upseq = z[:Nx*Np], z[Nx*Np:]
+    x, z = xz[:Ny], xz[Ny:]
+    xpseq, upseq = z[:Ny*Np], z[Ny*Np:]
 
     # Get NN weights.
     Delta = parameters['Delta']
@@ -377,21 +378,21 @@ def hybrid_fxup(xz, u, p, parameters):
     k1 = fxup(x, z, u, p, parameters)
 
     # Get k2.
-    xpseq_k2k3 = getInterpolatedVals(np.concatenate((xpseq, x)), Nx, Np)
+    xpseq_k2k3 = getInterpolatedVals(np.concatenate((xpseq, x)), Ny, Np)
     k2 = fxup(x + Delta*(k1/2), z, u, p, parameters)
 
     # Get k3.
     k3 = fxup(x + Delta*(k2/2), z, u, p, parameters)
 
     # Get k4.
-    xpseq_k4 = np.concatenate((xpseq[Nx:], x))
+    xpseq_k4 = np.concatenate((xpseq[Ny:], x))
     k4 = fxup(x + Delta*k3, z, u, p, parameters)
     
     # Get the current output/state and the next time step.
     xplus = x + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
 
     # Get zplus and state at the next time step.
-    zplus = np.concatenate((z[Nx:Nx*Np], x, z[Nx*Np+Nu:], u))
+    zplus = np.concatenate((z[Ny:Ny*Np], x, z[Ny*Np+Nu:], u))
     xzplus = np.concatenate((xplus, zplus))
 
     # Scale back to physical quantity.

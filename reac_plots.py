@@ -88,13 +88,16 @@ def main():
 
 
     # Load the steady state cost computations.
-    # reac_ssopt = PickleTool.load(filename="reac_ssopt.pickle",
-    #                                  type='read')
+    reac_ssopt = PickleTool.load(filename="reac_ssopt.pickle",
+                                     type='read')
 
     # Load the rate analysis computations.
-    # reac_rateAnalysis = PickleTool.load(filename=
-    #                                  "reac_rateAnalysis.pickle",
-    #                                  type='read')
+    reac_fullgbRateAnalysis = PickleTool.load(filename=
+                                     "reac_fullgbRateAnalysis.pickle",
+                                     type='read')
+    reac_partialgbRateAnalysis = PickleTool.load(filename=
+                                     "reac_partialgbRateAnalysis.pickle",
+                                     type='read')
 
     # List to store figures.
     figures = []
@@ -160,73 +163,51 @@ def main():
     #                            legends=['Black-box', 'Hybrid'])
 
     # Steady state Concentrations.
-    # us = reac_ssopt['us']
-    # xs_list = reac_ssopt['xs']
-    # legend_names = ['Plant', 'Black-Box-NN', 'Hybrid']
-    # legend_colors = ['b', 'dimgrey', 'm']
-    # figures += ReacPlots.plot_xsvus(us=us, xs_list=xs_list, 
-    #                                     legend_colors=legend_colors, 
-    #                                     legend_names=legend_names, 
-    #                                     figure_size=PAPER_FIGSIZE, 
-    #                                     ylabel_xcoordinate=-0.12, 
-    #                                     title_loc=(0.23, 0.9))
+    us = reac_ssopt['us']
+    Ny = reac_parameters['plant_pars']['Ny']
+    xs_list = reac_ssopt['xs']
+    Nss_data = xs_list[0].shape[0]
+    xs_list[1] = np.concatenate((xs_list[1][:, :Ny], 
+                                 np.tile(np.nan, (Nss_data, 1))), axis=-1)
+    xs_list[3] = np.concatenate((xs_list[3][:, :Ny], 
+                                 np.tile(np.nan, (Nss_data, 1))), axis=-1)
+    legend_names = ['Plant', 'Black-Box-NN', 'Hybrid-1', 'Hybrid-2']
+    legend_colors = ['b', 'dimgrey', 'm', 'tomato']
+    figures += ReacPlots.plot_xsvus(us=us, xs_list=xs_list, 
+                                        legend_colors=legend_colors, 
+                                        legend_names=legend_names, 
+                                        figure_size=PAPER_FIGSIZE, 
+                                        ylabel_xcoordinate=-0.12, 
+                                        title_loc=(0.12, 0.9))
 
     # Steady state cost curves.
-    # sscosts = reac_ssopt['sscosts']
-    # figures += ReacPlots.plot_sscosts(us=us, sscosts=sscosts, 
-    #                                     legend_colors=legend_colors, 
-    #                                     legend_names=legend_names, 
-    #                                     figure_size=PAPER_FIGSIZE, 
-    #                                     ylabel_xcoordinate=-0.12, 
-    #                                     left_label_frac=0.15)
+    sscosts = reac_ssopt['sscosts']
+    figures += ReacPlots.plot_sscosts(us=us, sscosts=sscosts, 
+                                        legend_colors=legend_colors, 
+                                        legend_names=legend_names, 
+                                        figure_size=PAPER_FIGSIZE, 
+                                        ylabel_xcoordinate=-0.12, 
+                                        left_label_frac=0.15)
 
-    # # Make a reaction rate analysis plot.
-    # rErrors = reac_rateAnalysis[0]['rErrors']
-    # xGrids = reac_rateAnalysis[0]['xGrids']
-    # yGrids = reac_rateAnalysis[0]['yGrids']
-    # CcVals = reac_rateAnalysis[0]['CcVals']
-    # xlabel = r'$C_A \ (\textnormal{mol/m}^3)$'
-    # ylabel = r'$C_B \ (\textnormal{mol/m}^3)$'
-    # rateTitle = '$\dfrac{|r_1 - r_{1-NN}|}{|r_1|}, C_C = $ '
-    # figures += ReacPlots.plot_rPercentErrors(rErrors=rErrors, xGrids=xGrids,
-    #                                             yGrids=yGrids, zvals=CcVals, 
-    #                                             xlabel=xlabel, ylabel=ylabel,
-    #                                             rateTitle=rateTitle,
-    #                                             figure_size=PAPER_FIGSIZE, 
-    #                                             ylabel_xcoordinate=None, 
-    #                                             left_frac=0.12, right_frac=0.95,
-    #                                             wspace=0.1)
+    # Make the histograms.
+    fullgbErrors = reac_fullgbRateAnalysis[0]
+    partialgbErrors = reac_partialgbRateAnalysis[0]
+    xlabels = ['$\dfrac{|r_1 - r_{1-NN}|}{r_1}$',
+               '$\dfrac{|r_2 - r_{2-NN}|}{r_2}$',
+               '$\dfrac{|r_3 - r_{3-NN}|}{r_3}$']
+    xlims_list = [[0., 0.05], [0., 1.0], [0., 3.]]
+    legend_names = ['Hybrid-1', 'Hybrid-2']
+    for reaction, xlabel, xlims in zip(['r1', 'r2', 'r3'], 
+                                       xlabels, xlims_list):
 
-    # # Make a reaction rate analysis plot.
-    # rErrors = reac_rateAnalysis[1]['rErrors']
-    # xGrids = reac_rateAnalysis[1]['xGrids']
-    # yGrids = reac_rateAnalysis[1]['yGrids']
-    # CcVals = reac_rateAnalysis[1]['CcVals']
-    # rateTitle = '$\dfrac{|r_2 - r_{2-NN}|}{|r_2|}, C_C = $ '
-    # figures += ReacPlots.plot_rPercentErrors(rErrors=rErrors, xGrids=xGrids,
-    #                                             yGrids=yGrids, zvals=CcVals, 
-    #                                             xlabel=xlabel, ylabel=ylabel,
-    #                                             rateTitle=rateTitle,
-    #                                             figure_size=PAPER_FIGSIZE, 
-    #                                             ylabel_xcoordinate=None, 
-    #                                             left_frac=0.12, right_frac=0.95,
-    #                                             wspace=0.1)
-
-    # # Make the histograms.
-    # errorsOnTrain = reac_rateAnalysis[2]
-    # xlabels = ['$\dfrac{|r_1 - r_{1-NN}|}{|r_1|}$',
-    #            '$\dfrac{|r_2 - r_{2-NN}|}{|r_2|}$']
-    # xlims_list = [[0, 0.6], [0, 1.0]]
-    # for reaction, xlabel, xlims in zip(errorsOnTrain.keys(), 
-    #                                    xlabels, xlims_list):
-
-    #     # Loop over the errors.
-    #     figures += ReacPlots.plot_ErrorHistogram(rError=
-    #                                             errorsOnTrain[reaction], 
-    #                                             xlabel=xlabel, ylabel='Frequency',
-    #                                             figure_size=PAPER_FIGSIZE, 
-    #                                             left_frac=0.12, nBins=100, 
-    #                                             xlims=xlims)
+        # Loop over the errors.
+        rErrors = [fullgbErrors[reaction], partialgbErrors[reaction]]
+        figures += ReacPlots.plot_ErrorHistogram(rErrors=rErrors, 
+                                                xlabel=xlabel, ylabel='Frequency',
+                                                figure_size=PAPER_FIGSIZE, 
+                                                left_frac=0.12, nBins=100, 
+                                                legend_names=legend_names,
+                                                xlims=xlims)
 
     # # Make the 3D scatter plot.
     # errorsOnTrain = reac_rateAnalysis[2]

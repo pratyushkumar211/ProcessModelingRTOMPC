@@ -78,7 +78,7 @@ def main():
     hyb_partialgb_pars = reac_parameters['hyb_partialgb_pars']
 
     # Get cost function handle.
-    p = [100, 1100]
+    p = [100, 1200]
     lyu = lambda y, u: cost_yup(y, u, p)
 
     # Get the black-box model parameters and function handles.
@@ -112,7 +112,6 @@ def main():
     fxu_list = [plant_f, bbnn_f, fullhybrid_f, partialhybrid_f]
     hx_list = [plant_h, bbnn_h, fullhybrid_h, partialhybrid_h]
     par_list = [plant_pars, bbnn_pars, fullhyb_pars, partialhyb_pars]
-    breakpoint()
 
     # Loop over the different models and obtain SS optimums.
     for (model_type, fxu, hx, model_pars) in zip(model_types, fxu_list, 

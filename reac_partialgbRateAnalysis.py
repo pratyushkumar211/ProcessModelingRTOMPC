@@ -52,7 +52,7 @@ def getRateErrorsOnTrainingData(*, training_data_dyn, r1Weights, r2Weights,
             r1NN = fnn(Ca, r1Weights)*Castd
             r2NN = fnn(Cb, r2Weights)*Cbstd
             r3NN = fnn(z, r3Weights)*Cbstd
-
+            
             # Get the errors.
             r1Errors += [np.abs(r1 - r1NN)/r1]
             r2Errors += [np.abs(r2 - r2NN)/r2]
@@ -108,6 +108,6 @@ def main():
 
     # Make the plot.
     PickleTool.save(data_object=rateAnalysisData,
-                    filename='reac_rateAnalysis.pickle')
+                    filename='reac_partialgbRateAnalysis.pickle')
 
 main()
