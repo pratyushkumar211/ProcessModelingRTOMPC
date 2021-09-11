@@ -23,6 +23,7 @@ def getRateErrorsOnTrainingData(*, training_data_dyn, r1Weights, r2Weights,
 
     # Loop over all the collected data.
     r1Errors, r2Errors, r3Errors = [], [], []
+    r2r3LumpedErrors = []
     y_list = []
     for data in training_data_dyn:
 
@@ -57,13 +58,17 @@ def getRateErrorsOnTrainingData(*, training_data_dyn, r1Weights, r2Weights,
             r1Errors += [np.abs(r1 - r1NN)/r1]
             r2Errors += [np.abs(r2 - r2NN)/r2]
             r3Errors += [np.abs(r3 - r3NN)/r3]
+            r2r3LumpedErrors += [np.abs(-3*r2+r3-(-3*r2NN+r3NN))/
+                                 np.abs(-3*r2+r3)]
 
         # Get the ylists. 
         y_list += [data.y]
 
     # Make numpy arrays.
     errorsOnTrain = dict(r1=np.array(r1Errors), r2=np.array(r2Errors), 
-                         r3=np.array(r3Errors), ysamples=np.concatenate(y_list, axis=0))
+                         r3=np.array(r3Errors), 
+                         r2r3LumpedErrors=np.array(r2r3LumpedErrors),
+                         ysamples=np.concatenate(y_list, axis=0))
 
     # Return the training data.
     return errorsOnTrain
@@ -73,8 +78,8 @@ def main():
 
     # Load parameters and training data.
     reac_parameters = PickleTool.load(filename=
-                                         'reac_parameters.pickle',
-                                         type='read')
+                                      'reac_parameters.pickle',
+                                      type='read')
     reac_hybtrain = PickleTool.load(filename=
                                       'reac_hybpartialgbtrain_dyndata.pickle',
                                       type='read')

@@ -103,21 +103,21 @@ def main():
     figures = []
 
     # Plot training data.
-    training_data = reac_parameters['training_data_dyn'][:5]
-    for data in training_data:
+    # training_data = reac_parameters['training_data_dyn'][:5]
+    # for data in training_data:
 
-        (t, ulist, xlist, 
-         ylist, plist) = get_plotting_array_list(simdata_list = [data],
-                                                 plot_range=(10, 6*60+10))
+    #     (t, ulist, xlist, 
+    #      ylist, plist) = get_plotting_array_list(simdata_list = [data],
+    #                                              plot_range=(10, 6*60+10))
 
-        # xu data.
-        figures += ReacPlots.plot_yxudata(t=t, ylist=ylist, 
-                                            xlist=xlist, ulist=ulist,
-                                            legend_names=None,
-                                            legend_colors=['b'], 
-                                            figure_size=PAPER_FIGSIZE, 
-                                            ylabel_xcoordinate=-0.1, 
-                                            title_loc=None)
+    #     # xu data.
+    #     figures += ReacPlots.plot_yxudata(t=t, ylist=ylist, 
+    #                                         xlist=xlist, ulist=ulist,
+    #                                         legend_names=None,
+    #                                         legend_colors=['b'], 
+    #                                         figure_size=PAPER_FIGSIZE, 
+    #                                         ylabel_xcoordinate=-0.1, 
+    #                                         title_loc=None)
 
         # yup data.
         # figures += ReacPlots.plot_yupdata(t=t, ylist=ylist, ulist=ulist,
@@ -129,11 +129,11 @@ def main():
         #                                     title_loc=None)
 
     # Plot validation data.
-    legend_names = ['Plant', 'Black-Box-NN', 'Hybrid - 1', 'Hybrid - 2']
-    legend_colors = ['b', 'dimgrey', 'm', 'tomato']
+    legend_names = ['Plant', 'Hybrid - 1', 'Hybrid - 2']
+    legend_colors = ['b', 'm', 'g']
     valdata_plant = reac_parameters['training_data_dyn'][-1]
     valdata_list = [valdata_plant]
-    valdata_list += bbnn_predictions
+    #valdata_list += bbnn_predictions
     valdata_list += hybfullgb_predictions
     valdata_list += hybpartialgb_predictions
     t, ulist, xlist, ylist, plist = get_plotting_array_list(simdata_list=
@@ -152,7 +152,7 @@ def main():
                                         legend_colors=legend_colors, 
                                         figure_size=PAPER_FIGSIZE, 
                                         ylabel_xcoordinate=-0.1, 
-                                        title_loc=(0.1, 0.9))
+                                        title_loc=(0.25, 0.9))
 
     # Plot validation metrics to show data requirements.
     #num_samples = reac_train['num_samples']
@@ -167,21 +167,23 @@ def main():
     Ny = reac_parameters['plant_pars']['Ny']
     xs_list = reac_ssopt['xs']
     Nss_data = xs_list[0].shape[0]
-    xs_list[1] = np.concatenate((xs_list[1][:, :Ny], 
+    #xs_list[1] = np.concatenate((xs_list[1][:, :Ny], 
+    #                             np.tile(np.nan, (Nss_data, 1))), axis=-1)
+    xs_list.pop(1)
+    xs_list[2] = np.concatenate((xs_list[2][:, :Ny], 
                                  np.tile(np.nan, (Nss_data, 1))), axis=-1)
-    xs_list[3] = np.concatenate((xs_list[3][:, :Ny], 
-                                 np.tile(np.nan, (Nss_data, 1))), axis=-1)
-    legend_names = ['Plant', 'Black-Box-NN', 'Hybrid-1', 'Hybrid-2']
-    legend_colors = ['b', 'dimgrey', 'm', 'tomato']
+    legend_names = ['Plant', 'Hybrid-1', 'Hybrid-2']
+    legend_colors = ['b', 'm', 'g']
     figures += ReacPlots.plot_xsvus(us=us, xs_list=xs_list, 
                                         legend_colors=legend_colors, 
                                         legend_names=legend_names, 
                                         figure_size=PAPER_FIGSIZE, 
                                         ylabel_xcoordinate=-0.12, 
-                                        title_loc=(0.12, 0.9))
+                                        title_loc=(0.25, 0.9))
 
     # Steady state cost curves.
     sscosts = reac_ssopt['sscosts']
+    sscosts.pop(1)
     figures += ReacPlots.plot_sscosts(us=us, sscosts=sscosts, 
                                         legend_colors=legend_colors, 
                                         legend_names=legend_names, 
@@ -205,9 +207,21 @@ def main():
         figures += ReacPlots.plot_ErrorHistogram(rErrors=rErrors, 
                                                 xlabel=xlabel, ylabel='Frequency',
                                                 figure_size=PAPER_FIGSIZE, 
-                                                left_frac=0.12, nBins=100, 
+                                                left_frac=0.12, nBins=1500, 
                                                 legend_names=legend_names,
                                                 xlims=xlims)
+
+    # One more plot for the -3r2 + r3 function.
+    rErrors = [partialgbErrors['r2r3LumpedErrors']]
+    xlabel = '$\dfrac{|-3r_2 + r_3 - (-3r_{2-NN}+r_{3-NN})|}{|-3r_2 + r_3|}$'
+    xlims = [0., 0.1]
+    legend_names = ['Hybrid - 2']
+    figures += ReacPlots.plot_ErrorHistogram(rErrors=rErrors, 
+                                            xlabel=xlabel, ylabel='Frequency',
+                                            figure_size=PAPER_FIGSIZE, 
+                                            left_frac=0.12, nBins=1500, 
+                                            legend_names=legend_names,
+                                            xlims=xlims)
 
     # # Make the 3D scatter plot.
     # errorsOnTrain = reac_rateAnalysis[2]
