@@ -198,8 +198,7 @@ class ReacPartialGbModel(tf.keras.Model):
         self.r1Layers = r1Layers
         self.r2Layers = r2Layers
 
-def create_model(*, r1Dims, r2Dims, Np,
-                    xuyscales, hyb_partialgb_pars):
+def create_model(*, r1Dims, r2Dims, Np, xuyscales, hyb_partialgb_pars):
     """ Create and compile the two reaction model for training. """
 
     # Create a model.
@@ -321,7 +320,7 @@ def fxup(x, z, u, p, parameters):
     Ca, Cb = x[0:1], x[1:2]
     r1 = fnn(Ca, r1Weights)*Castd
     r2Input = np.concatenate((Cb, z))
-    r2 = fnn(Cb, r2Weights)*Cbstd
+    r2 = fnn(r2Input, r2Weights)*Cbstd
 
     # Scale states back to their physical values.
     x = x*ystd + ymean
@@ -371,6 +370,7 @@ def hybrid_fxup(xz, u, p, parameters):
 
     # Get k2.
     xpseq_k2k3 = getInterpolatedVals(np.concatenate((xpseq, x)), Ny, Np)
+    z = np.concatenate((xpseq_k2k3, upseq))
     k2 = fxup(x + Delta*(k1/2), z, u, p, parameters)
 
     # Get k3.
@@ -378,13 +378,14 @@ def hybrid_fxup(xz, u, p, parameters):
 
     # Get k4.
     xpseq_k4 = np.concatenate((xpseq[Ny:], x))
+    z = np.concatenate((xpseq_k4, upseq))
     k4 = fxup(x + Delta*k3, z, u, p, parameters)
     
     # Get the current output/state and the next time step.
     xplus = x + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
 
     # Get zplus and state at the next time step.
-    zplus = np.concatenate((z[Ny:Ny*Np], x, z[Ny*Np+Nu:], u))
+    zplus = np.concatenate((xpseq[Ny:], x, upseq[Nu:], u))
     xzplus = np.concatenate((xplus, zplus))
 
     # Scale back to physical quantity.

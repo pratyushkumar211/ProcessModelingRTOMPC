@@ -132,6 +132,11 @@ def main():
         # Get scaling.
         umean, ustd = reac_hybtrain['xuyscales']['uscale']
         ymean, ystd = reac_hybtrain['xuyscales']['yscale']
+        xzmean = np.concatenate((np.tile(ymean, (Np + 1, )), 
+                             np.tile(umean, (Np, ))))
+        xzstd = np.concatenate((np.tile(ystd, (Np + 1, )), 
+                            np.tile(ustd, (Np, ))))
+
 
         # Get initial state for forecasting.
         training_data = reac_parameters['training_data_dyn'][-1]
@@ -140,7 +145,7 @@ def main():
         yp0seq = training_data.y[tthrow-Np:tthrow, :].reshape(Np*Ny, )
         up0seq = training_data.u[tthrow-Np:tthrow, :].reshape(Np*Nu, )
         xz0 = np.concatenate((y0, yp0seq, up0seq))
-
+        
         # Get the black-box model parameters and function handles.
         hyb_pars = get_partialhybrid_pars(train=reac_hybtrain, 
                                           hyb_partialgb_pars=hyb_partialgb_pars)

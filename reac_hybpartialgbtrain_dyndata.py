@@ -35,7 +35,7 @@ def main():
     Np = 2
     tthrow = 10
     r1Dims = [1, 8, 1]
-    r2Dims = [1 + Np*(Nx + Nu), 8, 1]
+    r2Dims = [1 + Np*(Nx + Nu), 32, 1]
 
     # Lists.
     val_predictions = []
@@ -58,7 +58,7 @@ def main():
      trainval_data, val_data) = get_train_val_data(tthrow=tthrow, 
                                                    Np=Np, xuyscales=xuyscales, 
                                                    data_list=training_data,
-                                                unmeasGbx0_list=unmeasGbx0_list) 
+                                                unmeasGbx0_list=unmeasGbx0_list)     
     # Create model.
     model = create_model(r1Dims=r1Dims, r2Dims=r2Dims, 
                          Np=Np, xuyscales=xuyscales,
