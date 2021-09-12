@@ -196,7 +196,7 @@ def main():
     partialgbErrors = reac_partialgbRateAnalysis[0]
     xlabels = ['$\dfrac{|r_1 - r_{1-NN}|}{r_1}$',
                '$\dfrac{|r_2 - r_{2-NN}|}{r_2}$']
-    xlims_list = [[0., 0.05], [0., 0.05]]
+    xlims_list = [[0., 0.1], [0., 0.1]]
     legend_names = ['Hybrid-1', 'Hybrid-2']
     for reaction, xlabel, xlims in zip(['r1', 'r2'], 
                                        xlabels, xlims_list):
@@ -206,7 +206,7 @@ def main():
         figures += ReacPlots.plot_ErrorHistogram(rErrors=rErrors, 
                                                 xlabel=xlabel, ylabel='Frequency',
                                                 figure_size=PAPER_FIGSIZE, 
-                                                left_frac=0.12, nBins=1500, 
+                                                left_frac=0.12, nBins=2000, 
                                                 legend_names=legend_names,
                                                 xlims=xlims)
 
