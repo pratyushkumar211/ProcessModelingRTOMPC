@@ -104,7 +104,7 @@ def main():
         unmeasGbx0 = reac_hybtrain['unmeasGbx0_list'][-1][:, 0]
         unmeasGbx0 = unmeasGbx0*ystd[-1] + ymean[-1]
         x0 = np.concatenate((y0, unmeasGbx0))
-
+        
         # Steady state disturbance.
         ps = hyb_pars['ps']
         fxu = lambda x, u: fullhybrid_fxup(x, u, ps, hyb_pars)

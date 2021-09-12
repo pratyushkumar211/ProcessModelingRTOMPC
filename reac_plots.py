@@ -195,11 +195,10 @@ def main():
     fullgbErrors = reac_fullgbRateAnalysis[0]
     partialgbErrors = reac_partialgbRateAnalysis[0]
     xlabels = ['$\dfrac{|r_1 - r_{1-NN}|}{r_1}$',
-               '$\dfrac{|r_2 - r_{2-NN}|}{r_2}$',
-               '$\dfrac{|r_3 - r_{3-NN}|}{r_3}$']
-    xlims_list = [[0., 0.05], [0., 1.0], [0., 3.]]
+               '$\dfrac{|r_2 - r_{2-NN}|}{r_2}$']
+    xlims_list = [[0., 0.05], [0., 0.05]]
     legend_names = ['Hybrid-1', 'Hybrid-2']
-    for reaction, xlabel, xlims in zip(['r1', 'r2', 'r3'], 
+    for reaction, xlabel, xlims in zip(['r1', 'r2'], 
                                        xlabels, xlims_list):
 
         # Loop over the errors.
@@ -210,18 +209,6 @@ def main():
                                                 left_frac=0.12, nBins=1500, 
                                                 legend_names=legend_names,
                                                 xlims=xlims)
-
-    # One more plot for the -3r2 + r3 function.
-    rErrors = [partialgbErrors['r2r3LumpedErrors']]
-    xlabel = '$\dfrac{|-3r_2 + r_3 - (-3r_{2-NN}+r_{3-NN})|}{|-3r_2 + r_3|}$'
-    xlims = [0., 0.1]
-    legend_names = ['Hybrid - 2']
-    figures += ReacPlots.plot_ErrorHistogram(rErrors=rErrors, 
-                                            xlabel=xlabel, ylabel='Frequency',
-                                            figure_size=PAPER_FIGSIZE, 
-                                            left_frac=0.12, nBins=1500, 
-                                            legend_names=legend_names,
-                                            xlims=xlims)
 
     # # Make the 3D scatter plot.
     # errorsOnTrain = reac_rateAnalysis[2]

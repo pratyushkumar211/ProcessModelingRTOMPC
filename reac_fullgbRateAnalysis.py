@@ -28,10 +28,11 @@ def getRateErrorsOnTrainingData(*, training_data_dyn, r1Weights, r2Weights,
             
             # State at the current time.
             xt = data.x[t, :]
-            
+            Ca, Cb, Cc = xt[0], xt[1], xt[2]
+
             # True rates.
-            r1 = k1*xt[0]
-            r2 = k2f*(xt[1]**3) - k2b*(xt[2])
+            r1 = k1*Ca
+            r2 = k2f*(Cb**3) - k2b*Cc
 
             # NN rates.
             xt = (xt - xmean)/xstd
