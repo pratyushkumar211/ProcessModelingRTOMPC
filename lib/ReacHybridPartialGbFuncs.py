@@ -45,17 +45,15 @@ class ReacPartialGbCell(tf.keras.layers.AbstractRNNCell):
     dx_g/dt  = f_g(x_g, u) + (chosen functions).
     y = x_g
     r1 = NN1(Ca)
-    r2 = NN2(Cb)
-    r3 = NN3(z)
+    r2 = NN2(Cb, z)
     """
-    def __init__(self, r1Layers, r2Layers, r3Layers, Np, interpLayer,
+    def __init__(self, r1Layers, r2Layers, Np, interpLayer,
                        xuyscales, hyb_partialgb_pars, **kwargs):
         super(ReacPartialGbCell, self).__init__(**kwargs)
 
         # r1, r2, and r3 layers.
         self.r1Layers = r1Layers
         self.r2Layers = r2Layers
-        self.r3Layers = r3Layers
         self.interpLayer = interpLayer
 
         # Sizes.
@@ -81,7 +79,7 @@ class ReacPartialGbCell(tf.keras.layers.AbstractRNNCell):
 
     def _fxzu(self, x, z, u):
         """ dCa/dt = F*(Caf - Ca)/V - r1
-            dCb/dt = -F*Cb/V + r1 - 3*r2 + f_N(z)
+            dCb/dt = -F*Cb/V + r1 - 3*r2
         """
         
         # Extract the parameters.
@@ -96,8 +94,8 @@ class ReacPartialGbCell(tf.keras.layers.AbstractRNNCell):
         # Get the output of the neural network.
         Ca, Cb = x[..., 0:1], x[..., 1:2]
         r1 = fnnTf(Ca, self.r1Layers)*Castd
-        r2 = fnnTf(Cb, self.r2Layers)*Cbstd
-        r3 = fnnTf(z, self.r3Layers)*Cbstd
+        r2Input = tf.concat((Cb, z), axis=-1)
+        r2 = fnnTf(r2Input, self.r2Layers)*Cbstd
 
         # Scale back to physical states and control inputs.
         x = x*ystd + ymean
@@ -109,7 +107,7 @@ class ReacPartialGbCell(tf.keras.layers.AbstractRNNCell):
         
         # Write the ODEs.
         dCabydt = F*(Caf - Ca)/V - r1
-        dCbbydt = -F*Cb/V + r1 - 3*r2 + r3
+        dCbbydt = -F*Cb/V + r1 - 3*r2
 
         # Scaled derivate.
         xdot = tf.concat([dCabydt, dCbbydt], axis=-1)/ystd
@@ -166,8 +164,7 @@ class ReacPartialGbModel(tf.keras.Model):
     Partial model for the reaction system.
     """
     
-    def __init__(self, r1Dims, r2Dims, r3Dims,
-                       Np, xuyscales, hyb_partialgb_pars):
+    def __init__(self, r1Dims, r2Dims, Np, xuyscales, hyb_partialgb_pars):
         """ Create the dense layers for the NN, and 
             construct the overall model. """
 
@@ -182,13 +179,12 @@ class ReacPartialGbModel(tf.keras.Model):
         # Layers for the reactions.
         r1Layers = createDenseLayers(r1Dims)
         r2Layers = createDenseLayers(r2Dims)
-        r3Layers = createDenseLayers(r3Dims)
 
         # Interpolation layer for RK4 predictions.
         interpLayer = InterpolationLayer(Nx, Np)
 
         # Get the reac cell object.
-        reacCell = ReacPartialGbCell(r1Layers, r2Layers, r3Layers, Np,
+        reacCell = ReacPartialGbCell(r1Layers, r2Layers, Np,
                                      interpLayer, xuyscales, hyb_partialgb_pars)
 
         # Construct the RNN layer and get the predicted xseq.
@@ -201,14 +197,13 @@ class ReacPartialGbModel(tf.keras.Model):
         # Store the layers (to extract weights for use in numpy).
         self.r1Layers = r1Layers
         self.r2Layers = r2Layers
-        self.r3Layers = r3Layers
 
-def create_model(*, r1Dims, r2Dims, r3Dims, Np,
+def create_model(*, r1Dims, r2Dims, Np,
                     xuyscales, hyb_partialgb_pars):
     """ Create and compile the two reaction model for training. """
 
     # Create a model.
-    model = ReacPartialGbModel(r1Dims, r2Dims, r3Dims, Np, xuyscales,
+    model = ReacPartialGbModel(r1Dims, r2Dims, Np, xuyscales,
                                hyb_partialgb_pars)
 
     # Create a loss function and compile the model.
@@ -239,8 +234,7 @@ def train_model(*, model, epochs, batch_size, train_data,
                             trainval_data['outputs']),
             callbacks = [checkpoint_callback])
 
-def get_val_predictions(*, model, val_data, xuyscales,
-                           ckpt_path, Delta):
+def get_val_predictions(*, model, val_data, xuyscales, ckpt_path, Delta):
     """ Get the validation predictions. """
 
     # Load best weights.
@@ -281,7 +275,6 @@ def get_hybrid_pars(*, train, hyb_partialgb_pars):
     parameters = {}
     parameters['r1Weights'] = train['trained_r1Weights'][-1]
     parameters['r2Weights'] = train['trained_r2Weights'][-1]
-    parameters['r3Weights'] = train['trained_r3Weights'][-1]
     parameters['xuyscales'] = train['xuyscales']
 
     # Sizes.
@@ -317,7 +310,6 @@ def fxup(x, z, u, p, parameters):
     V = parameters['V']
     r1Weights = parameters['r1Weights']
     r2Weights = parameters['r2Weights']
-    r3Weights = parameters['r3Weights']
     
     # Get the scales.
     xuyscales = parameters['xuyscales']
@@ -328,8 +320,8 @@ def fxup(x, z, u, p, parameters):
     # Get NN reaction rates.
     Ca, Cb = x[0:1], x[1:2]
     r1 = fnn(Ca, r1Weights)*Castd
+    r2Input = np.concatenate((Cb, z))
     r2 = fnn(Cb, r2Weights)*Cbstd
-    r3 = fnn(z, r3Weights)*Cbstd
 
     # Scale states back to their physical values.
     x = x*ystd + ymean
@@ -339,7 +331,7 @@ def fxup(x, z, u, p, parameters):
 
     # Write the ODEs.
     dCabydt = F*(Caf-Ca)/V - r1
-    dCbbydt = -F*Cb/V + r1 - 3*r2 + r3
+    dCbbydt = -F*Cb/V + r1 - 3*r2
 
     # xdot.
     xdot = mpc.vcat([dCabydt, dCbbydt])/ystd

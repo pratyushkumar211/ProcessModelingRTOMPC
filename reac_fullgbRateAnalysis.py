@@ -8,7 +8,7 @@ from hybridId import PickleTool
 from BlackBoxFuncs import fnn
 
 def getRateErrorsOnTrainingData(*, training_data_dyn, r1Weights, r2Weights, 
-                                   r3Weights, xuyscales, k1, k2f, k2b):
+                                   xuyscales, k1, k2f, k2b):
     """ Get the relative errors on the training data. """
 
     # Scale.
@@ -87,7 +87,7 @@ def main():
 
     # Create a dictionary to save.
     rateAnalysisData = [errorsOnTrain]
-    
+
     # Make the plot.
     PickleTool.save(data_object=rateAnalysisData,
                     filename='reac_fullgbRateAnalysis.pickle')

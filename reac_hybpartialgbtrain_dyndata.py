@@ -35,15 +35,13 @@ def main():
     Np = 2
     tthrow = 10
     r1Dims = [1, 8, 1]
-    r2Dims = [1, 8, 1]
-    r3Dims = [Np*(Nx+Nu), 32, 1]
+    r2Dims = [1 + Np*(Nx + Nu), 8, 1]
 
     # Lists.
     val_predictions = []
     val_metrics = []
     trained_r1Weights = []
     trained_r2Weights = []
-    trained_r3Weights = []
 
     # Filenames.
     ckpt_path = 'reac_hybpartialgbtrain_dyndata.ckpt'
@@ -63,12 +61,11 @@ def main():
                                                 unmeasGbx0_list=unmeasGbx0_list) 
     # Create model.
     model = create_model(r1Dims=r1Dims, r2Dims=r2Dims, 
-                        r3Dims=r3Dims, Np=Np, 
-                        xuyscales=xuyscales, 
-                        hyb_partialgb_pars=hyb_partialgb_pars)
+                         Np=Np, xuyscales=xuyscales,
+                         hyb_partialgb_pars=hyb_partialgb_pars)
 
     # Train.
-    train_model(model=model, epochs=8000, batch_size=1, 
+    train_model(model=model, epochs=10, batch_size=1, 
                     train_data=train_data, trainval_data=trainval_data,
                     stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 
@@ -81,20 +78,17 @@ def main():
     # Get weights to store.
     r1Weights = get_weights(model.r1Layers)
     r2Weights = get_weights(model.r2Layers)
-    r3Weights = get_weights(model.r3Layers)
-
+    
     # Save info.
     val_predictions.append(val_prediction)
     val_metrics.append(val_metric)
     trained_r1Weights.append(r1Weights)
     trained_r2Weights.append(r2Weights)
-    trained_r3Weights.append(r3Weights)
 
     # Save the weights.
-    reac_train = dict(Np=Np, r1Dims=r1Dims, r2Dims=r2Dims, r3Dims=r3Dims,
+    reac_train = dict(Np=Np, r1Dims=r1Dims, r2Dims=r2Dims,
                       trained_r1Weights=trained_r1Weights,
                       trained_r2Weights=trained_r2Weights,
-                      trained_r3Weights=trained_r3Weights,
                       val_predictions=val_predictions,
                       val_metrics=val_metrics,
                       xuyscales=xuyscales)
