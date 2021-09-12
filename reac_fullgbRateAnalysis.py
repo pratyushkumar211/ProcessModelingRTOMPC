@@ -87,7 +87,7 @@ def main():
 
     # Create a dictionary to save.
     rateAnalysisData = [errorsOnTrain]
-
+    
     # Make the plot.
     PickleTool.save(data_object=rateAnalysisData,
                     filename='reac_fullgbRateAnalysis.pickle')
