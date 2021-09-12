@@ -6,8 +6,8 @@ def plant_ode(x, u, p, parameters):
 
     # Extract the parameters.
     k1 = parameters['k1']
-    k2 = parameters['k2']
-    k3 = parameters['k3']
+    k2f = parameters['k2f']
+    k2b = parameters['k2b']
     V = parameters['V']
 
     # Extract the plant states into meaningful names.
@@ -17,13 +17,12 @@ def plant_ode(x, u, p, parameters):
 
     # Rate laws.
     r1 = k1*Ca
-    r2 = k2*(Cb**3)
-    r3 = k3*Cc
-
+    r2 = k2f*(Cb**3) - k2b*Cc
+    
     # Write the ODEs.
     dCabydt = F*(Caf - Ca)/V - r1
-    dCbbydt = -F*Cb/V + r1 - 3*r2 + r3
-    dCcbydt = -F*Cc/V + r2 - r3
+    dCbbydt = -F*Cb/V + r1 - 3*r2
+    dCcbydt = -F*Cc/V + r2
 
     # Return.
     return mpc.vcat([dCabydt, dCbbydt, dCcbydt])
@@ -34,8 +33,8 @@ def get_plant_pars():
     # Parameters.
     parameters = {}
     parameters['k1'] = 2e-1 # m^3/min
-    parameters['k2'] = 5e-1 # m^3/min
-    parameters['k3'] = 1e-1 # m^3/min
+    parameters['k2f'] = 5e-1 # m^3/min
+    parameters['k2b'] = 1e-1 # m^3/min
     parameters['V'] = 15 # m^3
 
     # Store the dimensions.

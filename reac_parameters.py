@@ -91,7 +91,7 @@ def main():
                                             num_traj=6, Nsim_train=240,
                                             Nsim_trainval=240, Nsim_val=360,
                                             seed=0)
-    
+
     # Get the dictionary.
     reac_parameters = dict(plant_pars = plant_pars,
                            training_data_dyn = training_data_dyn,

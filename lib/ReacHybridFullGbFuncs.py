@@ -11,14 +11,13 @@ class ReacFullGbCell(tf.keras.layers.AbstractRNNCell):
     RNN Cell
     x_g^+ = f_g(x_g, u; NN(x_g))
     """
-    def __init__(self, r1Layers, r2Layers, r3Layers,
+    def __init__(self, r1Layers, r2Layers,
                        xuyscales, hyb_fullgb_pars, **kwargs):
         super(ReacFullGbCell, self).__init__(**kwargs)
         
         # Attributes.
         self.r1Layers = r1Layers
         self.r2Layers = r2Layers
-        self.r3Layers = r3Layers
         self.xuyscales = xuyscales
         self.hyb_fullgb_pars = hyb_fullgb_pars
 
@@ -40,8 +39,8 @@ class ReacFullGbCell(tf.keras.layers.AbstractRNNCell):
             for the two reaction model.
             
             dCa/dt = F*(Caf - Ca)/V - r1
-            dCb/dt = -F*Cb/V + r1 - 3*r2 + r3
-            dCc/dt = -F*Cc/V + r2 - r3
+            dCb/dt = -F*Cb/V + r1 - 3*r2
+            dCc/dt = -F*Cc/V + r2
         """
         
         # Extract the parameters (nominal value of unmeasured disturbance).
@@ -60,8 +59,8 @@ class ReacFullGbCell(tf.keras.layers.AbstractRNNCell):
 
         # Compute NN reaction rates.
         r1 = fnnTf(Ca, self.r1Layers)*Castd
-        r2 = fnnTf(Cb, self.r2Layers)*Cbstd
-        r3 = fnnTf(Cc, self.r3Layers)*Cbstd
+        r2Input = tf.concat((Cb, Cc), axis=-1)
+        r2 = fnnTf(r2Input, self.r2Layers)*Cbstd
 
         # Scale back to physical states and controls.
         Ca = Ca*Castd + Camean
@@ -71,8 +70,8 @@ class ReacFullGbCell(tf.keras.layers.AbstractRNNCell):
         
         # ODEs.
         dCabydt = F*(Caf - Ca)/V - r1
-        dCbbydt = -F*Cb/V + r1 - 3*r2 + r3
-        dCcbydt = -F*Cc/V + r2 - r3
+        dCbbydt = -F*Cb/V + r1 - 3*r2
+        dCcbydt = -F*Cc/V + r2
 
         # Get scaled derivate.
         xdot = tf.concat([dCabydt/Castd, dCbbydt/Cbstd, dCcbydt/Cbstd], axis=-1)
@@ -106,9 +105,9 @@ class ReacFullGbCell(tf.keras.layers.AbstractRNNCell):
         return (x, xplus)
 
 class ReacFullGbModel(tf.keras.Model):
-    """ Custom model for the Two reaction system. """
+    """ Custom model for the reaction system. """
     
-    def __init__(self, r1Dims, r2Dims, r3Dims, estCDims, 
+    def __init__(self, r1Dims, r2Dims, estCDims, 
                        Np, xuyscales, hyb_greybox_pars):
         """ Create the dense layers for the NN, and 
             construct the overall model. """
@@ -130,7 +129,6 @@ class ReacFullGbModel(tf.keras.Model):
         # Dense layers for the NN.
         r1Layers = createDenseLayers(r1Dims)
         r2Layers = createDenseLayers(r2Dims)
-        r3Layers = createDenseLayers(r3Dims)
 
         # Check if dimensions of a NN to estimate the initial 
         # condition of Cc is provided.
@@ -144,7 +142,7 @@ class ReacFullGbModel(tf.keras.Model):
             estCLayers = None
 
         # Get the reac cell object.
-        reacCell = ReacFullGbCell(r1Layers, r2Layers, r3Layers,
+        reacCell = ReacFullGbCell(r1Layers, r2Layers,
                                   xuyscales, hyb_greybox_pars)
 
         # Construct the RNN layer and get the predicted xseq.
@@ -160,15 +158,14 @@ class ReacFullGbModel(tf.keras.Model):
         # Store the layers (to extract weights for use in numpy).
         self.r1Layers = r1Layers
         self.r2Layers = r2Layers
-        self.r3Layers = r3Layers
         self.estCLayers = estCLayers
 
-def create_model(*, r1Dims, r2Dims, r3Dims, estCDims, Np,
+def create_model(*, r1Dims, r2Dims, estCDims, Np,
                     xuyscales, hyb_fullgb_pars):
     """ Create and compile the two reaction model for training. """
 
     # Create a model.
-    model = ReacFullGbModel(r1Dims, r2Dims, r3Dims, estCDims,
+    model = ReacFullGbModel(r1Dims, r2Dims, estCDims,
                             Np, xuyscales, hyb_fullgb_pars)
 
     # Compile.
@@ -200,8 +197,7 @@ def train_model(*, model, epochs, batch_size, train_data,
                             [trainval_data['outputs'], trainval_data['xseq']]),
             callbacks = [checkpoint_callback])
 
-def get_val_predictions(*, model, val_data, xuyscales,
-                                        ckpt_path, Delta):
+def get_val_predictions(*, model, val_data, xuyscales, ckpt_path, Delta):
     """ Get the validation predictions. """
 
     # Load best weights.
@@ -254,7 +250,6 @@ def get_hybrid_pars(*, train, hyb_fullgb_pars):
     parameters = {}
     parameters['r1Weights'] = train['trained_r1Weights'][-1]
     parameters['r2Weights'] = train['trained_r2Weights'][-1]
-    parameters['r3Weights'] = train['trained_r3Weights'][-1]
     parameters['estCWeights'] = train['trained_estCWeights'][-1]
     parameters['xuyscales'] = train['xuyscales']
 
@@ -288,7 +283,6 @@ def fxup(x, u, p, parameters):
     V = parameters['V']
     r1Weights = parameters['r1Weights']
     r2Weights = parameters['r2Weights']
-    r3Weights = parameters['r3Weights']
     
     # Get the scales.
     xuyscales = parameters['xuyscales']
@@ -299,10 +293,9 @@ def fxup(x, u, p, parameters):
     
     # Get NN reaction rates.
     x = (x - xmean)/xstd
-    Ca, Cb, Cc = x[0:1], x[1:2], x[2:3]
+    Ca, CbCc = x[0:1], x[1:3]
     r1 = fnn(Ca, r1Weights)*Castd
-    r2 = fnn(Cb, r2Weights)*Cbstd
-    r3 = fnn(Cc, r3Weights)*Cbstd
+    r2 = fnn(CbCc, r2Weights)*Cbstd
 
     # Scale the states back to physical variables 
     # and extract control input.
@@ -312,8 +305,8 @@ def fxup(x, u, p, parameters):
 
     # Write the ODEs.
     dCabydt = F*(Caf-Ca)/V - r1
-    dCbbydt = -F*Cb/V + r1 - 3*r2 + r3
-    dCcbydt = -F*Cc/V + r2 - r3
+    dCbbydt = -F*Cb/V + r1 - 3*r2
+    dCcbydt = -F*Cc/V + r2
 
     # Scale.
     xdot = mpc.vcat([dCabydt, dCbbydt, dCcbydt])
