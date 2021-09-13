@@ -77,7 +77,7 @@ def main():
                                       type='read')
     
     # Get Weights and scales.
-    Np = 2
+    Np = reac_hybtrain['Np']
     tthrow = 10
     xuyscales = reac_hybtrain['xuyscales']
     r1Weights = reac_hybtrain['trained_r1Weights'][-1]

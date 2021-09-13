@@ -33,7 +33,7 @@ def main():
     # Create some parameters.
     Np = 0
     tthrow = 10
-    r1Dims = [1, 4, 1]
+    r1Dims = [1, 8, 1]
     r2Dims = [1, 8, 1]
     estCDims = None #[Np*(Ny + Nu), 8, 1]
 
