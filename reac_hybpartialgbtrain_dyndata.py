@@ -32,10 +32,10 @@ def main():
     training_data = reac_parameters['training_data_dyn']
 
     # Create some parameters.
-    Np = 2
+    Np = 1
     tthrow = 10
-    r1Dims = [1, 8, 1]
-    r2Dims = [1 + Np*(Nx + Nu), 32, 1]
+    r1Dims = [1, 4, 1]
+    r2Dims = [1 + Np*(Nx + Nu), 4, 1]
 
     # Lists.
     val_predictions = []

@@ -12,7 +12,7 @@ from ReacHybridFullGbFuncs import (create_model, get_weights,
 
 # Set the tensorflow global and graph-level seed.
 tf.random.set_seed(123)
-np.random.seed(2)
+np.random.seed(3)
 
 def main():
     """ Main function to be executed. """
@@ -33,7 +33,7 @@ def main():
     # Create some parameters.
     Np = 0
     tthrow = 10
-    r1Dims = [1, 8, 1]
+    r1Dims = [1, 4, 1]
     r2Dims = [1, 8, 1]
     estCDims = None #[Np*(Ny + Nu), 8, 1]
 
@@ -65,7 +65,7 @@ def main():
      trainval_data, val_data) = get_train_val_data(tthrow=tthrow, 
                                                    Np=Np, xuyscales=xuyscales, 
                                                    data_list=training_data,
-                                                unmeasGbx0_list=unmeasGbx0_list) 
+                                                unmeasGbx0_list=unmeasGbx0_list)   
     # Create model.
     model = create_model(r1Dims=r1Dims, r2Dims=r2Dims, 
                          estCDims=estCDims, Np=Np, 
