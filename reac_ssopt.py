@@ -78,7 +78,7 @@ def main():
     hyb_partialgb_pars = reac_parameters['hyb_partialgb_pars']
 
     # Get cost function handle.
-    p = [100, 1300]
+    p = [100, 1000]
     lyu = lambda y, u: cost_yup(y, u, p)
 
     # Get the black-box model parameters and function handles.

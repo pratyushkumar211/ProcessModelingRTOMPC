@@ -96,14 +96,14 @@ def main():
                                    hyb_fullgb_pars=hyb_fullgb_pars)
 
         # If initial state was set using a NN.
-        # Cbmean, Cbstd = ymean[-1:], ystd[-1:]
-        # Cc0 = fnn(z0, hyb_pars['estCWeights'])*Cbstd + Cbmean
-        # x0 = np.concatenate((y0, Cc0))
+        Cbmean, Cbstd = ymean[-1:], ystd[-1:]
+        Cc0 = fnn(z0, hyb_pars['estCWeights'])*Cbstd + Cbmean
+        x0 = np.concatenate((y0, Cc0))
 
         # If initial state was chosen randomly.
-        unmeasGbx0 = reac_hybtrain['unmeasGbx0_list'][-1][:, 0]
-        unmeasGbx0 = unmeasGbx0*ystd[-1] + ymean[-1]
-        x0 = np.concatenate((y0, unmeasGbx0))
+        # unmeasGbx0 = reac_hybtrain['unmeasGbx0_list'][-1][:, 0]
+        # unmeasGbx0 = unmeasGbx0*ystd[-1] + ymean[-1]
+        # x0 = np.concatenate((y0, unmeasGbx0))
         
         # Steady state disturbance.
         ps = hyb_pars['ps']
