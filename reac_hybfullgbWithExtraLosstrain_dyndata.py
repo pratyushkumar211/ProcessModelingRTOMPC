@@ -7,8 +7,9 @@ import tensorflow as tf
 import time
 import numpy as np
 from hybridId import PickleTool, get_scaling, get_train_val_data
-from ReacHybridFullGbFuncs import (create_model, get_weights,
-                                   train_model, get_val_predictions)
+from ReacHybridFullGbFuncs import get_weights
+from ReacHybridFullGbFuncsWithExtraLoss import (create_model,
+                                            train_model, get_val_predictions)
 
 # Set the tensorflow global and graph-level seed.
 tf.random.set_seed(123)
@@ -33,9 +34,15 @@ def main():
     # Create some parameters.
     Np = 2
     tthrow = 10
-    r1Dims = [1, 8, 1]
-    r2Dims = [1, 8, 1]
-    estCDims = [Np*(Ny + Nu), 8, 1]
+    r1Dims = [1, 16, 1]
+    r2Dims = [1, 16, 1]
+    estCDims = [Np*(Ny + Nu), 64, 1]
+
+    # Parameters for the extra loss.
+    lam = 1
+    yi_list = [0, 1]
+    unmeasGbi_list = [2]
+    unmeasGbi_NN_list = [3]
 
     # Lists.
     val_predictions = []
@@ -45,8 +52,8 @@ def main():
     trained_estCWeights = []
 
     # Filenames.
-    ckpt_path = 'reac_hybfullgbtrain_dyndata.ckpt'
-    stdout_filename = 'reac_hybfullgbtrain_dyndata.txt'
+    ckpt_path = 'reac_hybfullgbWithExtraLosstrain_dyndata.ckpt'
+    stdout_filename = 'reac_hybfullgbWithExtraLosstrain_dyndata.txt'
 
     # Get scaling.
     xuyscales = get_scaling(data=training_data[0])
@@ -70,10 +77,13 @@ def main():
     model = create_model(r1Dims=r1Dims, r2Dims=r2Dims, 
                          estCDims=estCDims, Np=Np, 
                          xuyscales=xuyscales, 
-                         hyb_fullgb_pars=hyb_fullgb_pars)
+                         hyb_fullgb_pars=hyb_fullgb_pars, 
+                         lam=lam, yi_list=yi_list, 
+                         unmeasGbi_list=unmeasGbi_list, 
+                         unmeasGbi_NN_list=unmeasGbi_NN_list)
 
     # Train.
-    train_model(model=model, epochs=8000, batch_size=1, 
+    train_model(model=model, epochs=10, batch_size=1, 
                     train_data=train_data, trainval_data=trainval_data,
                     stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 
@@ -86,10 +96,7 @@ def main():
     # Get weights to store.
     r1Weights = get_weights(model.r1Layers)
     r2Weights = get_weights(model.r2Layers)
-    if estCDims is not None:
-        estCWeights = get_weights(model.estCLayers)
-    else:
-        estCWeights = None
+    estCWeights = get_weights(model.estCLayers)
 
     # Save info.
     val_predictions.append(val_prediction)
@@ -111,6 +118,6 @@ def main():
     
     # Save data.
     PickleTool.save(data_object=reac_train,
-                    filename='reac_hybfullgbtrain_dyndata.pickle')
+                    filename='reac_hybfullgbWithExtraLosstrain_dyndata.pickle')
 
 main()
