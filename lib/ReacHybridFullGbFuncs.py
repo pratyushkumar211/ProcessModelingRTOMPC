@@ -121,7 +121,8 @@ class ReacFullGbModel(tf.keras.Model):
         # If Np > 0, estCDims should be a list of estimator NN dimensions.
         assert Np == 0 and estCDims is None or Np > 0 and estCDims is not None
         Nz = Np*(Nu + Ny)
-        
+        self.Np = Np
+
         # Input layers to the model.
         useq = tf.keras.Input(name='u', shape=(None, Nu))
         xz0 = tf.keras.Input(name='xz0', shape=(Nx + Nz, ))
@@ -220,16 +221,49 @@ def get_val_predictions(*, model, val_data, xuyscales, ckpt_path, Delta):
     uval = val_data['inputs'].squeeze(axis=0)*ustd + umean
     Nt = uval.shape[0]
 
-    # Get scaled predictions.
+    # Get predictions. 
     ypredictions = ypredictions.squeeze(axis=0)*ystd + ymean
     xpredictions = xpredictions.squeeze(axis=0)*xstd + xmean
-
-    # Collect data in a Simdata format.
     Nt = uval.shape[0]
     tval = np.arange(0, Nt*Delta, Delta)
     pval = np.tile(np.nan, (Nt, 1))
-    val_predictions = SimData(t=tval, x=xpredictions, 
-                              u=uval, y=ypredictions, p=pval)
+    val_predictions = [SimData(t=tval, x=xpredictions, 
+                              u=uval, y=ypredictions, p=pval)]
+
+    # Get the predictions of C concentrations by the estimator NN model.
+    if model.estCLayers is not None:
+
+        # Get NN weights and create a list.
+        Np = model.Np
+        estC_predictions = [np.tile(np.nan, (1,)) for _ in range(Np)]
+        estCWeights = get_weights(model.estCLayers)
+
+        # Re-scale back the ypredictions and uval.
+        ypredictions = (ypredictions - ymean)/ystd
+        uval = (uval - umean)/ustd
+        Ny, Nu = len(ymean), len(umean)
+
+        # For loop over time to get predictions.
+        for t in range(Np, Nt):
+
+            ypseq = ypredictions[t-Np:t, :].reshape(Np*Ny, )
+            upseq = uval[t-Np:t, :].reshape(Np*Nu, )
+            z = np.concatenate((ypseq, upseq))
+            estC = fnn(z, estCWeights)
+            estC_predictions += [estC]
+
+        # Get scaled predictions.
+        Cbmean, Cbstd = ymean[-1:], ystd[-1:]
+        estC = np.array(estC_predictions)*Cbstd + Cbmean
+        uval = uval*ustd + umean
+
+        # Collect predictions.
+        Cxpredictions = np.concatenate((np.tile(np.nan, (Nt, Ny)), 
+                                        estC_predictions), axis=1)
+        Cypredictions = np.tile(np.nan, (Nt, Ny))
+        val_Cpredictions = SimData(t=tval, x=Cxpredictions, u=uval, 
+                                   y=Cypredictions, p=pval)
+        val_predictions += [val_Cpredictions]
 
     # Return.
     return (val_predictions, val_metric)

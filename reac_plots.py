@@ -129,8 +129,8 @@ def main():
         #                                     title_loc=None)
 
     # Plot validation data.
-    legend_names = ['Plant', 'Hybrid - 1', 'Hybrid - 2']
-    legend_colors = ['b', 'm', 'g']
+    legend_names = ['Plant', 'Hybrid-1', 'Hybrid-1-C', 'Hybrid - 2']
+    legend_colors = ['b', 'm', 'dimgrey', 'g']
     valdata_plant = reac_parameters['training_data_dyn'][-1]
     valdata_list = [valdata_plant]
     #valdata_list += bbnn_predictions
@@ -152,7 +152,7 @@ def main():
                                         legend_colors=legend_colors, 
                                         figure_size=PAPER_FIGSIZE, 
                                         ylabel_xcoordinate=-0.1, 
-                                        title_loc=(0.25, 0.9))
+                                        title_loc=(0.12, 0.9))
 
     # Plot validation metrics to show data requirements.
     #num_samples = reac_train['num_samples']

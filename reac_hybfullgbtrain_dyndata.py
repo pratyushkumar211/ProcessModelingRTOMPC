@@ -73,7 +73,7 @@ def main():
                          hyb_fullgb_pars=hyb_fullgb_pars)
 
     # Train.
-    train_model(model=model, epochs=8000, batch_size=1, 
+    train_model(model=model, epochs=4000, batch_size=1, 
                     train_data=train_data, trainval_data=trainval_data,
                     stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 
@@ -92,7 +92,7 @@ def main():
         estCWeights = None
 
     # Save info.
-    val_predictions.append(val_prediction)
+    val_predictions += val_prediction
     val_metrics.append(val_metric)
     trained_r1Weights.append(r1Weights)
     trained_r2Weights.append(r2Weights)
