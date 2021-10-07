@@ -10,15 +10,13 @@ from linNonlinMPC import get_model
 from reacFuncs import get_plant_pars, plant_ode
 from reacFuncs import get_hyb_pars
 
-def gen_train_val_data(*, parameters, num_traj,
-                          Nsim_train, Nsim_trainval, 
-                          Nsim_val, seed):
-    """ Simulate the plant model and generate training and validation data."""
+def gen_train_val_data(*, parameters, Nthrow, num_traj,
+                          Nsim_train, Nsim_trainval, Nsim_val, seed):
+    """ Generate data for training and validation. """
 
     # Create a list to store data and get some parameters.
     data_list = []
     ulb, uub = parameters['ulb'], parameters['uub']
-    tthrow = 10
     np.random.seed(seed) # (So that the first us is reproducible).
 
     # Steady state disturbance.
