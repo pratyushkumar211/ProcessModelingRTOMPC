@@ -699,30 +699,34 @@ class NonlinearPlantSimulator:
 #         self.xs += [xs]
 #         self.us += [us]
 
-def get_model(*, ode, parameters, plant=True):
-    """ Return a nonlinear plant simulator object."""
+def get_plant_model(*, ode, parameters, x0=None):
+    """ Return a nonlinear plant simulator object. """
 
-    # Some parameters.
+    # Sizes.
     Nx, Nu = parameters['Nx'], parameters['Nu']
     Np, Ny = parameters['Np'], parameters['Ny']
-    yindices = parameters['yindices']
-    xs = parameters['xs'][:, np.newaxis]
-    Delta = parameters['Delta']
 
-    # Function for ODE and measurement.
+    # Get steady state.
+    if x0 is None:
+        x0 = parameters['xs'][:, np.newaxis]
+    
+    # ODE function.
     ode_func = lambda x, u, p: ode(x, u, p, parameters)
+
+    # Measurement function.
+    yindices = parameters['yindices']
     meas_func = lambda x: x[yindices]
 
-    # Measurement noise.
-    if plant:
-        Rv = parameters['Rv']
-    else:
-        Rv = 0*np.eye(Ny)
+    # Measurement noise covariance.
+    Rv = parameters['Rv']
 
-    # Return a simulator object.
+    # Sample time.
+    Delta = parameters['Delta']
+
+    # Return.
     return NonlinearPlantSimulator(fxup=ode_func, hx=meas_func,
                                    Rv=Rv, Nx=Nx, Nu=Nu, Np=Np, Ny=Ny,
-                                   sample_time=Delta, x0=xs)
+                                   sample_time=Delta, x0=x0)
 
 # def arrayToMatrix(*arrays):
 #     """Convert nummpy arrays to cvxopt matrices."""
