@@ -49,9 +49,9 @@ def main():
     model = create_model(Np=Np, Ny=Ny, Nu=Nu, fNDims=fNDims)
     
     # Train.
-    train_model(model=model, epochs=10, batch_size=1, 
-                    train_data=train_data, trainval_data=trainval_data, 
-                    stdout_filename=stdout_filename, ckpt_path=ckpt_path)
+    train_model(model=model, epochs=10, batch_size=1,
+                train_data=train_data, trainval_data=trainval_data, 
+                stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 
     # Validate.
     val_prediction = get_val_predictions(model=model,

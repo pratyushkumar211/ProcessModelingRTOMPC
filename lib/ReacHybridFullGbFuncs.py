@@ -21,17 +21,20 @@ class ReacFullGbCell(tf.keras.layers.AbstractRNNCell):
         self.xuyscales = xuyscales
         self.hyb_fullgb_pars = hyb_fullgb_pars
 
+        # State size.
+        self.Nx = hyb_fullgb_pars['Ng']
+
     @property
     def state_size(self):
         """ Number of states in the model. """
         # Return.
-        return self.hyb_fullgb_pars['Nx']
+        return self.Nx
     
     @property
     def output_size(self):
         """ Number of outputs of the model. """
         # Return.
-        return self.hyb_fullgb_pars['Nx']
+        return self.Nx
 
     def _ode(self, x, u):
         """ Function to compute the 
@@ -154,7 +157,7 @@ class ReacFullGbModel(tf.keras.Model):
         # Store the layers (to extract weights for use in numpy).
         self.r1Layers = r1Layers
         self.r2Layers = r2Layers
-        self.estCLayers = estCLayers
+        self.estC0Layers = estC0Layers
 
 def create_model(*, r1Dims, r2Dims, Np, estC0Dims,
                     xuyscales, hyb_fullgb_pars):

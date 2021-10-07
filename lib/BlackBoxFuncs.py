@@ -61,13 +61,16 @@ def fnn(nnInput, nnWeights):
     # Return.
     return nnOutput
 
-def get_weights(layers):
+def get_weights_from_tflayers(layers):
     """ Function to get the weights from a list of layers. """
-    Weights = []
+    
+    # Get weights from layer lists.
+    weights = []
     for layer in layers:
-        Weights += layer.get_weights()
-    # Return weights.
-    return Weights
+        weights += layer.get_weights()
+    
+    # Return.
+    return weights
 
 class BlackBoxCell(tf.keras.layers.AbstractRNNCell):
     """
