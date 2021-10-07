@@ -15,33 +15,28 @@ tf.random.set_seed(123)
 
 def main():
     """ Main function to be executed. """
+
     # Load data.
     reac_parameters = PickleTool.load(filename='reac_parameters.pickle',
                                          type='read')
 
-    # Get sizes and raw training data.
+    # Sizes and sample time.
     plant_pars = reac_parameters['plant_pars']
     Ny, Nu = plant_pars['Ny'], plant_pars['Nu']
-    training_data = reac_parameters['training_data_dyn']
     Delta = plant_pars['Delta']
 
-    # Number of samples.
-    num_samples = [hours*60 for hours in [6]]
+    # Raw training data.
+    training_data = reac_parameters['training_data']
 
     # Create some parameters.
-    ypred_xinsert_indices = [2]
+    unmeasXindices = [2]
     tthrow = 10
-    Np = 1
+    Np = 2
     fNDims = [Ny + Nu + Np*(Ny+Nu), 16, Ny]
 
-    # Create lists to store data.
-    trained_weights = []
-    val_metrics = []
-    val_predictions = []
-
     # Filenames.
-    ckpt_path = 'reac_bbnntrain_dyndata.ckpt'
-    stdout_filename = 'reac_bbnntrain_dyndata.txt'
+    ckpt_path = 'reac_bbnntrain.ckpt'
+    stdout_filename = 'reac_bbnntrain.txt'
 
     # Get scaling and the training data.
     xuyscales = get_scaling(data=training_data[0])
@@ -68,33 +63,26 @@ def main():
                       stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 
         # Validate.
-        (val_prediction, val_metric) = get_val_predictions(model=model,
+        val_prediction = get_val_predictions(model=model,
                                         val_data=val_data, xuyscales=xuyscales, 
-                                        xinsert_indices=ypred_xinsert_indices, 
-                                        ckpt_path=ckpt_path, 
-                                        Delta=Delta)
+                                        unmeasXIndices=unmeasXindices, 
+                                        ckpt_path=ckpt_path, Delta=Delta)
 
         # Get weights to store.
         fNWeights = model.get_weights()
-
-        # Save info.
-        val_predictions.append(val_prediction)
-        val_metrics.append(val_metric)
-        trained_weights.append(fNWeights)
 
     # Num samples array for quick plotting.
     num_samples = np.asarray(num_samples) + trainval_data['inputs'].shape[1]
 
     # Save the weights.
     reac_train = dict(Np=Np, fNDims=fNDims,
-                         trained_weights=trained_weights,
-                         val_predictions=val_predictions,
-                         val_metrics=val_metrics,
-                         num_samples=num_samples,
-                         xuyscales=xuyscales)
+                        fNWeights=fNWeights,
+                        val_prediction=val_prediction,
+                        val_metrics=val_metrics,
+                        xuyscales=xuyscales)
     
     # Save data.
     PickleTool.save(data_object=reac_train,
-                    filename='reac_bbnntrain_dyndata.pickle')
+                    filename='reac_bbnntrain.pickle')
 
 main()

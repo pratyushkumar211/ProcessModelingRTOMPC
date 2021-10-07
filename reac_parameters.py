@@ -130,14 +130,14 @@ def main():
     Nx = plant_pars['Nx']
     x0lb = np.zeros((Nx, 1))
     x0ub = np.ones((Nx, 1))
-    training_data_dyn = gen_train_val_data(parameters=plant_pars, Ntz=Ntz,
-                                            num_traj=6, Nsim_train=240,
-                                            Nsim_trainval=240, Nsim_val=360,
-                                            x0lb=x0lb, x0ub=x0ub)
+    training_data = gen_train_val_data(parameters=plant_pars, Ntz=Ntz,
+                                        num_traj=6, Nsim_train=240,
+                                        Nsim_trainval=240, Nsim_val=360,
+                                        x0lb=x0lb, x0ub=x0ub)
 
     # Get the dictionary.
-    reac_parameters = dict(plant_pars = plant_pars,
-                           training_data_dyn = training_data_dyn,
+    reac_parameters = dict(plant_pars=plant_pars, Ntz=Ntz, 
+                           training_data=training_data,
                            hyb_fullgb_pars=hyb_fullgb_pars,
                            hyb_partialgb_pars=hyb_partialgb_pars)
     
