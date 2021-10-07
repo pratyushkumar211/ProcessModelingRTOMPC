@@ -25,14 +25,14 @@ def get_hyb_pars_for_training(*, plant_pars, hybtype=None):
 
     # Number of states based on model type.
     if hybtype == 'fullgb':
-        Nx = 3
+        Ng = 3
     elif hybtype == 'partialgb':
-        Nx = 2
+        Ng = 2
     else:
         raise ValueError("Model type not present")
 
     # Sizes.
-    parameters['Nx'] = Nx
+    parameters['Ng'] = Ng
     parameters['Nu'] = plant_pars['Nu']
     parameters['Ny'] = plant_pars['Ny']
     parameters['Np'] = plant_pars['Np']
