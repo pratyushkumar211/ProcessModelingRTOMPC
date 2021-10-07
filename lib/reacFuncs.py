@@ -64,34 +64,6 @@ def get_plant_pars():
     # Return the parameters dict.
     return parameters
 
-def get_hyb_pars(*, plant_pars, Nx):
-    """ GreyBox parameters for the partial hybrid model. """
-    
-    # Parameters.
-    parameters = {}
-    parameters['V'] = plant_pars['V'] # (volume of the reactor).
-
-    # Model dimensions.
-    parameters['Nx'] = Nx
-    parameters['Nu'] = plant_pars['Nu']
-    parameters['Ny'] = plant_pars['Ny']
-    parameters['Np'] = plant_pars['Np']
-
-    # Sample time.
-    parameters['Delta'] = plant_pars['Delta']
-
-    # Get the steady states.
-    parameters['xs'] = plant_pars['xs'][:Nx] # to be rectified.
-    parameters['us'] = plant_pars['us']
-    parameters['ps'] = plant_pars['ps']
-
-    # Get the constraints.
-    parameters['ulb'] = plant_pars['ulb']
-    parameters['uub'] = plant_pars['uub']
-
-    # Return the parameters dict.
-    return parameters
-
 def cost_yup(y, u, p):
     """ Economic stage cost. """
 
