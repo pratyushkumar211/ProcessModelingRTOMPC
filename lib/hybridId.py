@@ -46,32 +46,63 @@ def _sample_repeats(num_change, num_simulation_steps,
     repeat = np.append(repeat, num_simulation_steps-np.int(np.sum(repeat)))
     return repeat.astype(int)
 
-def sample_prbs_like(*, num_change, num_steps, 
-                        lb, ub, mean_change, sigma_change, 
-                        num_constraint=0, seed=1):
-    """ Sample a PRBS like sequence.
+def sample_prbs_like(*, num_change, num_steps,
+                        lb, ub, mean_change, sigma_change):
+    """
+    Sample a PRBS like sequence.
     num_change: Number of changes in the signal.
-    num_steps: Number of steps in the signal.
+    num_simulation_steps: Number of steps in the signal.
     mean_change: mean_value after which a 
                  change in the signal is desired.
     sigma_change: standard deviation of changes in the signal.
     """
+
+    # Signal dimension.
     signal_dimension = lb.shape[0]
-    lb = lb.squeeze() # Squeeze the vectors.
-    ub = ub.squeeze() # Squeeze the vectors.
-    np.random.seed(seed) # Seed for numpy.
-    random.seed(seed) # Seed for the random package.
+
+    # Squeeze bounds so that the signals are 1D arrays.
+    lb = lb.squeeze()
+    ub = ub.squeeze()
+    
+    # Sample values.
     values = (ub-lb)*np.random.rand(num_change, signal_dimension) + lb
-    # Sample some values at constraints.
-    if num_constraint > 0:
-        assert num_constraint % 2 == 0
-        assert num_constraint < num_change
-        constraint_indices = random.sample(range(0, num_change), num_constraint)
-        values[constraint_indices[:num_constraint//2]] = ub
-        values[constraint_indices[num_constraint//2:]] = lb        
+
+    # Sample how many times each value should be repeated.
     repeat = _sample_repeats(num_change, num_steps,
                              mean_change, sigma_change)
-    return np.repeat(values, repeat, axis=0)
+
+    # Get the signal.
+    signal = np.repeat(values, repeat, axis=0)
+
+    # Return.
+    return signal
+
+# def sample_prbs_like(*, num_change, num_steps, 
+#                         lb, ub, mean_change, sigma_change, 
+#                         num_constraint=0, seed=1):
+#     """ Sample a PRBS like sequence.
+#     num_change: Number of changes in the signal.
+#     num_steps: Number of steps in the signal.
+#     mean_change: mean_value after which a 
+#                  change in the signal is desired.
+#     sigma_change: standard deviation of changes in the signal.
+#     """
+#     signal_dimension = lb.shape[0]
+#     lb = lb.squeeze() # Squeeze the vectors.
+#     ub = ub.squeeze() # Squeeze the vectors.
+#     np.random.seed(seed) # Seed for numpy.
+#     random.seed(seed) # Seed for the random package.
+#     values = (ub-lb)*np.random.rand(num_change, signal_dimension) + lb
+#     # Sample some values at constraints.
+#     if num_constraint > 0:
+#         assert num_constraint % 2 == 0
+#         assert num_constraint < num_change
+#         constraint_indices = random.sample(range(0, num_change), num_constraint)
+#         values[constraint_indices[:num_constraint//2]] = ub
+#         values[constraint_indices[num_constraint//2:]] = lb        
+#     repeat = _sample_repeats(num_change, num_steps,
+#                              mean_change, sigma_change)
+#     return np.repeat(values, repeat, axis=0)
 
 def get_noisy_drift_signal(*, t0val, tfval, noise_Rv, num_steps, seed=2):
     """ Get a noisy drift signal. """
