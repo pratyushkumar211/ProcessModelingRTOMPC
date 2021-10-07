@@ -23,9 +23,11 @@ def main():
                                       'reac_parameters.pickle',
                                       type='read')
 
-    # Get sizes/raw training data.
+    # Sample time and parameters.
     Delta = reac_parameters['plant_pars']['Delta']
     hyb_fullgb_pars = reac_parameters['hyb_fullgb_pars']
+
+    # Sizes.
     Nu = hyb_fullgb_pars['Nu']
     Ny = hyb_fullgb_pars['Ny']
 
