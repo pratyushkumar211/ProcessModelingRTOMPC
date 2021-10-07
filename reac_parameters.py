@@ -6,68 +6,82 @@ sys.path.append('lib/')
 import numpy as np
 from hybridId import PickleTool, sample_prbs_like, SimData
 from hybridId import get_rectified_xs
-from linNonlinMPC import get_model
+from linNonlinMPC import get_plant_model
 from reacFuncs import get_plant_pars, plant_ode
 from reacFuncs import get_hyb_pars
 
-def gen_train_val_data(*, parameters, Nthrow, num_traj,
+def gen_train_val_data(*, parameters, Ntz, num_traj,
                           Nsim_train, Nsim_trainval, Nsim_val, seed):
     """ Generate data for training and validation. """
 
-    # Create a list to store data and get some parameters.
-    data_list = []
-    ulb, uub = parameters['ulb'], parameters['uub']
-    np.random.seed(seed) # (So that the first us is reproducible).
+    # Numpy seed.
+    np.random.seed(seed)
 
-    # Steady state disturbance.
-    Np = parameters['Np']
+    # Sizes.
+    Nx, Np = parameters['Nx'], parameters['Np']
+
+    # Initial concentration limits.
+    x0lb, x0ub = np.zeros((Nx, )), np.ones((Nx, ))
+
+    # List to store simdata objects.
+    data_list = []
+
+    # Input constraint limits.
+    ulb, uub = parameters['ulb'], parameters['uub']
+
+    # Steady-state disturbance.
     ps = parameters['ps'][:, np.newaxis]
 
-    # Start to generate data.
+    # Loop over the number of trajectories.
     for traj in range(num_traj):
         
-        # Get the plant and initial steady input.
-        plant = get_model(ode=plant_ode, parameters=parameters, plant=True)
-        us_init = np.tile(np.random.uniform(ulb, uub), (tthrow, 1))
+        # Get a random initial state.
+        x0 = (x0ub - x0lb)*np.random.rand((Nx, 1)) + x0lb
+
+        # Get a plant simulator object.
+        plant = get_model(ode=plant_ode, parameters=parameters, x0=x0)
         
         # Get input trajectories for different simulations.
         if traj == num_traj-1:
-            " Get input for train val simulation. "
-            Nsim = Nsim_val
-            u = sample_prbs_like(num_change=9, num_steps=Nsim_val, 
-                                 lb=ulb, ub=uub,
-                                 mean_change=40, sigma_change=5,
-                                 num_constraint=2, seed=seed+1)
-        elif traj == num_traj-2:
-            " Get input for validation simulation. "
-            Nsim = Nsim_trainval
-            u = sample_prbs_like(num_change=6, num_steps=Nsim_trainval, 
-                                 lb=ulb, ub=uub,
-                                 mean_change=40, sigma_change=5, 
-                                 num_constraint=2, seed=seed+4)
-        else:
-            " Get input for training simulation. "
-            Nsim = Nsim_train
-            u = sample_prbs_like(num_change=6, num_steps=Nsim_train, 
-                                 lb=ulb, ub=uub,
-                                 mean_change=40, sigma_change=5, 
-                                 num_constraint=2, seed=seed+7)
-        
-        # Get the disturbance signal.
-        p = np.tile(ps.T, (tthrow + Nsim, Np))
-        seed += 1
 
-        # Complete input profile and run open-loop simulation.
-        u = np.concatenate((us_init, u), axis=0)
-        for t in range(tthrow + Nsim):
+            " Get input for train val simulation. "
+            Nsim = Ntz + Nsim_val
+            u = sample_prbs_like(num_change=9, num_steps=Nsim, 
+                                 lb=ulb, ub=uub,
+                                 mean_change=40, sigma_change=5)
+
+        elif traj == num_traj-2:
+
+            " Get input for validation simulation. "
+            Nsim = Ntz + Nsim_trainval
+            u = sample_prbs_like(num_change=6, num_steps=Nsim, 
+                                 lb=ulb, ub=uub,
+                                 mean_change=40, sigma_change=5)
+
+        else:
+
+            " Get input for training simulation. "
+            Nsim = Ntz + Nsim_train
+            u = sample_prbs_like(num_change=6, num_steps=Nsim,
+                                 lb=ulb, ub=uub,
+                                 mean_change=40, sigma_change=5)
+        
+        # Create the steady-state disturbance signal.
+        p = np.tile(ps.T, (Nsim, Np))
+
+        # Run open-loop simulation.
+        for t in range(Nsim):
             plant.step(u[t:t+1, :], p[t:t+1, :])
 
-        # Create a simdata.
-        data_list.append(SimData(t=np.asarray(plant.t[0:-1]).squeeze(),
-                                x=np.asarray(plant.x[0:-1]).squeeze(),
-                                u=np.asarray(plant.u).squeeze(axis=-1),
-                                y=np.asarray(plant.y[0:-1]).squeeze(), 
-                                p=np.asarray(plant.p).squeeze(axis=-1)))
+        # Create a simdata object.
+        simdata = SimData(t=np.asarray(plant.t[0:-1]).squeeze(axis=-1),
+                            x=np.asarray(plant.x[0:-1]).squeeze(axis=-1),
+                            u=np.asarray(plant.u).squeeze(axis=-1),
+                            y=np.asarray(plant.y[0:-1]).squeeze(axis=-1), 
+                            p=np.asarray(plant.p).squeeze(axis=-1))
+
+        # Append data to a list.
+        data_list += [simdata]
 
     # Return.
     return data_list
