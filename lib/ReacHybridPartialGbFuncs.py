@@ -10,30 +10,30 @@ class InterpolationLayer(tf.keras.layers.Layer):
     """
     The layer to perform interpolation for RK4 predictions.
     Nvar: Number of variables.
-    Np + 1: Number of variables.
+    Nt: Number of time steps in the signal. 
     """
-    def __init__(self, Nvar, Np, trainable=False, name=None):
+    def __init__(self, Nvar, Nt, trainable=False, name=None):
         super(InterpolationLayer, self).__init__(trainable, name)
         self.Nvar = Nvar
-        self.Np = Np
+        self.Nt = Nt
 
     def call(self, yseq):
         """ The main call function of the interpolation layer.
-            yseq is of dimension: (None, (Np+1)*Nvar)
-            Return y of dimension: (None, Np*Nvar)
+            yseq is of dimension: (None, Nt*Nvar)
+            Return y of dimension: (None, (Nt-1)*Nvar)
         """
         yseq_interp = []
-        for t in range(self.Np):
+        for t in range(self.Nt-1):
             yseq_interp += [0.5*(yseq[..., t*self.Nvar:(t+1)*self.Nvar] + 
                                  yseq[..., (t+1)*self.Nvar:(t+2)*self.Nvar])]
         # Return.
         return tf.concat(yseq_interp, axis=-1)
 
-def getInterpolatedVals(yseq, Nvar, Np):
-    """ y is of dimension: (None, (Np+1)*Nvar)
-        Return y of dimension: (None, Np*Nvar). """
+def getInterpolatedVals(yseq, Nvar, Nt):
+    """ y is of dimension: (None, Nt*Nvar)
+        Return y of dimension: (None, (Nt-1)*Nvar). """
     yseq_interp = []
-    for t in range(Np):
+    for t in range(Nt-1):
         yseq_interp += [0.5*(yseq[t*Nvar:(t+1)*Nvar] + 
                              yseq[(t+1)*Nvar:(t+2)*Nvar])]
     # Return.
@@ -59,9 +59,9 @@ class ReacPartialGbCell(tf.keras.layers.AbstractRNNCell):
         # Sizes.
         assert Np > 0
         self.Np = Np
-        self.Nx = hyb_partialgb_pars['Nx']
         self.Nu = hyb_partialgb_pars['Nu']
         self.Ny = hyb_partialgb_pars['Ny']
+        self.Nx = hyb_partialgb_pars['Ng'] + self.Np*(self.Nu + self.Ny)
 
         # xuyscales and hybrid parameters.
         self.xuyscales = xuyscales
@@ -70,7 +70,7 @@ class ReacPartialGbCell(tf.keras.layers.AbstractRNNCell):
     @property
     def state_size(self):
         """ State size of the model. """
-        return self.Nx + self.Np*(self.Ny + self.Nu)
+        return self.Nx
     
     @property
     def output_size(self):
@@ -109,7 +109,7 @@ class ReacPartialGbCell(tf.keras.layers.AbstractRNNCell):
         dCabydt = F*(Caf - Ca)/V - r1
         dCbbydt = -F*Cb/V + r1 - 3*r2
 
-        # Scaled derivate.
+        # Scaled derivative.
         xdot = tf.concat([dCabydt, dCbbydt], axis=-1)/ystd
 
         # Return the derivative.

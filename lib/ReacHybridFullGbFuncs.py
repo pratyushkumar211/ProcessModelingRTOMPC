@@ -33,7 +33,7 @@ class ReacFullGbCell(tf.keras.layers.AbstractRNNCell):
         # Return.
         return self.hyb_fullgb_pars['Nx']
 
-    def _fxu(self, x, u):
+    def _ode(self, x, u):
         """ Function to compute the 
             derivative (RHS of the ODE)
             for the two reaction model.
@@ -43,7 +43,7 @@ class ReacFullGbCell(tf.keras.layers.AbstractRNNCell):
             dCc/dt = -F*Cc/V + r2
         """
         
-        # Extract the parameters (nominal value of unmeasured disturbance).
+        # Extract hybrid model parameters.
         F = self.hyb_fullgb_pars['ps'].squeeze()
         V = self.hyb_fullgb_pars['V']
 
@@ -93,10 +93,10 @@ class ReacFullGbCell(tf.keras.layers.AbstractRNNCell):
         Delta = self.hyb_fullgb_pars['Delta']
 
         # Get k1, k2, k3, and k4.
-        k1 = self._fxu(x, u)
-        k2 = self._fxu(x + Delta*(k1/2), u)
-        k3 = self._fxu(x + Delta*(k2/2), u)
-        k4 = self._fxu(x + Delta*k3, u)
+        k1 = self._ode(x, u)
+        k2 = self._ode(x + Delta*(k1/2), u)
+        k3 = self._ode(x + Delta*(k2/2), u)
+        k4 = self._ode(x + Delta*k3, u)
         
         # Get the state at the next time step.
         xplus = x + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
@@ -107,66 +107,61 @@ class ReacFullGbCell(tf.keras.layers.AbstractRNNCell):
 class ReacFullGbModel(tf.keras.Model):
     """ Custom model for the reaction system. """
     
-    def __init__(self, r1Dims, r2Dims, estCDims, 
-                       Np, xuyscales, hyb_greybox_pars):
-        """ Create the dense layers for the NN, and 
+    def __init__(self, r1Dims, r2Dims, estC0Dims, 
+                       Np, xuyscales, hyb_fullgb_pars):
+        """ Create dense layers for the NN, and 
             construct the overall model. """
 
-        # Sizes.
-        Nx = hyb_greybox_pars['Nx']
-        Nu = hyb_greybox_pars['Nu']
-        Ny = hyb_greybox_pars['Ny']
+        # If Np == 0 and estC0Dims should be None.
+        errorMessage = "Provide Np > 0 and estC0Dims"
+        assert Np > 0 and estC0Dims is not None, errorMessage
 
-        # If Np == 0, estCDims should be None.
-        # If Np > 0, estCDims should be a list of estimator NN dimensions.
-        assert Np == 0 and estCDims is None or Np > 0 and estCDims is not None
+        # Get sizes.
+        Nx = hyb_fullgb_pars['Ng']
+        Nu = hyb_fullgb_pars['Nu']
+        Ny = hyb_fullgb_pars['Ny']
         Nz = Np*(Nu + Ny)
         self.Np = Np
 
         # Input layers to the model.
         useq = tf.keras.Input(name='u', shape=(None, Nu))
-        xz0 = tf.keras.Input(name='xz0', shape=(Nx + Nz, ))
+        yz0 = tf.keras.Input(name='yz0', shape=(Ny + Nz, ))
         
         # Dense layers for the NN.
         r1Layers = createDenseLayers(r1Dims)
         r2Layers = createDenseLayers(r2Dims)
 
-        # Check if dimensions of a NN to estimate the initial 
-        # condition of Cc is provided.
-        if estCDims is not None:
-            estCLayers = createDenseLayers(estCDims)
-            y0, _, z0 = tf.split(xz0, [Ny, Nx-Ny, Nz], axis=1)
-            Cc0 = fnnTf(z0, estCLayers)
-            x0 = tf.concat((y0, Cc0), axis=-1)
-        else:
-            x0 = xz0
-            estCLayers = None
+        # Get initial state using the NN to make the multi-step ahead forecast.
+        estC0Layers = createDenseLayers(estC0Dims)
+        y0, z0 = tf.split(yz0, [Ny, Nz], axis=1)
+        Cc0 = fnnTf(z0, estC0Layers)
+        x0 = tf.concat((y0, Cc0), axis=-1)
 
         # Get the reac cell object.
         reacCell = ReacFullGbCell(r1Layers, r2Layers,
-                                  xuyscales, hyb_greybox_pars)
+                                  xuyscales, hyb_fullgb_pars)
 
         # Construct the RNN layer and get the predicted xseq.
         reacLayer = tf.keras.layers.RNN(reacCell, return_sequences = True)
         xseq = reacLayer(inputs = useq, initial_state = [x0])
 
-        # Just get the yseq.
+        # Extract yseq.
         yseq, _ = tf.split(xseq, [Ny, Nx-Ny], axis=-1)
 
         # Construct model.
-        super().__init__(inputs = [useq, xz0], outputs = [yseq, xseq])
+        super().__init__(inputs = [useq, yz0], outputs = [yseq, xseq])
 
         # Store the layers (to extract weights for use in numpy).
         self.r1Layers = r1Layers
         self.r2Layers = r2Layers
         self.estCLayers = estCLayers
 
-def create_model(*, r1Dims, r2Dims, estCDims, Np,
+def create_model(*, r1Dims, r2Dims, Np, estC0Dims,
                     xuyscales, hyb_fullgb_pars):
     """ Create and compile the two reaction model for training. """
 
     # Create a model.
-    model = ReacFullGbModel(r1Dims, r2Dims, estCDims,
+    model = ReacFullGbModel(r1Dims, r2Dims, estC0Dims,
                             Np, xuyscales, hyb_fullgb_pars)
 
     # Compile.
@@ -191,11 +186,11 @@ def train_model(*, model, epochs, batch_size, train_data,
                                                         verbose=1)
     
     # Call the fit method to train.
-    model.fit(x = [train_data['inputs'], train_data['xz0']], 
-              y = [train_data['outputs'], train_data['xseq']],
+    model.fit(x = [train_data['useq'], train_data['yz0']], 
+              y = [train_data['yseq'], train_data['xseq']],
               epochs = epochs, batch_size = batch_size,
-        validation_data = ([trainval_data['inputs'], trainval_data['xz0']], 
-                            [trainval_data['outputs'], trainval_data['xseq']]),
+        validation_data = ([trainval_data['useq'], trainval_data['yz0']], 
+                            [trainval_data['yseq'], trainval_data['xseq']]),
             callbacks = [checkpoint_callback])
 
 def get_val_predictions(*, model, val_data, xuyscales, ckpt_path, Delta):
@@ -205,97 +200,46 @@ def get_val_predictions(*, model, val_data, xuyscales, ckpt_path, Delta):
     model.load_weights(ckpt_path)
 
     # Predict.
-    ypredictions, xpredictions = model.predict(x=[val_data['inputs'], 
-                                                  val_data['xz0']])
-
-    # Compute val metric.
-    val_metric = model.evaluate(x = [val_data['inputs'], val_data['xz0']], 
-                                y = [val_data['outputs'], val_data['xseq']])[0]
+    ypred, xpred = model.predict(x=[val_data['useq'], val_data['yz0']])
 
     # Scale.
     xmean, xstd = xuyscales['xscale']
     umean, ustd = xuyscales['uscale']
     ymean, ystd = xuyscales['yscale']
 
-    # Validation input sequence.
-    uval = val_data['inputs'].squeeze(axis=0)*ustd + umean
-    Nt = uval.shape[0]
-
-    # Get predictions. 
-    ypredictions = ypredictions.squeeze(axis=0)*ystd + ymean
-    xpredictions = xpredictions.squeeze(axis=0)*xstd + xmean
+    # Get predictions.
+    uval = val_data['useq'].squeeze(axis=0)*ustd + umean
+    ypred = ypred.squeeze(axis=0)*ystd + ymean
+    xpred = xpred.squeeze(axis=0)*xstd + xmean
     Nt = uval.shape[0]
     tval = np.arange(0, Nt*Delta, Delta)
     pval = np.tile(np.nan, (Nt, 1))
-    val_predictions = [SimData(t=tval, x=xpredictions, 
-                              u=uval, y=ypredictions, p=pval)]
 
-    # Get the predictions of C concentrations by the estimator NN model.
-    if model.estCLayers is not None:
-
-        # Get NN weights and create a list.
-        Np = model.Np
-        estC_predictions = [np.tile(np.nan, (1,)) for _ in range(Np)]
-        estCWeights = get_weights(model.estCLayers)
-
-        # Re-scale back the ypredictions and uval.
-        ypredictions = (ypredictions - ymean)/ystd
-        uval = (uval - umean)/ustd
-        Ny, Nu = len(ymean), len(umean)
-
-        # For loop over time to get predictions.
-        for t in range(Np, Nt):
-
-            ypseq = ypredictions[t-Np:t, :].reshape(Np*Ny, )
-            upseq = uval[t-Np:t, :].reshape(Np*Nu, )
-            z = np.concatenate((ypseq, upseq))
-            estC = fnn(z, estCWeights)
-            estC_predictions += [estC]
-
-        # Get scaled predictions.
-        Cbmean, Cbstd = ymean[-1:], ystd[-1:]
-        estC = np.array(estC_predictions)*Cbstd + Cbmean
-        uval = uval*ustd + umean
-
-        # Collect predictions.
-        Cxpredictions = np.concatenate((np.tile(np.nan, (Nt, Ny)), 
-                                        estC_predictions), axis=1)
-        Cypredictions = np.tile(np.nan, (Nt, Ny))
-        val_Cpredictions = SimData(t=tval, x=Cxpredictions, u=uval, 
-                                   y=Cypredictions, p=pval)
-        val_predictions += [val_Cpredictions]
+    # Collect the predictions in a simdata format.
+    valPredData = SimData(t=tval, x=xpred, u=uval, y=ypred, p=pval)
 
     # Return.
-    return (val_predictions, val_metric)
+    return valPredData
 
-def get_weights(layers):
-    """ Function to get the weights from a list 
-        of layers. """
-    Weights = []
-    for layer in layers:
-        Weights += layer.get_weights()
-    # Return weights.
-    return Weights
+def get_hybrid_pars(*, train, hyb_fullgb_pars, plant_pars):
+    """ Get model weights in a dictionary for use in optimization. """
 
-def get_hybrid_pars(*, train, hyb_fullgb_pars):
-    """ Get the black-box parameter dict and function handles. """
-
-    # Get black-box model parameters.
+    # Model weights and scaling.
     parameters = {}
-    parameters['r1Weights'] = train['trained_r1Weights'][-1]
-    parameters['r2Weights'] = train['trained_r2Weights'][-1]
-    parameters['estCWeights'] = train['trained_estCWeights'][-1]
+    parameters['r1Weights'] = train['r1Weights']
+    parameters['r2Weights'] = train['r2Weights']
+    parameters['estC0Weights'] = train['estC0Weights']
     parameters['xuyscales'] = train['xuyscales']
 
     # Sizes.
     parameters['Nx'] = hyb_fullgb_pars['Nx']
-    parameters['Ny'] = hyb_fullgb_pars['Ny']
     parameters['Nu'] = hyb_fullgb_pars['Nu']
+    parameters['Ny'] = hyb_fullgb_pars['Ny']
     parameters['Np'] = train['Np']
 
-    # Constraints.
-    parameters['ulb'] = hyb_fullgb_pars['ulb']
-    parameters['uub'] = hyb_fullgb_pars['uub']
+    # State and input constraints.
+    parameters['ulb'] = plant_pars['ulb']
+    parameters['uub'] = plant_pars['uub']
     
     # Greybox model parameters.
     parameters['ps'] = hyb_fullgb_pars['ps']

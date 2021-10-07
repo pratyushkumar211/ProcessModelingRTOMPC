@@ -51,7 +51,7 @@ def get_plant_pars():
     parameters['us'] = np.array([2.0]) # mol/m^3
     parameters['ps'] = np.array([0.8]) # m^3/min
 
-    # Get the constraints.
+    # Input constraints.
     ulb = np.array([1.0])
     uub = np.array([3.0])
     parameters['ulb'] = ulb

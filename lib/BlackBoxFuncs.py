@@ -61,6 +61,14 @@ def fnn(nnInput, nnWeights):
     # Return.
     return nnOutput
 
+def get_weights(layers):
+    """ Function to get the weights from a list of layers. """
+    Weights = []
+    for layer in layers:
+        Weights += layer.get_weights()
+    # Return weights.
+    return Weights
+
 class BlackBoxCell(tf.keras.layers.AbstractRNNCell):
     """
     RNN Cell
@@ -208,7 +216,7 @@ def get_bbnn_pars(*, train, plant_pars):
     # Get black-box model parameters.
     parameters = {}
     parameters['Np'] = train['Np']
-    parameters['fNWeights'] = train['trained_weights'][-1]
+    parameters['fNWeights'] = train['fNweights']
     parameters['xuyscales'] = train['xuyscales']
 
     # Get sizes.
