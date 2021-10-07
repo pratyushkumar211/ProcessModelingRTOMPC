@@ -59,9 +59,10 @@ class ReacPartialGbCell(tf.keras.layers.AbstractRNNCell):
         # Sizes.
         assert Np > 0
         self.Np = Np
+        self.Ng = hyb_partialgb_pars['Ng']
         self.Nu = hyb_partialgb_pars['Nu']
         self.Ny = hyb_partialgb_pars['Ny']
-        self.Nx = hyb_partialgb_pars['Ng'] + self.Np*(self.Nu + self.Ny)
+        self.Nx = self.Ng + self.Np*(self.Nu + self.Ny)
 
         # xuyscales and hybrid parameters.
         self.xuyscales = xuyscales
@@ -77,7 +78,7 @@ class ReacPartialGbCell(tf.keras.layers.AbstractRNNCell):
         """ Number of outputs of the model. """
         return self.Ny
 
-    def _fxzu(self, x, z, u):
+    def _ode(self, x, z, u):
         """ dCa/dt = F*(Caf - Ca)/V - r1
             dCb/dt = -F*Cb/V + r1 - 3*r2
         """
@@ -117,42 +118,42 @@ class ReacPartialGbCell(tf.keras.layers.AbstractRNNCell):
 
     def call(self, inputs, states):
         """ Call function of the hybrid RNN cell.
-            Dimension of states: (None, Nx + Np*(Ny + Nu))
+            Dimension of states: (None, Ng + Np*(Ny + Nu))
             Dimension of input: (None, Nu)
         """
 
-        # Extract states/inputs.
+        # Extract states and inputs.
         [xz] = states
         u = inputs
 
-        # Extract y, ypast, and upast.
-        (x, z) = tf.split(xz, [self.Nx, self.Np*(self.Nx + self.Nu)], 
+        # Extract x, xpast, and upast.
+        (x, z) = tf.split(xz, [self.Ng, self.Np*(self.Ng + self.Nu)], 
                           axis=-1)
-        (xpseq, upseq) = tf.split(z, [self.Np*self.Nx, self.Np*self.Nu],
+        (xpseq, upseq) = tf.split(z, [self.Np*self.Ng, self.Np*self.Nu],
                                   axis=-1)
 
         # Sample time.
         Delta = self.hyb_partialgb_pars['Delta']
         
         # Get k1.
-        k1 = self._fxzu(x, z, u)
+        k1 = self._ode(x, z, u)
         
         # Get k2.
         xpseq_k2k3 = self.interpLayer(tf.concat((xpseq, x), axis=-1))
         z = tf.concat((xpseq_k2k3, upseq), axis=-1)
-        k2 = self._fxzu(x + Delta*(k1/2), z, u)
+        k2 = self._ode(x + Delta*(k1/2), z, u)
 
         # Get k3.
-        k3 = self._fxzu(x + Delta*(k2/2), z, u)
+        k3 = self._ode(x + Delta*(k2/2), z, u)
 
         # Get k4.
-        xpseq_k4 = tf.concat((xpseq[..., self.Nx:], x), axis=-1)
+        xpseq_k4 = tf.concat((xpseq[..., self.Ng:], x), axis=-1)
         z = tf.concat((xpseq_k4, upseq), axis=-1)
-        k4 = self._fxzu(x + Delta*k3, z, u)
+        k4 = self._ode(x + Delta*k3, z, u)
         
         # Get the xzplus at the next time step.
         xplus = x + (Delta/6)*(k1 + 2*k2 + 2*k3 + k4)
-        zplus = tf.concat((xpseq[..., self.Nx:], x, 
+        zplus = tf.concat((xpseq[..., self.Ng:], x, 
                            upseq[..., self.Nu:], u), axis=-1)
         xzplus = tf.concat((xplus, zplus), axis=-1)
 
@@ -163,25 +164,24 @@ class ReacPartialGbModel(tf.keras.Model):
     """
     Partial model for the reaction system.
     """
-    
     def __init__(self, r1Dims, r2Dims, Np, xuyscales, hyb_partialgb_pars):
         """ Create the dense layers for the NN, and 
             construct the overall model. """
 
         # Sizes.
-        Nx, Nu = hyb_partialgb_pars['Nx'], hyb_partialgb_pars['Nu']
-        Nz = Np*(Nx + Nu)
+        Ng, Nu = hyb_partialgb_pars['Ng'], hyb_partialgb_pars['Nu']
+        Nz = Np*(Ng + Nu)
 
         # Input layers to the model.
         useq = tf.keras.Input(name='u', shape=(None, Nu))
-        xz0 = tf.keras.Input(name='xz0', shape=(Nx + Nz, ))
+        xz0 = tf.keras.Input(name='xz0', shape=(Ng + Nz, ))
 
         # Layers for the reactions.
         r1Layers = createDenseLayers(r1Dims)
         r2Layers = createDenseLayers(r2Dims)
 
         # Interpolation layer for RK4 predictions.
-        interpLayer = InterpolationLayer(Nx, Np)
+        interpLayer = InterpolationLayer(Ng, Np + 1)
 
         # Get the reac cell object.
         reacCell = ReacPartialGbCell(r1Layers, r2Layers, Np,
@@ -226,61 +226,55 @@ def train_model(*, model, epochs, batch_size, train_data,
                                                         verbose=1)
     
     # Call the fit method to train.
-    model.fit(x = [train_data['inputs'], train_data['xz0']], 
-              y = train_data['outputs'], 
+    model.fit(x = [train_data['useq'], train_data['yz0']], 
+              y = train_data['yseq'], 
               epochs = epochs, batch_size = batch_size,
-        validation_data = ([trainval_data['inputs'], trainval_data['xz0']], 
-                            trainval_data['outputs']),
+        validation_data = ([trainval_data['useq'], trainval_data['yz0']], 
+                            trainval_data['yseq']),
             callbacks = [checkpoint_callback])
 
-def get_val_predictions(*, model, val_data, xuyscales, ckpt_path, Delta):
+def get_val_predictions(*, model, val_data, xuyscales, 
+                           unmeasXIndices, ckpt_path, Delta):
     """ Get the validation predictions. """
 
     # Load best weights.
     model.load_weights(ckpt_path)
 
     # Predict.
-    model_predictions = model.predict(x=[val_data['inputs'], val_data['xz0']])
-
-    # Compute val metric.
-    val_metric = model.evaluate(x = [val_data['inputs'], val_data['xz0']], 
-                                y = val_data['outputs'])
+    model_predictions = model.predict(x=[val_data['useq'], val_data['yz0']])
 
     # Scale.
     ymean, ystd = xuyscales['yscale']
     umean, ustd = xuyscales['uscale']
 
-    # Validation input sequence.
-    uval = val_data['inputs'].squeeze(axis=0)*ustd + umean
-    Nt = uval.shape[0]
-
-    ypredictions = model_predictions.squeeze(axis=0)*ystd + ymean
-    xpredictions = np.insert(ypredictions, [2], np.nan, axis=1)
-
-    # Collect data in a Simdata format.
+    # Get validation predictions.
+    uval = val_data['useq'].squeeze(axis=0)*ustd + umean
+    ypred = model_predictions.squeeze(axis=0)*ystd + ymean
+    xpred = np.insert(ypred, unmeasXIndices, np.nan, axis=1)
     Nt = uval.shape[0]
     tval = np.arange(0, Nt*Delta, Delta)
     pval = np.tile(np.nan, (Nt, 1))
-    val_prediction = SimData(t=tval, x=xpredictions, 
-                             u=uval, y=ypredictions, p=pval)
+
+    # Collect the predictions in a simdata format.
+    valPredData = SimData(t=tval, x=xpred, u=uval, y=ypred, p=pval)
 
     # Return.
-    return (val_prediction, val_metric)
+    return valPredData
 
-def get_hybrid_pars(*, train, hyb_partialgb_pars):
+def get_hybrid_pars(*, train, hyb_partialgb_pars, plant_pars):
     """ Get the black-box parameter dict and function handles. """
 
     # Get black-box model parameters.
     parameters = {}
-    parameters['r1Weights'] = train['trained_r1Weights'][-1]
-    parameters['r2Weights'] = train['trained_r2Weights'][-1]
+    parameters['r1Weights'] = train['r1Weights']
+    parameters['r2Weights'] = train['r2Weights']
     parameters['xuyscales'] = train['xuyscales']
 
     # Sizes.
     parameters['Ny'] = hyb_partialgb_pars['Ny']
     parameters['Nu'] = hyb_partialgb_pars['Nu']
     parameters['Np'] = train['Np']
-    parameters['Nx'] = hyb_partialgb_pars['Nx']
+    parameters['Nx'] = hyb_partialgb_pars['Ng']
     parameters['Nx'] += parameters['Np']*(parameters['Ny'] + parameters['Nu'])
 
     # Constraints.
