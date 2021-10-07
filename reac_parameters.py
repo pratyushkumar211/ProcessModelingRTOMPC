@@ -40,7 +40,7 @@ def get_hyb_pars_for_training(*, plant_pars, hybtype=None):
     # Return.
     return parameters
 
-def gen_train_val_data(*, parameters, Ntz, num_traj,
+def gen_train_val_data(*, parameters, Ntstart, num_traj,
                           Nsim_train, Nsim_trainval, Nsim_val, 
                           x0lb, x0ub):
     """ Generate data for training and validation. """
@@ -70,7 +70,7 @@ def gen_train_val_data(*, parameters, Ntz, num_traj,
         if traj == num_traj-1:
 
             " Generate useq for validation simulation. "
-            Nsim = Ntz + Nsim_val
+            Nsim = Ntstart + Nsim_val
             u = sample_prbs_like(num_change=9, num_steps=Nsim, 
                                  lb=ulb, ub=uub,
                                  mean_change=40, sigma_change=5)
@@ -78,7 +78,7 @@ def gen_train_val_data(*, parameters, Ntz, num_traj,
         elif traj == num_traj-2:
 
             " Generate useq for train val simulation. "
-            Nsim = Ntz + Nsim_trainval
+            Nsim = Ntstart + Nsim_trainval
             u = sample_prbs_like(num_change=6, num_steps=Nsim, 
                                  lb=ulb, ub=uub,
                                  mean_change=40, sigma_change=5)
@@ -86,7 +86,7 @@ def gen_train_val_data(*, parameters, Ntz, num_traj,
         else:
 
             " Generate useq for training simulation. "
-            Nsim = Ntz + Nsim_train
+            Nsim = Ntstart + Nsim_train
             u = sample_prbs_like(num_change=6, num_steps=Nsim,
                                  lb=ulb, ub=uub,
                                  mean_change=40, sigma_change=5)
@@ -126,17 +126,17 @@ def main():
                                                 hybtype='partialgb')
     
     # Generate training data.
-    Ntz = 2
+    Ntstart = 2
     Nx = plant_pars['Nx']
     x0lb = np.zeros((Nx, 1))
     x0ub = np.ones((Nx, 1))
-    training_data = gen_train_val_data(parameters=plant_pars, Ntz=Ntz,
+    training_data = gen_train_val_data(parameters=plant_pars, Ntstart=Ntstart,
                                         num_traj=6, Nsim_train=240,
                                         Nsim_trainval=240, Nsim_val=360,
                                         x0lb=x0lb, x0ub=x0ub)
 
     # Get the dictionary.
-    reac_parameters = dict(plant_pars=plant_pars, Ntz=Ntz, 
+    reac_parameters = dict(plant_pars=plant_pars, Ntstart=Ntstart, 
                            training_data=training_data,
                            hyb_fullgb_pars=hyb_fullgb_pars,
                            hyb_partialgb_pars=hyb_partialgb_pars)

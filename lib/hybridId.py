@@ -158,10 +158,9 @@ def quick_sim(fxu, hx, x0, u):
     # Return.
     return x, y
 
-def get_train_val_data(*, tthrow, Np, xuyscales, data_list,
-                          unmeasGbx0_list):
+def get_train_val_data(*, Ntstart, Np, xuyscales, data_list):
     """ Get the data for training and validation in 
-        appropriate format for training. 
+        appropriate format for training.
         All data are already scaled.
     """
 
@@ -169,16 +168,14 @@ def get_train_val_data(*, tthrow, Np, xuyscales, data_list,
     xmean, xstd = xuyscales['xscale']
     umean, ustd = xuyscales['uscale']
     ymean, ystd = xuyscales['yscale']
-    Nx, Ny, Nu = len(xmean), len(ymean), len(umean)
+    Nx, Nu, Ny = len(xmean), len(umean), len(ymean)
 
     # Lists to store data.
-    inputs, outputs = [], []
-    x0, xseq = [], []
-    y0, z0 = [], []
-    xz0, yz0 = [], []
+    xseq, useq, yseq = [], [], []
+    y0, z0, yz0 = [], [], []
 
     # Loop through the data list.
-    for data, unmeasGbx0 in zip(data_list, unmeasGbx0_list):
+    for data in data_list:
         
         # Scale data.
         x = (data.x - xmean)/xstd
@@ -186,61 +183,36 @@ def get_train_val_data(*, tthrow, Np, xuyscales, data_list,
         y = (data.y - ymean)/ystd
 
         # Get the input and output trajectory.
-        u_traj = u[tthrow:, :][np.newaxis, ...]
-        y_traj = y[tthrow:, :][np.newaxis, ...]
-        x_traj = x[tthrow:, :][np.newaxis, ...]
+        x_traj = x[Ntstart:, :][np.newaxis, ...]
+        u_traj = u[Ntstart:, :][np.newaxis, ...]
+        y_traj = y[Ntstart:, :][np.newaxis, ...]
 
         # Get initial states.
-        yp0seq = y[tthrow-Np:tthrow, :].reshape(Np*Ny, )[np.newaxis, :]
-        up0seq = u[tthrow-Np:tthrow, :].reshape(Np*Nu, )[np.newaxis, :]
-        y0_traj = y[tthrow, np.newaxis, :]
+        yp0seq = y[Ntstart-Np:Ntstart, :].reshape(Np*Ny, )[np.newaxis, :]
+        up0seq = u[Ntstart-Np:Ntstart, :].reshape(Np*Nu, )[np.newaxis, :]
+        y0_traj = y[Ntstart, np.newaxis, :]
         z0_traj = np.concatenate((yp0seq, up0seq), axis=-1)
-
-        # Initla state.
-        if unmeasGbx0 is not None:
-            x0_traj = np.concatenate((y0_traj, unmeasGbx0), axis=-1)
-        else:
-            x0_traj = y0_traj
-
-        # xz0 and yz0
-        xz0_traj = np.concatenate((x0_traj, z0_traj), axis=-1)
         yz0_traj = np.concatenate((y0_traj, z0_traj), axis=-1)
 
-        # Get z_traj.
-        # Nt = u.shape[0]
-        # z_traj = []
-        # for t in range(tthrow, Nt):
-        #    ypseq = y[t-Np:t, :].reshape(Np*Ny, )[np.newaxis, :]
-        #    upseq = u[t-Np:t, :].reshape(Np*Nu, )[np.newaxis, :]
-        #    z_traj += [np.concatenate((ypseq, upseq), axis=-1)]
-        # z_traj = np.concatenate(z_traj, axis=0)[np.newaxis, ...]
-        # yz_traj = np.concatenate((y_traj, z_traj), axis=-1)
-
         # Collect the trajectories in list.
-        inputs += [u_traj]
-        x0 += [x0_traj]
         xseq += [x_traj]
+        useq += [u_traj]
+        yseq += [y_traj]
         y0 += [y0_traj]
         z0 += [z0_traj]
-        xz0 += [xz0_traj]
         yz0 += [yz0_traj]
-        outputs += [y_traj]
     
-    # Get the training and validation data for training in compact dicts.
-    train_data = dict(inputs=np.concatenate(inputs[:-2], axis=0),
-                      x0=np.concatenate(x0[:-2], axis=0),
-                      xseq=np.concatenate(xseq[:-2], axis=0),
+    # Get training, trainval, and validation data in compact dicts.
+    train_data = dict(xseq=np.concatenate(xseq[:-2], axis=0),
+                      useq=np.concatenate(useq[:-2], axis=0),
+                      yseq=np.concatenate(yseq[:-2], axis=0),
                       y0=np.concatenate(y0[:-2], axis=0),
                       z0=np.concatenate(z0[:-2], axis=0),   
-                      xz0=np.concatenate(xz0[:-2], axis=0),
-                      yz0=np.concatenate(yz0[:-2], axis=0),
-                      outputs=np.concatenate(outputs[:-2], axis=0))
-    trainval_data = dict(inputs=inputs[-2], x0=x0[-2], xseq=xseq[-2], 
-                         y0=y0[-2], z0=z0[-2], xz0=xz0[-2], yz0=yz0[-2],
-                         outputs=outputs[-2])
-    val_data = dict(inputs=inputs[-1], x0=x0[-1], xseq=xseq[-1], 
-                    y0=y0[-1], z0=z0[-1], xz0=xz0[-1], yz0=yz0[-1],
-                    outputs=outputs[-1])
+                      yz0=np.concatenate(yz0[:-2], axis=0))
+    trainval_data = dict(xseq=xseq[-2], useq=useq[-2], yseq=yseq[-2], 
+                         y0=y0[-2], z0=z0[-2], yz0=yz0[-2])
+    val_data = dict(xseq=xseq[-1], useq=useq[-1], yseq=yseq[-1], 
+                    y0=y0[-1], z0=z0[-1], yz0=yz0[-1])
     
     # Return.
     return (train_data, trainval_data, val_data)
