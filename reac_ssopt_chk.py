@@ -63,13 +63,13 @@ def main():
                                          'reac_parameters.pickle',
                                          type='read')
     reac_bbnntrain = PickleTool.load(filename=
-                                    'reac_bbnntrain_dyndata.pickle',
+                                    'reac_bbnntrain.pickle',
                                       type='read')
     reac_hybfullgbtrain = PickleTool.load(filename=
-                                      'reac_hybfullgbtrain_dyndata.pickle',
+                                      'reac_hybfullgbtrain.pickle',
                                       type='read')
     reac_hybpartialgbtrain = PickleTool.load(filename=
-                                      'reac_hybpartialgbtrain_dyndata.pickle',
+                                      'reac_hybpartialgbtrain.pickle',
                                       type='read')
 
     # Get plant and grey-box parameters.
@@ -131,52 +131,4 @@ def main():
         print("Model type: " + model_type)
         print('us: ' + str(us))
         
-    # Get a linspace of steady-state u values.
-    ulb, uub = plant_pars['ulb'], plant_pars['uub']
-    us_list = list(np.linspace(ulb, uub, 100))
-    xs_list = []
-
-    # Lists to store Steady-state cost.
-    sscosts = []
-
-    # Loop over all the models.
-    for (model_type, fxu, hx, model_pars) in zip(model_types, fxu_list, 
-                                                 hx_list, par_list):
-
-        # List to store SS costs for one model.
-        model_sscost = []
-        model_xs = []
-
-        # Compute SS cost.
-        for us in us_list:
-            
-            # Get guess.
-            xuguess = get_xuguess(model_type=model_type, 
-                              plant_pars=plant_pars, 
-                              model_pars=model_pars)
-            xguess = xuguess['x']
-            xs, _, sscost = getXsYsSscost(fxu=fxu, hx=hx, lyu=lyu, 
-                                         us=us, parameters=model_pars, 
-                                         xguess=xguess)
-            model_xs += [xs]
-            model_sscost += [sscost]
-
-        # Model steady states and costs.        
-        model_xs = np.asarray(model_xs)
-        model_sscost = np.asarray(model_sscost)
-
-        # Store steady states and costs in lists.
-        xs_list += [model_xs]
-        sscosts += [model_sscost]
-
-    # Get us as rank 1 array.
-    us = np.asarray(us_list)[:, 0]
-
-    # Create data object and save.
-    reac_ssopt = dict(us=us, xs=xs_list, sscosts=sscosts)
-
-    # Save.
-    PickleTool.save(data_object=reac_ssopt,
-                    filename='reac_ssopt.pickle')
-
 main()
