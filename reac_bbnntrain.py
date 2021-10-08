@@ -54,7 +54,7 @@ def main():
                 stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 
     # Validate.
-    val_prediction = get_val_predictions(model=model,
+    val_predictions = get_val_predictions(model=model,
                                     val_data=val_data, xuyscales=xuyscales, 
                                     unmeasXIndices=unmeasXindices, 
                                     ckpt_path=ckpt_path, Delta=Delta)
@@ -65,7 +65,7 @@ def main():
     # Save the weights.
     reac_train = dict(Np=Np, fNDims=fNDims,
                       fNWeights=fNWeights,
-                      val_prediction=val_prediction,
+                      val_predictions=val_predictions,
                       xuyscales=xuyscales)
     
     # Save data.

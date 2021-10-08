@@ -62,7 +62,7 @@ def main():
                     stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 
     # Validate.
-    val_prediction = get_val_predictions(model=model,
+    val_predictions = get_val_predictions(model=model,
                                     val_data=val_data, xuyscales=xuyscales,
                                     unmeasXIndices=unmeasXIndices,
                                     ckpt_path=ckpt_path, Delta=Delta)
@@ -74,11 +74,11 @@ def main():
     # Save the weights.
     reac_train = dict(Np=Np, r1Dims=r1Dims, r2Dims=r2Dims,
                       r1Weights=r1Weights, r2Weights=r2Weights,
-                      val_prediction=val_prediction,
+                      val_predictions=val_predictions,
                       xuyscales=xuyscales)
 
     # Save data.
     PickleTool.save(data_object=reac_train,
-                    filename='reac_hybpartialgbtrain_dyndata.pickle')
+                    filename='reac_hybpartialgbtrain.pickle')
 
 main()

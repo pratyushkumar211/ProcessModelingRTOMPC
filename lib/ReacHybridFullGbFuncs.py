@@ -235,7 +235,7 @@ def get_hybrid_pars(*, train, hyb_fullgb_pars, plant_pars):
     parameters['xuyscales'] = train['xuyscales']
 
     # Sizes.
-    parameters['Nx'] = hyb_fullgb_pars['Nx']
+    parameters['Nx'] = hyb_fullgb_pars['Ng']
     parameters['Nu'] = hyb_fullgb_pars['Nu']
     parameters['Ny'] = hyb_fullgb_pars['Ny']
     parameters['Np'] = train['Np']

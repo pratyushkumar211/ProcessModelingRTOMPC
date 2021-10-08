@@ -278,8 +278,8 @@ def get_hybrid_pars(*, train, hyb_partialgb_pars, plant_pars):
     parameters['Nx'] += parameters['Np']*(parameters['Ny'] + parameters['Nu'])
 
     # Constraints.
-    parameters['ulb'] = hyb_partialgb_pars['ulb']
-    parameters['uub'] = hyb_partialgb_pars['uub']
+    parameters['ulb'] = plant_pars['ulb']
+    parameters['uub'] = plant_pars['uub']
     
     # Greybox model parameters.
     parameters['ps'] = hyb_partialgb_pars['ps']
@@ -363,7 +363,7 @@ def hybrid_fxup(xz, u, p, parameters):
     k1 = fxup(x, z, u, p, parameters)
 
     # Get k2.
-    xpseq_k2k3 = getInterpolatedVals(np.concatenate((xpseq, x)), Ny, Np)
+    xpseq_k2k3 = getInterpolatedVals(np.concatenate((xpseq, x)), Ny, Np + 1)
     z = np.concatenate((xpseq_k2k3, upseq))
     k2 = fxup(x + Delta*(k1/2), z, u, p, parameters)
 

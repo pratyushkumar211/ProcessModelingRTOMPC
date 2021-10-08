@@ -219,7 +219,7 @@ def get_bbnn_pars(*, train, plant_pars):
     # Get black-box model parameters.
     parameters = {}
     parameters['Np'] = train['Np']
-    parameters['fNWeights'] = train['fNweights']
+    parameters['fNWeights'] = train['fNWeights']
     parameters['xuyscales'] = train['xuyscales']
 
     # Get sizes.

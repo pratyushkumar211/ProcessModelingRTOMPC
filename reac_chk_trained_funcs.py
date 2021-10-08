@@ -4,6 +4,7 @@ import sys
 sys.path.append('lib/')
 import numpy as np
 from hybridId import PickleTool, quick_sim
+
 from BlackBoxFuncs import get_bbnn_pars, bbnn_fxu, bbnn_hx, fnn
 
 from ReacHybridFullGbFuncs import get_hybrid_pars as get_fullhybrid_pars
@@ -22,13 +23,13 @@ def main():
                                       'reac_parameters.pickle',
                                       type='read')
     reac_bbnntrain = PickleTool.load(filename=
-                                        'reac_bbnntrain_dyndata.pickle',
+                                        'reac_bbnntrain.pickle',
                                         type='read')
-    reac_hybfullgbtrain_dyndata = PickleTool.load(filename=
-                                        'reac_hybfullgbtrain_dyndata.pickle',
+    reac_hybfullgbtrain = PickleTool.load(filename=
+                                        'reac_hybfullgbtrain.pickle',
                                         type='read')
-    reac_hybpartialgbtrain_dyndata = PickleTool.load(filename=
-                                        'reac_hybpartialgbtrain_dyndata.pickle',
+    reac_hybpartialgbtrain = PickleTool.load(filename=
+                                        'reac_hybpartialgbtrain.pickle',
                                         type='read')
 
     def check_bbnn(reac_bbnntrain, reac_parameters):
@@ -37,18 +38,17 @@ def main():
         # Get plant parameters.
         plant_pars = reac_parameters['plant_pars']
 
-        # Get some sizes/parameters.
-        tthrow = 10
+        # Sizes.
+        Ntstart = reac_parameters['Ntstart']
         Np = reac_bbnntrain['Np']
         Ny, Nu = plant_pars['Ny'], plant_pars['Nu']
 
-        # Get initial state for forecasting.
-        training_data = reac_parameters['training_data_dyn'][-1]
-        uval = training_data.u[tthrow:, :]
-        y0 = training_data.y[tthrow, :]
-        yp0seq = training_data.y[tthrow-Np:tthrow, :].reshape(Np*Ny, )
-        up0seq = training_data.u[tthrow-Np:tthrow, :].reshape(Np*Nu, )
-        yz0 = np.concatenate((y0, yp0seq, up0seq))
+        # Get initial state.
+        training_data = reac_parameters['training_data'][-1]
+        uval = training_data.u[Ntstart:, :]
+        yp0seq = training_data.y[Ntstart-Np:Ntstart, :].reshape(Np*Ny, )
+        up0seq = training_data.u[Ntstart-Np:Ntstart, :].reshape(Np*Nu, )
+        z0 = np.concatenate((yp0seq, up0seq))
 
         # Get the black-box model parameters and function handles.
         bbnn_pars = get_bbnn_pars(train=reac_bbnntrain, 
@@ -56,9 +56,9 @@ def main():
         fxu = lambda x, u: bbnn_fxu(x, u, bbnn_pars)
         hx = lambda x: bbnn_hx(x, bbnn_pars)
 
-        # CHeck black-box model validation.
-        bb_yval = reac_bbnntrain['val_predictions'][-1].y
-        bb_xpred, bb_ypred = quick_sim(fxu, hx, yz0, uval)
+        # Check black-box model validation.
+        bb_yval = reac_bbnntrain['val_predictions'].y
+        bb_xpred, bb_ypred = quick_sim(fxu, hx, z0, uval)
         breakpoint()
         # Return.
         return 
@@ -67,10 +67,11 @@ def main():
         """ Check Hybrid full grey-box functions. """
 
         # Get plant parameters.
+        plant_pars = reac_parameters['plant_pars']
         hyb_fullgb_pars = reac_parameters['hyb_fullgb_pars']
 
-        # Get some sizes/parameters.
-        tthrow = 10
+        # Sizes.
+        Ntstart = reac_parameters['Ntstart']
         Ny, Nu = hyb_fullgb_pars['Ny'], hyb_fullgb_pars['Nu']
         Np = reac_hybtrain['Np']
 
@@ -80,39 +81,35 @@ def main():
         ymean, ystd = reac_hybtrain['xuyscales']['yscale']
 
         # Get initial state for forecasting.
-        training_data = reac_parameters['training_data_dyn'][-1]
-        uval = training_data.u[tthrow:, :]
-        y0 = training_data.y[tthrow, :]
+        training_data = reac_parameters['training_data'][-1]
+        uval = training_data.u[Ntstart:, :]
+        y0 = training_data.y[Ntstart, :]
 
         # Get initial z0.
-        yp0seq = (training_data.y[tthrow-Np:tthrow, :] - ymean)/ystd
+        yp0seq = (training_data.y[Ntstart-Np:Ntstart, :] - ymean)/ystd
         yp0seq = yp0seq.reshape(Np*Ny, )
-        up0seq = (training_data.u[tthrow-Np:tthrow, :] - umean)/ustd
+        up0seq = (training_data.u[Ntstart-Np:Ntstart, :] - umean)/ustd
         up0seq = up0seq.reshape(Np*Nu, )
         z0 = np.concatenate((yp0seq, up0seq))
 
         # Get the black-box model parameters and function handles.
         hyb_pars = get_fullhybrid_pars(train=reac_hybtrain, 
-                                   hyb_fullgb_pars=hyb_fullgb_pars)
+                                       hyb_fullgb_pars=hyb_fullgb_pars, 
+                                       plant_pars=plant_pars)
 
         # If initial state was set using a NN.
         Cbmean, Cbstd = ymean[-1:], ystd[-1:]
-        Cc0 = fnn(z0, hyb_pars['estCWeights'])*Cbstd + Cbmean
+        Cc0 = fnn(z0, hyb_pars['estC0Weights'])*Cbstd + Cbmean
         x0 = np.concatenate((y0, Cc0))
-
-        # If initial state was chosen randomly.
-        # unmeasGbx0 = reac_hybtrain['unmeasGbx0_list'][-1][:, 0]
-        # unmeasGbx0 = unmeasGbx0*ystd[-1] + ymean[-1]
-        # x0 = np.concatenate((y0, unmeasGbx0))
         
         # Steady state disturbance.
         ps = hyb_pars['ps']
         fxu = lambda x, u: fullhybrid_fxup(x, u, ps, hyb_pars)
         hx = lambda x: fullhybrid_hx(x, hyb_pars)
 
-        # CHeck black-box model validation.
-        hyb_yval = reac_hybtrain['val_predictions'][-1].y
-        hyb_xval = reac_hybtrain['val_predictions'][-1].x
+        # Check black-box model validation.
+        hyb_yval = reac_hybtrain['val_predictions'].y
+        hyb_xval = reac_hybtrain['val_predictions'].x
         hyb_xpred, hyb_ypred = quick_sim(fxu, hx, x0, uval)
         breakpoint()
         # Return.
@@ -122,10 +119,11 @@ def main():
         """ Check Hybrid full grey-box functions. """
 
         # Get plant parameters.
+        plant_pars = reac_parameters['plant_pars']
         hyb_partialgb_pars = reac_parameters['hyb_partialgb_pars']
 
-        # Get some sizes/parameters.
-        tthrow = 10
+        # Sizes.
+        Ntstart = reac_parameters['Ntstart']
         Ny, Nu = hyb_partialgb_pars['Ny'], hyb_partialgb_pars['Nu']
         Np = reac_hybtrain['Np']
 
@@ -133,22 +131,21 @@ def main():
         umean, ustd = reac_hybtrain['xuyscales']['uscale']
         ymean, ystd = reac_hybtrain['xuyscales']['yscale']
         xzmean = np.concatenate((np.tile(ymean, (Np + 1, )), 
-                             np.tile(umean, (Np, ))))
+                                 np.tile(umean, (Np, ))))
         xzstd = np.concatenate((np.tile(ystd, (Np + 1, )), 
-                            np.tile(ustd, (Np, ))))
+                                np.tile(ustd, (Np, ))))
 
-
-        # Get initial state for forecasting.
-        training_data = reac_parameters['training_data_dyn'][-1]
-        uval = training_data.u[tthrow:, :]
-        y0 = training_data.y[tthrow, :]
-        yp0seq = training_data.y[tthrow-Np:tthrow, :].reshape(Np*Ny, )
-        up0seq = training_data.u[tthrow-Np:tthrow, :].reshape(Np*Nu, )
+        # Get initial state.
+        training_data = reac_parameters['training_data'][-1]
+        uval = training_data.u[Ntstart:, :]
+        y0 = training_data.y[Ntstart, :]
+        yp0seq = training_data.y[Ntstart-Np:Ntstart, :].reshape(Np*Ny, )
+        up0seq = training_data.u[Ntstart-Np:Ntstart, :].reshape(Np*Nu, )
         xz0 = np.concatenate((y0, yp0seq, up0seq))
         
         # Get the black-box model parameters and function handles.
         hyb_pars = get_partialhybrid_pars(train=reac_hybtrain, 
-                                          hyb_partialgb_pars=hyb_partialgb_pars)
+                                          hyb_partialgb_pars=hyb_partialgb_pars,plant_pars=plant_pars)
 
         # Steady state disturbance.
         ps = hyb_pars['ps']
@@ -156,16 +153,16 @@ def main():
         hx = lambda x: partialhybrid_hx(x, hyb_pars)
 
         # CHeck black-box model validation.
-        hyb_yval = reac_hybtrain['val_predictions'][-1].y
-        hyb_xval = reac_hybtrain['val_predictions'][-1].x
+        hyb_yval = reac_hybtrain['val_predictions'].y
+        hyb_xval = reac_hybtrain['val_predictions'].x
         hyb_xpred, hyb_ypred = quick_sim(fxu, hx, xz0, uval)
         breakpoint()
         # Return.
         return 
 
     check_bbnn(reac_bbnntrain, reac_parameters)
-    check_hybridfullgb(reac_hybfullgbtrain_dyndata, reac_parameters)
-    check_hybridpartialgb(reac_hybpartialgbtrain_dyndata, reac_parameters)
+    check_hybridfullgb(reac_hybfullgbtrain, reac_parameters)
+    check_hybridpartialgb(reac_hybpartialgbtrain, reac_parameters)
     print("Hi")
 
 main()
