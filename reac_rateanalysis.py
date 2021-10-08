@@ -43,7 +43,7 @@ def getFullGbR1R2(*, Ca, Cb, Cc, r1Weights, r2Weights, xuyscales):
     # Return.
     return r1, r2
 
-def getPartialGbR1R2(*, Ca, Cb, z, r1Weights, r2Weights, xuyscales):
+def getPartialGbR1R2(*, Ca, Cb, z, Np, r1Weights, r2Weights, xuyscales):
     """ Function to get the rate laws for the partial GB hybrid model. 
         Rates for this hybrid model are parametrized such that
         r1 = NN_r1(Ca), r2 = NN_r2(Cb, z)
@@ -51,6 +51,7 @@ def getPartialGbR1R2(*, Ca, Cb, z, r1Weights, r2Weights, xuyscales):
 
     # Get scaling.
     ymean, ystd = xuyscales['yscale']
+    umean, ustd = xuyscales['uscale']
     Camean, Cbmean = ystd[0:1], ystd[1:2]
     Castd, Cbstd = ystd[0:1], ystd[1:2]
     zmean = np.concatenate((np.tile(ymean, (Np, )), 
@@ -104,10 +105,10 @@ def getFullGbRateErrorsInStateSpace(*, CaRange, CbRange, CcRange,
     # Create empty arrays to store errors in r2.
     NCb = len(CbRange)
     NCc = len(CcRange)
-    r2Errors = np.tile(np.nan, (NCb, NCc))
-    for i, j in itertools.product(range(NCb), range(NCc)):
+    r2Errors = np.tile(np.nan, (NCc, NCb))
+    for j, i in itertools.product(range(NCc), range(NCb)):
 
-        # True rate. 
+        # True rate.
         _, r2 = getTrueR1R2(Ca=zeroArray, Cb=CbRange[i], Cc=CcRange[j], 
                             k1=k1, k2f=k2f, k2b=k2b)
 
@@ -117,13 +118,14 @@ def getFullGbRateErrorsInStateSpace(*, CaRange, CbRange, CcRange,
                                 xuyscales=xuyscales)
 
         # Get the error. 
-        r2Errors[i, j] = np.abs(r2 - r2NN)/np.abs(r2)
+        r2Errors[j, i] = np.abs(r2 - r2NN)/np.abs(r2)
 
     # Return. 
     return r1Errors, r2Errors
 
-def getRateErrorsOnGeneratedData(*, training_data, fGbWeights,
-                                    pGbWeights, xuyscales, k1, k2f, k2b):
+def getRateErrorsOnGeneratedData(*, training_data, Ntstart, Np, Ny, Nu, 
+                                    fGbWeights, pGbWeights, yindices, 
+                                    xuyscales, k1, k2f, k2b):
     """ Get errors in the reaction rate laws on the entire generated data. """ 
 
     # Create lists to store the errors.
@@ -135,7 +137,7 @@ def getRateErrorsOnGeneratedData(*, training_data, fGbWeights,
     pGbR1Weights, pGbR2Weights = pGbWeights[0], pGbWeights[1]
 
     # Loop over all the generate trjectories.
-    for data in training_data_dyn:
+    for data in training_data:
 
         # Nuumber of time steps in the trajectory.
         Nt = data.t.shape[0]
@@ -165,7 +167,7 @@ def getRateErrorsOnGeneratedData(*, training_data, fGbWeights,
             ypseq = data.y[t-Np:t, yindices].reshape(Np*Ny, )
             upseq = data.u[t-Np:t, :].reshape(Np*Nu, )
             z = np.concatenate((ypseq, upseq))
-            r1NN, r2NN = getFullGbR1R2(Ca=Ca, Cb=Cb, z=z, 
+            r1NN, r2NN = getPartialGbR1R2(Ca=Ca, Cb=Cb, z=z, Np=Np,
                                        r1Weights=pGbR1Weights, 
                                        r2Weights=pGbR2Weights, 
                                        xuyscales=xuyscales)
@@ -203,30 +205,43 @@ def main():
     k2f = plant_pars['k2f']
     k2b = plant_pars['k2b']
 
-    # Trained Weights. 
-    fbGbWeights = [reac_hybfullgbtrain['r1Weights'], 
+    # Get all the training data. 
+    Ntstart = reac_parameters['Ntstart']
+    training_data = reac_parameters['training_data']
+
+    # Trained Weights and scaling. 
+    fGbWeights = [reac_hybfullgbtrain['r1Weights'], 
                    reac_hybfullgbtrain['r2Weights']]
-    pbGbWeights = [reac_hybpartialgbtrain['r1Weights'], 
+    pGbWeights = [reac_hybpartialgbtrain['r1Weights'], 
                    reac_hybpartialgbtrain['r2Weights']]
+    Np = reac_hybpartialgbtrain['Np']
+    xuyscales = reac_hybfullgbtrain['xuyscales']
 
     # Get errors in reactions 1 and 2 for the full GB model. 
     CaRange = list(np.arange(0.2, 0.8, 0.01)[:, np.newaxis])
     CbRange = list(np.arange(0.3, 0.6, 0.01)[:, np.newaxis])
     CcRange = list(np.arange(0.1, 0.6, 0.01)[:, np.newaxis])
+    r2XGrid, r2YGrid = np.meshgrid(CbRange, CcRange)
     r1Errors, r2Errors = getFullGbRateErrorsInStateSpace(CaRange=CaRange, 
                             CbRange=CbRange, CcRange=CcRange, 
                             r1Weights=fGbWeights[0], r2Weights=fGbWeights[1], 
                             xuyscales=xuyscales, k1=k1, k2f=k2f, k2b=k2b)
-    r2XGrid, r2YGrid = np.meshgrid(CbRange, CcRange)
+    fGbErrorsInStateSpace = dict(r1Errors=r1Errors, r2Errors=r2Errors,      
+                                 r2XGrid=r2XGrid, r2YGrid=r2YGrid)
 
     # Get errors in the reactions on the generated training data.
+    yindices = plant_pars['yindices']
+    Ny, Nu = plant_pars['Ny'], plant_pars['Nu']
     (fGbErrors, 
      pGbErrors) = getRateErrorsOnGeneratedData(training_data=training_data, 
+                                Ntstart=Ntstart, Np=Np, Ny=Ny, Nu=Nu, 
                                 fGbWeights=fGbWeights, pGbWeights=pGbWeights, 
-                                xuyscales=xuyscales, k1=k1, k2f=k2f, k2b=k2b)
+                                yindices=yindices, xuyscales=xuyscales, k1=k1, 
+                                k2f=k2f, k2b=k2b)
+    errorsOnGenData = dict(fGbErrors=fGbErrors, pGbErrors=pGbErrors)
 
-    # Make the plot.
-    PickleTool.save(data_object=rateAnalysisData,
+    # Save data.
+    PickleTool.save(data_object=[fGbErrorsInStateSpace, errorsOnGenData],
                     filename='reac_rateanalysis.pickle')
 
 main()
