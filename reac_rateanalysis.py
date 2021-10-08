@@ -71,71 +71,112 @@ def getPartialGbR1R2(*, Ca, Cb, z, r1Weights, r2Weights, xuyscales):
     # Return.
     return r1, r2
 
-def getFullGbRateErrorsInStateSpace(*, CaRange, CbRange, CcRange, 
-                                     r1Weights, r2Weights, xuyscales, 
-                                     k1, k2f, k2b):
+def getFullGbRateErrorsInStateSpace(*, CaRange, CbRange, CcRange,
+                                       r1Weights, r2Weights, xuyscales,
+                                       k1, k2f, k2b):
     """ Get errors in the reaction rate laws of the 
         Full Grey-Box model in a chosen region of state-space. """
 
+    # Get an empty zero array. 
+    zeroArray = np.zeros((1,))
+
+    # Create a list to store errors in r1.  
+    r1Errors = []
+
+    # Get errors in r1.
+    for i, Ca in enumerate(CaRange):
+
+        # True rate. 
+        r1, _ = getTrueR1R2(Ca=Ca, Cb=zeroArray, Cc=zeroArray, 
+                            k1=k1, k2f=k2f, k2b=k2b)
+
+        # NN rate.
+        r1NN, _ = getFullGbR1R2(Ca=Ca, Cb=zeroArray, Cc=zeroArray, 
+                                r1Weights=r1Weights, r2Weights=r2Weights, 
+                                xuyscales=xuyscales)
+
+        # Get the error.
+        r1Errors += [np.abs(r1 - r1NN)/np.abs(r1)]
+
+    # Get the errors in an array form. 
+    r1Errors = np.array(r1Errors).squeeze()
+
+    # Create empty arrays to store errors in r2.
+    NCb = len(CbRange)
+    NCc = len(CcRange)
+    r2Errors = np.tile(np.nan, (NCb, NCc))
+    for i, j in itertools.product(range(NCb), range(NCc)):
+
+        # True rate. 
+        _, r2 = getTrueR1R2(Ca=zeroArray, Cb=CbRange[i], Cc=CcRange[j], 
+                            k1=k1, k2f=k2f, k2b=k2b)
+
+        # NN rate. 
+        _, r2NN = getFullGbR1R2(Ca=zeroArray, Cb=CbRange[i], Cc=CcRange[j], 
+                                r1Weights=r1Weights, r2Weights=r2Weights, 
+                                xuyscales=xuyscales)
+
+        # Get the error. 
+        r2Errors[i, j] = np.abs(r2 - r2NN)/np.abs(r2)
 
     # Return. 
-    return 
+    return r1Errors, r2Errors
 
-def getFullGbRateErrorsOnGeneratedData(*, training_data, r1Weights,
-                                          r2Weights, xuyscales, k1, k2f, k2b):
+def getRateErrorsOnGeneratedData(*, training_data, fullGbWeights,
+                                    partialGbWeights, xuyscales, k1, k2f, k2b):
     """ Get errors in the reaction rate laws of the 
         full Grey-Box model on entire generated data. """ 
 
     # Return. 
     return 
 
-def getRateErrorsOnTrainingData(*, training_data_dyn, 
-                                   fNWeights, xuyscales, 
-                                   k1, k2):
-    """ Get the relative errors on the training data. """
+# def getRateErrorsOnTrainingData(*, training_data_dyn, 
+#                                    fNWeights, xuyscales, 
+#                                    k1, k2):
+#     """ Get the relative errors on the training data. """
 
-    # Scale.
-    xmean, xstd = xuyscales['yscale']
-    Castd, Cbstd, Ccstd = xstd[0:1], xstd[1:2], xstd[2:3]
-    umean, ustd = xuyscales['uscale']
+#     # Scale.
+#     xmean, xstd = xuyscales['yscale']
+#     Castd, Cbstd, Ccstd = xstd[0:1], xstd[1:2], xstd[2:3]
+#     umean, ustd = xuyscales['uscale']
 
-    # Loop over all the collected data.
-    r1Errors, r2Errors = [], []
-    y_list = []
-    for data in training_data_dyn:
+#     # Loop over all the collected data.
+#     r1Errors, r2Errors = [], []
+#     y_list = []
+#     for data in training_data_dyn:
 
-        # Get the number of time steps.
-        Nt = data.t.shape[0]
-        for t in range(Nt):
+#         # Get the number of time steps.
+#         Nt = data.t.shape[0]
+#         for t in range(Nt):
             
-            # State at the current time.
-            xt = data.y[t, :]
+#             # State at the current time.
+#             xt = data.y[t, :]
             
-            # True rates.
-            r1 = k1*xt[0]
-            r2 = k2*(xt[1]**3)
+#             # True rates.
+#             r1 = k1*xt[0]
+#             r2 = k2*(xt[1]**3)
 
-            # NN rates.
-            xt = (xt - xmean)/xstd
-            nnOutput = fnn(xt, fNWeights)
+#             # NN rates.
+#             xt = (xt - xmean)/xstd
+#             nnOutput = fnn(xt, fNWeights)
 
-            # Get the reaction rates.
-            r1NN = nnOutput[0:1]*Castd
-            r2NN = nnOutput[1:2]*Ccstd
+#             # Get the reaction rates.
+#             r1NN = nnOutput[0:1]*Castd
+#             r2NN = nnOutput[1:2]*Ccstd
 
-            # Get the errors.
-            r1Errors += [np.abs(r1 - r1NN)/r1]
-            r2Errors += [np.abs(r2 - r2NN)/r2]
+#             # Get the errors.
+#             r1Errors += [np.abs(r1 - r1NN)/r1]
+#             r2Errors += [np.abs(r2 - r2NN)/r2]
 
-        # Get the ylists. 
-        y_list += [data.y]
+#         # Get the ylists. 
+#         y_list += [data.y]
 
-    # Make numpy arrays.
-    errorsOnTrain = dict(r1=np.array(r1Errors), r2=np.array(r2Errors), 
-                         ysamples=np.concatenate(y_list, axis=0))
+#     # Make numpy arrays.
+#     errorsOnTrain = dict(r1=np.array(r1Errors), r2=np.array(r2Errors), 
+#                          ysamples=np.concatenate(y_list, axis=0))
 
-    # Return the training data.
-    return errorsOnTrain
+#     # Return the training data.
+#     return errorsOnTrain
 
 def main():
     """ Main function to be executed. """
@@ -144,11 +185,11 @@ def main():
     tworeac_parameters = PickleTool.load(filename=
                                          'tworeac_parameters.pickle',
                                          type='read')
-    tworeac_partialgbtrain = PickleTool.load(filename=
-                                      'tworeac_partialgbtrain.pickle',
+    tworeac_hybfullgbtrain = PickleTool.load(filename=
+                                      'tworeac_hybfullgbtrain.pickle',
                                       type='read')
-    tworeac_hybtrain = PickleTool.load(filename=
-                                      'tworeac_hybtrain.pickle',
+    tworeac_hybpartialgbtrain = PickleTool.load(filename=
+                                      'tworeac_hybpartialgbtrain.pickle',
                                       type='read')
     
     # Neural network weights and scaling.
