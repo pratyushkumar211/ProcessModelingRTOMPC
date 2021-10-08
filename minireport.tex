@@ -1,0 +1,228 @@
+\documentclass[10pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{authblk}
+\usepackage{amssymb}
+%\usepackage{lucidbry}
+\usepackage{graphicx}
+\usepackage{latexsym}
+\usepackage{subcaption}
+\usepackage{physics}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{tikz,tikzsettings}
+\usepackage{verbatim}
+\usetikzlibrary{arrows,shapes}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{verbatim}
+\usepackage{float}
+\usepackage{units}
+\usepackage[round]{natbib}
+\usepackage[english]{babel}
+\bibliographystyle{plainnat}
+%\setcitestyle{numeric,open={(},close={)}} \usepackage{color}
+%\usepackage{colortbl}
+\usetikzlibrary{decorations.markings}
+\usetikzlibrary{decorations.pathreplacing}
+\usetikzlibrary{shapes,calc,backgrounds,arrows,fit,decorations.pathmorphing,matrix}
+\usepackage[margin=0.79in]{geometry}
+
+\graphicspath{{./}{./figures/}{./figures/paper/}}
+
+\newcommand{\Is}{\bm{\mathrm{I}}} % Resources.
+\newcommand{\Js}{\bm{\mathrm{J}}} % Units.
+\newcommand{\Ks}{\bm{\mathrm{K}}} % Resources.
+\newcommand{\Ms}{\bm{\mathrm{M}}} % Transition catalog.
+\newcommand{\Ns}{\bm{\mathrm{N}}} % Transition counter.
+
+\newcommand{\useq}{\mathbf{u}} \newcommand{\xseq}{\mathbf{x}}
+\newcommand{\bbR}{\mathbb{R}} \newcommand{\bbW}{\mathbb{W}}
+\newcommand{\bbU}{\mathbb{U}} \newcommand{\bbI}{\mathbb{I}}
+\newcommand{\bbX}{\mathbb{X}} \newcommand{\bbP}{\mathbb{P}}
+
+\title{Hybrid process modeling strategies for real time optimization and control}
+\author{Pratyush Kumar}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Process modeling}
+We consider the problem of system identification of the following nonlinear
+plant:
+\begin{align*}
+  x_p^+ &= f_p(x_p, u, w) \\
+  y &= h_p(x_p) + v
+\end{align*}
+in which $x_p \in \bbR^{n_p}$ is the plant state, $u \in \bbU \subset \bbR^m$ is
+the manipulated control input, $y \in \bbR^p$ is the measurement, $w$ is the
+process noise, and $v$ is the measurement noise. The objective of developing the
+model is to use it subsequently in model predictive control (MPC). Therefore, we
+consider several types of grey-box, hybrid, and black-box models and analyze
+their predictive capabilities as well as their usefulness for online
+optimization in MPC. 
+
+\section{Model architectures for system identification}
+We describe several process modeling frameworks which determine parameters in
+their proposed model architecture by minimizing the multi-step ahead prediction
+error of the model on training data. A nonlinear optimization problem is solved
+for this identification step. The estimated parameters define the model, which
+is then used subsequently to perform model validation and for use in MPC.
+
+\subsection{Grey-box model}
+We first consider the grey-box modeling strategy, which is the current
+industrial state-of-the-art system identification technique. A parameterized
+model is defined based on first-principle knowledge about the plant, and
+parameters in the model are estimated from training data by solving the
+prediction-error minimization problem. The grey-box model is typically defined
+in continuous time and is of the following form:
+
+\begin{align*}
+  \dot{x}_g &= f_g(x_g, u, \theta_g) \\
+  y &= h_g(x_g, \theta_g)
+\end{align*}
+
+The following nonlinear program (NLP) is solved to identify the parameters
+$\theta_g$:
+
+\begin{align} \label{eq:gb_training}
+  \underset{x_g^i(0), \ \theta_g}{\textnormal{min}} \sum_{i=1}^{N_{tr}} \sum_{k=1}^{N_t} 
+  \dfrac{1}{N_tN_{tr}} &\norm{\tilde{y}^i(k) - y^i(k)}^2_{R_v^{-1}}  \\
+  \textnormal{subject to} \quad \quad x_g^{i+} &= f_{gd}(x_g^i, u^i, \theta_g) \nonumber \\
+   \tilde{y}^i &= h_g(x_g^i, \theta_g) \nonumber
+\end{align}
+
+in which $\theta_g$ and $x_g^i(0)$ are the decision variables in the
+optimization problem, which are parameters in the grey-box model and initial
+state used for forecasting the predicted measurements respectively. We assume
+that multiple trajectories can be used in the training data, and the superscript
+$i$ is used to denote the trajectory number. We use $N_{tr}$ to denote the total
+number of trajectories in training data and $N_t$ to denote the number of
+samples in each trajectory. The function $f_{g}(\cdot)$ is discretized at the
+measurement sample time to obtain the function $f_{gd}(\cdot)$ that is used to
+make forecasts in the above optimization.
+
+\subsection{Hybrid model}
+
+Often in industrial applicationns, first-principle knowledge about the plant is
+incomplete. Hence, grey-box system identification and subsequent use of the
+grey-box model in real-time optimization can lead to suboptimal economic
+performance. We propose to augment the grey-box model using a neural network
+(NN) such that the overall hybrid model can capture any unknown process dynamics
+in the plant, therefore leading to improved economic performance when used
+subsequently in real-time optimization. We define this hybrid model as follows:
+
+\begin{align*}
+  x_g^+ &= f_{gd}(x_g, u, \theta_g) + f_N(z, u, \theta_N) \\
+  z^+ &= f_z(x_g, z, u) \\
+  y &= h_g(x_g, \theta_g)
+\end{align*}
+in which $f_N(\cdot)$ is a NN and $\theta_N$ denotes the parameters in the
+network. We use $z$ to denote the vector of past measurements and control
+inputs. This vector is considered as an additional state in the overall dynamic
+model and is defined as follows:
+\begin{align} \label{eq:pastyu}
+  \mathbf{y}_{k-N_p:k-1} &= [y(k-N_p)', ... \ , y(k-1)']' \nonumber \\
+  \mathbf{u}_{k-N_p:k-1} &= [u(k-N_p)', ... \ , u(k-1)']' \nonumber \\
+  z(k) &= [\mathbf{y}_{k-N_p:k-1}', \mathbf{u}_{k-N_p:k-1}']'
+\end{align}
+in which $N_p$ is the number of past measurements and control inputs used. The
+function $f_z(\cdot)$ describes the dynamics of the state $z$ and its structure
+is defined as follows: 
+\begin{align*}
+  f_z(x_g, z, u) = \begin{bmatrix}
+    y(k-N_p+1) \\
+    y(k-N_p+2) \\
+    \vdots \\
+    h_g(x_g, \theta_g) \\
+    u(k-N_p+1) \\ 
+    u(k-N_p+2) \\
+    \vdots \\
+    u(k)
+  \end{bmatrix}
+\end{align*}
+We assume that the parameters in the grey-box model are first estimated by
+solving the NLP \eqref{eq:gb_training}, and the following similar NLP is solved
+to determine parameters ($\theta_N$) in the NN.
+
+\begin{align} \label{eq:hybrid_training}
+  \underset{\theta_N}{\textnormal{min}} \sum_{i=1}^{N_{tr}} \sum_{k=1}^{N_t} 
+  \dfrac{1}{N_tN_{tr}} &\norm{\tilde{y}^i(k) - y^i(k)}^2  \\
+  \textnormal{subject to} \quad \quad x_g^{i+} &= f_{gd}(x_g^i, u^i, \theta_g) + f_z(z^i, u^i, \theta_N) \nonumber \\
+  z^{i+} &= f_z(x_g^i, z^i, u^i) \nonumber \\
+   \tilde{y}^i &= h_g(x_g^i, \theta_g) \nonumber
+\end{align}
+The stochastic gradient descent algorithm Adam is used to solve the above
+optimization using the software tensorflow. Note that we do not estimate the
+initial grey-box state for each trajectory in the optimization problem, and fix
+those states heuristically to make forecasts during the optimization process.
+The control inputs and measurements are scaled as $u := (u -
+u_{\textnormal{MEAN}})/u_{\textnormal{STD}}$ and $y := (y -
+y_{\textnormal{MEAN}})/y_{\textnormal{STD}}$, in which $u_{\textnormal{MEAN}}$
+and $y_{\textnormal{MEAN}}$ are the respective means computed on training data.
+Similarly, $u_{\textnormal{STD}}$ and $y_{\textnormal{STD}}$ are the respective
+standard deviations. Due to this scaling, we do not consider the penalty
+$R_v^{-1}$ in the training objective.
+
+\subsection{Black-box models}
+Next, we consider black-box system identification strategies which do not impose
+any a-prior knowledge about the plant and develop the dynamic model purely from
+data. We consider two types of black-box models in this section: NNs and dynamic
+models based on the Koopman operator theory. The latter type of model is
+considered based on the motivation that it imposes a linear structure on the
+dynamics in a high-dimensional space, therefore leading to a linear or quadratic
+program to be solved online in MPC.
+
+\subsubsection{Neural network}
+The black-box NN uses the vector of past measurements and control inputs $z$
+\eqref{eq:pastyu} as the state in the dynamic model and is structured as follows
+\begin{align} \label{eq:bbnn_model}
+  z^+ &= f_z(z, u) \\ 
+  y &= h_N(z, \theta_N) \nonumber
+\end{align}
+in which $h_N(\cdot)$ is a NN and $\theta_N$ are the parameters in the network.
+The function $f_z(\cdot)$ denotes the dynamics of the state $z$ and is defined
+as 
+
+\begin{align*}
+  f_z(z, u) = \begin{bmatrix}
+    y(k-N_p+1) \\
+    y(k-N_p+2) \\
+    \vdots \\
+    h_N(z, \theta_N) \\
+    u(k-N_p+1) \\ 
+    u(k-N_p+2) \\
+    \vdots \\
+    u(k)
+  \end{bmatrix}
+\end{align*}
+
+\subsubsection{Koopman operator model}
+
+The Koopman model represents the dynamics as a linear system in a
+high-dimensional state-space that is a nonlinear transformation of the original
+state-space. This transformation is chosen such that the input-output behavior
+is linear. The overall dynamic model is represented as:
+
+\begin{align} \label{eq:koop_model}
+  x_{kp} &= [y', z', f_N(y, z, \theta_N)']' \\
+  x_{kp}^+ &= Ax_{kp} + Bu \nonumber \\
+  y &= [I, \ 0] x_{kp} \nonumber
+\end{align}
+in which $x_{kp} \in \bbR^N$ is the state in a high-dimensional state-space,
+$f_N(\cdot)$ is a NN used for the nonlinear transformation, and $\theta_N$
+denotes the parameters in the network.
+
+\subsubsection{Training}
+The training optimization problem for both the black-box NN and the Koopman
+operator model is to minimize the mean-squared-error (MSE) similar to the
+nonlinear program \eqref{eq:hybrid_training}. The model equality constraints are
+replaced with the equations \eqref{eq:bbnn_model} and \eqref{eq:koop_model} for
+the black-box and Koopman operator model respectively. The measurements and
+control inputs are scaled using the mean and standard deviation computed from
+the training data. The initial state to make model predictions in the
+optimization process is set based on a window of past measurements and control
+inputs in the training data.
+
+\end{document}
