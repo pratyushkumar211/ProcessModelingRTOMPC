@@ -8,24 +8,35 @@ def plant_ode(x, u, p, parameters):
     k1 = parameters['k1']
     k2f = parameters['k2f']
     k2b = parameters['k2b']
-    V = parameters['V']
+    A = parameters['A']
 
     # Extract the plant states into meaningful names.
-    Ca, Cb, Cc = x[0], x[1], x[2]
-    Caf = u[0]
-    F = p[0]
+    H, Ca, Cb, Cc, Cd, T = x[0], x[1], x[2], x[3], x[4], x[5]
+    Qfa, Qfb, Qc = u[0], u[1], u[2]
+    Caf, Cbf = p[0], p[1]
 
-    # Rate laws.
+    # Outlet flow rate.
+    Qout = ko*np.sqrt(H)
+
+    # Rate constants.
     r1 = k1*Ca
     r2 = k2f*(Cb**3) - k2b*Cc
     
-    # Write the ODEs.
-    dCabydt = F*(Caf - Ca)/V - r1
-    dCbbydt = -F*Cb/V + r1 - 3*r2
-    dCcbydt = -F*Cc/V + r2
+    # Height dynamics.
+    dHbydt = (Qfa + Qfb - Qout)/A
+
+    # Concentration dynamics.
+    dCabydt = Qfa*(Caf - Ca)/(A*H) - Qfb*Ca/(A*H) - r1
+    dCbbydt = Qfb*(Cbf - Cb)/(A*H) - Qfa*Cb/(A*H) - 4*r1
+    dCcbydt = -Cc*(Qfa + Qfb)/(A*H) + r1 - 3*r2
+    dCdbydt = -Cd*(Qfa + Qfb)/(A*H) + 2*r2
+
+    # Temperature dynamics.
+    dTbydt = Qfa*(Tfa - T)/(A*H) + Qfb*(Tfb - T)/(A*H)
+    dTbydt += (r1*delH1 + r2*delH2)/(pho*Cp) + Qc/(pho*Cp*A*H)
 
     # Return.
-    return mpc.vcat([dCabydt, dCbbydt, dCcbydt])
+    return mpc.vcat([dHbydt, dCabydt, dCbbydt, dCcbydt, dCdbydt, dTbydt])
 
 def get_plant_pars():
     """ Plant model parameters. """

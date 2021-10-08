@@ -11,7 +11,6 @@ from BlackBoxFuncs import get_weights_from_tflayers
 from ReacHybridFullGbFuncs import (create_model, train_model, 
                                    get_val_predictions)
 
-
 # Set the tensorflow global and graph-level seed.
 tf.random.set_seed(123)
 
@@ -66,7 +65,7 @@ def main():
                          hyb_fullgb_pars=hyb_fullgb_pars)
 
     # Train.
-    train_model(model=model, epochs=10, batch_size=1, 
+    train_model(model=model, epochs=8000, batch_size=1, 
                     train_data=train_data, trainval_data=trainval_data,
                     stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 
