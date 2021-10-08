@@ -187,16 +187,27 @@ def main():
     """ Main function to be executed. """
 
     # Load parameters.
-    tworeac_parameters = PickleTool.load(filename=
-                                         'tworeac_parameters.pickle',
+    reac_parameters = PickleTool.load(filename=
+                                         'reac_parameters.pickle',
                                          type='read')
-    tworeac_hybfullgbtrain = PickleTool.load(filename=
-                                      'tworeac_hybfullgbtrain.pickle',
+    reac_hybfullgbtrain = PickleTool.load(filename=
+                                      'reac_hybfullgbtrain.pickle',
                                       type='read')
-    tworeac_hybpartialgbtrain = PickleTool.load(filename=
-                                      'tworeac_hybpartialgbtrain.pickle',
+    reac_hybpartialgbtrain = PickleTool.load(filename=
+                                      'reac_hybpartialgbtrain.pickle',
                                       type='read')
-    
+
+    # Get true reaction rate parameters.
+    plant_pars = reac_parameters['plant_pars']
+    k1 = plant_pars['k1']
+    k2f = plant_pars['k2f']
+    k2b = plant_pars['k2b']
+
+    # Trained Weights. 
+    fbGbWeights = [reac_hybfullgbtrain['r1Weights'], 
+                   reac_hybfullgbtrain['r2Weights']]
+    pbGbWeights = [reac_hybpartialgbtrain['r1Weights'], 
+                   reac_hybpartialgbtrain['r2Weights']]
 
     # Get errors in reactions 1 and 2 for the full GB model. 
     CaRange = list(np.arange(0.2, 0.8, 0.01)[:, np.newaxis])
@@ -206,13 +217,13 @@ def main():
                             CbRange=CbRange, CcRange=CcRange, 
                             r1Weights=fGbWeights[0], r2Weights=fGbWeights[1], 
                             xuyscales=xuyscales, k1=k1, k2f=k2f, k2b=k2b)
+    r2XGrid, r2YGrid = np.meshgrid(CbRange, CcRange)
 
     # Get errors in the reactions on the generated training data.
     (fGbErrors, 
      pGbErrors) = getRateErrorsOnGeneratedData(training_data=training_data, 
-                                fGbWeights=fGbWeights,pGbWeights=pGbWeights, 
+                                fGbWeights=fGbWeights, pGbWeights=pGbWeights, 
                                 xuyscales=xuyscales, k1=k1, k2f=k2f, k2b=k2b)
-    
 
     # Make the plot.
     PickleTool.save(data_object=rateAnalysisData,
