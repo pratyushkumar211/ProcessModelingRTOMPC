@@ -8,7 +8,7 @@ sys.path.append('lib/')
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
-from plottingFuncs import ReacPlots, PAPER_FIGSIZE
+from plottingFuncs import PAPER_FIGSIZE
 from hybridId import PickleTool
 from linNonlinMPC import c2dNonlin, getSSOptimum, getXsYsSscost
 from reacFuncs import cost_yup, plant_ode
@@ -73,7 +73,7 @@ def main():
                                       type='read')
 
     # Get cost function handle.
-    p = [100, 1200]
+    p = [100, 1000]
     lyu = lambda y, u: cost_yup(y, u, p)
 
     # Get plant and hybrid model parameters.
@@ -117,7 +117,8 @@ def main():
         
     # Get a linspace of steady-state u values.
     ulb, uub = plant_pars['ulb'], plant_pars['uub']
-    us_list = list(np.linspace(ulb, uub, 100))
+    Nus = 100
+    us_list = list(np.linspace(ulb, uub, Nus))
     xs_list = []
 
     # Lists to store Steady-state cost.
@@ -127,9 +128,9 @@ def main():
     for (model_type, fxu, hx, model_pars) in zip(model_types, fxu_list, 
                                                  hx_list, par_list):
 
-        # List to store SS costs for one model.
-        model_sscost = []
+        # Lists to store the steady-state and the cost.
         model_xs = []
+        model_sscost = []
 
         # Compute SS cost.
         for us in us_list:
@@ -153,8 +154,16 @@ def main():
         xs_list += [model_xs]
         sscosts += [model_sscost]
 
-    # Get us as rank 1 array.
+    # Convert to a rank 1 array.
     us = np.asarray(us_list)[:, 0]
+
+    # Append NaNs for plotting the steady-state cost curves of the 
+    # Black-Box NN and Hybrid Partial Gb model.
+    yindices = plant_pars['yindices']
+    xs_list[1] = np.concatenate((xs_list[1][:, yindices], 
+                                 np.tile(np.nan, (Nus, 1))), axis=-1)
+    xs_list[3] = np.concatenate((xs_list[3][:, yindices], 
+                                 np.tile(np.nan, (Nus, 1))), axis=-1)
 
     # Create data object and save.
     reac_ssopt = dict(us=us, xs=xs_list, sscosts=sscosts)
