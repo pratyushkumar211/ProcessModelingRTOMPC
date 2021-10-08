@@ -35,7 +35,7 @@ def main():
     Ntstart = reac_parameters['Ntstart']
     Np = reac_parameters['Ntstart']
     unmeasXIndices = [2]
-    r1Dims = [1, 8, 1]
+    r1Dims = [1, 4, 1]
     r2Dims = [1 + Np*(Ny + Nu), 32, 1]
 
     # Filenames.

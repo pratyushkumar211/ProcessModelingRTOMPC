@@ -12,7 +12,7 @@ from reacFuncs import get_plant_pars, plant_ode
 # Numpy seed.
 np.random.seed(10)
 
-def get_hyb_pars_for_training(*, plant_pars, hybtype=None):
+def get_known_hyb_pars(*, plant_pars, hybtype=None):
     """ Grey-Box parameters for the hybrid model. """
     
     # Parameters.
@@ -120,10 +120,10 @@ def main():
                                         parameters=plant_pars)
 
     # Grey-Box model parameters.
-    hyb_fullgb_pars = get_hyb_pars_for_training(plant_pars=plant_pars,
-                                                hybtype='fullgb')
-    hyb_partialgb_pars = get_hyb_pars_for_training(plant_pars=plant_pars,
-                                                hybtype='partialgb')
+    hyb_fullgb_pars = get_known_hyb_pars(plant_pars=plant_pars,
+                                         hybtype='fullgb')
+    hyb_partialgb_pars = get_known_hyb_pars(plant_pars=plant_pars,
+                                            hybtype='partialgb')
     
     # Generate training data.
     Ntstart = 2
