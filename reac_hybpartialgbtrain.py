@@ -39,8 +39,8 @@ def main():
     r2Dims = [1 + Np*(Ny + Nu), 32, 1]
 
     # Filenames.
-    ckpt_path = 'reac_hybpartialgbtrain_dyndata.ckpt'
-    stdout_filename = 'reac_hybpartialgbtrain_dyndata.txt'
+    ckpt_path = 'reac_hybpartialgbtrain.ckpt'
+    stdout_filename = 'reac_hybpartialgbtrain.txt'
 
     # Get scaling.
     xuyscales = get_scaling(data=training_data[0])
@@ -57,9 +57,9 @@ def main():
                          hyb_partialgb_pars=hyb_partialgb_pars)
 
     # Train.
-    train_model(model=model, epochs=10, batch_size=1, 
-                    train_data=train_data, trainval_data=trainval_data,
-                    stdout_filename=stdout_filename, ckpt_path=ckpt_path)
+    train_model(model=model, epochs=8000, batch_size=1, 
+                train_data=train_data, trainval_data=trainval_data,
+                stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 
     # Validate.
     val_predictions = get_val_predictions(model=model,
