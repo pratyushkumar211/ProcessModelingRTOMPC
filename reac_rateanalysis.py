@@ -219,8 +219,8 @@ def main():
 
     # Get errors in reactions 1 and 2 for the full GB model. 
     CaRange = list(np.arange(1e-2, 1.5, 0.01)[:, np.newaxis])
-    CbRange = list(np.arange(0.3, 0.6, 0.01)[:, np.newaxis])
-    CcRange = list(np.arange(0.1, 0.6, 0.01)[:, np.newaxis])
+    CbRange = list(np.arange(0.5, 0.6, 0.01)[:, np.newaxis])
+    CcRange = list(np.arange(0.2, 0.5, 0.01)[:, np.newaxis])
     r2XGrid, r2YGrid = np.meshgrid(CbRange, CcRange)
     r1Errors, r2Errors = getFullGbRateErrorsInStateSpace(CaRange=CaRange, 
                             CbRange=CbRange, CcRange=CcRange, 

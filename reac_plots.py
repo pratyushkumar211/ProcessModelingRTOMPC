@@ -185,44 +185,34 @@ def plot_r1Errors(*, r1CaRange, r1Errors, legend_colors,
     # Return.
     return [figure]
 
-def plot_rPercentErrors(*, xGrids, yGrids, zvals, rErrors, 
-                            figure_size, xlabel, ylabel, rateTitle, 
-                            ylabel_xcoordinate, left_frac, 
-                            wspace, right_frac):
-    """ Make the plots. """
-
-    # Make plots.
-    figures = []
-    for (zval, xGrid, yGrid, rError) in zip(zvals, xGrids, yGrids, rErrors):
+def plot_fullGbR2Errors(*, r2XGrid, r2YGrid, r2Errors, 
+                           figure_size, xlabel, ylabel, title, 
+                           ylabel_xcoordinate, left_frac, 
+                           wspace, right_frac):
+    """ Plot errors in reaction rate 2. """
         
-        # Create figures.
-        figure, axes = plt.subplots(nrows=1, ncols=1, 
-                                    sharex=True, figsize=figure_size,
-                                    gridspec_kw=dict(left=left_frac, 
-                                                        right=right_frac,
-                                                        wspace=wspace))
+    # Create figure/axes.
+    figure, axes = plt.subplots(nrows=1, ncols=1, 
+                                sharex=True, figsize=figure_size,
+                                gridspec_kw=dict(left=left_frac, 
+                                                 right=right_frac,
+                                                 wspace=wspace))
 
-        # Contour plot.
-        mesh = axes.pcolormesh(xGrid, yGrid, rError, cmap='viridis')
-        figure.colorbar(mesh, ax=axes)
+    # Contour plot.
+    mesh = axes.pcolormesh(r2XGrid, r2YGrid, r2Errors, cmap='viridis')
+    figure.colorbar(mesh, ax=axes)  
 
-        # X and Y labels.
-        axes.set_ylabel(ylabel)
-        axes.set_xlabel(xlabel)
+    # Labels.
+    axes.set_ylabel(ylabel)
+    axes.set_xlabel(xlabel)
+    axes.set_title(title, loc='center', y=1.02)
 
-        # Limits.
-        axes.set_xlim([np.min(xGrid), np.max(xGrid)])
-        axes.set_ylim([np.min(yGrid), np.max(yGrid)])
-
-        # Title.
-        title = rateTitle + str(zval) + ' (mol/m$^3$)'
-        axes.set_title(title)
-
-        # Add into the figures list.
-        figures += [figure]
+    # Limits.
+    axes.set_xlim([np.min(r2XGrid), np.max(r2XGrid)])
+    axes.set_ylim([np.min(r2YGrid), np.max(r2YGrid)])
 
     # Return the figure.
-    return figures
+    return [figure]
 
 # def plot_cost_pars(t, cost_pars,
 #                    figure_size=PAPER_FIGSIZE, 
@@ -398,6 +388,23 @@ def main():
                              xlabel=xlabel, ylabel=ylabel,
                              ylabel_xcoordinate=-0.1, 
                              left_frac=0.15)
+
+    # Plot errors in the state-space. 
+    # Reaction -2.
+    fGbErrorsInStateSpace = reac_rateanalysis[0]
+    r2XGrid = fGbErrorsInStateSpace['r2XGrid']
+    r2YGrid = fGbErrorsInStateSpace['r2YGrid']
+    r2Errors = fGbErrorsInStateSpace['r2Errors']
+    xlabel = r'$c_B \ (\textnormal{mol/m}^3)$'
+    ylabel = r'$c_C \ (\textnormal{mol/m}^3)$'
+    title = r'$\dfrac{|\textnormal{Rate}-\textnormal{Rate}_{\textnormal{NN}}|}'
+    title += r'{\textnormal{Rate}}$, (\textnormal{Reaction-2})'
+    figures += plot_fullGbR2Errors(r2XGrid=r2XGrid, 
+                                   r2YGrid=r2YGrid, r2Errors=r2Errors, 
+                                   figure_size=PAPER_FIGSIZE, 
+                                   xlabel=xlabel, ylabel=ylabel, title=title, 
+                                   ylabel_xcoordinate=-0.1, left_frac=0.12, 
+                                   wspace=0.1, right_frac=0.95)
 
     # # Make the 3D scatter plot.
     # errorsOnTrain = reac_rateAnalysis[2]
