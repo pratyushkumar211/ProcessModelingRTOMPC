@@ -24,10 +24,10 @@ def plot_xudata(*, t, ylist, xlist, ulist, legend_names,
     """
 
     # Labels for the y axis.
-    ylabels = [r'$C_A \ (\textnormal{mol/m}^3)$',
-               r'$C_B \ (\textnormal{mol/m}^3)$',
-               r'$C_C \ (\textnormal{mol/m}^3)$',
-               r'$C_{Af} \ (\textnormal{mol/m}^3)$']
+    ylabels = [r'$c_A \ (\textnormal{mol/m}^3)$',
+               r'$c_B \ (\textnormal{mol/m}^3)$',
+               r'$c_C \ (\textnormal{mol/m}^3)$',
+               r'$c_{Af} \ (\textnormal{mol/m}^3)$']
 
     # Number of rows.
     nrow = len(ylabels)
@@ -79,10 +79,10 @@ def plot_xsvus(*, us, xs_list, legend_names,
     """ Plot steady state xs and us. """
     
     # Y-axis labels.
-    ylabels = [r'$C_{As} \ (\textnormal{mol/m}^3)$', 
-               r'$C_{Bs} \ (\textnormal{mol/m}^3)$',
-               r'$C_{Cs} \ (\textnormal{mol/m}^3)$']
-    xlabel = r'$C_{Afs} \ (\textnormal{mol/m}^3)$'
+    ylabels = [r'$c_{As} \ (\textnormal{mol/m}^3)$', 
+               r'$c_{Bs} \ (\textnormal{mol/m}^3)$',
+               r'$c_{Cs} \ (\textnormal{mol/m}^3)$']
+    xlabel = r'$c_{Afs} \ (\textnormal{mol/m}^3)$'
 
     # Number of rows.
     nrow = len(ylabels)
@@ -146,12 +146,43 @@ def plot_sscosts(*, us, sscosts, legend_colors,
     axes.legend(legend_names)
     axes.set_xlabel(xlabel)
     axes.set_ylabel(ylabel)
-    axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5) 
+    axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
     
     # Limits on x axis.
     axes.set_xlim([np.min(us), np.max(us)])
     
     # Return figure.
+    return [figure]
+
+def plot_r1Errors(*, r1CaRange, r1Errors, legend_colors,
+                     legend_names, figure_size,
+                     xlabel, ylabel, ylabel_xcoordinate, 
+                     left_frac):
+    """ Plot errors in the first reaction. """
+
+    # Create figures.
+    figure, axes = plt.subplots(nrows=1, ncols=1,
+                                sharex=True, figsize=figure_size, 
+                                gridspec_kw=dict(left=left_frac))
+    
+    # Make plots.
+    for (r1Error, color) in zip(r1Errors, legend_colors):
+
+        # Contour plot.
+        handle = axes.semilogy(r1CaRange, r1Error, color=color)
+
+    # X and Y labels.
+    axes.set_xlabel(xlabel)
+    axes.set_ylabel(ylabel)
+
+    # X-axis limits.
+    axes.set_xlim([np.min(r1CaRange), np.max(r1CaRange)])
+
+    # Plot legend names.
+    if legend_names is not None:
+        axes.legend(legend_names)
+
+    # Return.
     return [figure]
 
 def plot_rPercentErrors(*, xGrids, yGrids, zvals, rErrors, 
@@ -184,7 +215,7 @@ def plot_rPercentErrors(*, xGrids, yGrids, zvals, rErrors,
         axes.set_ylim([np.min(yGrid), np.max(yGrid)])
 
         # Title.
-        title = rateTitle + str(zval) + ' (mol/m$^3$)' 
+        title = rateTitle + str(zval) + ' (mol/m$^3$)'
         axes.set_title(title)
 
         # Add into the figures list.
@@ -349,6 +380,24 @@ def main():
                                     figure_size=PAPER_FIGSIZE, xlabel=xlabel, 
                                     ylabel=ylabel, nBins=1000, 
                                     binRange=binRange, xlims=xlims)
+
+    # Plot errors in the state-space.
+    # Reaction - 1.
+    fGbErrorsInStateSpace = reac_rateanalysis[0]
+    r1Errors = [fGbErrorsInStateSpace['r1Errors']]
+    r1CaRange = fGbErrorsInStateSpace['r1CaRange']
+    xlabel = r'$c_A \ (\textnormal{mol/m}^3)$'
+    ylabel = r'$\dfrac{|\textnormal{Rate}-\textnormal{Rate}_{\textnormal{NN}}|}'
+    ylabel += r'{\textnormal{Rate}}$, (\textnormal{Reaction-1})'
+    legend_colors = ['k']
+    figures += plot_r1Errors(r1CaRange=r1CaRange,
+                             r1Errors=r1Errors,
+                             legend_colors=legend_colors,
+                             legend_names=None,
+                             figure_size=PAPER_FIGSIZE,
+                             xlabel=xlabel, ylabel=ylabel,
+                             ylabel_xcoordinate=-0.1, 
+                             left_frac=0.15)
 
     # # Make the 3D scatter plot.
     # errorsOnTrain = reac_rateAnalysis[2]

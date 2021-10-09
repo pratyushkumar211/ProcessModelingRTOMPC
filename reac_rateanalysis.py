@@ -218,7 +218,7 @@ def main():
     xuyscales = reac_hybfullgbtrain['xuyscales']
 
     # Get errors in reactions 1 and 2 for the full GB model. 
-    CaRange = list(np.arange(0.2, 0.8, 0.01)[:, np.newaxis])
+    CaRange = list(np.arange(1e-2, 1.5, 0.01)[:, np.newaxis])
     CbRange = list(np.arange(0.3, 0.6, 0.01)[:, np.newaxis])
     CcRange = list(np.arange(0.1, 0.6, 0.01)[:, np.newaxis])
     r2XGrid, r2YGrid = np.meshgrid(CbRange, CcRange)
@@ -226,8 +226,12 @@ def main():
                             CbRange=CbRange, CcRange=CcRange, 
                             r1Weights=fGbWeights[0], r2Weights=fGbWeights[1], 
                             xuyscales=xuyscales, k1=k1, k2f=k2f, k2b=k2b)
-    fGbErrorsInStateSpace = dict(r1Errors=r1Errors, r2Errors=r2Errors,      
-                                 r2XGrid=r2XGrid, r2YGrid=r2YGrid)
+    r1CaRange = np.array(CaRange).squeeze()
+
+    # Save calculations as a dictionary to plot later.
+    fGbErrorsInStateSpace = dict(r1Errors=r1Errors, r1CaRange=r1CaRange,
+                                 r2Errors=r2Errors, r2XGrid=r2XGrid, 
+                                 r2YGrid=r2YGrid)
 
     # Get errors in the reactions on the generated training data.
     yindices = plant_pars['yindices']
