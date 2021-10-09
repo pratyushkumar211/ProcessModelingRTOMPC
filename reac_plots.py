@@ -188,7 +188,7 @@ def plot_r1Errors(*, r1CaRange, r1Errors, legend_colors,
 def plot_fullGbR2Errors(*, r2XGrid, r2YGrid, r2Errors, 
                            figure_size, xlabel, ylabel, title, 
                            ylabel_xcoordinate, left_frac, 
-                           wspace, right_frac):
+                           wspace, right_frac, title_y):
     """ Plot errors in reaction rate 2. """
         
     # Create figure/axes.
@@ -205,7 +205,7 @@ def plot_fullGbR2Errors(*, r2XGrid, r2YGrid, r2Errors,
     # Labels.
     axes.set_ylabel(ylabel)
     axes.set_xlabel(xlabel)
-    axes.set_title(title, loc='center', y=1.02)
+    axes.set_title(title, loc='center', y=title_y)
 
     # Limits.
     axes.set_xlim([np.min(r2XGrid), np.max(r2XGrid)])
@@ -404,7 +404,7 @@ def main():
                                    figure_size=PAPER_FIGSIZE, 
                                    xlabel=xlabel, ylabel=ylabel, title=title, 
                                    ylabel_xcoordinate=-0.1, left_frac=0.12, 
-                                   wspace=0.1, right_frac=0.95)
+                                   wspace=0.1, right_frac=0.95, title_y=1.02)
 
     # # Make the 3D scatter plot.
     # errorsOnTrain = reac_rateAnalysis[2]
