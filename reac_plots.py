@@ -13,8 +13,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from hybridId import PickleTool
-from commonPlottingFuncs import PAPER_FIGSIZE, get_plotting_array_list
-
+from plottingFuncs import PAPER_FIGSIZE, get_plotting_array_list
+from plottingFuncs import plot_rErrorHistogram
 
 def plot_xudata(*, t, ylist, xlist, ulist, legend_names,
                     legend_colors, figure_size,
@@ -125,14 +125,12 @@ def plot_xsvus(*, us, xs_list, legend_names,
 
 def plot_sscosts(*, us, sscosts, legend_colors, 
                     legend_names, figure_size, 
-                    ylabel_xcoordinate, left_label_frac):
+                    ylabel_xcoordinate):
     """ Plot the cost curves. """
     
     # Create figure and axes.
     (figure, axes) = plt.subplots(nrows=1, ncols=1, 
-                                    sharex=True, 
-                                    figsize=figure_size, 
-                                    gridspec_kw=dict(left=left_label_frac))
+                                  sharex=True, figsize=figure_size)
 
     # X and Y labels.
     xlabel = r'$C_{Afs} \ (\textnormal{mol/m}^3)$'
@@ -195,54 +193,26 @@ def plot_rPercentErrors(*, xGrids, yGrids, zvals, rErrors,
     # Return the figure.
     return figures
 
-def plot_ErrorHistogram(*, rErrors, figure_size, xlabel, ylabel, 
-                            left_frac, nBins, legend_names,
-                            xlims):
-    """ Make the plots. """
-    
-    # Create figures.
-    figure, axes = plt.subplots(nrows=1, ncols=1, 
-                                figsize=figure_size,
-                                gridspec_kw=dict(left=left_frac))
+# def plot_cost_pars(t, cost_pars,
+#                    figure_size=PAPER_FIGSIZE, 
+#                    ylabel_xcoordinate=-0.15):
+#     """ Plot the economic MPC cost parameters. """
 
-    # Contour plot.
-    for rError in rErrors:
-        axes.hist(rError, bins=nBins)
-
-    # Legend. 
-    if legend_names is not None:
-        axes.legend(legend_names)
-
-    # X and Y labels.
-    axes.set_ylabel(ylabel)
-    axes.set_xlabel(xlabel)
-
-    # X and Y limits.
-    axes.set_xlim(xlims)
-
-    # Return the figure.
-    return [figure]
-
-def plot_cost_pars(t, cost_pars,
-                   figure_size=PAPER_FIGSIZE, 
-                   ylabel_xcoordinate=-0.15):
-    """ Plot the economic MPC cost parameters. """
-
-    num_pars = cost_pars.shape[1]
-    (figure, axes_list) = plt.subplots(nrows=num_pars, ncols=1,
-                                       sharex=True, figsize=figure_size,
-                                       gridspec_kw=dict(left=0.18))
-    xlabel = 'Time (hr)'
-    ylabels = [r'$c_a$', r'$c_b$']
-    for (axes, pari, ylabel) in zip(axes_list, range(num_pars), ylabels):
-        # Plot the corresponding data.
-        axes.plot(t, cost_pars[:len(t), pari])
-        axes.set_ylabel(ylabel, rotation=False)
-        axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
-    axes.set_xlabel(xlabel)
-    axes.set_xlim([np.min(t), np.max(t)])
-    # Figure list.
-    return [figure]
+#     num_pars = cost_pars.shape[1]
+#     (figure, axes_list) = plt.subplots(nrows=num_pars, ncols=1,
+#                                        sharex=True, figsize=figure_size,
+#                                        gridspec_kw=dict(left=0.18))
+#     xlabel = 'Time (hr)'
+#     ylabels = [r'$c_a$', r'$c_b$']
+#     for (axes, pari, ylabel) in zip(axes_list, range(num_pars), ylabels):
+#         # Plot the corresponding data.
+#         axes.plot(t, cost_pars[:len(t), pari])
+#         axes.set_ylabel(ylabel, rotation=False)
+#         axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
+#     axes.set_xlabel(xlabel)
+#     axes.set_xlim([np.min(t), np.max(t)])
+#     # Figure list.
+#     return [figure]
 
 def main():
     """ Load the pickle files and plot. """
@@ -258,30 +228,26 @@ def main():
                                       type='read')
     bbnn_predictions = reac_bbnntrain['val_predictions']
 
-    # Load Hybrid data after training.
+    # Load full hybrid model data after training.
     reac_hybfullgbtrain = PickleTool.load(filename=
                                      "reac_hybfullgbtrain.pickle",
                                      type='read')
     hybfullgb_predictions = reac_hybfullgbtrain['val_predictions']
 
-    # Load Hybrid data after training.
+    # Load partial hybrid model data after training.
     reac_hybpartialgbtrain = PickleTool.load(filename=
                                      "reac_hybpartialgbtrain.pickle",
                                      type='read')
     hybpartialgb_predictions = reac_hybpartialgbtrain['val_predictions']
 
-
-    # Load the steady state cost computations.
+    # Load the steady state computations.
     reac_ssopt = PickleTool.load(filename="reac_ssopt_curve.pickle",
                                      type='read')
 
-    # # Load the rate analysis computations.
-    # reac_fullgbRateAnalysis = PickleTool.load(filename=
-    #                                  "reac_fullgbRateAnalysis.pickle",
-    #                                  type='read')
-    # reac_partialgbRateAnalysis = PickleTool.load(filename=
-    #                                  "reac_partialgbRateAnalysis.pickle",
-    #                                  type='read')
+    # Load the rate analysis computations.
+    reac_rateanalysis = PickleTool.load(filename=
+                                     "reac_rateanalysis.pickle",
+                                     type='read')
 
     # List to store figures.
     figures = []
@@ -334,11 +300,6 @@ def main():
     us = reac_ssopt['us']
     Ny = reac_parameters['plant_pars']['Ny']
     xs_list = reac_ssopt['xs']
-    Nss_data = xs_list[0].shape[0]
-    xs_list[1] = np.concatenate((xs_list[1][:, :Ny], 
-                                 np.tile(np.nan, (Nss_data, 1))), axis=-1)
-    xs_list[3] = np.concatenate((xs_list[3][:, :Ny], 
-                                 np.tile(np.nan, (Nss_data, 1))), axis=-1)
     legend_names = ['Plant', 'Black-Box-NN', 
                     'Hybrid - FullGb', 'Hybrid - PartialGb']
     legend_colors = ['b', 'dimgrey', 'm', 'g']
@@ -349,34 +310,45 @@ def main():
                           ylabel_xcoordinate=-0.12, 
                           title_loc=(0.25, 0.9))
 
-    # # Steady state cost curves.
-    # sscosts = reac_ssopt['sscosts']
-    # sscosts.pop(1)
-    # figures += ReacPlots.plot_sscosts(us=us, sscosts=sscosts, 
-    #                                     legend_colors=legend_colors, 
-    #                                     legend_names=legend_names, 
-    #                                     figure_size=PAPER_FIGSIZE, 
-    #                                     ylabel_xcoordinate=-0.12, 
-    #                                     left_label_frac=0.15)
+    # Steady state cost curves.
+    sscosts = reac_ssopt['sscosts']
+    figures += plot_sscosts(us=us, sscosts=sscosts, 
+                            legend_colors=legend_colors, 
+                            legend_names=legend_names, 
+                            figure_size=PAPER_FIGSIZE, 
+                            ylabel_xcoordinate=-0.12)
 
-    # Make the histograms.
-    # fullgbErrors = reac_fullgbRateAnalysis[0]
-    # partialgbErrors = reac_partialgbRateAnalysis[0]
-    # xlabels = ['$\dfrac{|r_1 - r_{1-NN}|}{r_1}$',
-    #            '$\dfrac{|r_2 - r_{2-NN}|}{r_2}$']
-    # xlims_list = [[0., 0.1], [0., 0.1]]
-    # legend_names = ['Hybrid-1', 'Hybrid-2']
-    # for reaction, xlabel, xlims in zip(['r1', 'r2'], 
-    #                                    xlabels, xlims_list):
+    # Make error histogram.
+    # Reaction - 1
+    fGbErrors = reac_rateanalysis[1]['fGbErrors']
+    pGbErrors = reac_rateanalysis[1]['pGbErrors']
+    xlabel = r'$\dfrac{|\textnormal{Rate}-\textnormal{Rate}_{\textnormal{NN}}|}'
+    xlabel += r'{\textnormal{Rate}}$, (\textnormal{Reaction-1})'
+    ylabel = 'Frequency'
+    xlims = [0., 0.05]
+    legend_names = ['Hybrid - FullGb', 'Hybrid - PartialGb']
+    rErrors = [fGbErrors['r1Errors'], pGbErrors['r1Errors']]
+    binRange = 0, 0.05
+    figures += plot_rErrorHistogram(rErrors=rErrors, 
+                                    legend_colors=legend_colors, 
+                                    legend_names=legend_names, 
+                                    figure_size=PAPER_FIGSIZE, xlabel=xlabel, 
+                                    ylabel=ylabel, nBins=1000, 
+                                    binRange=binRange, xlims=xlims)
 
-    #     # Loop over the errors.
-    #     rErrors = [fullgbErrors[reaction], partialgbErrors[reaction]]
-    #     figures += ReacPlots.plot_ErrorHistogram(rErrors=rErrors, 
-    #                                             xlabel=xlabel, ylabel='Frequency',
-    #                                             figure_size=PAPER_FIGSIZE, 
-    #                                             left_frac=0.12, nBins=2000, 
-    #                                             legend_names=legend_names,
-    #                                             xlims=xlims)
+    # Make error histogram.
+    # Reaction - 2
+    xlabel = r'$\dfrac{|\textnormal{Rate}-\textnormal{Rate}_{\textnormal{NN}}|}'
+    xlabel += r'{\textnormal{Rate}}$, (\textnormal{Reaction-2})'
+    xlims = [0., 0.1]
+    rErrors = [fGbErrors['r2Errors'], pGbErrors['r2Errors']]
+    binRange = 0, 0.1
+    figures += plot_rErrorHistogram(rErrors=rErrors, 
+                                    legend_colors=legend_colors, 
+                                    legend_names=legend_names, 
+                                    figure_size=PAPER_FIGSIZE, xlabel=xlabel, 
+                                    ylabel=ylabel, nBins=1000, 
+                                    binRange=binRange, xlims=xlims)
 
     # # Make the 3D scatter plot.
     # errorsOnTrain = reac_rateAnalysis[2]

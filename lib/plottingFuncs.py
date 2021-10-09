@@ -30,6 +30,35 @@ def get_plotting_array_list(*, simdata_list, plot_range):
     # Return lists.
     return (t, ulist, xlist, ylist, plist)
 
+def plot_rErrorHistogram(*, rErrors, legend_colors, legend_names,
+                           figure_size, xlabel, ylabel, 
+                           nBins, binRange, xlims):
+    """ Make the plots. """
+    
+    # Create figures.
+    figure, axes = plt.subplots(nrows=1, ncols=1, 
+                                figsize=figure_size)
+
+    # Loop over the errors.
+    for rError, color in zip(rErrors, legend_colors):
+
+        # Make the histogram.
+        axes.hist(rError, bins=nBins, range=binRange, color=color)
+
+    # Legend. 
+    if legend_names is not None:
+        axes.legend(legend_names)
+
+    # X and Y labels.
+    axes.set_ylabel(ylabel)
+    axes.set_xlabel(xlabel)
+
+    # X limits.
+    axes.set_xlim(xlims)
+
+    # Return the figure.
+    return [figure]
+
 #def plot_sub_gaps(*, num_samples, sub_gaps, colors, legends, 
 #                  figure_size=PAPER_FIGSIZE,
 #                  ylabel_xcoordinate=-0.11, 

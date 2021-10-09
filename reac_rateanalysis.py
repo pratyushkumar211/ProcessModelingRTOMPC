@@ -27,7 +27,7 @@ def getFullGbR1R2(*, Ca, Cb, Cc, r1Weights, r2Weights, xuyscales):
 
     # Get scaling.
     ymean, ystd = xuyscales['yscale']
-    Camean, Cbmean = ystd[0:1], ystd[1:2]
+    Camean, Cbmean = ymean[0:1], ymean[1:2]
     Castd, Cbstd = ystd[0:1], ystd[1:2]
 
     # Get r1.
@@ -52,7 +52,7 @@ def getPartialGbR1R2(*, Ca, Cb, z, Np, r1Weights, r2Weights, xuyscales):
     # Get scaling.
     ymean, ystd = xuyscales['yscale']
     umean, ustd = xuyscales['uscale']
-    Camean, Cbmean = ystd[0:1], ystd[1:2]
+    Camean, Cbmean = ymean[0:1], ymean[1:2]
     Castd, Cbstd = ystd[0:1], ystd[1:2]
     zmean = np.concatenate((np.tile(ymean, (Np, )), 
                              np.tile(umean, (Np, ))))
@@ -133,8 +133,8 @@ def getRateErrorsOnGeneratedData(*, training_data, Ntstart, Np, Ny, Nu,
     pGbErrors = dict(r1Errors=[], r2Errors = [])
 
     # Get r1 and r2 Weights. 
-    fGbR1Weights, fGbR2Weights = fGbWeights[0], fGbWeights[1]
-    pGbR1Weights, pGbR2Weights = pGbWeights[0], pGbWeights[1]
+    fGbR1Weights, fGbR2Weights = fGbWeights
+    pGbR1Weights, pGbR2Weights = pGbWeights
 
     # Loop over all the generate trjectories.
     for data in training_data:
@@ -211,9 +211,9 @@ def main():
 
     # Trained Weights and scaling. 
     fGbWeights = [reac_hybfullgbtrain['r1Weights'], 
-                   reac_hybfullgbtrain['r2Weights']]
+                  reac_hybfullgbtrain['r2Weights']]
     pGbWeights = [reac_hybpartialgbtrain['r1Weights'], 
-                   reac_hybpartialgbtrain['r2Weights']]
+                  reac_hybpartialgbtrain['r2Weights']]
     Np = reac_hybpartialgbtrain['Np']
     xuyscales = reac_hybfullgbtrain['xuyscales']
 
