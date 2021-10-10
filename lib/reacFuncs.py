@@ -64,16 +64,37 @@ def get_plant_pars():
     # Return the parameters dict.
     return parameters
 
-def cost_yup(y, u, p):
-    """ Economic stage cost. """
+def cost_xup_noCc(x, u, p):
+    """ Economic stage cost without a contribution
+        of the unmeasured species C concentration. """
 
-    # Get inputs, cost parameters, and measurements.
+    # Inputs.
     CAf = u[0:1]
-    costPar_A, costPar_B = p[0:2]
-    _, CB = y[0:2]
+
+    # Cost parameters. 
+    pA, pB = p[0:2]
+
+    # States.
+    _, CB = x[0:2]
 
     # Return.
-    return costPar_A*CAf - costPar_B*CB
+    return pA*CAf - pB*CB
+
+def cost_xup_withCc(x, u, p):
+    """ Economic stage cost with a contribution 
+        of the unmeasured species C concentration. """
+
+    # Inputs.
+    CAf = u[0:1]
+
+    # Cost parameters. 
+    pA, pB, pC = p[0:3]
+
+    # States.
+    _, CB, CC = x[0:3]
+
+    # Return.
+    return pA*CAf - pB*CB - pC*CC
 
 # def getEconDistPars(seed=2):
 #     """ Get the economic and measured disturbance parameters. """
