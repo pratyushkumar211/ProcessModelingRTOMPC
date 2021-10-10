@@ -1254,46 +1254,64 @@ def c2dNonlin(f, Delta, p=False):
 #     # Return.
 #     return clData, avgStageCosts
 
-def getSSOptimum(*, fxu, hx, lyu, parameters, guess):
-    """ Setup and solve the steady state optimization. """
+def getSSOptimum(*, fxu, hx, lxu, parameters, guess):
+    """ Setup and solve a steady state optimization problem.
+        min_{xs, us} l(x, u)
+                xs = f(xs, us)
+                xlb \leq xs \leq xub
+                ulb \leq us \leq uub
+     """
 
-    # Size and constraints.
+    # Sizes.
     Nx, Nu = parameters['Nx'], parameters['Nu']
-    ulb, uub = parameters['ulb'], parameters['uub']
 
-    # Construct NLP and solve.
+    # Decision variables.
     xs = casadi.SX.sym('xs', Nx)
     us = casadi.SX.sym('us', Nu)
 
-    # Get casadi functions.
-    lxu_func = lambda x, u: lyu(hx(x), u)
+    # Constraints.
+    ulb = parameters['ulb'][:, np.newaxis]
+    uub = parameters['uub'][:, np.newaxis]
+    if 'xlb' in parameters and 'xub' in parameters:
+        xlb = parameters['xlb'][:, np.newaxis]
+        xub = parameters['xub'][:, np.newaxis]
+    else:
+        xlb = np.tile(-np.inf, (Nx, 1))
+        xub = np.tile(np.inf, (Nx, 1))
+    lbx = np.concatenate((xlb, ulb))
+    ubx = np.concatenate((xub, uub))
+
+    # Casadi functions for the stage cost and dynamic model.
+    lxu_func = lambda x, u: lxu(x, u)
     lxu = mpc.getCasadiFunc(lxu_func, [Nx, Nu], ["x", "u"])
     f = mpc.getCasadiFunc(fxu, [Nx, Nu], ["x", "u"])
 
     # Setup NLP.
     nlpInfo = dict(x=casadi.vertcat(xs, us), f=lxu(xs, us),
-               g=casadi.vertcat(xs -  f(xs, us), us))
+                   g=xs-f(xs, us))
     nlp = casadi.nlpsol('nlp', 'ipopt', nlpInfo)
 
     # Make a guess and get the constraint limits.
     xuguess = np.concatenate((guess['x'], guess['u']))[:, np.newaxis]
-    lbg = np.concatenate((np.zeros((Nx,)), ulb))[:, np.newaxis]
-    ubg = np.concatenate((np.zeros((Nx,)), uub))[:, np.newaxis]
+    lbg = np.zeros((Nx, 1))
+    ubg = np.zeros((Nx, 1))
 
     # Solve.
-    nlp_soln = nlp(x0=xuguess, lbg=lbg, ubg=ubg)
-    xsol = np.asarray(nlp_soln['x'])[:, 0]
-    opt_sscost = np.asarray(nlp_soln['f'])
-    xs, us = np.split(xsol, [Nx])
+    nlpSoln = nlp(x0=xuguess, lbg=lbg, ubg=ubg, lbx=lbx, ubx=ubx)
+    optX = np.asarray(nlpSoln['x'])[:, 0]
+    optSscost = np.asarray(nlpSoln['f'])
+    xs, us = np.split(optX, [Nx])
     ys = hx(xs)
 
     # Return the steady state solution.
-    return xs, us, ys, opt_sscost
+    return xs, us, ys, optSscost
 
 def getXsYsSscost(*, fxu, hx, us, parameters, lyu=None,
                      xguess=None, lbx=None, ubx=None):
-    """ Setup and solve the steady state optimization. 
-        fxu is in discrete-time.
+    """ Determine xs, ys, and cost of a model corresponding to a 
+        steady-state input (us).
+        The xs is determine by solving a dummy optimization problem using 
+        casadi.nlpsol rather than casadi.rootfinder.
     """
 
     # Sizes.
