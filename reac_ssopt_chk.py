@@ -55,6 +55,29 @@ def get_xuguess(*, model_type, plant_pars, model_pars):
     # Return as dict.
     return dict(x=xs, u=us)
 
+def getSSOptimums(*, model_types, fxu_list, hx_list, par_list):
+    """ Get steady-state optimums of all the 
+        models with the specified stage cost. 
+    """
+
+    # Loop over the different models and obtain the SS optimums.
+    for (model_type, fxu, hx, model_pars) in zip(model_types, fxu_list, 
+                                                 hx_list, par_list):
+
+        # Get Guess.
+        xuguess = get_xuguess(model_type=model_type, 
+                              plant_pars=plant_pars, 
+                              model_pars=model_pars)
+        
+        # Get the steady state optimum.
+        xs, us, ys, opt_sscost = getSSOptimum(fxu=fxu, hx=hx, lyu=lyu, 
+                                              parameters=model_pars, 
+                                              guess=xuguess)
+
+
+    # Return.
+    return 
+
 def main():
     """ Main function to be executed. """
 
@@ -115,22 +138,10 @@ def main():
     hx_list = [plant_h, bbnn_h, fhyb_h, phyb_h]
     par_list = [plant_pars, bbnn_pars, fhyb_pars, phyb_pars]
 
-    # Loop over the different models and obtain SS optimums.
-    for (model_type, fxu, hx, model_pars) in zip(model_types, fxu_list, 
-                                                 hx_list, par_list):
+    # Get the 
 
-        # Get Guess.
-        xuguess = get_xuguess(model_type=model_type, 
-                              plant_pars=plant_pars, 
-                              model_pars=model_pars)
-        
-        # Get the steady state optimum.
-        xs, us, ys, opt_sscost = getSSOptimum(fxu=fxu, hx=hx, lyu=lyu, 
-                                              parameters=model_pars, 
-                                              guess=xuguess)
-
-        # Print. 
-        print("Model type: " + model_type)
-        print('us: ' + str(us))
+    # Print. 
+    print("Model type: " + model_type)
+    print('us: ' + str(us))
         
 main()
