@@ -1303,7 +1303,7 @@ def getSSOptimum(*, fxu, hx, lxu, parameters, guess):
     xs, us = np.split(optX, [Nx])
     ys = hx(xs)
 
-    # Return the steady state solution.
+    # Return.
     return xs, us, ys, optSscost
 
 def getXsYsSscost(*, fxu, hx, us, parameters, lyu=None,

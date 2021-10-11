@@ -6,12 +6,9 @@
 import sys
 sys.path.append('lib/')
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_pdf import PdfPages
-from plottingFuncs import ReacPlots, PAPER_FIGSIZE
 from hybridId import PickleTool
 from linNonlinMPC import c2dNonlin, getSSOptimum, getXsYsSscost
-from reacFuncs import cost_yup, plant_ode
+from reacFuncs import cost_xup_noCc, cost_xup_withCc, plant_ode
 
 # Functions for Black-Box, full hybrid, and partial hybrid models.
 from BlackBoxFuncs import get_bbnn_pars, bbnn_fxu, bbnn_hx
@@ -22,7 +19,7 @@ from ReacHybridPartialGbFuncs import get_hybrid_pars as get_phyb_pars
 from ReacHybridPartialGbFuncs import hybrid_fxup as phyb_fxup
 from ReacHybridPartialGbFuncs import hybrid_hx as phyb_hx
 
-def get_xuguess(*, model_type, plant_pars, model_pars):
+def get_xuguess(*, model_type, fxu, hx, model_pars, plant_pars):
     """ Get x and u guesses depending on model type. """
     
     us = plant_pars['us']
@@ -52,31 +49,50 @@ def get_xuguess(*, model_type, plant_pars, model_pars):
     else:
         None
 
-    # Return as dict.
+    # Solve a steady-state equality problem to get 
+    # an updated xs corresponding to exact equality constraint.
+    xs, _, _ = getXsYsSscost(fxu=fxu, hx=hx, us=us, 
+                             parameters=model_pars, xguess=xs)
+
+    # Return a dict.
     return dict(x=xs, u=us)
 
-def getSSOptimums(*, model_types, fxu_list, hx_list, par_list):
+def getSSOptimums(*, model_types, fxu_list, hx_list, 
+                     par_list, plant_pars, cost_xup):
     """ Get steady-state optimums of all the 
         models with the specified stage cost. 
     """
+
+    # Lists to store optimization results. 
+    xs_list, us_list, optSscost_list = [], [], []
 
     # Loop over the different models and obtain the SS optimums.
     for (model_type, fxu, hx, model_pars) in zip(model_types, fxu_list, 
                                                  hx_list, par_list):
 
         # Get Guess.
-        xuguess = get_xuguess(model_type=model_type, 
-                              plant_pars=plant_pars, 
-                              model_pars=model_pars)
+        xuguess = get_xuguess(model_type=model_type, fxu=fxu, hx=hx,
+                              model_pars=model_pars, plant_pars=plant_pars)
         
         # Get the steady state optimum.
-        xs, us, ys, opt_sscost = getSSOptimum(fxu=fxu, hx=hx, lyu=lyu, 
-                                              parameters=model_pars, 
-                                              guess=xuguess)
+        xs, us, ys, optSscost = getSSOptimum(fxu=fxu, hx=hx, 
+                                             lxu=cost_xup, 
+                                             parameters=model_pars, 
+                                             guess=xuguess)
 
+        # Save.
+        xs_list += [xs]
+        us_list += [us]
+        optSscost_list += [optSscost]
 
     # Return.
-    return 
+    return xs_list, us_list, optSscost_list
+
+def printOptimums(model_type, xs_list, us_list):
+    """ Quick function to print the optimums. """
+    for model, us in zip(model_type, us_list):
+        print(model + " us: " + str(us))
+    
 
 def main():
     """ Main function to be executed. """
@@ -138,10 +154,41 @@ def main():
     hx_list = [plant_h, bbnn_h, fhyb_h, phyb_h]
     par_list = [plant_pars, bbnn_pars, fhyb_pars, phyb_pars]
 
-    # Get the 
+    # Get the optimums for the cost without a Cc term.
+    p = [100, 1200]
+    cost_xup = lambda x, u: cost_xup_noCc(x, u, p)
+    (cost1_xs_list, cost1_us_list, 
+     cost1_optSscost_list) = getSSOptimums(model_types=model_types, 
+                                           fxu_list=fxu_list, 
+                                           hx_list=hx_list,
+                                           par_list=par_list,
+                                           plant_pars=plant_pars,
+                                           cost_xup=cost_xup)
 
-    # Print. 
-    print("Model type: " + model_type)
-    print('us: ' + str(us))
-        
+    # Get the optimums for the cost with a Cc term.
+    model_types = ['Plant', 'Hyb-FGb']
+    fxu_list = [plant_f, fhyb_f]
+    hx_list = [plant_h, fhyb_h]
+    par_list = [plant_pars, fhyb_pars]
+    p = [100, 600, 600]
+    cost_xup = lambda x, u: cost_xup_withCc(x, u, p)
+    (cost2_xs_list, cost2_us_list, 
+     cost2_optSscost_list) = getSSOptimums(model_types=model_types,
+                                           fxu_list=fxu_list,
+                                           hx_list=hx_list,
+                                           par_list=par_list,
+                                           plant_pars=plant_pars,
+                                           cost_xup=cost_xup)
+
+    # Print the optimums to look over in the terminal.
+    # Cost without a Cc contribution.
+    print("Cost Type 1")
+    model_types = ['Plant', 'Black-Box-NN', 'Hyb-FGb', 'Hyb-PGb']
+    printOptimums(model_types, cost1_xs_list, cost1_us_list)
+
+    # Cost with a Cc contribution.
+    print("Cost Type 2")
+    model_types = ['Plant', 'Hyb-FGb']
+    printOptimums(model_types, cost2_xs_list, cost2_us_list)
+    
 main()

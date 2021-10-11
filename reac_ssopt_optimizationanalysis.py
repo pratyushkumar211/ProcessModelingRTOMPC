@@ -13,7 +13,7 @@ from hybridId import PickleTool
 from linNonlinMPC import c2dNonlin, getSSOptimum, getXsYsSscost
 from reacFuncs import cost_yup, plant_ode
 
-# Import respective function handles.
+# Import function handles for Black-Box, Full Grey-Box and Hybrid Grey-Box.
 from BlackBoxFuncs import get_bbnn_pars, bbnn_fxu, bbnn_hx
 from ReacHybridFullGbFuncs import get_hybrid_pars as get_fhyb_pars
 from ReacHybridFullGbFuncs import hybrid_fxup as fhyb_fxup
@@ -55,6 +55,30 @@ def get_xuguess(*, model_type, plant_pars, model_pars):
     # Return as dict.
     return dict(x=xs, u=us)
 
+def getBestSSOptimum(*, fxu, hx, lyu, model_pars, Nguess):
+    """ Solve the steady-state optimization for multiple initial guesses. 
+        and return the best solution. 
+
+        i.e, Heuristic method to find the global optimization.    
+    """
+
+    # Create empty lists to store solutions.
+    xs_list, us_list, ys_list, sscost_list = [], [], [], []
+
+    # Loop over all the guesses.
+    for _ in range(Nguess):
+
+        # Generate a random us within the input constraint
+        # limit and corresponding xs.
+
+        getSSOptimum(fxu=fxu, hx=hx, lyu=lyu, 
+                     parameters=model_pars, guess=xuguess)
+
+    # Compare the steady-state cost values. 
+
+    # Return.
+    return xs, us, ys, sscost
+
 def main():
     """ Main function to be executed. """
 
@@ -71,10 +95,6 @@ def main():
     reac_hybpartialgbtrain = PickleTool.load(filename=
                                       'reac_hybpartialgbtrain.pickle',
                                       type='read')
-
-    # Get cost function handle.
-    p = [100, 1200]
-    lyu = lambda y, u: cost_yup(y, u, p)
 
     # Get plant and hybrid model parameters.
     plant_pars = reac_parameters['plant_pars']
@@ -101,7 +121,7 @@ def main():
     fhyb_f = lambda x, u: fhyb_fxup(x, u, ps, fhyb_pars)
     fhyb_h = lambda x: fhyb_hx(x, fhyb_pars)
     
-    # Get the partial hybrid model parameters and function handles.
+    # Partial GB Hybrid model and function handles.
     phyb_pars = get_phyb_pars(train=reac_hybpartialgbtrain, 
                               hyb_partialgb_pars=hyb_partialgb_pars, 
                               plant_pars=plant_pars)
@@ -114,39 +134,52 @@ def main():
     fxu_list = [plant_f, bbnn_f, fhyb_f, phyb_f]
     hx_list = [plant_h, bbnn_h, fhyb_h, phyb_h]
     par_list = [plant_pars, bbnn_pars, fhyb_pars, phyb_pars]
-        
-    # Get a linspace of steady-state u values.
-    ulb, uub = plant_pars['ulb'], plant_pars['uub']
-    us_list = list(np.linspace(ulb, uub, 100))
-    xs_list = []
 
-    # Lists to store Steady-state cost.
-    sscosts = []
+    # Generate parameters at which to do the optimization analysis.
+    plb = np.array([50, 500])
+    pub = np.array([200, 1500])
+    Npvals = 10
+    pvals = list((pub-plb)*np.random.rand(Npvals, 2) + plb)
+
+    # Create lists to store the all the optimization results/sub gaps.    
+    xs_list, us_list, subgaps_list = [], [], []
 
     # Loop over all the models.
     for (model_type, fxu, hx, model_pars) in zip(model_types, fxu_list, 
                                                  hx_list, par_list):
 
-        # List to store SS costs for one model.
-        model_sscost = []
+        # Generate lists to store the optimization results 
+        # and suboptimality gaps for a model.
         model_xs = []
+        model_us = []
+        model_subgaps = []
 
-        # Compute SS cost.
-        for us in us_list:
+        # Loop over all the parameter values.
+        for p in pvals:
             
             # Get guess.
             xuguess = get_xuguess(model_type=model_type, 
                               plant_pars=plant_pars, 
                               model_pars=model_pars)
             xguess = xuguess['x']
-            xs, _, sscost = getXsYsSscost(fxu=fxu, hx=hx, lyu=lyu, 
-                                         us=us, parameters=model_pars, 
-                                         xguess=xguess)
+
+            # Get the steady state optimum.
+            xs, us, ys, opt_sscost = getSSOptimum(fxu=fxu, hx=hx, lyu=lyu, 
+                                                  parameters=model_pars,
+                                                  guess=xuguess)
+
+            # Store result.
             model_xs += [xs]
+            model_us += [us]
             model_sscost += [sscost]
+
+            # Compute suboptimality gaps if the model is not a plant model.
+
+
 
         # Model steady states and costs.        
         model_xs = np.asarray(model_xs)
+        model_us = np.asarray(model_us)
         model_sscost = np.asarray(model_sscost)
 
         # Store steady states and costs in lists.
@@ -161,6 +194,6 @@ def main():
 
     # Save.
     PickleTool.save(data_object=reac_ssopt,
-                    filename='reac_ssopt_curve.pickle')
+                    filename='reac_ssopt_optimizationanalysis.pickle')
 
 main()
