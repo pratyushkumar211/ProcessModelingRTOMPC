@@ -1299,7 +1299,7 @@ def getSSOptimum(*, fxu, hx, lxu, parameters, guess):
     # Solve.
     nlpSoln = nlp(x0=xuguess, lbg=lbg, ubg=ubg, lbx=lbx, ubx=ubx)
     optX = np.asarray(nlpSoln['x'])[:, 0]
-    optSscost = np.asarray(nlpSoln['f'])
+    optSscost = np.asarray(nlpSoln['f'])[:, 0]
     xs, us = np.split(optX, [Nx])
     ys = hx(xs)
 
@@ -1398,8 +1398,8 @@ def getXsUsSSCalcGuess(*, fxu, hx, model_type, model_pars,
     # Return.
     return dict(x=xs, u=us)
 
-def getBestSSOptimum(*, fxu, hx, lxu, model_pars, 
-                        plant_pars, Nguess):
+def getBestSSOptimum(*, fxu, hx, model_type, model_pars, 
+                        plant_pars, lxu, Nguess):
     """ For a given model, solve the steady-state optimization for multiple     
         initial guesses and return the best solution.
         The function heuristically attempts to find a global optimum.
@@ -1410,6 +1410,9 @@ def getBestSSOptimum(*, fxu, hx, lxu, model_pars,
 
     # Input constraint limits. 
     ulb, uub = model_pars['ulb'], model_pars['uub']
+
+    # Size. 
+    Nu = model_pars['Nu']
 
     # Create variables to store the best xs, us, and sscosts. 
     bestXs, bestUs, bestSsCost = None, None, None
@@ -1448,8 +1451,8 @@ def getBestSSOptimum(*, fxu, hx, lxu, model_pars,
     # Return.
     return bestXs, bestUs, bestSsCost
 
-def doOptimizationAnalysis(*, model_type, fxu_list, hx_list, par_list, 
-                              lxu, plb, pub, Npvals, Nguess):
+def doOptimizationAnalysis(*, model_types, fxu_list, hx_list, par_list, 
+                              lxup, plb, pub, Npvals, Nguess):
     """ Generate a random set of cost parameters, compute optimum of all the
         models and deviation of the optimum input from the plant optimum and the
         suboptimality gap.
@@ -1483,12 +1486,16 @@ def doOptimizationAnalysis(*, model_type, fxu_list, hx_list, par_list,
         # Loop over all the parameter values.
         for i, p in enumerate(pvals):
             
+            # Cost function for a given fixed parameter. 
+            lxu = lambda x, u: lxup(x, u, p)
+
             # Get the best steady-state optimum.
             # Best refers to simply solve the optimization multiple times.
-            xs, us, optCost = getBestSSOptimum(fxu=fxu, hx=hx, lxu=lxu, 
-                                               model_pars=model_pars, 
+            xs, us, optCost = getBestSSOptimum(fxu=fxu, hx=hx,
+                                               model_type=model_type,
+                                               model_pars=model_pars,
                                                plant_pars=plant_pars,
-                                               Nguess=Nguess)
+                                               lxu=lxu, Nguess=Nguess)
 
             # Store result.
             model_xs += [xs]
@@ -1500,13 +1507,12 @@ def doOptimizationAnalysis(*, model_type, fxu_list, hx_list, par_list,
                 
                 # Compute the cost incurred when the plant is operated at 
                 # the model's optimum.
-                _, _, plantSsCost = getXsYsSscost(fxu=plant_f, 
-                                                  hx=plant_h, us=us, 
-                                                  parameters=plant_pars, 
-                                                  xguess=plant_pars['xs'])
+                _, _, plantSsCost = getXsYsSscost(fxu=plant_f, hx=plant_h, 
+                                            us=us, parameters=plant_pars, 
+                                            lxu=lxu, xguess=plant_pars['xs'])
 
                 # Plant optimum cost and control input.
-                plantOptCost = optCosts_list[0][i, :]
+                plantOptCost = optCosts_list[0][i]
                 plantOptUs = us_list[0][i, :]
 
                 # Norm of deviation in the us.
@@ -1529,11 +1535,12 @@ def doOptimizationAnalysis(*, model_type, fxu_list, hx_list, par_list,
         xs_list += [np.array(model_xs)]
         us_list += [np.array(model_us)]
         optCosts_list += [np.array(model_optCosts)]
-        subGaps_list += [np.array(model_subGaps)]
+        usGaps_list += [np.array(model_usGaps).squeeze()]
+        subGaps_list += [np.array(model_subGaps).squeeze()]
 
     # Create data object and save.
-    reac_ssopt = dict(xs=xs_list, us=us_list, 
-                      optCosts=optCosts_list, subGaps=subGaps_list)
+    reac_ssopt = dict(xs=xs_list, us=us_list, optCosts=optCosts_list, 
+                      usGaps=usGaps_list, subGaps=subGaps_list)
 
     # Return. 
     return reac_ssopt
