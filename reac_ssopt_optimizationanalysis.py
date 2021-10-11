@@ -22,62 +22,159 @@ from ReacHybridPartialGbFuncs import get_hybrid_pars as get_phyb_pars
 from ReacHybridPartialGbFuncs import hybrid_fxup as phyb_fxup
 from ReacHybridPartialGbFuncs import hybrid_hx as phyb_hx
 
-def get_xuguess(*, model_type, plant_pars, model_pars):
+def get_XGuess(*, model_type, fxu, hx, us, model_pars, plant_pars):
     """ Get x and u guesses depending on model type. """
-    
-    us = plant_pars['us']
-
     if model_type == 'Plant':
-
         xs = plant_pars['xs']
-
     elif model_type == 'Black-Box-NN':
-        
         Np = model_pars['Np']
         Ny = model_pars['Ny']
-        xs = np.concatenate((np.tile(plant_pars['xs'][:Ny], (Np)), 
-                             np.tile(plant_pars['us'], (Np))))
-
+        xs = np.concatenate((np.tile(plant_pars['xs'][:Ny], (Np,)), 
+                             np.tile(plant_pars['us'], (Np, ))))
     elif model_type == 'Hyb-FGb':
-
         xs = plant_pars['xs']
-
     elif model_type == 'Hyb-PGb':
-
         Np = model_pars['Np']
         Ny = model_pars['Ny']
-        xs = np.concatenate((np.tile(plant_pars['xs'][:Ny], (Np+1)), 
-                             np.tile(plant_pars['us'], (Np))))
-
+        xs = np.concatenate((np.tile(plant_pars['xs'][:Ny], (Np+1, )), 
+                             np.tile(plant_pars['us'], (Np, ))))
     else:
         None
+    # Solve a steady-state equality problem to get 
+    # an updated xs corresponding to exact equality constraint.
+    xs, _, _ = getXsYsSscost(fxu=fxu, hx=hx, us=us, 
+                             parameters=model_pars, xguess=xs)
+    # Return.
+    return xs
 
-    # Return as dict.
-    return dict(x=xs, u=us)
-
-def getBestSSOptimum(*, fxu, hx, lyu, model_pars, Nguess):
+def getBestSSOptimum(*, fxu, hx, lxu, model_pars, 
+                        plant_pars, Nguess):
     """ Solve the steady-state optimization for multiple initial guesses. 
         and return the best solution. 
 
-        i.e, Heuristic method to find the global optimization.    
+        i.e, Heuristic method to find the global optimum.   
     """
 
     # Create empty lists to store solutions.
-    xs_list, us_list, ys_list, sscost_list = [], [], [], []
+    xs_list, us_list, ssCost_list = [], [], []
 
-    # Loop over all the guesses.
-    for _ in range(Nguess):
+    # Input constraint limits. 
+    ulb, uub = model_pars['ulb'], model_pars['uub']
+
+    # Create variables to store the best xs, us, and sscosts. 
+    bestXs, bestUs, bestSsCost = None, None, None
+
+    # Solve optimization problems for multiple initial guesses.
+    for i in range(Nguess):
 
         # Generate a random us within the input constraint
         # limit and corresponding xs.
+        us = (uub - ulb)*np.random.rand(Nu) + ulb
 
-        getSSOptimum(fxu=fxu, hx=hx, lyu=lyu, 
-                     parameters=model_pars, guess=xuguess)
+        # Get the corresponding xs guess.
+        xs = getXGuess(model_type=model_type, fxu=fxu, hx=hx, us=us, 
+                       model_pars=model_pars, plant_pars=plant_pars)
 
-    # Compare the steady-state cost values. 
+        # XUguess dictionary. 
+        xuguess = dict(x=xs, u=us)
+
+        # Solve the optimization with that initial guess.
+        xs, us, _, ssCost = getSSOptimum(fxu=fxu, hx=hx, lxu=lxu,
+                                         parameters=model_pars,
+                                         guess=xuguess)
+
+        # Update the best solution. 
+        if i > 0 and ssCost[0] < np.max(ssCost_list):
+            bestIndex = np.argmax(ssCost_list)
+            bestXs = xs_list[bestIndex]
+            bestUs = us_list[bestIndex]
+            bestSsCost = ssCost_list[bestIndex]
+        elif i == 0:
+            bestXs = xs
+            bestUs = us
+            bestSsCost = ssCost
+        else:
+            pass
 
     # Return.
-    return xs, us, ys, sscost
+    return bestXs, bestUs, bestSsCost
+
+def doOptimizationAnalysis(*, model_type, fxu_list, hx_list, par_list, 
+                              lxu, plb, pub, Npvals, Nguess):
+    """ Generate a random set of cost parameters, compute optimum of all the
+        models and deviation of the optimum input from the plant optimum and the
+        suboptimality gap. 
+    """
+
+    # Create lists to store the all the optimization results/sub gaps.
+    xs_list, us_list = [], []
+    optCosts_list, subGaps_list = [], []
+
+    # Generate a set of cost parameters.
+    pvals = list((pub-plb)*np.random.rand(Npvals, len(plb)) + plb)
+
+    # Extract the plant function handles. 
+    plant_f, plant_h, plant_pars = fxu_list[0], hx_list[0], par_list[0]
+
+    # Loop over all the models.
+    for (model_type, fxu, hx, model_pars) in zip(model_types, fxu_list,
+                                                 hx_list, par_list):
+
+        # Generate lists to store the optimization results 
+        # and suboptimality gaps for a model.
+        model_xs, model_us = [], []
+        model_optCosts, model_subGaps = [], []
+
+        # Loop over all the parameter values.
+        for i, p in enumerate(pvals):
+            
+            # Get the best steady-state optimum.
+            # Best refers to simply solve the optimization multiple times.
+            xs, us, ys, optCost = getBestSSOptimum(fxu=fxu, hx=hx, lxu=lxu, 
+                                                   model_pars=model_pars, 
+                                                   plant_pars=plant_pars,
+                                                   Nguess=Nguess)
+
+            # Store result.
+            model_xs += [xs]
+            model_us += [us]
+            model_optCosts += [optCost]
+
+            # Compute suboptimality gaps if the model is not a plant model.
+            if model_type != 'Plant':
+                
+                # Compute the cost incurred when the plant is operated at 
+                # the model's optimum.
+                _, _, plantSsCost = getXsYsSscost(fxu=plant_f, 
+                                                  hx=plant_h, us=us, 
+                                                  parameters=plant_pars, 
+                                                  xguess=plant_pars['xs'])
+
+                # Plant optimum cost. 
+                plantOptCost = optCosts_list[0][i, :]
+
+                # Compute the suboptimality gap. 
+                subGap = np.abs(plantOptCost - plantSsCost)
+                subGap = subGap/np.abs(plantOptCost)
+                model_subGaps += [subGap]
+
+            else:
+
+                model_subGaps += [np.array([np.nan])]
+
+        # Store steady-state xs, us, optimum costs, and suboptimality gaps.
+        # in lists. 
+        xs_list += [np.array(model_xs)]
+        us_list += [np.array(model_us)]
+        optCosts_list += [np.array(model_optCosts)]
+        subGaps_list += [np.array(model_subGaps)]
+
+    # Create data object and save.
+    reac_ssopt = dict(xs=xs_list, us=us_list, 
+                      optCosts=optCosts_list, subGaps=subGaps_list)
+
+    # Return. 
+    return reac_ssopt
 
 def main():
     """ Main function to be executed. """
@@ -129,68 +226,24 @@ def main():
     phyb_f = lambda x, u: phyb_fxup(x, u, ps, phyb_pars)
     phyb_h = lambda x: phyb_hx(x, phyb_pars)
 
-    # Lists to loop over for different models.
+    ## Optimization analysis for the cost type 1 without a Cc contribution.
+    # Get lists of model types.
     model_types = ['Plant', 'Black-Box-NN', 'Hyb-FGb', 'Hyb-PGb']
     fxu_list = [plant_f, bbnn_f, fhyb_f, phyb_f]
     hx_list = [plant_h, bbnn_h, fhyb_h, phyb_h]
     par_list = [plant_pars, bbnn_pars, fhyb_pars, phyb_pars]
-
-    # Generate parameters at which to do the optimization analysis.
+    # Lower and upper bounds of cost parameters. 
     plb = np.array([50, 500])
     pub = np.array([200, 1500])
     Npvals = 10
-    pvals = list((pub-plb)*np.random.rand(Npvals, 2) + plb)
 
-    # Create lists to store the all the optimization results/sub gaps.    
-    xs_list, us_list, subgaps_list = [], [], []
-
-    # Loop over all the models.
-    for (model_type, fxu, hx, model_pars) in zip(model_types, fxu_list, 
-                                                 hx_list, par_list):
-
-        # Generate lists to store the optimization results 
-        # and suboptimality gaps for a model.
-        model_xs = []
-        model_us = []
-        model_subgaps = []
-
-        # Loop over all the parameter values.
-        for p in pvals:
-            
-            # Get guess.
-            xuguess = get_xuguess(model_type=model_type, 
-                              plant_pars=plant_pars, 
-                              model_pars=model_pars)
-            xguess = xuguess['x']
-
-            # Get the steady state optimum.
-            xs, us, ys, opt_sscost = getSSOptimum(fxu=fxu, hx=hx, lyu=lyu, 
-                                                  parameters=model_pars,
-                                                  guess=xuguess)
-
-            # Store result.
-            model_xs += [xs]
-            model_us += [us]
-            model_sscost += [sscost]
-
-            # Compute suboptimality gaps if the model is not a plant model.
+    reac_optanalysis = doOptimizationAnalysis(model_types=model_types, 
+                                        fxu_list=fxu_list, hx_list=hx_list, 
+                                        par_list=par_list, plb=plb, pub=pub, 
+                                        Npvals=Npvals, Nguess=Nguess)
 
 
-
-        # Model steady states and costs.        
-        model_xs = np.asarray(model_xs)
-        model_us = np.asarray(model_us)
-        model_sscost = np.asarray(model_sscost)
-
-        # Store steady states and costs in lists.
-        xs_list += [model_xs]
-        sscosts += [model_sscost]
-
-    # Get us as rank 1 array.
-    us = np.asarray(us_list)[:, 0]
-
-    # Create data object and save.
-    reac_ssopt = dict(us=us, xs=xs_list, sscosts=sscosts)
+    ## Optimization analysis for the cost type 1 with a Cc contribution.
 
     # Save.
     PickleTool.save(data_object=reac_ssopt,

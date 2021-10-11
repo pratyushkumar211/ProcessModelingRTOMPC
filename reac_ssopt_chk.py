@@ -21,39 +21,27 @@ from ReacHybridPartialGbFuncs import hybrid_hx as phyb_hx
 
 def get_xuguess(*, model_type, fxu, hx, model_pars, plant_pars):
     """ Get x and u guesses depending on model type. """
-    
     us = plant_pars['us']
-
     if model_type == 'Plant':
-
         xs = plant_pars['xs']
-
     elif model_type == 'Black-Box-NN':
-        
         Np = model_pars['Np']
         Ny = model_pars['Ny']
-        xs = np.concatenate((np.tile(plant_pars['xs'][:Ny], (Np)), 
-                             np.tile(plant_pars['us'], (Np))))
-
+        xs = np.concatenate((np.tile(plant_pars['xs'][:Ny], (Np,)), 
+                             np.tile(plant_pars['us'], (Np, ))))
     elif model_type == 'Hyb-FGb':
-
         xs = plant_pars['xs']
-
     elif model_type == 'Hyb-PGb':
-
         Np = model_pars['Np']
         Ny = model_pars['Ny']
-        xs = np.concatenate((np.tile(plant_pars['xs'][:Ny], (Np+1)), 
-                             np.tile(plant_pars['us'], (Np))))
-
+        xs = np.concatenate((np.tile(plant_pars['xs'][:Ny], (Np+1, )), 
+                             np.tile(plant_pars['us'], (Np, ))))
     else:
         None
-
     # Solve a steady-state equality problem to get 
     # an updated xs corresponding to exact equality constraint.
     xs, _, _ = getXsYsSscost(fxu=fxu, hx=hx, us=us, 
                              parameters=model_pars, xguess=xs)
-
     # Return a dict.
     return dict(x=xs, u=us)
 
