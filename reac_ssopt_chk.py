@@ -8,7 +8,7 @@ sys.path.append('lib/')
 import numpy as np
 from hybridId import PickleTool
 from linNonlinMPC import c2dNonlin, getSSOptimum, getXsYsSscost
-from reacFuncs import cost_xup_noCc, cost_xup_withCc, plant_ode
+from reacFuncs import cost_lxup_noCc, cost_lxup_withCc, plant_ode
 
 # Functions for Black-Box, full hybrid, and partial hybrid models.
 from BlackBoxFuncs import get_bbnn_pars, bbnn_fxu, bbnn_hx
@@ -58,7 +58,7 @@ def get_xuguess(*, model_type, fxu, hx, model_pars, plant_pars):
     return dict(x=xs, u=us)
 
 def getSSOptimums(*, model_types, fxu_list, hx_list, 
-                     par_list, plant_pars, cost_xup):
+                     par_list, plant_pars, cost_lxup):
     """ Get steady-state optimums of all the 
         models with the specified stage cost. 
     """
@@ -76,7 +76,7 @@ def getSSOptimums(*, model_types, fxu_list, hx_list,
         
         # Get the steady state optimum.
         xs, us, ys, optSscost = getSSOptimum(fxu=fxu, hx=hx, 
-                                             lxu=cost_xup, 
+                                             lxu=cost_lxup, 
                                              parameters=model_pars, 
                                              guess=xuguess)
 
@@ -110,10 +110,6 @@ def main():
     reac_hybpartialgbtrain = PickleTool.load(filename=
                                       'reac_hybpartialgbtrain.pickle',
                                       type='read')
-
-    # Get cost function handle.
-    p = [100, 1200]
-    lyu = lambda y, u: cost_yup(y, u, p)
 
     # Get plant and hybrid model parameters.
     plant_pars = reac_parameters['plant_pars']
@@ -156,29 +152,29 @@ def main():
 
     # Get the optimums for the cost without a Cc term.
     p = [100, 1200]
-    cost_xup = lambda x, u: cost_xup_noCc(x, u, p)
+    cost_lxup = lambda x, u: cost_lxup_noCc(x, u, p)
     (cost1_xs_list, cost1_us_list, 
      cost1_optSscost_list) = getSSOptimums(model_types=model_types, 
                                            fxu_list=fxu_list, 
                                            hx_list=hx_list,
                                            par_list=par_list,
                                            plant_pars=plant_pars,
-                                           cost_xup=cost_xup)
+                                           cost_lxup=cost_lxup)
 
     # Get the optimums for the cost with a Cc term.
     model_types = ['Plant', 'Hyb-FGb']
     fxu_list = [plant_f, fhyb_f]
     hx_list = [plant_h, fhyb_h]
     par_list = [plant_pars, fhyb_pars]
-    p = [100, 600, 600]
-    cost_xup = lambda x, u: cost_xup_withCc(x, u, p)
+    p = [100, 350, 300]
+    cost_lxup = lambda x, u: cost_lxup_withCc(x, u, p)
     (cost2_xs_list, cost2_us_list, 
      cost2_optSscost_list) = getSSOptimums(model_types=model_types,
                                            fxu_list=fxu_list,
                                            hx_list=hx_list,
                                            par_list=par_list,
                                            plant_pars=plant_pars,
-                                           cost_xup=cost_xup)
+                                           cost_lxup=cost_lxup)
 
     # Print the optimums to look over in the terminal.
     # Cost without a Cc contribution.

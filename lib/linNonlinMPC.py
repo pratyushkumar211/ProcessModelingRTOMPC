@@ -1306,7 +1306,7 @@ def getSSOptimum(*, fxu, hx, lxu, parameters, guess):
     # Return.
     return xs, us, ys, optSscost
 
-def getXsYsSscost(*, fxu, hx, us, parameters, lyu=None,
+def getXsYsSscost(*, fxu, hx, us, parameters, lxu=None,
                      xguess=None, lbx=None, ubx=None):
     """ Determine xs, ys, and cost of a model corresponding to a 
         steady-state input (us).
@@ -1347,8 +1347,8 @@ def getXsYsSscost(*, fxu, hx, us, parameters, lyu=None,
     ys = hx(xs)
 
     # Compute the cost based on steady state.
-    if lyu is not None:
-        sscost = lyu(hx(xs), us)
+    if lxu is not None:
+        sscost = lxu(xs, us)
     else:
         sscost = None
 

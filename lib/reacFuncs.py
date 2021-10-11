@@ -64,7 +64,7 @@ def get_plant_pars():
     # Return the parameters dict.
     return parameters
 
-def cost_xup_noCc(x, u, p):
+def cost_lxup_noCc(x, u, p):
     """ Economic stage cost without a contribution
         of the unmeasured species C concentration. """
 
@@ -80,7 +80,7 @@ def cost_xup_noCc(x, u, p):
     # Return.
     return pA*CAf - pB*CB
 
-def cost_xup_withCc(x, u, p):
+def cost_lxup_withCc(x, u, p):
     """ Economic stage cost with a contribution 
         of the unmeasured species C concentration. """
 
