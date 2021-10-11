@@ -10,7 +10,8 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from plottingFuncs import PAPER_FIGSIZE
 from hybridId import PickleTool
-from linNonlinMPC import c2dNonlin, getSSOptimum, getXsYsSscost
+from linNonlinMPC import (c2dNonlin, getSSOptimum,
+                          getXsYsSscost, getXsUsSSCalcGuess)
 from reacFuncs import cost_lxup_noCc, cost_lxup_withCc, plant_ode
 
 # Import respective function handles.
@@ -29,15 +30,16 @@ def get_xguess(*, model_type, plant_pars, model_pars):
     elif model_type == 'Black-Box-NN':
         Np = model_pars['Np']
         Ny = model_pars['Ny']
-        xs = np.concatenate((np.tile(plant_pars['xs'][:Ny], (Np, )), 
+        yindices = plant_pars['yindices']
+        xs = np.concatenate((np.tile(plant_pars['xs'][yindices], (Np, )), 
                              np.tile(plant_pars['us'], (Np, ))))
-        us = plant_pars['us']
-    elif model_type == 'Hyb-FGb':
+    elif model_type == 'Hybrid-FullGb':
         xs = plant_pars['xs']
-    elif model_type == 'Hyb-PGb':
+    elif model_type == 'Hybrid-PartialGb':
         Np = model_pars['Np']
         Ny = model_pars['Ny']
-        xs = np.concatenate((np.tile(plant_pars['xs'][:Ny], (Np+1, )), 
+        yindices = plant_pars['yindices']
+        xs = np.concatenate((np.tile(plant_pars['xs'][yindices], (Np+1, )), 
                              np.tile(plant_pars['us'], (Np, ))))
     else:
         None
@@ -148,7 +150,8 @@ def main():
     phyb_h = lambda x: phyb_hx(x, phyb_pars)
 
     # Lists to loop over for different models.
-    model_types = ['Plant', 'Black-Box-NN', 'Hyb-FGb', 'Hyb-PGb']
+    model_types = ['Plant', 'Black-Box-NN', 
+                   'Hybrid-FullGb', 'Hybrid-PartialGb']
     fxu_list = [plant_f, bbnn_f, fhyb_f, phyb_f]
     hx_list = [plant_h, bbnn_h, fhyb_h, phyb_h]
     par_list = [plant_pars, bbnn_pars, fhyb_pars, phyb_pars]
@@ -174,7 +177,7 @@ def main():
 
     # Do the cost curve computation for the other cost function.
     # Model/fxu/hx/and par-lists. 
-    model_types = ['Plant', 'Hyb-FGb']
+    model_types = ['Plant', 'Hybrid-FullGb']
     fxu_list = [plant_f, fhyb_f]
     hx_list = [plant_h, fhyb_h]
     par_list = [plant_pars, fhyb_pars]

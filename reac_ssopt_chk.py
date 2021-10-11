@@ -7,7 +7,8 @@ import sys
 sys.path.append('lib/')
 import numpy as np
 from hybridId import PickleTool
-from linNonlinMPC import c2dNonlin, getSSOptimum, getXsYsSscost
+from linNonlinMPC import (c2dNonlin, getSSOptimum, 
+                          getXsYsSscost, getXsUsSSCalcGuess)
 from reacFuncs import cost_lxup_noCc, cost_lxup_withCc, plant_ode
 
 # Functions for Black-Box, full hybrid, and partial hybrid models.
@@ -18,32 +19,6 @@ from ReacHybridFullGbFuncs import hybrid_hx as fhyb_hx
 from ReacHybridPartialGbFuncs import get_hybrid_pars as get_phyb_pars
 from ReacHybridPartialGbFuncs import hybrid_fxup as phyb_fxup
 from ReacHybridPartialGbFuncs import hybrid_hx as phyb_hx
-
-def get_xuguess(*, model_type, fxu, hx, model_pars, plant_pars):
-    """ Get x and u guesses depending on model type. """
-    us = plant_pars['us']
-    if model_type == 'Plant':
-        xs = plant_pars['xs']
-    elif model_type == 'Black-Box-NN':
-        Np = model_pars['Np']
-        Ny = model_pars['Ny']
-        xs = np.concatenate((np.tile(plant_pars['xs'][:Ny], (Np,)), 
-                             np.tile(plant_pars['us'], (Np, ))))
-    elif model_type == 'Hyb-FGb':
-        xs = plant_pars['xs']
-    elif model_type == 'Hyb-PGb':
-        Np = model_pars['Np']
-        Ny = model_pars['Ny']
-        xs = np.concatenate((np.tile(plant_pars['xs'][:Ny], (Np+1, )), 
-                             np.tile(plant_pars['us'], (Np, ))))
-    else:
-        None
-    # Solve a steady-state equality problem to get 
-    # an updated xs corresponding to exact equality constraint.
-    xs, _, _ = getXsYsSscost(fxu=fxu, hx=hx, us=us, 
-                             parameters=model_pars, xguess=xs)
-    # Return a dict.
-    return dict(x=xs, u=us)
 
 def getSSOptimums(*, model_types, fxu_list, hx_list, 
                      par_list, plant_pars, cost_lxup):
@@ -59,8 +34,8 @@ def getSSOptimums(*, model_types, fxu_list, hx_list,
                                                  hx_list, par_list):
 
         # Get Guess.
-        xuguess = get_xuguess(model_type=model_type, fxu=fxu, hx=hx,
-                              model_pars=model_pars, plant_pars=plant_pars)
+        xuguess = getXsUsSSCalcGuess(model_type=model_type, fxu=fxu, hx=hx,
+                                     model_pars=model_pars, plant_pars=plant_pars)
         
         # Get the steady state optimum.
         xs, us, ys, optSscost = getSSOptimum(fxu=fxu, hx=hx, 
@@ -133,7 +108,8 @@ def main():
     phyb_h = lambda x: phyb_hx(x, phyb_pars)
 
     # Lists to loop over for different models.
-    model_types = ['Plant', 'Black-Box-NN', 'Hyb-FGb', 'Hyb-PGb']
+    model_types = ['Plant', 'Black-Box-NN', 
+                   'Hybrid-FullGb', 'Hybrid-PartialGb']
     fxu_list = [plant_f, bbnn_f, fhyb_f, phyb_f]
     hx_list = [plant_h, bbnn_h, fhyb_h, phyb_h]
     par_list = [plant_pars, bbnn_pars, fhyb_pars, phyb_pars]
@@ -150,7 +126,7 @@ def main():
                                            cost_lxup=cost_lxup)
 
     # Get the optimums for the cost with a Cc term.
-    model_types = ['Plant', 'Hyb-FGb']
+    model_types = ['Plant', 'Hybrid-FullGb']
     fxu_list = [plant_f, fhyb_f]
     hx_list = [plant_h, fhyb_h]
     par_list = [plant_pars, fhyb_pars]
@@ -167,12 +143,13 @@ def main():
     # Print the optimums to look over in the terminal.
     # Cost without a Cc contribution.
     print("Cost Type 1")
-    model_types = ['Plant', 'Black-Box-NN', 'Hyb-FGb', 'Hyb-PGb']
+    model_types = ['Plant', 'Black-Box-NN', 
+                   'Hybrid-FullGb', 'Hybrid-PartialGb']
     printOptimums(model_types, cost1_xs_list, cost1_us_list)
 
     # Cost with a Cc contribution.
     print("Cost Type 2")
-    model_types = ['Plant', 'Hyb-FGb']
+    model_types = ['Plant', 'Hybrid-FullGb']
     printOptimums(model_types, cost2_xs_list, cost2_us_list)
     
 main()
