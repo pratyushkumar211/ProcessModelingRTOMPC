@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from hybridId import PickleTool
 from plottingFuncs import PAPER_FIGSIZE, get_plotting_array_list
-from plottingFuncs import plot_rErrorHistogram
+from plottingFuncs import plot_histogram
 
 def plot_xudata(*, t, ylist, xlist, ulist, legend_names,
                     legend_colors, figure_size,
@@ -361,12 +361,10 @@ def main():
     legend_colors = ['b', 'm']
     rErrors = [fGbErrors['r1Errors'], pGbErrors['r1Errors']]
     binRange = 0, 0.05
-    figures += plot_rErrorHistogram(rErrors=rErrors, 
-                                    legend_colors=legend_colors, 
-                                    legend_names=legend_names, 
-                                    figure_size=PAPER_FIGSIZE, xlabel=xlabel, 
-                                    ylabel=ylabel, nBins=1000, 
-                                    binRange=binRange, xlims=xlims)
+    figures += plot_histogram(data_list=rErrors, legend_colors=legend_colors, 
+                              legend_names=legend_names, 
+                              figure_size=PAPER_FIGSIZE, xlabel=xlabel, 
+                              ylabel=ylabel, nBins=1000, xlims=xlims)
 
     # Make error histogram.
     # Reaction - 2
@@ -374,13 +372,10 @@ def main():
     xlabel += r'{\textnormal{Rate}}$, (\textnormal{Reaction-2})'
     xlims = [0., 0.1]
     rErrors = [fGbErrors['r2Errors'], pGbErrors['r2Errors']]
-    binRange = 0, 0.1
-    figures += plot_rErrorHistogram(rErrors=rErrors, 
-                                    legend_colors=legend_colors, 
-                                    legend_names=legend_names, 
-                                    figure_size=PAPER_FIGSIZE, xlabel=xlabel, 
-                                    ylabel=ylabel, nBins=1000, 
-                                    binRange=binRange, xlims=xlims)
+    figures += plot_histogram(data_list=rErrors, legend_colors=legend_colors, 
+                              legend_names=legend_names, 
+                              figure_size=PAPER_FIGSIZE, xlabel=xlabel, 
+                              ylabel=ylabel, nBins=1000, xlims=xlims)
 
     # Plot errors in the state-space.
     # Reaction - 1.
@@ -417,7 +412,9 @@ def main():
                                    ylabel_xcoordinate=-0.1, left_frac=0.12, 
                                    wspace=0.1, right_frac=0.95, title_y=1.02)
 
-    # 
+    # Plot the optimization analysis results.
+
+
 
 
     # Load data for the economic MPC simulation.

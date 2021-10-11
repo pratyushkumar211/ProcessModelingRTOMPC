@@ -30,20 +30,19 @@ def get_plotting_array_list(*, simdata_list, plot_range):
     # Return lists.
     return (t, ulist, xlist, ylist, plist)
 
-def plot_rErrorHistogram(*, rErrors, legend_colors, legend_names,
-                           figure_size, xlabel, ylabel, 
-                           nBins, binRange, xlims):
-    """ Make the plots. """
+def plot_histogram(*, data_list, legend_colors, legend_names,
+                      xlabel, ylabel, nBins, xlims, figure_size):
+    """ Make a histogram. """
     
     # Create figures.
     figure, axes = plt.subplots(nrows=1, ncols=1, 
                                 figsize=figure_size)
 
     # Loop over the errors.
-    for rError, color in zip(rErrors, legend_colors):
+    for data, color in zip(data_list, legend_colors):
 
         # Make the histogram.
-        axes.hist(rError, bins=nBins, range=binRange, color=color)
+        axes.hist(data, bins=nBins, range=xlims, color=color)
 
     # Legend. 
     if legend_names is not None:
