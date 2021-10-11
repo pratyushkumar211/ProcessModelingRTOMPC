@@ -70,8 +70,8 @@ def getCostCurveData(*, Nus, model_types, fxu_list, hx_list,
             
             # Get guess.
             xguess = get_xguess(model_type=model_type, 
-                              plant_pars=plant_pars, 
-                              model_pars=model_pars)
+                                plant_pars=plant_pars, 
+                                model_pars=model_pars)
             
             # Get the xs and sscost.
             xs, _, sscost = getXsYsSscost(fxu=fxu, hx=hx, lxu=cost_lxup, 
