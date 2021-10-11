@@ -318,9 +318,9 @@ def main():
                             title_loc=(0.25, 0.9))
 
     # Steady state Concentrations.
-    us = reac_ssopt['us']
+    us = reac_ssopt[0]['us']
     Ny = reac_parameters['plant_pars']['Ny']
-    xs_list = reac_ssopt['xs']
+    xs_list = reac_ssopt[0]['xs']
     legend_names = ['Plant', 'Black-Box-NN', 
                     'Hybrid - FullGb', 'Hybrid - PartialGb']
     legend_colors = ['b', 'dimgrey', 'm', 'g']
@@ -332,7 +332,17 @@ def main():
                           title_loc=(0.25, 0.9))
 
     # Steady state cost curves.
-    sscosts = reac_ssopt['sscosts']
+    sscosts = reac_ssopt[0]['sscosts']
+    figures += plot_sscosts(us=us, sscosts=sscosts, 
+                            legend_colors=legend_colors, 
+                            legend_names=legend_names, 
+                            figure_size=PAPER_FIGSIZE, 
+                            ylabel_xcoordinate=-0.12)
+
+    # Steady state cost curves. 
+    sscosts = reac_ssopt[1]['sscosts']
+    legend_names = ['Plant', 'Hybrid - FullGb']
+    legend_colors = ['b', 'm']
     figures += plot_sscosts(us=us, sscosts=sscosts, 
                             legend_colors=legend_colors, 
                             legend_names=legend_names, 
@@ -348,6 +358,7 @@ def main():
     ylabel = 'Frequency'
     xlims = [0., 0.05]
     legend_names = ['Hybrid - FullGb', 'Hybrid - PartialGb']
+    legend_colors = ['b', 'm']
     rErrors = [fGbErrors['r1Errors'], pGbErrors['r1Errors']]
     binRange = 0, 0.05
     figures += plot_rErrorHistogram(rErrors=rErrors, 
@@ -406,19 +417,8 @@ def main():
                                    ylabel_xcoordinate=-0.1, left_frac=0.12, 
                                    wspace=0.1, right_frac=0.95, title_y=1.02)
 
-    # # Make the 3D scatter plot.
-    # errorsOnTrain = reac_rateAnalysis[2]
-    # xlims = [0.02, 0.8]
-    # ylims = [0.02, 0.6]
-    # zlims = [0.02, 0.2]
+    # 
 
-    # # Loop over the errors.
-    # figures += ReacPlots.plotDataSamples3D(ydata=
-    #                                         errorsOnTrain['ysamples'], 
-    #                                         figure_size=PAPER_FIGSIZE, 
-    #                                         left_frac=0.12,
-    #                                         xlims=xlims, ylims=ylims, 
-    #                                         zlims=zlims, markersize=1.)
 
     # Load data for the economic MPC simulation.
     # reac_empc = PickleTool.load(filename="reac_empc.pickle", 

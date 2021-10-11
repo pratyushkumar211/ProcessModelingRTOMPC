@@ -130,7 +130,7 @@ def main():
     fxu_list = [plant_f, fhyb_f]
     hx_list = [plant_h, fhyb_h]
     par_list = [plant_pars, fhyb_pars]
-    p = [100, 250, 250]
+    p = [100, 300, 300]
     cost_lxup = lambda x, u: cost_lxup_withCc(x, u, p)
     (cost2_xs_list, cost2_us_list, 
      cost2_optSscost_list) = getSSOptimums(model_types=model_types,
