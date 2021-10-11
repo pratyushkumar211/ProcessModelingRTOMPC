@@ -31,7 +31,7 @@ def get_plotting_array_list(*, simdata_list, plot_range):
     return (t, ulist, xlist, ylist, plist)
 
 def plot_histogram(*, data_list, legend_colors, legend_names,
-                      xlabel, ylabel, nBins, xlims, figure_size):
+                      xlabel, ylabel, nBins, xlims, ylims, figure_size):
     """ Make a histogram. """
     
     # Create figures.
@@ -54,6 +54,7 @@ def plot_histogram(*, data_list, legend_colors, legend_names,
 
     # X limits.
     axes.set_xlim(xlims)
+    axes.set_ylim(ylims)
 
     # Return the figure.
     return [figure]

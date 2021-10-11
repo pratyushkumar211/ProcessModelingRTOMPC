@@ -1436,17 +1436,22 @@ def getBestSSOptimum(*, fxu, hx, model_type, model_pars,
                                          guess=xuguess)
 
         # Update the best solution.
-        if i > 0 and ssCost[0] < np.max(ssCost_list):
+        if i == 0:
+            bestXs = xs
+            bestUs = us
+            bestSsCost = ssCost
+        elif i > 0 and ssCost[0] < np.max(ssCost_list):
             bestIndex = np.argmax(ssCost_list)
             bestXs = xs_list[bestIndex]
             bestUs = us_list[bestIndex]
             bestSsCost = ssCost_list[bestIndex]
-        elif i == 0:
-            bestXs = xs
-            bestUs = us
-            bestSsCost = ssCost
         else:
             pass
+
+        # Store the best xs, us, and steady-state cost. 
+        xs_list += [xs]
+        us_list += [us]
+        ssCost_list += [ssCost]
 
     # Return.
     return bestXs, bestUs, bestSsCost

@@ -238,28 +238,24 @@ def plot_fullGbR2Errors(*, r2XGrid, r2YGrid, r2Errors,
 def main():
     """ Load the pickle files and plot. """
 
-    # Load parameters.
+    # Plant parameters.
     reac_parameters = PickleTool.load(filename="reac_parameters.pickle",
                                          type='read')
-    plant_pars = reac_parameters['plant_pars']
     
     # Load Black-Box data after training.
     reac_bbnntrain = PickleTool.load(filename=
                                       "reac_bbnntrain.pickle",
                                       type='read')
-    bbnn_predictions = reac_bbnntrain['val_predictions']
 
     # Load full hybrid model data after training.
     reac_hybfullgbtrain = PickleTool.load(filename=
                                      "reac_hybfullgbtrain.pickle",
                                      type='read')
-    hybfullgb_predictions = reac_hybfullgbtrain['val_predictions']
 
     # Load partial hybrid model data after training.
     reac_hybpartialgbtrain = PickleTool.load(filename=
                                      "reac_hybpartialgbtrain.pickle",
                                      type='read')
-    hybpartialgb_predictions = reac_hybpartialgbtrain['val_predictions']
 
     # Load the steady state computations.
     reac_ssopt = PickleTool.load(filename="reac_ssopt_curve.pickle",
@@ -268,6 +264,11 @@ def main():
     # Load the rate analysis computations.
     reac_rateanalysis = PickleTool.load(filename=
                                      "reac_rateanalysis.pickle",
+                                     type='read')
+
+    # Load the optimization analysis computations.
+    reac_ssopt_optimizationanalysis = PickleTool.load(filename=
+                                     "reac_ssopt_optimizationanalysis.pickle",
                                      type='read')
 
     # List to store figures.
@@ -289,6 +290,11 @@ def main():
                                 figure_size=PAPER_FIGSIZE, 
                                 ylabel_xcoordinate=-0.1, 
                                 title_loc=None)
+
+    # Get Black-Box and Hybrid model predictions. 
+    bbnn_predictions = reac_bbnntrain['val_predictions']
+    hybfullgb_predictions = reac_hybfullgbtrain['val_predictions']
+    hybpartialgb_predictions = reac_hybpartialgbtrain['val_predictions']
 
     # Plot validation data.
     legend_names = ['Plant', 'Black-Box-NN', 
@@ -357,6 +363,7 @@ def main():
     xlabel += r'{\textnormal{Rate}}$, (\textnormal{Reaction-1})'
     ylabel = 'Frequency'
     xlims = [0., 0.05]
+    ylims = [0, 80]
     legend_names = ['Hybrid - FullGb', 'Hybrid - PartialGb']
     legend_colors = ['b', 'm']
     rErrors = [fGbErrors['r1Errors'], pGbErrors['r1Errors']]
@@ -364,18 +371,21 @@ def main():
     figures += plot_histogram(data_list=rErrors, legend_colors=legend_colors, 
                               legend_names=legend_names, 
                               figure_size=PAPER_FIGSIZE, xlabel=xlabel, 
-                              ylabel=ylabel, nBins=1000, xlims=xlims)
+                              ylabel=ylabel, nBins=1000, xlims=xlims, 
+                              ylims=ylims)
 
     # Make error histogram.
     # Reaction - 2
     xlabel = r'$\dfrac{|\textnormal{Rate}-\textnormal{Rate}_{\textnormal{NN}}|}'
     xlabel += r'{\textnormal{Rate}}$, (\textnormal{Reaction-2})'
     xlims = [0., 0.1]
+    ylims = [0, 50]
     rErrors = [fGbErrors['r2Errors'], pGbErrors['r2Errors']]
     figures += plot_histogram(data_list=rErrors, legend_colors=legend_colors, 
                               legend_names=legend_names, 
                               figure_size=PAPER_FIGSIZE, xlabel=xlabel, 
-                              ylabel=ylabel, nBins=1000, xlims=xlims)
+                              ylabel=ylabel, nBins=1000, xlims=xlims, 
+                              ylims=ylims)
 
     # Plot errors in the state-space.
     # Reaction - 1.
@@ -413,9 +423,62 @@ def main():
                                    wspace=0.1, right_frac=0.95, title_y=1.02)
 
     # Plot the optimization analysis results.
+    # Suboptimality in inputs, cost type 1.
+    optAnalysis = reac_ssopt_optimizationanalysis[0]
+    usGaps = optAnalysis['usGaps']
+    xlabel = r'$\dfrac{|u_s - u_s^{*}|}{u_s^{*}}$'
+    xlims = [0., 0.6]
+    ylims = [0, 30]
+    legend_names = ['Black-Box-NN', 'Hybrid - FullGb', 'Hybrid - PartialGb']
+    legend_colors = ['dimgrey', 'm', 'g']
+    figures += plot_histogram(data_list=usGaps, legend_colors=legend_colors, 
+                              legend_names=legend_names, 
+                              figure_size=PAPER_FIGSIZE, xlabel=xlabel, 
+                              ylabel=ylabel, nBins=1000, xlims=xlims,     
+                              ylims=ylims)
 
+    # Plot the optimization analysis results.
+    # Suboptimality in cost, cost type 2.
+    optAnalysis = reac_ssopt_optimizationanalysis[0]
+    subGaps = optAnalysis['subGaps']
+    xlabel = r'$\dfrac{|V_s - V_s^{*}|}{V_s^{*}}$'
+    xlims = [0., 0.1]
+    ylims = [0, 30]
+    legend_names = ['Black-Box-NN', 'Hybrid - FullGb', 'Hybrid - PartialGb']
+    legend_colors = ['dimgrey', 'm', 'g']
+    figures += plot_histogram(data_list=subGaps, legend_colors=legend_colors, 
+                              legend_names=legend_names, 
+                              figure_size=PAPER_FIGSIZE, xlabel=xlabel, 
+                              ylabel=ylabel, nBins=1000, xlims=xlims, 
+                              ylims=ylims)
 
+    # Suboptimality in inputs, cost type 2.
+    optAnalysis = reac_ssopt_optimizationanalysis[1]
+    usGaps = optAnalysis['usGaps']
+    xlabel = r'$\dfrac{|u_s - u_s^{*}|}{u_s^{*}}$'
+    xlims = [0., 0.6]
+    ylims = [0, 30]
+    legend_names = ['Hybrid - FullGb']
+    legend_colors = ['m']
+    figures += plot_histogram(data_list=usGaps, legend_colors=legend_colors, 
+                              legend_names=legend_names, 
+                              figure_size=PAPER_FIGSIZE, xlabel=xlabel, 
+                              ylabel=ylabel, nBins=1000, xlims=xlims,     
+                              ylims=ylims)
 
+    # Suboptimality in cost, cost type 2.
+    optAnalysis = reac_ssopt_optimizationanalysis[1]
+    subGaps = optAnalysis['subGaps']
+    xlabel = r'$\dfrac{|V_s - V_s^{*}|}{V_s^{*}}$'
+    xlims = [0., 0.6]
+    ylims = [0, 30]
+    legend_names = ['Hybrid - FullGb']
+    legend_colors = ['m']
+    figures += plot_histogram(data_list=subGaps, legend_colors=legend_colors, 
+                              legend_names=legend_names, 
+                              figure_size=PAPER_FIGSIZE, xlabel=xlabel, 
+                              ylabel=ylabel, nBins=1000, xlims=xlims,     
+                              ylims=ylims)
 
     # Load data for the economic MPC simulation.
     # reac_empc = PickleTool.load(filename="reac_empc.pickle", 

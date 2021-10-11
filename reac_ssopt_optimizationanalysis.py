@@ -74,8 +74,9 @@ def main():
     # List to store the result of optimization analysis. 
     optAnalysis_list = []
 
-    # Number of guesses to use in the analysis. 
-    Nguess = 1
+    # Number of initial guesses/cost parameter values.
+    Nguess = 5
+    Npvals = 200
 
     ## Optimization analysis for the cost type 1 without a Cc contribution.
     # Get lists of model types.
@@ -87,7 +88,6 @@ def main():
     # Lower and upper bounds of cost parameters. 
     plb = np.array([100, 500])
     pub = np.array([100, 1500])
-    Npvals = 10
     reac_optanalysis = doOptimizationAnalysis(model_types=model_types, 
                                         fxu_list=fxu_list, hx_list=hx_list, 
                                         par_list=par_list, lxup=cost_lxup_noCc,
@@ -103,7 +103,6 @@ def main():
     # Lower and upper bounds of cost parameters. 
     plb = np.array([100, 250, 250])
     pub = np.array([100, 450, 450])
-    Npvals = 10
     reac_optanalysis = doOptimizationAnalysis(model_types=model_types, 
                                         fxu_list=fxu_list, hx_list=hx_list, 
                                         par_list=par_list, lxup=cost_lxup_noCc,
