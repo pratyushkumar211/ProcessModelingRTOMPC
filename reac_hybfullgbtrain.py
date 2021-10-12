@@ -72,7 +72,7 @@ def main():
                             hyb_fullgb_pars=hyb_fullgb_pars)
 
         # Train.
-        train_model(model=model, epochs=10, batch_size=1, 
+        train_model(model=model, epochs=6000, batch_size=1, 
                         train_data=train_data, trainval_data=trainval_data,
                         stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 
@@ -88,10 +88,10 @@ def main():
 
         # Save the weights.
         reac_train = dict(Np=Np, r1Dims=r1Dims, r2Dims=r2Dims, 
-                        estC0Dims=estC0Dims, r1Weights=r1Weights,
-                        r2Weights=r2Weights, estC0Weights=estC0Weights,
-                        val_predictions=val_predictions,
-                        xuyscales=xuyscales)
+                          estC0Dims=estC0Dims, r1Weights=r1Weights,
+                          r2Weights=r2Weights, estC0Weights=estC0Weights,
+                          val_predictions=val_predictions,
+                          xuyscales=xuyscales)
         
         # Store the list into dictionaries. 
         reac_train_list += [reac_train]

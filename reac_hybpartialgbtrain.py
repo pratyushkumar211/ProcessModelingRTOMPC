@@ -64,7 +64,7 @@ def main():
                             hyb_partialgb_pars=hyb_partialgb_pars)
 
         # Train.
-        train_model(model=model, epochs=10, batch_size=1, 
+        train_model(model=model, epochs=6000, batch_size=1, 
                     train_data=train_data, trainval_data=trainval_data,
                     stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 
