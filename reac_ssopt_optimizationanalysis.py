@@ -21,6 +21,9 @@ from ReacHybridPartialGbFuncs import get_hybrid_pars as get_phyb_pars
 from ReacHybridPartialGbFuncs import hybrid_fxup as phyb_fxup
 from ReacHybridPartialGbFuncs import hybrid_hx as phyb_hx
 
+# Set numpy seed. 
+np.random.seed(10)
+
 def main():
     """ Main function to be executed. """
 
@@ -75,7 +78,7 @@ def main():
     optAnalysis_list = []
 
     # Number of initial guesses/cost parameter values.
-    Nguess = 5
+    Nguess = 10
     Npvals = 200
 
     ## Optimization analysis for the cost type 1 without a Cc contribution.
@@ -104,10 +107,10 @@ def main():
     plb = np.array([100, 250, 250])
     pub = np.array([100, 450, 450])
     reac_optanalysis = doOptimizationAnalysis(model_types=model_types, 
-                                        fxu_list=fxu_list, hx_list=hx_list, 
-                                        par_list=par_list, lxup=cost_lxup_noCc,
-                                        plb=plb, pub=pub, Npvals=Npvals, 
-                                        Nguess=Nguess)
+                                    fxu_list=fxu_list, hx_list=hx_list, 
+                                    par_list=par_list, lxup=cost_lxup_withCc,
+                                    plb=plb, pub=pub, Npvals=Npvals, 
+                                    Nguess=Nguess)
     optAnalysis_list += [reac_optanalysis]
 
     # Save.

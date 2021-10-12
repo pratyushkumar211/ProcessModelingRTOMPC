@@ -94,7 +94,7 @@ def cost_lxup_withCc(x, u, p):
     _, CB, CC = x[0:3]
 
     # Return.
-    return pA*CAf - pB*CB - pC*CC
+    return pA*CAf - pB*CB + pC*CC
 
 # def getEconDistPars(seed=2):
 #     """ Get the economic and measured disturbance parameters. """

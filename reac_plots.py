@@ -427,6 +427,7 @@ def main():
     optAnalysis = reac_ssopt_optimizationanalysis[0]
     usGaps = optAnalysis['usGaps']
     xlabel = r'$\dfrac{|u_s - u_s^{*}|}{u_s^{*}}$'
+    ylabel = 'Frequency'
     xlims = [0., 0.6]
     ylims = [0, 30]
     legend_names = ['Black-Box-NN', 'Hybrid - FullGb', 'Hybrid - PartialGb']
@@ -438,8 +439,7 @@ def main():
                               ylims=ylims)
 
     # Plot the optimization analysis results.
-    # Suboptimality in cost, cost type 2.
-    optAnalysis = reac_ssopt_optimizationanalysis[0]
+    # Suboptimality in cost, cost type 1.
     subGaps = optAnalysis['subGaps']
     xlabel = r'$\dfrac{|V_s - V_s^{*}|}{V_s^{*}}$'
     xlims = [0., 0.1]
@@ -456,7 +456,7 @@ def main():
     optAnalysis = reac_ssopt_optimizationanalysis[1]
     usGaps = optAnalysis['usGaps']
     xlabel = r'$\dfrac{|u_s - u_s^{*}|}{u_s^{*}}$'
-    xlims = [0., 0.6]
+    xlims = [0., 0.1]
     ylims = [0, 30]
     legend_names = ['Hybrid - FullGb']
     legend_colors = ['m']
@@ -467,13 +467,13 @@ def main():
                               ylims=ylims)
 
     # Suboptimality in cost, cost type 2.
-    optAnalysis = reac_ssopt_optimizationanalysis[1]
     subGaps = optAnalysis['subGaps']
     xlabel = r'$\dfrac{|V_s - V_s^{*}|}{V_s^{*}}$'
-    xlims = [0., 0.6]
+    xlims = [0., 0.1]
     ylims = [0, 30]
     legend_names = ['Hybrid - FullGb']
     legend_colors = ['m']
+    breakpoint()
     figures += plot_histogram(data_list=subGaps, legend_colors=legend_colors, 
                               legend_names=legend_names, 
                               figure_size=PAPER_FIGSIZE, xlabel=xlabel, 

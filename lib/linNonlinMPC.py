@@ -1440,7 +1440,7 @@ def getBestSSOptimum(*, fxu, hx, model_type, model_pars,
             bestXs = xs
             bestUs = us
             bestSsCost = ssCost
-        elif i > 0 and ssCost[0] < np.max(ssCost_list):
+        elif i > 0 and ssCost[0] < np.min(ssCost_list):
             bestIndex = np.argmax(ssCost_list)
             bestXs = xs_list[bestIndex]
             bestUs = us_list[bestIndex]
@@ -1543,9 +1543,12 @@ def doOptimizationAnalysis(*, model_types, fxu_list, hx_list, par_list,
         usGaps_list += [np.array(model_usGaps).squeeze()]
         subGaps_list += [np.array(model_subGaps).squeeze()]
 
+    # Get the parameter values at which optimization problems were solved. 
+    pvals = np.array(pvals)
+
     # Create data object and save.
     reac_ssopt = dict(xs=xs_list, us=us_list, optCosts=optCosts_list, 
-                      usGaps=usGaps_list, subGaps=subGaps_list)
+                      usGaps=usGaps_list, subGaps=subGaps_list, pvals=pvals)
 
     # Return. 
     return reac_ssopt
