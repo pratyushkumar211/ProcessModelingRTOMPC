@@ -39,7 +39,7 @@ def main():
     Np = reac_parameters['Ntstart']
     r1Dims = [1, 8, 1]
     r2Dims = [2, 8, 1]
-    estC0Dims = [Np*(Ny + Nu), 4, 1]
+    estC0Dims = [Np*(Ny + Nu), 16, 1]
 
     # Filenames.
     ckpt_path = 'reac_hybfullgbtrain.ckpt'
@@ -48,8 +48,8 @@ def main():
     # Train on both the types of training data, create lists to store.
     reac_train_list = []
 
-    # Loop over both types of training data. 
-    for training_data in training_data_list:
+    # Loop over both types of training data.
+    for training_data in training_data_list[1:]:
 
         # Get scaling.
         xuyscales = get_scaling(data=training_data[0])
