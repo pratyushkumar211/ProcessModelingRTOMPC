@@ -456,7 +456,7 @@ def main():
     optAnalysis = reac_ssopt_optimizationanalysis[1]
     usGaps = optAnalysis['usGaps'][1:]
     xlabel = r'$\dfrac{|u_s - u_s^{*}|}{u_s^{*}}$'
-    xlims = [0., 0.1]
+    xlims = [0., 0.2]
     ylims = [0, 10]
     legend_names = ['Hybrid - FullGb']
     legend_colors = ['m']
@@ -469,7 +469,7 @@ def main():
     # Suboptimality in cost, cost type 2.
     subGaps = optAnalysis['subGaps'][1:]
     xlabel = r'$\dfrac{|V_s - V_s^{*}|}{V_s^{*}}$'
-    xlims = [0., 0.1]
+    xlims = [0., 0.05]
     ylims = [0, 30]
     legend_names = ['Hybrid - FullGb']
     legend_colors = ['m']
