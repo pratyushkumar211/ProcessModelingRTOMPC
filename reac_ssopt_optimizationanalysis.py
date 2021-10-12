@@ -104,8 +104,8 @@ def main():
     hx_list = [plant_h, fhyb_h]
     par_list = [plant_pars, fhyb_pars]
     # Lower and upper bounds of cost parameters. 
-    plb = np.array([100, 250, 250])
-    pub = np.array([100, 450, 450])
+    plb = np.array([100, 1000, 100])
+    pub = np.array([100, 2000, 500])
     reac_optanalysis = doOptimizationAnalysis(model_types=model_types, 
                                     fxu_list=fxu_list, hx_list=hx_list, 
                                     par_list=par_list, lxup=cost_lxup_withCc,
