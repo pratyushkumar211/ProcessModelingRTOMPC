@@ -275,7 +275,7 @@ def main():
     figures = []
 
     # Plot training data.
-    training_data = reac_parameters['training_data'][:5]
+    training_data = reac_parameters['training_data_withnoise'][:5]
     for data in training_data:
 
         (t, ulist, xlist, 
@@ -291,16 +291,16 @@ def main():
                                 ylabel_xcoordinate=-0.1, 
                                 title_loc=None)
 
-    # Get Black-Box and Hybrid model predictions. 
+    # Get Black-Box and Hybrid model predictions.
     bbnn_predictions = reac_bbnntrain['val_predictions']
     hybfullgb_predictions = reac_hybfullgbtrain['val_predictions']
     hybpartialgb_predictions = reac_hybpartialgbtrain['val_predictions']
 
     # Plot validation data.
-    legend_names = ['Plant', 'Black-Box-NN', 
+    legend_names = ['Plant', 'Black-Box-NN',
                     'Hybrid - FullGb', 'Hybrid - PartialGb']
     legend_colors = ['b', 'dimgrey', 'm', 'g']
-    valdata_plant = reac_parameters['training_data'][-1]
+    valdata_plant = reac_parameters['training_data_withnoise'][-1]
     valdata_list = [valdata_plant]
     valdata_list += [bbnn_predictions]
     valdata_list += [hybfullgb_predictions]

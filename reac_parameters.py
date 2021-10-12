@@ -3,6 +3,7 @@
 # [makes] pickle
 import sys
 sys.path.append('lib/')
+import random
 import numpy as np
 from hybridId import PickleTool, sample_prbs_like, SimData
 from hybridId import get_rectified_xs
@@ -11,6 +12,9 @@ from reacFuncs import get_plant_pars, plant_ode
 
 # Numpy seed.
 np.random.seed(12)
+
+# Random package (Used to sample distinct mixed-integers) seed.
+random.seed(6)
 
 def get_known_hyb_pars(*, plant_pars, hybtype=None):
     """ Grey-Box parameters for the hybrid model. """
@@ -72,24 +76,24 @@ def gen_train_val_data(*, parameters, Ntstart, num_traj,
             " Generate useq for validation simulation. "
             Nsim = Ntstart + Nsim_val
             u = sample_prbs_like(num_change=9, num_steps=Nsim, 
-                                 lb=ulb, ub=uub,
-                                 mean_change=40, sigma_change=5)
+                                 lb=ulb, ub=uub, mean_change=40, 
+                                 sigma_change=5, num_constraint=2)
 
         elif traj == num_traj-2:
 
             " Generate useq for train val simulation. "
             Nsim = Ntstart + Nsim_trainval
             u = sample_prbs_like(num_change=6, num_steps=Nsim, 
-                                 lb=ulb, ub=uub,
-                                 mean_change=40, sigma_change=5)
+                                 lb=ulb, ub=uub, mean_change=40, 
+                                 sigma_change=5, num_constraint=2)
 
         else:
 
             " Generate useq for training simulation. "
             Nsim = Ntstart + Nsim_train
             u = sample_prbs_like(num_change=6, num_steps=Nsim,
-                                 lb=ulb, ub=uub,
-                                 mean_change=40, sigma_change=5)
+                                 lb=ulb, ub=uub, mean_change=40, 
+                                 sigma_change=5, num_constraint=2)
         
         # Create the steady-state disturbance signal.
         # Change this later if we need to do simulations
@@ -129,8 +133,8 @@ def get_training_data(*, plant_pars, Ntstart):
     Rv = plant_pars['Rv']
 
     # Range of initial conditions.
-    x0lb = np.zeros((Nx, 1))
-    x0ub = np.ones((Nx, 1))
+    x0lb = np.array([0.2, 0.3, 0.1])[:, np.newaxis]
+    x0ub = np.array([0.7, 0.6, 0.6])[:, np.newaxis]
 
     # Get data without noise. 
     plant_pars['Rv'] = 0*np.eye(Ny)
@@ -176,7 +180,7 @@ def main():
                                                   Ntstart=Ntstart)
 
     # Get a dictionary to return.
-    reac_parameters = dict(plant_pars=plant_pars, Ntstart=Ntstart, 
+    reac_parameters = dict(plant_pars=plant_pars, Ntstart=Ntstart,
                            training_data_nonoise=training_data_nonoise,
                            training_data_withnoise=training_data_withnoise,
                            hyb_fullgb_pars=hyb_fullgb_pars,
