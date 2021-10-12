@@ -10,7 +10,7 @@ from linNonlinMPC import get_plant_model
 from reacFuncs import get_plant_pars, plant_ode
 
 # Numpy seed.
-np.random.seed(10)
+np.random.seed(12)
 
 def get_known_hyb_pars(*, plant_pars, hybtype=None):
     """ Grey-Box parameters for the hybrid model. """
@@ -92,6 +92,8 @@ def gen_train_val_data(*, parameters, Ntstart, num_traj,
                                  mean_change=40, sigma_change=5)
         
         # Create the steady-state disturbance signal.
+        # Change this later if we need to do simulations
+        # with varying unmeasured disturbance signals.
         p = np.tile(ps.T, (Nsim, Np))
 
         # Run an open-loop simulation based on u and p.
@@ -100,16 +102,58 @@ def gen_train_val_data(*, parameters, Ntstart, num_traj,
 
         # Create a simdata object.
         simdata = SimData(t=np.asarray(plant.t[0:-1]).squeeze(),
-                            x=np.asarray(plant.x[0:-1]).squeeze(axis=-1),
-                            u=np.asarray(plant.u).squeeze(axis=-1),
-                            y=np.asarray(plant.y[0:-1]).squeeze(axis=-1), 
-                            p=np.asarray(plant.p).squeeze(axis=-1))
+                          x=np.asarray(plant.x[0:-1]).squeeze(axis=-1),
+                          u=np.asarray(plant.u).squeeze(axis=-1),
+                          y=np.asarray(plant.y[0:-1]).squeeze(axis=-1), 
+                          p=np.asarray(plant.p).squeeze(axis=-1))
 
         # Append data to a list.
         data_list += [simdata]
 
     # Return.
     return data_list
+
+def get_training_data(*, plant_pars, Ntstart):
+    """ Generate training data. """
+
+    # Sizes.
+    Nx, Ny = plant_pars['Nx'], plant_pars['Ny']
+
+    # Number of simulation trajectories and steps. 
+    num_traj = 6
+    Nsim_train = 240
+    Nsim_trainval = 240
+    Nsim_val = 360
+
+    # Noise covariance. 
+    Rv = plant_pars['Rv']
+
+    # Range of initial conditions.
+    x0lb = np.zeros((Nx, 1))
+    x0ub = np.ones((Nx, 1))
+
+    # Get data without noise. 
+    plant_pars['Rv'] = 0*np.eye(Ny)
+    training_data_nonoise = gen_train_val_data(parameters=plant_pars, 
+                                               Ntstart=Ntstart,
+                                               num_traj=num_traj, 
+                                               Nsim_train=Nsim_train,
+                                               Nsim_trainval=Nsim_trainval, 
+                                               Nsim_val=Nsim_val,
+                                               x0lb=x0lb, x0ub=x0ub)
+
+    # Get data with noise. 
+    plant_pars['Rv'] = Rv
+    training_data_withnoise = gen_train_val_data(parameters=plant_pars, 
+                                                 Ntstart=Ntstart,
+                                                 num_traj=num_traj, 
+                                                 Nsim_train=Nsim_train,
+                                                 Nsim_trainval=Nsim_trainval, 
+                                                 Nsim_val=Nsim_val,
+                                                 x0lb=x0lb, x0ub=x0ub)
+    
+    # Return. 
+    return training_data_nonoise, training_data_withnoise
 
 def main():
     """ Get the parameters, training, and validation data."""
@@ -125,19 +169,16 @@ def main():
     hyb_partialgb_pars = get_known_hyb_pars(plant_pars=plant_pars,
                                             hybtype='partialgb')
     
-    # Generate training data.
+    # Get training data. 
     Ntstart = 2
-    Nx = plant_pars['Nx']
-    x0lb = np.zeros((Nx, 1))
-    x0ub = np.ones((Nx, 1))
-    training_data = gen_train_val_data(parameters=plant_pars, Ntstart=Ntstart,
-                                        num_traj=6, Nsim_train=240,
-                                        Nsim_trainval=240, Nsim_val=360,
-                                        x0lb=x0lb, x0ub=x0ub)
+    (training_data_nonoise, 
+     training_data_withnoise) = get_training_data(plant_pars=plant_pars, 
+                                                  Ntstart=Ntstart)
 
-    # Get the dictionary.
+    # Get a dictionary to return.
     reac_parameters = dict(plant_pars=plant_pars, Ntstart=Ntstart, 
-                           training_data=training_data,
+                           training_data_nonoise=training_data_nonoise,
+                           training_data_withnoise=training_data_withnoise,
                            hyb_fullgb_pars=hyb_fullgb_pars,
                            hyb_partialgb_pars=hyb_partialgb_pars)
     

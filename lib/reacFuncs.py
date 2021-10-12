@@ -59,7 +59,7 @@ def get_plant_pars():
 
     # Measurement indices and noise.
     parameters['yindices'] = [0, 1]
-    parameters['Rv'] = 0*np.diag([1e-3, 1e-4])
+    parameters['Rv'] = np.diag([1e-3, 1e-4])
 
     # Return the parameters dict.
     return parameters
