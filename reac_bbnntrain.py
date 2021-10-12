@@ -26,50 +26,60 @@ def main():
     Delta = plant_pars['Delta']
 
     # Raw training data.
-    training_data = reac_parameters['training_data']
+    training_data_list = [reac_parameters['training_data_nonoise'], 
+                          reac_parameters['training_data_withnoise']]
 
     # Create some parameters.
     unmeasXindices = [2]
     Ntstart = reac_parameters['Ntstart']
     Np = reac_parameters['Ntstart']
-    fNDims = [Ny + Nu + Np*(Ny+Nu), 16, Ny]
+    fNDims = [Ny + Nu + Np*(Ny+Nu), 32, Ny]
 
     # Filenames.
     ckpt_path = 'reac_bbnntrain.ckpt'
     stdout_filename = 'reac_bbnntrain.txt'
 
-    # Get scaling and the training data.
-    xuyscales = get_scaling(data=training_data[0])
-    (train_data, 
-     trainval_data, val_data) = get_train_val_data(Ntstart=Ntstart, Np=Np,
-                                                xuyscales=xuyscales,
-                                                data_list=training_data)
+    # Train on both the types of training data, create lists to store.
+    reac_train_list = []
 
-    # Create model.
-    model = create_model(Np=Np, Ny=Ny, Nu=Nu, fNDims=fNDims)
-    
-    # Train.
-    train_model(model=model, epochs=8000, batch_size=1,
-                train_data=train_data, trainval_data=trainval_data, 
-                stdout_filename=stdout_filename, ckpt_path=ckpt_path)
+    # Loop over both types of training data. 
+    for training_data in training_data_list:
 
-    # Validate.
-    val_predictions = get_val_predictions(model=model,
-                                    val_data=val_data, xuyscales=xuyscales, 
-                                    unmeasXIndices=unmeasXindices, 
-                                    ckpt_path=ckpt_path, Delta=Delta)
+        # Get scaling and the training data.
+        xuyscales = get_scaling(data=training_data[0])
+        (train_data, 
+        trainval_data, val_data) = get_train_val_data(Ntstart=Ntstart, Np=Np,
+                                                    xuyscales=xuyscales,
+                                                    data_list=training_data)
 
-    # Get weights to store.
-    fNWeights = model.get_weights()
+        # Create model.
+        model = create_model(Np=Np, Ny=Ny, Nu=Nu, fNDims=fNDims)
+        
+        # Train.
+        train_model(model=model, epochs=10, batch_size=1,
+                    train_data=train_data, trainval_data=trainval_data, 
+                    stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 
-    # Save the weights.
-    reac_train = dict(Np=Np, fNDims=fNDims,
-                      fNWeights=fNWeights,
-                      val_predictions=val_predictions,
-                      xuyscales=xuyscales)
-    
+        # Validate.
+        val_predictions = get_val_predictions(model=model,
+                                        val_data=val_data, xuyscales=xuyscales, 
+                                        unmeasXIndices=unmeasXindices, 
+                                        ckpt_path=ckpt_path, Delta=Delta)
+
+        # Get weights to store.
+        fNWeights = model.get_weights()
+
+        # Save the weights.
+        reac_train = dict(Np=Np, fNDims=fNDims,
+                        fNWeights=fNWeights,
+                        val_predictions=val_predictions,
+                        xuyscales=xuyscales)
+
+        # Store the list into dictionaries. 
+        reac_train_list += [reac_train]
+
     # Save data.
-    PickleTool.save(data_object=reac_train,
+    PickleTool.save(data_object=reac_train_list,
                     filename='reac_bbnntrain.pickle')
 
 main()

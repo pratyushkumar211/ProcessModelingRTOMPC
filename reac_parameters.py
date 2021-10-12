@@ -123,8 +123,8 @@ def get_training_data(*, plant_pars, Ntstart):
     # Sizes.
     Nx, Ny = plant_pars['Nx'], plant_pars['Ny']
 
-    # Number of simulation trajectories and steps. 
-    num_traj = 6
+    # Number of simulation trajectories and steps.
+    num_traj = 4
     Nsim_train = 240
     Nsim_trainval = 240
     Nsim_val = 360
@@ -156,7 +156,7 @@ def get_training_data(*, plant_pars, Ntstart):
                                                  Nsim_val=Nsim_val,
                                                  x0lb=x0lb, x0ub=x0ub)
     
-    # Return. 
+    # Return.
     return training_data_nonoise, training_data_withnoise
 
 def main():
