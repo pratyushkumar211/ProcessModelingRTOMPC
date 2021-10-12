@@ -216,8 +216,8 @@ def main():
     # Trained Weights and scaling. 
     fGbWeights = [reac_hybfullgbtrain[0]['r1Weights'], 
                   reac_hybfullgbtrain[0]['r2Weights']]
-    pGbWeights = [reac_hybpartialgbtrain[1]['r1Weights'], 
-                  reac_hybpartialgbtrain[1]['r2Weights']]
+    pGbWeights = [reac_hybpartialgbtrain[0]['r1Weights'], 
+                  reac_hybpartialgbtrain[0]['r2Weights']]
     Np = reac_hybpartialgbtrain[0]['Np']
     xuyscales = reac_hybfullgbtrain[0]['xuyscales']
 
