@@ -292,9 +292,9 @@ def main():
                                 title_loc=None)
 
     # Get Black-Box and Hybrid model predictions.
-    bbnn_predictions = reac_bbnntrain['val_predictions']
-    hybfullgb_predictions = reac_hybfullgbtrain['val_predictions']
-    hybpartialgb_predictions = reac_hybpartialgbtrain['val_predictions']
+    bbnn_predictions = reac_bbnntrain[1]['val_predictions']
+    hybfullgb_predictions = reac_hybfullgbtrain[1]['val_predictions']
+    hybpartialgb_predictions = reac_hybpartialgbtrain[1]['val_predictions']
 
     # Plot validation data.
     legend_names = ['Plant', 'Black-Box-NN',

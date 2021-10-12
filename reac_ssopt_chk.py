@@ -29,14 +29,17 @@ def getSSOptimums(*, model_types, fxu_list, hx_list,
     # Lists to store optimization results. 
     xs_list, us_list, optSscost_list = [], [], []
 
+    # Initial guess for input. 
+    uguess = np.array([1.45])
+
     # Loop over the different models and obtain the SS optimums.
     for (model_type, fxu, hx, model_pars) in zip(model_types, fxu_list, 
                                                  hx_list, par_list):
 
         # Get Guess.
         xuguess = getXsUsSSCalcGuess(model_type=model_type, fxu=fxu, hx=hx,
-                                     model_pars=model_pars, plant_pars=plant_pars)
-        
+                                     model_pars=model_pars, plant_pars=plant_pars, us=uguess)
+
         # Get the steady state optimum.
         xs, us, ys, optSscost = getSSOptimum(fxu=fxu, hx=hx, 
                                              lxu=cost_lxup, 
@@ -73,6 +76,11 @@ def main():
     reac_hybpartialgbtrain = PickleTool.load(filename=
                                       'reac_hybpartialgbtrain.pickle',
                                       type='read')
+
+    # Extract out the training data for analysis. 
+    reac_bbnntrain = reac_bbnntrain[1]
+    reac_hybfullgbtrain = reac_hybfullgbtrain[1]
+    reac_hybpartialgbtrain = reac_hybpartialgbtrain[1]
 
     # Get plant and hybrid model parameters.
     plant_pars = reac_parameters['plant_pars']
@@ -115,7 +123,7 @@ def main():
     par_list = [plant_pars, bbnn_pars, fhyb_pars, phyb_pars]
 
     # Get the optimums for the cost without a Cc term.
-    p = [100, 1200]
+    p = [100, 900]
     cost_lxup = lambda x, u: cost_lxup_noCc(x, u, p)
     (cost1_xs_list, cost1_us_list, 
      cost1_optSscost_list) = getSSOptimums(model_types=model_types, 
@@ -130,7 +138,7 @@ def main():
     fxu_list = [plant_f, fhyb_f]
     hx_list = [plant_h, fhyb_h]
     par_list = [plant_pars, fhyb_pars]
-    p = [100, 1200, 100]
+    p = [100, 1100, 100]
     cost_lxup = lambda x, u: cost_lxup_withCc(x, u, p)
     (cost2_xs_list, cost2_us_list, 
      cost2_optSscost_list) = getSSOptimums(model_types=model_types,

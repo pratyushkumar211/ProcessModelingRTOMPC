@@ -79,7 +79,7 @@ def main():
 
     # Number of initial guesses/cost parameter values.
     Nguess = 10
-    Npvals = 200
+    Npvals = 10
 
     ## Optimization analysis for the cost type 1 without a Cc contribution.
     # Get lists of model types.

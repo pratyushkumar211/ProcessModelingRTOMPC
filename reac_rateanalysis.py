@@ -120,7 +120,11 @@ def getFullGbRateErrorsInStateSpace(*, CaRange, CbRange, CcRange,
         # Get the error. 
         r2Errors[j, i] = np.abs(r2 - r2NN)/np.abs(r2)
 
-    # Return. 
+        # Make eliminate a point at the equilibrium. 
+        if np.abs(k2f*(CbRange[i])**3 - k2b*CcRange[j]) < 1e-3:
+            r2Errors[j, i] = np.nan
+
+    # Return.
     return r1Errors, r2Errors
 
 def getRateErrorsOnGeneratedData(*, training_data, Ntstart, Np, Ny, Nu, 
@@ -207,20 +211,20 @@ def main():
 
     # Get all the training data. 
     Ntstart = reac_parameters['Ntstart']
-    training_data = reac_parameters['training_data']
+    training_data = reac_parameters['training_data_nonoise']
 
     # Trained Weights and scaling. 
-    fGbWeights = [reac_hybfullgbtrain['r1Weights'], 
-                  reac_hybfullgbtrain['r2Weights']]
-    pGbWeights = [reac_hybpartialgbtrain['r1Weights'], 
-                  reac_hybpartialgbtrain['r2Weights']]
-    Np = reac_hybpartialgbtrain['Np']
-    xuyscales = reac_hybfullgbtrain['xuyscales']
+    fGbWeights = [reac_hybfullgbtrain[1]['r1Weights'], 
+                  reac_hybfullgbtrain[1]['r2Weights']]
+    pGbWeights = [reac_hybpartialgbtrain[1]['r1Weights'], 
+                  reac_hybpartialgbtrain[1]['r2Weights']]
+    Np = reac_hybpartialgbtrain[0]['Np']
+    xuyscales = reac_hybfullgbtrain[1]['xuyscales']
 
     # Get errors in reactions 1 and 2 for the full GB model. 
     CaRange = list(np.arange(1e-2, 1.5, 0.01)[:, np.newaxis])
-    CbRange = list(np.arange(0.5, 0.6, 0.01)[:, np.newaxis])
-    CcRange = list(np.arange(0.2, 0.5, 0.01)[:, np.newaxis])
+    CbRange = list(np.arange(0.2, 0.6, 0.01)[:, np.newaxis])
+    CcRange = list(np.arange(0.1, 0.6, 0.01)[:, np.newaxis])
     r2XGrid, r2YGrid = np.meshgrid(CbRange, CcRange)
     r1Errors, r2Errors = getFullGbRateErrorsInStateSpace(CaRange=CaRange, 
                             CbRange=CbRange, CcRange=CcRange, 
