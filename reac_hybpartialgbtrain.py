@@ -36,8 +36,8 @@ def main():
     Ntstart = reac_parameters['Ntstart']
     Np = reac_parameters['Ntstart']
     unmeasXIndices = [2]
-    r1Dims = [1, 16, 1]
-    r2Dims = [1 + Np*(Ny + Nu), 64, 1]
+    r1Dims = [1, 8, 1]
+    r2Dims = [1 + Np*(Ny + Nu), 32, 1]
 
     # Filenames.
     ckpt_path = 'reac_hybpartialgbtrain.ckpt'
@@ -47,7 +47,7 @@ def main():
     reac_train_list = []
 
     # Loop over both types of training data. 
-    for training_data in training_data_list[1:]:
+    for training_data in training_data_list:
 
         # Get scaling.
         xuyscales = get_scaling(data=training_data[0])
@@ -64,7 +64,7 @@ def main():
                             hyb_partialgb_pars=hyb_partialgb_pars)
 
         # Train.
-        train_model(model=model, epochs=8000, batch_size=1, 
+        train_model(model=model, epochs=6000, batch_size=1, 
                     train_data=train_data, trainval_data=trainval_data,
                     stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 

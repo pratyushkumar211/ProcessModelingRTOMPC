@@ -49,7 +49,7 @@ def main():
     reac_train_list = []
 
     # Loop over both types of training data.
-    for training_data in training_data_list[1:]:
+    for training_data in training_data_list:
 
         # Get scaling.
         xuyscales = get_scaling(data=training_data[0])

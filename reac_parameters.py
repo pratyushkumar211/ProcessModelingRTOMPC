@@ -146,7 +146,7 @@ def get_training_data(*, plant_pars, Ntstart):
                                                Nsim_val=Nsim_val,
                                                x0lb=x0lb, x0ub=x0ub)
 
-    # Get data with noise. 
+    # Get data with noise.
     plant_pars['Rv'] = Rv
     training_data_withnoise = gen_train_val_data(parameters=plant_pars, 
                                                  Ntstart=Ntstart,
