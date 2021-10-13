@@ -118,8 +118,8 @@ def main():
 
     # Extract out the training data for analysis. 
     reac_bbnntrain = reac_bbnntrain[1]
-    reac_hybfullgbtrain = reac_hybfullgbtrain[0]
-    reac_hybpartialgbtrain = reac_hybpartialgbtrain[0]
+    reac_hybfullgbtrain = reac_hybfullgbtrain[1]
+    reac_hybpartialgbtrain = reac_hybpartialgbtrain[1]
 
     # Get plant and hybrid model parameters.
     plant_pars = reac_parameters['plant_pars']
@@ -162,7 +162,7 @@ def main():
     par_list = [plant_pars, bbnn_pars, fhyb_pars, phyb_pars]
 
     # Cost function handle.
-    p = [100, 1000]
+    p = [100, 900]
     cost_lxup = lambda x, u: cost_lxup_noCc(x, u, p)
     # Number of ss inputs at which to compute the cost.
     Nus = 100
@@ -187,7 +187,7 @@ def main():
     hx_list = [plant_h, fhyb_h]
     par_list = [plant_pars, fhyb_pars]
     # Cost function handle.
-    p = [100, 1200, 100]
+    p = [100, 1000, 100]
     cost_lxup = lambda x, u: cost_lxup_withCc(x, u, p)
     # Number of ss inputs at which to compute the cost.
     Nus = 100

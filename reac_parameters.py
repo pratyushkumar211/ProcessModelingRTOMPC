@@ -124,7 +124,7 @@ def get_training_data(*, plant_pars, Ntstart):
     Nx, Ny = plant_pars['Nx'], plant_pars['Ny']
 
     # Number of simulation trajectories and steps.
-    num_traj = 4
+    num_traj = 6
     Nsim_train = 240
     Nsim_trainval = 240
     Nsim_val = 360

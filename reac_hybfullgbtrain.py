@@ -72,7 +72,7 @@ def main():
                             hyb_fullgb_pars=hyb_fullgb_pars)
 
         # Train.
-        train_model(model=model, epochs=6000, batch_size=1, 
+        train_model(model=model, epochs=8000, batch_size=1, 
                         train_data=train_data, trainval_data=trainval_data,
                         stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 

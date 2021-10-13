@@ -214,17 +214,17 @@ def main():
     training_data = reac_parameters['training_data_nonoise']
 
     # Trained Weights and scaling. 
-    fGbWeights = [reac_hybfullgbtrain[0]['r1Weights'], 
-                  reac_hybfullgbtrain[0]['r2Weights']]
-    pGbWeights = [reac_hybpartialgbtrain[0]['r1Weights'], 
-                  reac_hybpartialgbtrain[0]['r2Weights']]
-    Np = reac_hybpartialgbtrain[0]['Np']
-    xuyscales = reac_hybfullgbtrain[0]['xuyscales']
+    fGbWeights = [reac_hybfullgbtrain[1]['r1Weights'], 
+                  reac_hybfullgbtrain[1]['r2Weights']]
+    pGbWeights = [reac_hybpartialgbtrain[1]['r1Weights'], 
+                  reac_hybpartialgbtrain[1]['r2Weights']]
+    Np = reac_hybpartialgbtrain[1]['Np']
+    xuyscales = reac_hybfullgbtrain[1]['xuyscales']
 
     # Get errors in reactions 1 and 2 for the full GB model. 
     CaRange = list(np.arange(1e-2, 1.5, 0.01)[:, np.newaxis])
-    CbRange = list(np.arange(0.2, 0.6, 0.01)[:, np.newaxis])
-    CcRange = list(np.arange(0.1, 0.6, 0.01)[:, np.newaxis])
+    CbRange = list(np.arange(0.3, 0.6, 0.01)[:, np.newaxis])
+    CcRange = list(np.arange(0.15, 0.6, 0.01)[:, np.newaxis])
     r2XGrid, r2YGrid = np.meshgrid(CbRange, CcRange)
     r1Errors, r2Errors = getFullGbRateErrorsInStateSpace(CaRange=CaRange, 
                             CbRange=CbRange, CcRange=CcRange, 
