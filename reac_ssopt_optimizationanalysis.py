@@ -41,6 +41,11 @@ def main():
                                       'reac_hybpartialgbtrain.pickle',
                                       type='read')
 
+    # Extract out the training data for analysis. 
+    reac_bbnntrain = reac_bbnntrain[1]
+    reac_hybfullgbtrain = reac_hybfullgbtrain[1]
+    reac_hybpartialgbtrain = reac_hybpartialgbtrain[1]
+
     # Get plant and hybrid model parameters.
     plant_pars = reac_parameters['plant_pars']
     hyb_fullgb_pars = reac_parameters['hyb_fullgb_pars']
@@ -79,7 +84,7 @@ def main():
 
     # Number of initial guesses/cost parameter values.
     Nguess = 10
-    Npvals = 10
+    Npvals = 500
 
     ## Optimization analysis for the cost type 1 without a Cc contribution.
     # Get lists of model types.
