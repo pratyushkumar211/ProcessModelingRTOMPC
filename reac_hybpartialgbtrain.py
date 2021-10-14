@@ -37,7 +37,7 @@ def main():
     Np = reac_parameters['Ntstart']
     unmeasXIndices = [2]
     r1Dims = [1, 8, 1]
-    r2Dims = [1 + Np*(Ny + Nu), 16, 16, 1]
+    r2Dims = [1 + Np*(Ny + Nu), 32, 1]
 
     # Filenames.
     ckpt_path = 'reac_hybpartialgbtrain.ckpt'
