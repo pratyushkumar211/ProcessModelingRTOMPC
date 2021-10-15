@@ -275,7 +275,7 @@ def main():
     figures = []
 
     # Plot training data.
-    training_data = reac_parameters['training_data_withnoise'][:5]
+    training_data = reac_parameters['training_data_nonoise'][:5]
     for data in training_data:
 
         (t, ulist, xlist, 
@@ -292,15 +292,15 @@ def main():
                                 title_loc=None)
 
     # Get Black-Box and Hybrid model predictions.
-    bbnn_predictions = reac_bbnntrain[1]['val_predictions']
-    hybfullgb_predictions = reac_hybfullgbtrain[1]['val_predictions']
-    hybpartialgb_predictions = reac_hybpartialgbtrain[1]['val_predictions']
+    bbnn_predictions = reac_bbnntrain[0]['val_predictions']
+    hybfullgb_predictions = reac_hybfullgbtrain[0]['val_predictions']
+    hybpartialgb_predictions = reac_hybpartialgbtrain[0]['val_predictions']
 
     # Plot validation data.
     legend_names = ['Plant', 'Black-Box-NN',
                     'Hybrid - FullGb', 'Hybrid - PartialGb']
     legend_colors = ['b', 'dimgrey', 'm', 'g']
-    valdata_plant = reac_parameters['training_data_withnoise'][-1]
+    valdata_plant = reac_parameters['training_data_nonoise'][-1]
     valdata_list = [valdata_plant]
     valdata_list += [bbnn_predictions]
     valdata_list += [hybfullgb_predictions]
@@ -378,7 +378,7 @@ def main():
     # Reaction - 2
     xlabel = r'$\dfrac{|\textnormal{Rate}-\textnormal{Rate}_{\textnormal{NN}}|}'
     xlabel += r'{\textnormal{Rate}}$, (\textnormal{Reaction-2})'
-    xlims = [0., 0.1]
+    xlims = [0., 0.3]
     ylims = [0, 50]
     rErrors = [fGbErrors['r2Errors'], pGbErrors['r2Errors']]
     figures += plot_histogram(data_list=rErrors, legend_colors=legend_colors, 
@@ -428,28 +428,28 @@ def main():
     usGaps = optAnalysis['usGaps'][1:]
     xlabel = r'$\dfrac{|u_s - u_s^{*}|}{u_s^{*}}$'
     ylabel = 'Frequency'
-    xlims = [0., 0.6]
-    ylims = [0, 10]
+    xlims = [0., 0.8]
+    ylims = [0, 100]
     legend_names = ['Black-Box-NN', 'Hybrid - FullGb', 'Hybrid - PartialGb']
     legend_colors = ['dimgrey', 'm', 'g']
     figures += plot_histogram(data_list=usGaps, legend_colors=legend_colors, 
                               legend_names=legend_names, 
                               figure_size=PAPER_FIGSIZE, xlabel=xlabel, 
-                              ylabel=ylabel, nBins=1000, xlims=xlims,     
+                              ylabel=ylabel, nBins=200, xlims=xlims,     
                               ylims=ylims)
 
     # Plot the optimization analysis results.
     # Suboptimality in cost, cost type 1.
     subGaps = optAnalysis['subGaps'][1:]
     xlabel = r'$\dfrac{|V_s - V_s^{*}|}{V_s^{*}}$'
-    xlims = [0., 0.1]
-    ylims = [0, 30]
+    xlims = [0., 0.2]
+    ylims = [0, 100]
     legend_names = ['Black-Box-NN', 'Hybrid - FullGb', 'Hybrid - PartialGb']
     legend_colors = ['dimgrey', 'm', 'g']
     figures += plot_histogram(data_list=subGaps, legend_colors=legend_colors, 
                               legend_names=legend_names, 
                               figure_size=PAPER_FIGSIZE, xlabel=xlabel, 
-                              ylabel=ylabel, nBins=1000, xlims=xlims, 
+                              ylabel=ylabel, nBins=200, xlims=xlims, 
                               ylims=ylims)
 
     # Suboptimality in inputs, cost type 2.
@@ -457,26 +457,26 @@ def main():
     usGaps = optAnalysis['usGaps'][1:]
     xlabel = r'$\dfrac{|u_s - u_s^{*}|}{u_s^{*}}$'
     xlims = [0., 0.2]
-    ylims = [0, 10]
+    ylims = [0, 100]
     legend_names = ['Hybrid - FullGb']
     legend_colors = ['m']
     figures += plot_histogram(data_list=usGaps, legend_colors=legend_colors, 
                               legend_names=legend_names, 
                               figure_size=PAPER_FIGSIZE, xlabel=xlabel, 
-                              ylabel=ylabel, nBins=1000, xlims=xlims,     
+                              ylabel=ylabel, nBins=200, xlims=xlims,     
                               ylims=ylims)
 
     # Suboptimality in cost, cost type 2.
     subGaps = optAnalysis['subGaps'][1:]
     xlabel = r'$\dfrac{|V_s - V_s^{*}|}{V_s^{*}}$'
-    xlims = [0., 0.05]
-    ylims = [0, 30]
+    xlims = [0., 0.015]
+    ylims = [0, 100]
     legend_names = ['Hybrid - FullGb']
     legend_colors = ['m']
     figures += plot_histogram(data_list=subGaps, legend_colors=legend_colors, 
                               legend_names=legend_names, 
                               figure_size=PAPER_FIGSIZE, xlabel=xlabel, 
-                              ylabel=ylabel, nBins=1000, xlims=xlims,     
+                              ylabel=ylabel, nBins=200, xlims=xlims,     
                               ylims=ylims)
 
     # Load data for the economic MPC simulation.

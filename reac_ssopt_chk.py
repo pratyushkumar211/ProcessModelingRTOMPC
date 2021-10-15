@@ -79,9 +79,9 @@ def main():
 
     # Extract out the training data for analysis. 
     # Change the index if need to switch between data with and without noise.
-    reac_bbnntrain = reac_bbnntrain[1]
-    reac_hybfullgbtrain = reac_hybfullgbtrain[1]
-    reac_hybpartialgbtrain = reac_hybpartialgbtrain[1]
+    reac_bbnntrain = reac_bbnntrain[0]
+    reac_hybfullgbtrain = reac_hybfullgbtrain[0]
+    reac_hybpartialgbtrain = reac_hybpartialgbtrain[0]
 
     # Get plant and hybrid model parameters.
     plant_pars = reac_parameters['plant_pars']
