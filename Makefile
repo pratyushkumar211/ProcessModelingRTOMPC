@@ -101,9 +101,9 @@ DIA_SRC :=
 PY_MAT_SRC := 
 OCT_MAT_SRC := 
 MATLAB_MAT_SRC := 
-PY_PICKLE_SRC := reac_parameters.py reac_bbnntrain.py 
-				 reac_hybfullgbtrain.py reac_hybpartialgbtrain.py 
-				 reac_rateanalysis.py reac_ssopt_curve.py 
+PY_PICKLE_SRC := reac_parameters.py reac_bbnntrain.py \
+				 reac_hybfullgbtrain.py reac_hybpartialgbtrain.py \
+				 reac_rateanalysis.py reac_ssopt_curve.py \
 				 reac_ssopt_optimizationanalysis.py
 
 ## JL_MAT_SRC. These are .jl files on which you run Julia to produce a .mat file.
@@ -119,7 +119,7 @@ OCT_DAT_SRC :=
 
 ## PY_PLOT files are .py files that create .pdf plots.
 
-PY_PLOT := 
+PY_PLOT := reac_plots.py
 
 ## PY_MOVIE files are .py files that create movies as a .pdf document.
 

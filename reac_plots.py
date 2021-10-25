@@ -1,8 +1,8 @@
 # [depends] %LIB%/hybridId.py %LIB%/plottingFuncs.py
-# [depends] reac_parameters.pickle
-# [depends] reac_bbnntrain.pickle
-# [depends] reac_hybtrain.pickle
-# [depends] reac_ssopt.pickle
+# [depends] reac_parameters.pickle reac_bbnntrain.pickle
+# [depends] reac_hybfullgbtrain.pickle reac_hybpartialgbtrain.pickle
+# [depends] reac_rateanalysis.pickle reac_ssopt_curve.pickle
+# [depends] reac_ssopt_optimizationanalysis.pickle
 """ Script to plot the training data
     and grey-box + NN model predictions on validation data.
     Pratyush Kumar, pratyushkumar@ucsb.edu """

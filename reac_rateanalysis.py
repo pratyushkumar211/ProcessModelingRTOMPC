@@ -1,5 +1,7 @@
-# [depends] tworeac_parameters.pickle
-# [depends] tworeac_hybtrain.pickle
+# [depends] %LIB%/hybridId.py %LIB%/BlackBoxFuncs.py
+# [depends] reac_parameters.pickle reac_hybfullgbtrain.pickle
+# [depends] reac_hybpartialgbtrain.pickle
+# [makes] pickle
 import sys
 sys.path.append('lib/')
 import itertools

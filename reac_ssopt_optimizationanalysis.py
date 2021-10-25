@@ -1,13 +1,12 @@
-# [depends] %LIB%/plottingFuncs.py %LIB%/hybridId.py
-# [depends] %LIB%/BlackBoxFuncs.py %LIB%/ReacHybridFuncs.py
-# [depends] %LIB%/linNonlinMPC.py %LIB%/reacFuncs.py
-# [depends] reac_parameters.pickle
+# [depends] %LIB%/hybridId.py %LIB%/linNonlinMPC.py
+# [depends] %LIB%/reacFuncs.py %LIB%/ReacHybridFullGbFuncs.py
+# [depends] %LIB%/BlackBoxFuncs.py %LIB%/ReacHybridPartialGbFuncs.py
+# [depends] reac_parameters.pickle reac_bbnntrain.pickle
+# [depends] reac_hybfullgbtrain.pickle reac_hybpartialgbtrain.pickle
 # [makes] pickle
 import sys
 sys.path.append('lib/')
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_pdf import PdfPages
 from hybridId import PickleTool
 from linNonlinMPC import (c2dNonlin, doOptimizationAnalysis)
 from reacFuncs import cost_lxup_noCc, cost_lxup_withCc, plant_ode

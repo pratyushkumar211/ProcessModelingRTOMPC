@@ -1,4 +1,5 @@
-# [depends] %LIB%/hybridId.py %LIB%/ReacHybridFuncs.py
+# [depends] %LIB%/hybridId.py %LIB%/BlackBoxFuncs.py
+# [depends] %LIB%/ReacHybridFullGbFuncs.py
 # [depends] reac_parameters.pickle
 # [makes] pickle
 import sys
