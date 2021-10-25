@@ -275,7 +275,7 @@ def main():
     figures = []
 
     # Plot training data.
-    training_data = reac_parameters['training_data_nonoise'][:5]
+    training_data = reac_parameters['training_data_withnoise'][:5]
     for data in training_data:
 
         (t, ulist, xlist, 
@@ -292,9 +292,9 @@ def main():
                                 title_loc=None)
 
     # Get Black-Box and Hybrid model predictions.
-    bbnn_predictions = reac_bbnntrain[0]['val_predictions']
-    hybfullgb_predictions = reac_hybfullgbtrain[0]['val_predictions']
-    hybpartialgb_predictions = reac_hybpartialgbtrain[0]['val_predictions']
+    bbnn_predictions = reac_bbnntrain[1]['val_predictions']
+    hybfullgb_predictions = reac_hybfullgbtrain[1]['val_predictions']
+    hybpartialgb_predictions = reac_hybpartialgbtrain[1]['val_predictions']
 
     # Plot validation data.
     legend_names = ['Plant', 'Black-Box-NN',
@@ -476,106 +476,8 @@ def main():
     figures += plot_histogram(data_list=subGaps, legend_colors=legend_colors, 
                               legend_names=legend_names, 
                               figure_size=PAPER_FIGSIZE, xlabel=xlabel, 
-                              ylabel=ylabel, nBins=200, xlims=xlims,     
+                              ylabel=ylabel, nBins=200, xlims=xlims,
                               ylims=ylims)
-
-    # Load data for the economic MPC simulation.
-    # reac_empc = PickleTool.load(filename="reac_empc.pickle", 
-    #                                 type='read')
-    # reac_rtompc_plant = PickleTool.load(filename=
-    #                                "reac_rtompc_plant.pickle", 
-    #                                 type='read')
-    # reac_rtompc_hybrid = PickleTool.load(filename=
-    #                                "reac_rtompc_hybrid.pickle", 
-    #                                 type='read')
-    # reac_rtompc_picnn = PickleTool.load(filename=
-    #                                "reac_rtompc_picnn.pickle", 
-    #                                 type='read')
-    # clDataList = [reac_rtompc_plant['clData'], 
-    #               reac_rtompc_hybrid['clData']]
-
-    # # Load data for the economic MPC simulation.
-    # reac_empc_twotier = PickleTool.load(filename=
-    #                                 "reac_empc_twotier.pickle", 
-    #                                 type='read')
-    # clDataListTwoTier = reac_empc_twotier['clDataList']
-    # stageCostListTwoTier = reac_empc_twotier['stageCostList']
-
-    # Plot closed-loop simulation data.
-    # legend_names = ['Plant', 'Hybrid', 'PICNN']
-    # legend_colors = ['b', 'g', 'm', 'orange']
-    # t, ulist, ylist, xlist = get_plotting_array_list(simdata_list = 
-    #                                             clDataList,
-    #                                     plot_range = (0, 2*24*60))
-    # figures += ReacPlots.plot_xudata(t=t, xlist=ylist, ulist=ulist,
-    #                                     legend_names=legend_names,
-    #                                     legend_colors=legend_colors, 
-    #                                     figure_size=PAPER_FIGSIZE, 
-    #                                     ylabel_xcoordinate=-0.1, 
-    #                                     title_loc=(0.32, 0.9))
-
-    # # Plot empc pars.
-    # econPars, _ = getEconDistPars()
-    # figures += plot_cost_pars(t=t, cost_pars=econPars)
-
-    # # Plot profit curve.
-    # stageCostList = [reac_rtompc_plant['avgStageCosts'], 
-    #                  reac_rtompc_hybrid['avgStageCosts']]
-    # t = np.arange(0, len(stageCostList[0]), 1)/60
-    # figures += plotAvgCosts(t=t, stageCostList=
-    #                           stageCostList, 
-    #                           legend_colors=legend_colors,
-    #                           legend_names=legend_names)
-    
-    # Plot the RTO simulation data.
-    #cl_data_list = reac_rto['cl_data_list']
-    #t, ulist, ylist, xlist = get_plotting_array_list(simdata_list=
-    #                                                 cl_data_list,
-    #                                                 plot_range=(0, 8*60))
-    #figures += plot_xudata(t=t, xlist=xlist, ulist=ulist,
-    #                       legend_names=legend_names,
-    #                       legend_colors=legend_colors)
-    #figures += plot_avg_profits(t=t,
-    #                        avg_stage_costs=reac_rto['avg_stage_costs'], 
-    #                        legend_colors=legend_colors,
-    #                        legend_names=legend_names)                     
-
-    # Plot predictions on validation data.
-    #val_predictions.pop(0)
-    #modelsim_datum = [greybox_validation_data] + val_predictions
-    #figures += plot_val_model_predictions(plantsim_data=training_data[-1],
-    #                                modelsim_datum=modelsim_datum,
-    #                                plot_range=(0, 6*60), 
-    #                                tsteps_steady=parameters['tsteps_steady'])
-
-    # Plot cost curve.
-    #for costs in ssopt['costss']:
-    #    figures += plot_profit_curve(us=ssopt['us'], 
-    #                                costs=costs,
-    #                                colors=['blue', 'green', 
-    #                                        'dimgray', 'tomato'],
-    #                                legends=['Plant', 'Grey-box', 'Black-box', 
-    #                                         'Hybrid'],
-    #                                ylabel_xcoordinate=-0.21,
-    #                                left_label_frac=0.21)
-
-    #cost_mse_curve_legends = [r'$N_s = 3 \ \textnormal{hours}$',
-    #                          r'$N_s = 4 \ \textnormal{hours}$',
-    #                          r'$N_s = 5 \ \textnormal{hours}$',
-    #                          r'$N_s = 8 \ \textnormal{hours}$']
-    #for model_cost_mse in ssopt['cost_mses']:
-    #    figures += plot_cost_mse_curve(us=ssopt['us'], 
-    #                                   cost_mses=model_cost_mse,
-    #                                   colors=['blue', 'green',
-    #                                           'dimgray', 'tomato'],
-    #                                   ylim = [0., 15.],
-    #                                   legends=cost_mse_curve_legends)
-
-    # Plot suboptimality gaps.
-    #figures += plot_sub_gaps(num_samples=num_samples, 
-    #                         sub_gaps=sub_gaps, 
-    #                         colors=['dimgray', 'tomato'], 
-    #                         legends=['Black-box', 'Hybrid'])
 
     with PdfPages('reac_plots.pdf', 'w') as pdf_file:
         for fig in figures:

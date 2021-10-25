@@ -30,7 +30,7 @@ def getSSOptimums(*, model_types, fxu_list, hx_list,
     xs_list, us_list, optSscost_list = [], [], []
 
     # Initial guess for input. 
-    uguess = np.array([1.45])
+    uguess = np.array([1.5])
 
     # Loop over the different models and obtain the SS optimums.
     for (model_type, fxu, hx, model_pars) in zip(model_types, fxu_list, 
@@ -79,9 +79,9 @@ def main():
 
     # Extract out the training data for analysis. 
     # Change the index if need to switch between data with and without noise.
-    reac_bbnntrain = reac_bbnntrain[0]
-    reac_hybfullgbtrain = reac_hybfullgbtrain[0]
-    reac_hybpartialgbtrain = reac_hybpartialgbtrain[0]
+    reac_bbnntrain = reac_bbnntrain[1]
+    reac_hybfullgbtrain = reac_hybfullgbtrain[1]
+    reac_hybpartialgbtrain = reac_hybpartialgbtrain[1]
 
     # Get plant and hybrid model parameters.
     plant_pars = reac_parameters['plant_pars']
