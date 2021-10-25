@@ -33,7 +33,7 @@ def main():
     unmeasXindices = [2]
     Ntstart = reac_parameters['Ntstart']
     Np = reac_parameters['Ntstart']
-    fNDims = [Ny + Nu + Np*(Ny+Nu), 32, Ny]
+    fNDims = [Ny + Nu + Np*(Ny+Nu), 32, 32, Ny]
 
     # Filenames.
     ckpt_path = 'reac_bbnntrain.ckpt'

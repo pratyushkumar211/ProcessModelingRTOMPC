@@ -38,7 +38,7 @@ def main():
     Ntstart = reac_parameters['Ntstart']
     Np = reac_parameters['Ntstart']
     r1Dims = [1, 8, 1]
-    r2Dims = [2, 8, 1]
+    r2Dims = [2, 32, 32, 1]
     estC0Dims = [Np*(Ny + Nu), 16, 1]
 
     # Filenames.

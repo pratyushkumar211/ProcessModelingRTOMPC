@@ -300,7 +300,7 @@ def main():
     legend_names = ['Plant', 'Black-Box-NN',
                     'Hybrid - FullGb', 'Hybrid - PartialGb']
     legend_colors = ['b', 'dimgrey', 'm', 'g']
-    valdata_plant = reac_parameters['training_data_nonoise'][-1]
+    valdata_plant = reac_parameters['training_data_withnoise'][-1]
     valdata_list = [valdata_plant]
     valdata_list += [bbnn_predictions]
     valdata_list += [hybfullgb_predictions]
