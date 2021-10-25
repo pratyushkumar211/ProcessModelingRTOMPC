@@ -41,7 +41,7 @@ TEXSUFFIXES := .pdf .aux .log .bbl .blg .nav .out .snm .toc .synctex.gz \
 # confusing here: in the subfolders, we split paper/presentation/poster, whereas
 # these variables are article/talk/poster, so keep that in mind.
 ARTICLE_SRC := 
-TALK_SRC := paper.tex
+TALK_SRC := groupTalkOct26.tex
 POSTER_SRC := 
 
 PAPER_BIB := 
@@ -101,7 +101,10 @@ DIA_SRC :=
 PY_MAT_SRC := 
 OCT_MAT_SRC := 
 MATLAB_MAT_SRC := 
-PY_PICKLE_SRC := 
+PY_PICKLE_SRC := reac_parameters.py reac_bbnntrain.py 
+				 reac_hybfullgbtrain.py reac_hybpartialgbtrain.py 
+				 reac_rateanalysis.py reac_ssopt_curve.py 
+				 reac_ssopt_optimizationanalysis.py
 
 ## JL_MAT_SRC. These are .jl files on which you run Julia to produce a .mat file.
 ## Note that Julia's .mat files are in an HDF5 format, so you will need to use
