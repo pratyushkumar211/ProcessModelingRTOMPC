@@ -162,7 +162,7 @@ def main():
     par_list = [plant_pars, bbnn_pars, fhyb_pars, phyb_pars]
 
     # Cost function handle.
-    p = [100, 900]
+    p = [100, 1000]
     cost_lxup = lambda x, u: cost_lxup_noCc(x, u, p)
     # Number of ss inputs at which to compute the cost.
     Nus = 100

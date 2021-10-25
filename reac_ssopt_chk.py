@@ -124,7 +124,7 @@ def main():
     par_list = [plant_pars, bbnn_pars, fhyb_pars, phyb_pars]
 
     # Get the optimums for the cost without a Cc term.
-    p = [100, 900]
+    p = [100, 1000]
     cost_lxup = lambda x, u: cost_lxup_noCc(x, u, p)
     (cost1_xs_list, cost1_us_list, 
      cost1_optSscost_list) = getSSOptimums(model_types=model_types, 
