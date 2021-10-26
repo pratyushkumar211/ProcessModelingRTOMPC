@@ -57,7 +57,7 @@ def plot_xudata(*, t, ylist, xlist, ulist, legend_names,
                 handle = axes[row].plot(t, u[:, 0], color)
 
             # Axes labels.
-            axes[row].set_ylabel(ylabels[row])
+            axes[row].set_ylabel(ylabels[row], rotation=False)
             axes[row].get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
         
         # Store handles.
@@ -110,7 +110,7 @@ def plot_xsvus(*, us, xs_list, legend_names,
             handle = axes[row].plot(us, xs[:, row], color)
             
             # Y-axis label.
-            axes[row].set_ylabel(ylabels[row])
+            axes[row].set_ylabel(ylabels[row], rotation=False)
             axes[row].get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
         
         # Store handle.
@@ -196,7 +196,7 @@ def plot_fullGbR2Errors(*, r2XGrid, r2YGrid, r2Errors,
                            ylabel_xcoordinate, left_frac, 
                            wspace, right_frac, title_y):
     """ Plot errors in reaction rate 2. """
-        
+    
     # Create figure/axes.
     figure, axes = plt.subplots(nrows=1, ncols=1, 
                                 sharex=True, figsize=figure_size,
@@ -209,8 +209,8 @@ def plot_fullGbR2Errors(*, r2XGrid, r2YGrid, r2Errors,
     figure.colorbar(mesh, ax=axes)  
 
     # Labels.
-    axes.set_ylabel(ylabel)
     axes.set_xlabel(xlabel)
+    axes.set_ylabel(ylabel, rotation=False)
     axes.set_title(title, loc='center', y=title_y)
 
     # Limits.
@@ -327,7 +327,7 @@ def main():
                             legend_colors=legend_colors, 
                             figure_size=PRESENTATION_FIGSIZE, 
                             ylabel_xcoordinate=-0.1, 
-                            title_loc=(0.25, 0.9))
+                            title_loc=(0.22, 0.9))
 
     # Steady state Concentrations.
     us = reac_ssopt[0]['us']
@@ -341,7 +341,7 @@ def main():
                           legend_names=legend_names, 
                           figure_size=PRESENTATION_FIGSIZE, 
                           ylabel_xcoordinate=-0.1, 
-                          title_loc=(0.25, 0.9))
+                          title_loc=(0.22, 0.9))
 
     # Steady state cost curves.
     sscosts = reac_ssopt[0]['sscosts']
@@ -363,8 +363,8 @@ def main():
 
     # Make error histogram.
     # Reaction - 1
-    fGbErrors = reac_rateanalysis[1]['fGbErrors']
-    pGbErrors = reac_rateanalysis[1]['pGbErrors']
+    fGbErrors = reac_rateanalysis[2]['fGbErrors']
+    pGbErrors = reac_rateanalysis[2]['pGbErrors']
     xlabel = r'$\%$ \textnormal{Error}, \textnormal{Reaction-1}'
     ylabel = 'Frequency'
     xlims = [0., 0.05]
@@ -394,15 +394,18 @@ def main():
     # Plot errors in the state-space.
     # Reaction - 1.
     fGbErrorsInStateSpace = reac_rateanalysis[0]
-    r1Errors = [fGbErrorsInStateSpace['r1Errors']]
+    pGbErrorsInStateSpace = reac_rateanalysis[1]
+    r1Errors = [fGbErrorsInStateSpace['r1Errors'], 
+                pGbErrorsInStateSpace['r1Errors']]
     r1CaRange = fGbErrorsInStateSpace['r1CaRange']
     xlabel = r'$c_A$'
     ylabel = r'$\%$ \textnormal{Error}, \textnormal{Reaction-1}'
-    legend_colors = ['k']
+    legend_colors = ['b', 'g']
+    legend_names = ['Hybrid - FullGb', 'Hybrid - PartialGb']
     figures += plot_r1Errors(r1CaRange=r1CaRange,
                              r1Errors=r1Errors,
                              legend_colors=legend_colors,
-                             legend_names=None,
+                             legend_names=legend_names,
                              figure_size=PRESENTATION_FIGSIZE,
                              xlabel=xlabel, ylabel=ylabel,
                              ylabel_xcoordinate=-0.1, 
