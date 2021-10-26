@@ -105,7 +105,7 @@ def getFullGbRateErrorsInStateSpace(*, CaRange, CbRange, CcRange,
     r1Errors = np.array(r1Errors).squeeze()
 
     # Absolute and relative tolerance. 
-    r2Reltol = 1e-4
+    r2Reltol = 1e-6
     r2Abstol = 1e-4
 
     # Create empty arrays to store errors in r2.

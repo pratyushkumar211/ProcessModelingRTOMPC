@@ -88,7 +88,7 @@
 
 
 \title{A case study on hybrid modeling and application to steady-state 
-	process optimization}
+process optimization}
 \date{October 26, 2021}
 \author[Pratyush Kumar]{\large Pratyush Kumar}
 \institute[UCSB]{
@@ -104,7 +104,7 @@
 	{\large Department of chemical engineering}
 	\vspace{10pt}
 	\newline
-	{\large Group Meeting Presentation}}
+	{\large Group meeting presentation}}
 
 \begin{document}
 
@@ -116,31 +116,39 @@
 \end{frame}
 
 \section{Introduction and process model types}
-\begin{frame}{Process modeling}
+\begin{frame}{System identification}
 
 	\begin{columns}
 	\column{\textwidth}
 
 	\begin{block}{Motivation}
 		\begin{itemize}
-		\item A dynamic model of the process is required in feedback
+	\item A dynamic model of the process is required in feedback
 		control applications to achieve operational objectives. \pause
-		\item Usual first principles based \textcolor{blue}{grey-box models are
-		incomplete}, and \textcolor{blue}{machine learning methods can provide a
-		flexible approach to improve the performance of the grey-box
-		models} for use in real time optimization (RTO).
-		\end{itemize}
-	  \end{block}
+	\medskip
+	\item The model can be used in several places in the process operations 
+	hierarchy such as the \textcolor{blue}{real-time optimization layer} 
+		\footnote[frame]{\cite{darby:nikolaou:jones:nicholson:2011}} or 
+	\textcolor{blue}{model predictive control} 
+	\footnote[frame]{\cite{qin:badgwell:2003, 
+	lahiri:2017}}.
+	\end{itemize}
+	\end{block}
 	  \pause
 	  \bigskip
 	\begin{block}{Literature}
 	  \begin{itemize}
-	  \item Use neural networks to approximate some state dependent process
-	  parameters \footnote[frame]{\cite{psichogios:ungar:1992}} or to
-	  approximate specific functions, e.g, unknown reaction rate laws, vapor
-	  liquid equilibrium relationships,
-	  \footnote[frame]{\cite{lovelett:avalos:kevrekidis:2019,
-	  chen:ierapetritou:2020, bangi:kwon:2020}} in the grey-box models.	
+	  \item System identification is a widely studied problem 
+	  \footnote[frame]{\cite{ljung:1999, qin:2006}}, with a variety of methods 
+	  such as prediction error minimization and subspace identification.
+	  \medskip
+	  \item Hybrid process modeling with neural networks is also proposed in 
+	 the literature, \footnote[frame]{\cite{psichogios:ungar:1992, 
+	 lovelett:avalos:kevrekidis:2019, chen:ierapetritou:2020, bangi:kwon:2020}} 
+	 to approximate some state dependent parameters or 
+	  approximate specific functions in grey-box models.	
+	  \item Less attention paid to \textcolor{red}{optimization over the 
+	  hybrid process models.} 
 	  \end{itemize}
 	\end{block}
   
@@ -168,7 +176,9 @@
 				\end{bmatrix}
 			\end{equation*}
 	\begin{itemize}
-		\item Measurements $y = \begin{bmatrix} c_A, c_B\end{bmatrix}'$. 
+		\item States $x = \begin{bmatrix} c_A, c_B, c_C\end{bmatrix}'$, 
+		Measurements $y = \begin{bmatrix} c_A, c_B\end{bmatrix}'$, and control 
+		input $u = c_{Af}$. 
 		\item Rate laws $r_1 = k_1c_A$ and $r_2 = k_{2f}c^3_B - k_{2b}c_C$.
 	\end{itemize}
 	\end{block}
@@ -197,7 +207,7 @@ so approximate the rate laws with neural networks + data.
 	\begin{align*}
 		\underset{\theta_N}{\textnormal{min}} \quad \dfrac{1}{N_{tr} 
 		N_t} \sum_{i=1}^{N_{tr}}
-		\sum_{k=0}^{N_t} & \norm{y_i(k) - \tilde{y}_i(k)}^2 \\ 
+		\sum_{k=0}^{N_t} & \alert{\norm{y_i(k) - \tilde{y}_i(k)}^2} \\ 
 		\textnormal{subject to} \quad z_i^+ & = f_N(z_i, u_i;\theta_N) \\
 								  \tilde{y}_i &= h_N(z_i)
 	\end{align*}
@@ -233,7 +243,7 @@ so approximate the rate laws with neural networks + data.
 		u;\theta_{r_1}, 
 		\theta_{r_2}) \\
 		\tilde{y}_i &= h(x_{gi}) \\ 
-		\alert{c_C(0)} & \alert{=} \alert{f_{N3}(z(0); \theta_C)}\\ 
+		\alert{c_{iC}(0)} & \alert{=} \alert{f_{N3}(z_i(0); \theta_C)}\\ 
 	\end{align*}
 \end{block}
 
@@ -351,7 +361,7 @@ validation data (1 trajectory).
 	Modified error = $\norm{\norm{\textnormal{Rate} - 
 						\textnormal{Rate}_{\textnormal{NN}}} - 
 						\alpha_1\norm{\textnormal{Rate}} - \alpha_2}, \ 
-						\alpha_1 = 10^{-4}, \alpha_2 = 10^{-4}$
+						\alpha_1 = 10^{-6}, \alpha_2 = 10^{-4}$
 	\begin{figure}
 		\centering
 		\includegraphics[page=12, height=0.7\textheight, 
@@ -406,6 +416,11 @@ $\overline{p} \end{bmatrix}$.
 
 \begin{frame}{Optimization analysis (Cost Type 1)}
 
+Randomly generate 500 cost parameters in a range $\begin{bmatrix} 
+\underline{p}$, $\overline{p} \end{bmatrix}$ and examine the steady-state 
+optimization solutions of the plant and identified model.
+\pause
+\vspace{-0.05in}
 \begin{figure}
 	\centering
 	\includegraphics[page=14, height=0.7\textheight, 
@@ -413,6 +428,13 @@ $\overline{p} \end{bmatrix}$.
 	\includegraphics[page=15, height=0.7\textheight, 
 	width=0.48\textwidth]{reac_plots.pdf}
 \end{figure}
+
+\begin{itemize}
+	\item $u_s$ = Identified model optimal input and $u^{*}_s$ = plant optimal 
+	input.
+	\item $V_s$ = Cost obtained by operating the plant at the model's optimal 
+	input and $V^{*}_s$ = plant optimal cost.
+\end{itemize}
 
 \end{frame}
 
@@ -436,12 +458,32 @@ $\overline{p} \end{bmatrix}$.
 	width=0.48\textwidth]{reac_plots.pdf}
 \end{figure}
 
+
+\begin{itemize}
+	\item Generate 500 cost parameters in a range $\begin{bmatrix} 
+		\underline{p}$, $\overline{p} \end{bmatrix}$ and examine the 
+		steady-state optimization solutions of the plant and identified model.
+	\item Optimization analysis is performed for the Hybrid model with all the 
+	grey-box states.
+\end{itemize}
+
 \end{frame}
 
 \section{Conclusions}
 \begin{frame}{Conclusions}
 
-	Hi.
+	\begin{block}{}
+
+	\begin{itemize}
+		\item We can \alert{optimize over hybrid process models obtained with 
+		neural networks} if we are careful about the function parameterization 
+		choices with the NNs.
+		\medskip
+		\item Do 1-2 more hybrid modeling examples, with an emphasis on process 
+		optimization.
+	\end{itemize}
+
+	\end{block}
 
 \end{frame}
 
