@@ -206,7 +206,7 @@ def plot_fullGbR2Errors(*, r2XGrid, r2YGrid, r2Errors,
 
     # Contour plot.
     mesh = axes.pcolormesh(r2XGrid, r2YGrid, r2Errors, cmap='viridis')
-    figure.colorbar(mesh, ax=axes)  
+    figure.colorbar(mesh, ax=axes)
 
     # Labels.
     axes.set_xlabel(xlabel)
@@ -366,7 +366,7 @@ def main():
     # Reaction - 1
     fGbErrors = reac_rateanalysis[2]['fGbErrors']
     pGbErrors = reac_rateanalysis[2]['pGbErrors']
-    xlabel = r'$\%$ \textnormal{Error}, \textnormal{Reaction-1}'
+    xlabel = '$\%$ Error, Reaction-1'
     ylabel = 'Frequency'
     xlims = [0., 0.05]
     ylims = [0, 120]
@@ -382,7 +382,7 @@ def main():
 
     # Make error histogram.
     # Reaction - 2
-    xlabel = r'$\%$ \textnormal{Error}, \textnormal{Reaction-2}'
+    xlabel = '$\%$ Error, Reaction-2'
     xlims = [0., 1.2]
     ylims = [0, 50]
     rErrors = [fGbErrors['r2Errors'], pGbErrors['r2Errors']]
@@ -400,7 +400,7 @@ def main():
                 pGbErrorsInStateSpace['r1Errors']]
     r1CaRange = fGbErrorsInStateSpace['r1CaRange']
     xlabel = r'$c_A$'
-    ylabel = r'$\%$ \textnormal{Error}, \textnormal{Reaction-1}'
+    ylabel = '$\%$ Error, Reaction-1'
     legend_colors = ['b', 'g']
     legend_names = ['Hybrid - FullGb', 'Hybrid - PartialGb']
     figures += plot_r1Errors(r1CaRange=r1CaRange,
@@ -412,7 +412,7 @@ def main():
                              ylabel_xcoordinate=-0.1, 
                              left_frac=0.15)
 
-    # Plot errors in the state-space. 
+    # Plot errors in the state-space.
     # Reaction -2.
     fGbErrorsInStateSpace = reac_rateanalysis[0]
     r2XGrid = fGbErrorsInStateSpace['r2XGrid']
@@ -420,8 +420,8 @@ def main():
     r2Errors = fGbErrorsInStateSpace['r2Errors']
     xlabel = r'$c_B$'
     ylabel = r'$c_C$'
-    title = r'$\%$ \textnormal{Error}, \textnormal{Reaction-2}'
-    figures += plot_fullGbR2Errors(r2XGrid=r2XGrid, 
+    title = '$\%$ Error, Reaction-2, Hybrid-FullGb'
+    figures += plot_fullGbR2Errors(r2XGrid=r2XGrid,
                                    r2YGrid=r2YGrid, r2Errors=r2Errors, 
                                    figure_size=PRESENTATION_FIGSIZE, 
                                    xlabel=xlabel, ylabel=ylabel, title=title, 
@@ -435,7 +435,7 @@ def main():
     xlabel = r'$|u_s - u_s^{*}|/u_s^{*}$'
     ylabel = 'Frequency'
     xlims = [0., 0.8]
-    ylims = [0, 50]
+    ylims = [0, 30]
     legend_names = ['Black-Box-NN', 'Hybrid - FullGb', 'Hybrid - PartialGb']
     legend_colors = ['dimgrey', 'm', 'g']
     figures += plot_histogram(data_list=usGaps, legend_colors=legend_colors, 
@@ -449,7 +449,7 @@ def main():
     subGaps = optAnalysis['subGaps'][1:]
     xlabel = r'$|V_s - V_s^{*}|/V_s^{*}$'
     xlims = [0., 0.05]
-    ylims = [0, 50]
+    ylims = [0, 30]
     legend_names = ['Black-Box-NN', 'Hybrid - FullGb', 'Hybrid - PartialGb']
     legend_colors = ['dimgrey', 'm', 'g']
     figures += plot_histogram(data_list=subGaps, legend_colors=legend_colors, 
@@ -463,8 +463,8 @@ def main():
     usGaps = optAnalysis['usGaps'][1:]
     xlabel = r'$|u_s - u_s^{*}|/u_s^{*}$'
     xlims = [0., 0.15]
-    ylims = [0, 50]
-    legend_names = ['Hybrid - FullGb']
+    ylims = [0, 20]
+    legend_names = None
     legend_colors = ['m']
     figures += plot_histogram(data_list=usGaps, legend_colors=legend_colors, 
                               legend_names=legend_names, 
@@ -476,9 +476,7 @@ def main():
     subGaps = optAnalysis['subGaps'][1:]
     xlabel = r'$|V_s - V_s^{*}|/V_s^{*}$'
     xlims = [0., 0.005]
-    ylims = [0, 50]
-    legend_names = ['Hybrid - FullGb']
-    legend_colors = ['m']
+    ylims = [0, 20]
     figures += plot_histogram(data_list=subGaps, legend_colors=legend_colors, 
                               legend_names=legend_names, 
                               figure_size=PRESENTATION_FIGSIZE, xlabel=xlabel, 
