@@ -7,7 +7,9 @@
 \definecolor{red}{HTML}{e00404} 
 %\definecolor{violet}{HTML}{231A97}
 
-%\definecolor{darkgreen}{HTML}{008000}
+\definecolor{blue}{HTML}{0647A8}
+\definecolor{darkgreen}{HTML}{008000}
+
 \definecolor{gold}{HTML}{FFD000}
 \setbeamercolor{normal text}{fg=black,bg=white}
 \setbeamercolor{alerted text}{fg=red}
@@ -85,8 +87,8 @@
 }
 
 
-\title{A case study on hybrid modeling and application to steady-state process 
-optimization}
+\title{A case study on hybrid modeling and application to steady-state 
+	process optimization}
 \date{October 26, 2021}
 \author[Pratyush Kumar]{\large Pratyush Kumar}
 \institute[UCSB]{
@@ -108,10 +110,13 @@ optimization}
 
 \frame{\titlepage}
 
-%\section{Background}
 
+\begin{frame}{Outline} 
+	\tableofcontents 
+\end{frame}
 
-\begin{frame}{Hybrid process modeling}
+\section{Introduction and process model types}
+\begin{frame}{Process modeling}
 
 	\begin{columns}
 	\column{\textwidth}
@@ -141,31 +146,128 @@ optimization}
   
 \end{columns}
 \end{frame}
+	
+\begin{frame}{Chemical reactor example}
+		
+		\centerline{\resizebox{0.7\textwidth}{!}{\input{cstropt}}}
+		\pause
+		\begin{block}{Plant model}
+			\begin{equation*}
+				\renewcommand{\arraystretch}{2}
+				\begin{bmatrix} 
+					\dfrac{dc_A}{dt} \\
+					\dfrac{dc_B}{dt} \\
+					\dfrac{dc_C}{dt}
+				\end{bmatrix} = \begin{bmatrix}
+					\begin{array}{ccl}
+						\dfrac{Q_f(c_{Af} - c_A)}{V_R} &-& \alert{r_1} 
+						\\ 
+						-\dfrac{Q_fc_B}{V_R} &+& \alert{r_1} - 3\alert{r_2} \\
+						-\dfrac{Q_fc_C}{V_R} &+& \alert{r_2}
+					\end{array}
+				\end{bmatrix}
+			\end{equation*}
+			Often the reaction rate laws
+			${\color{red}r_1}(c_j)$ and ${\color{red} r_2}(c_j)$ are unknown,
+			so approximate the rate laws with neural networks + data.
+		\end{block}
+\end{frame}
 
-\begin{frame}{Process model types}
+\begin{frame}{Black-Box neural network model}
 
-	Hi.
+	\begin{block}{Model}
+	
+	\begin{equation*}
+		z(k) = \begin{bmatrix} y(k-N_p)', ..., y(k-1)',
+							   u(k-N_p)', ..., u(k-1)' 
+			   \end{bmatrix}'
+	\end{equation*}
+	\begin{align*}
+		z^+ &= f_N(z, u;\theta_N) \\ 
+		y &= h_N(z;\theta_N)
+	\end{align*}
+	\end{block}
+	\pause
+	\begin{block}{Training optimization problem}
+		
+	\begin{align*}
+		\underset{\theta_N}{\textnormal{min}} \quad \dfrac{1}{N_{tr} 
+		N_t} \sum_{i=1}^{N_{tr}}
+		\sum_{k=0}^{N_t} & \norm{y_i(k) - \tilde{y}_i(k)}^2 \\ 
+		\textnormal{subject to} \quad z_i^+ & = f_N(z_i, u_i;\theta_N) \\
+								  \tilde{y}_i &= h_N(z_i)
+	\end{align*}
+	This optimization problem is a multi-step ahead prediction error 
+	minimization problem.	
+	\end{block}
 
 \end{frame}
 
-\begin{frame}{Black-Box}
+\begin{frame}{Hybrid model 1 -- With all grey-box states}
 
-	Hi.
+\begin{block}{Hybrid-FullGb model}
+
+	\begin{align*}
+		\dot{x}_{g} &= f_g(x_g, u;\theta_{r_1}, \theta_{r_2}) \\ 
+		y &= h(x_g)
+	\end{align*}
+	$x_g = \begin{bmatrix} c_A, c_B, c_C\end{bmatrix}$ \\
+	$\textcolor{blue}{r_1 = f_{N1}(c_A;\theta_{r_1})}$ and 
+	$\textcolor{blue}{r_2 = f_{N2}(c_B, c_C;\theta_{r_2})}$
+\end{block}
+
+\pause
+\begin{block}{Training optimization problem}
+	
+	\begin{align*}
+		\underset{\theta_{r_1}, 
+				  \theta_{r_2}, \theta_{C}}{\textnormal{min}} \quad 
+		\dfrac{1}{N_{tr} 
+			N_t} \sum_{i=1}^{N_{tr}}
+		\sum_{k=0}^{N_t} & \norm{y_i(k) - \tilde{y}_i(k)}^2 \\ 
+		\textnormal{subject to} \quad x_{gi}^+ & = f_{gd}(x_{gi}, 
+		u;\theta_{r_1}, 
+		\theta_{r_2}) \\
+		\tilde{y}_i &= h(x_{gi}) \\ 
+		\alert{c_C(0)} & \alert{=} \alert{f_C(z(0); \theta_C)}\\ 
+	\end{align*}
+\end{block}
 
 \end{frame}
 
-\begin{frame}{Hybrid model with all grey-box states}
+\begin{frame}{Hybrid model 2 -- With only measured grey-box states}
 
-	Hi.
+
+\begin{block}{Hybrid-PartialGb model}
+	
+	\begin{align*}
+		\dot{x}_{g} &= f_g(x_g, u;\theta_{r_1}, \theta_{r_2}) \\ 
+		y &= x_g
+	\end{align*}
+	$x_g = \begin{bmatrix} c_A, c_B\end{bmatrix}$ \\
+	$\textcolor{blue}{r_1 = f_{N1}(c_A;\theta_{r_1})}$ and 
+	$\textcolor{blue}{r_2 = f_{N2}(c_B, z;\theta_{r_2})}$
+\end{block}
+
+\pause
+\begin{block}{Training optimization problem}
+	
+	\begin{align*}
+		\underset{\theta_{r_1}, 
+			\theta_{r_2}}{\textnormal{min}} \quad 
+		\dfrac{1}{N_{tr} 
+			N_t} \sum_{i=1}^{N_{tr}}
+		\sum_{k=0}^{N_t} & \norm{y_i(k) - \tilde{y}_i(k)}^2 \\ 
+		\textnormal{subject to} \quad x_{gi}^+ & = f_{gd}(x_{gi}, 
+		u;\theta_{r_1}, 
+		\theta_{r_2}) \\
+		\tilde{y}_i &= x_{gi} \\ 
+	\end{align*}
+\end{block}
 
 \end{frame}
 
-\begin{frame}{Hybrid model with only measured grey-box states}
-
-	Hi.
-
-\end{frame}
-
+\section{Chemical reactor case study}
 \begin{frame}{Sample measurement data}
 
 \begin{figure}
@@ -176,6 +278,7 @@ optimization}
 
 \end{frame}
 
+\subsection{Model validation}
 \begin{frame}{Model validation}
 
 \begin{figure}
@@ -197,6 +300,7 @@ optimization}
 	
 \end{frame}
 
+\subsection{Reaction rate analysis}
 \begin{frame}{Analysis of the NN reaction rates}
 
 	\begin{figure}
@@ -221,6 +325,7 @@ optimization}
 	
 \end{frame}
 
+\subsection{Steady-state process optimization}
 \begin{frame}{Steady-state optimization problem}
 
 	Hi.
@@ -247,7 +352,6 @@ optimization}
 	width=0.48\textwidth]{reac_plots.pdf}
 \end{figure}
 
-
 \end{frame}
 
 \begin{frame}{Steady-state cost curves (Cost Type 2)}
@@ -272,6 +376,7 @@ optimization}
 
 \end{frame}
 
+\section{Conclusions}
 \begin{frame}{Conclusions}
 
 	Hi.

@@ -55,7 +55,7 @@ TEX_SRC :=
 # FIG_SRC.  These are figures that can be described completely using fig
 ## commands and that require no external data.
 
-FIG_SRC := 
+FIG_SRC := cstropt.fig
 
 ## INKSCAPE_SRC. These are figures defined by an Inkscape .svg file
 
