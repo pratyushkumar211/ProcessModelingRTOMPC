@@ -211,6 +211,7 @@ def plot_fullGbR2Errors(*, r2XGrid, r2YGrid, r2Errors,
     # Labels.
     axes.set_xlabel(xlabel)
     axes.set_ylabel(ylabel, rotation=False)
+    axes.get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
     axes.set_title(title, loc='center', y=title_y)
 
     # Limits.
@@ -326,8 +327,8 @@ def main():
                             legend_names=legend_names,
                             legend_colors=legend_colors, 
                             figure_size=PRESENTATION_FIGSIZE, 
-                            ylabel_xcoordinate=-0.1, 
-                            title_loc=(0.22, 0.9))
+                            ylabel_xcoordinate=-0.12, 
+                            title_loc=(0.18, 0.9))
 
     # Steady state Concentrations.
     us = reac_ssopt[0]['us']
@@ -340,8 +341,8 @@ def main():
                           legend_colors=legend_colors, 
                           legend_names=legend_names, 
                           figure_size=PRESENTATION_FIGSIZE, 
-                          ylabel_xcoordinate=-0.1, 
-                          title_loc=(0.22, 0.9))
+                          ylabel_xcoordinate=-0.12, 
+                          title_loc=(0.18, 0.9))
 
     # Steady state cost curves.
     sscosts = reac_ssopt[0]['sscosts']
@@ -424,7 +425,7 @@ def main():
                                    r2YGrid=r2YGrid, r2Errors=r2Errors, 
                                    figure_size=PRESENTATION_FIGSIZE, 
                                    xlabel=xlabel, ylabel=ylabel, title=title, 
-                                   ylabel_xcoordinate=-0.1, left_frac=0.13, 
+                                   ylabel_xcoordinate=-0.15, left_frac=0.13, 
                                    wspace=0.1, right_frac=0.98, title_y=1.02)
 
     # Plot the optimization analysis results.
