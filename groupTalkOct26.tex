@@ -149,7 +149,7 @@
 	
 \begin{frame}{Chemical reactor example}
 		
-		\centerline{\resizebox{0.7\textwidth}{!}{\input{cstropt}}}
+		\centerline{\resizebox{0.5\textwidth}{!}{\input{cstropt}}}
 		\pause
 		\begin{block}{Plant model}
 			\begin{equation*}
@@ -167,10 +167,14 @@
 					\end{array}
 				\end{bmatrix}
 			\end{equation*}
+	\begin{itemize}
+		\item Measurements $y = \begin{bmatrix} c_A, c_B\end{bmatrix}'$. 
+		\item Rate laws $r_1 = k_1c_A$ and $r_2 = k_{2f}c^3_B - k_{2b}c_C$.
+	\end{itemize}
+	\end{block}
 			Often the reaction rate laws
-			${\color{red}r_1}(c_j)$ and ${\color{red} r_2}(c_j)$ are unknown,
-			so approximate the rate laws with neural networks + data.
-		\end{block}
+${\color{red}r_1}(c_j)$ and ${\color{red} r_2}(c_j)$ are unknown,
+so approximate the rate laws with neural networks + data.
 \end{frame}
 
 \begin{frame}{Black-Box neural network model}
@@ -229,7 +233,7 @@
 		u;\theta_{r_1}, 
 		\theta_{r_2}) \\
 		\tilde{y}_i &= h(x_{gi}) \\ 
-		\alert{c_C(0)} & \alert{=} \alert{f_C(z(0); \theta_C)}\\ 
+		\alert{c_C(0)} & \alert{=} \alert{f_{N3}(z(0); \theta_C)}\\ 
 	\end{align*}
 \end{block}
 
@@ -270,22 +274,46 @@
 \section{Chemical reactor case study}
 \begin{frame}{Sample measurement data}
 
-\begin{figure}
-	\centering
-	\includegraphics[page=5, height=0.8\textheight, 
-	width=0.6\textwidth]{reac_plots.pdf}
-\end{figure}
+	\begin{figure}
+		\centering
+		\includegraphics[page=5, height=0.8\textheight, 
+		width=0.6\textwidth]{reac_plots.pdf}
+	\end{figure}
 
+\begin{itemize}
+\item Use 20 hours of training data (split over 5 trajectories) and 6 hours of 
+validation data (1 trajectory). 
+\end{itemize}
 \end{frame}
 
 \subsection{Model validation}
 \begin{frame}{Model validation}
 
-\begin{figure}
-	\centering
-	\includegraphics[page=6, height=0.8\textheight, 
-	width=0.6\textwidth]{reac_plots.pdf}
-\end{figure}
+\begin{columns}
+	\column{0.6\textwidth}	
+	\begin{figure}
+		\centering
+		\includegraphics[page=6, height=0.8\textheight, 
+		width=\textwidth]{reac_plots.pdf}
+	\end{figure}
+	
+	\column{0.4\textwidth}
+	
+	\begin{block}{Model architectures}
+		
+		\begin{itemize}
+			\item Black-Box-NN: $\begin{bmatrix} 6, 32, 32, 2 \end{bmatrix}$.
+			\item Hybrid Full Gb: $f_{N1} = \begin{bmatrix} 1, 8, 1 
+			\end{bmatrix}$, $f_{N2} = \begin{bmatrix} 2, 32, 32, 1 
+		\end{bmatrix}$.
+			\item Hybrid Partial Gb: $f_{N1} = \begin{bmatrix} 1, 8, 1 
+				\end{bmatrix}$, $f_{N2} = \begin{bmatrix} 7, 32, 32, 1 
+				\end{bmatrix}$.
+		\end{itemize}
+		
+	\end{block}
+	
+\end{columns}
 
 \end{frame}
 
@@ -301,7 +329,11 @@
 \end{frame}
 
 \subsection{Reaction rate analysis}
-\begin{frame}{Analysis of the NN reaction rates}
+\begin{frame}{Analysis of NN reaction rates -- Over all the generated data}
+	
+	\centering
+	$\%$ Error = $\dfrac{\norm{\textnormal{Rate} - 
+	\textnormal{Rate}_{\textnormal{NN}}}}{\norm{\textnormal{Rate}}}$
 
 	\begin{figure}
 		\centering
@@ -313,8 +345,13 @@
 
 \end{frame}
 
-\begin{frame}{Analysis of the NN reaction rates}
+\begin{frame}{Analysis of NN reaction rates -- Over the state-space}
 	
+	\centering
+	Modified error = $\norm{\norm{\textnormal{Rate} - 
+						\textnormal{Rate}_{\textnormal{NN}}} - 
+						\alpha_1\norm{\textnormal{Rate}} - \alpha_2}, \ 
+						\alpha_1 = 10^{-4}, \alpha_2 = 10^{-4}$
 	\begin{figure}
 		\centering
 		\includegraphics[page=12, height=0.7\textheight, 
@@ -328,7 +365,32 @@
 \subsection{Steady-state process optimization}
 \begin{frame}{Steady-state optimization problem}
 
-	Hi.
+
+\begin{block}{Optimization problem}
+	
+\begin{align*}
+\underset{u_s}{\textnormal{min}} & \quad \ell(x_s, u_s) \leftarrow 
+ \textnormal{Economic cost}\\ 
+		x_s &= f(x_s, u_s) \\ 
+		\underline{u} \leq &u_s \leq \overline{u}
+\end{align*}
+Cost types -- \\ 
+$\ell(x_s, u_s) = p_A c_{Afs} - p_B c_{Bs}$ (Type 1) \\ 
+$\ell(x_s, u_s) = p_A c_{Afs} - p_B c_{Bs} + p_c c_{Cs}$ (Type 2)
+\end{block}
+
+$p = \begin{bmatrix} p_A, p_B, p_C \end{bmatrix}$ is vector of cost 
+parameters.
+
+\begin{block}{Experiments}
+\begin{itemize}
+\item Examine steady-state cost curves for a fixed choice of the cost parameter 
+($p$).
+\item Analyze the optimization solutions (optimal steady-state input and 
+economic costs) for a range of parameters $\begin{bmatrix} \underline{p}$, 
+$\overline{p} \end{bmatrix}$.
+\end{itemize}	
+\end{block}
 
 \end{frame}
 

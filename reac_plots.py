@@ -420,7 +420,7 @@ def main():
     r2Errors = fGbErrorsInStateSpace['r2Errors']
     xlabel = r'$c_B$'
     ylabel = r'$c_C$'
-    title = 'Modified error, Reaction-2, Hybrid-FullGb'
+    title = 'Modified error, Reaction-2, Hybrid - FullGb'
     figures += plot_fullGbR2Errors(r2XGrid=r2XGrid,
                                    r2YGrid=r2YGrid, r2Errors=r2Errors, 
                                    figure_size=PRESENTATION_FIGSIZE, 
