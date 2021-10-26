@@ -4,7 +4,7 @@ from matplotlib import cm
 import matplotlib
 import itertools
 
-PRESENTATION_FIGSIZE = (6, 6)
+PRESENTATION_FIGSIZE = (4.5, 4.5)
 PAPER_FIGSIZE = (5, 5)
 
 def get_plotting_arrays(simdata, plot_range):

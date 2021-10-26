@@ -104,6 +104,10 @@ def getFullGbRateErrorsInStateSpace(*, CaRange, CbRange, CcRange,
     # Get the errors in an array form. 
     r1Errors = np.array(r1Errors).squeeze()
 
+    # Absolute and relative tolerance. 
+    r2Reltol = 1e-4
+    r2Abstol = 1e-4
+
     # Create empty arrays to store errors in r2.
     NCb = len(CbRange)
     NCc = len(CcRange)
@@ -119,12 +123,13 @@ def getFullGbRateErrorsInStateSpace(*, CaRange, CbRange, CcRange,
                                 r1Weights=r1Weights, r2Weights=r2Weights, 
                                 xuyscales=xuyscales)
 
-        # Get the error. 
-        r2Errors[j, i] = np.abs(r2 - r2NN)/np.abs(r2)
+        # Get the error in the 2nd reaction.
+        r2Errors[j, i] = np.abs(r2 - r2NN) - r2Reltol*np.abs(r2) - r2Abstol
+        r2Errors[j, i] = np.abs(r2Errors[j, i])
 
         # Make eliminate a point at the equilibrium. 
-        if np.abs(k2f*(CbRange[i])**3 - k2b*CcRange[j]) < 1e-3:
-            r2Errors[j, i] = np.nan
+        #if np.abs(k2f*(CbRange[i])**3 - k2b*CcRange[j]) < 1e-3:
+        #    r2Errors[j, i] = np.nan
 
     # Return.
     return r1Errors, r2Errors
@@ -213,7 +218,7 @@ def main():
 
     # Get all the training data. 
     Ntstart = reac_parameters['Ntstart']
-    training_data = reac_parameters['training_data_nonoise']
+    training_data = reac_parameters['training_data_withnoise']
 
     # Trained Weights and scaling. 
     fGbWeights = [reac_hybfullgbtrain[1]['r1Weights'], 
@@ -224,9 +229,9 @@ def main():
     xuyscales = reac_hybfullgbtrain[1]['xuyscales']
 
     # Get errors in reactions 1 and 2 for the full GB model. 
-    CaRange = list(np.arange(0.2, 0.7, 0.01)[:, np.newaxis])
-    CbRange = list(np.arange(0.3, 0.6, 0.01)[:, np.newaxis])
-    CcRange = list(np.arange(0.15, 0.6, 0.01)[:, np.newaxis])
+    CaRange = list(np.arange(0.1, 1.0, 0.01)[:, np.newaxis])
+    CbRange = list(np.arange(0.1, 0.7, 0.01)[:, np.newaxis])
+    CcRange = list(np.arange(0.1, 0.7, 0.01)[:, np.newaxis])
     r2XGrid, r2YGrid = np.meshgrid(CbRange, CcRange)
     r1Errors, r2Errors = getFullGbRateErrorsInStateSpace(CaRange=CaRange, 
                             CbRange=CbRange, CcRange=CcRange, 

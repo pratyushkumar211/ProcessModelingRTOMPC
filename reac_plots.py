@@ -13,7 +13,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from hybridId import PickleTool
-from plottingFuncs import PAPER_FIGSIZE, get_plotting_array_list
+from plottingFuncs import PRESENTATION_FIGSIZE, get_plotting_array_list
 from plottingFuncs import plot_histogram
 
 def plot_xudata(*, t, ylist, xlist, ulist, legend_names,
@@ -24,10 +24,13 @@ def plot_xudata(*, t, ylist, xlist, ulist, legend_names,
     """
 
     # Labels for the y axis.
-    ylabels = [r'$c_A \ (\textnormal{mol/m}^3)$',
-               r'$c_B \ (\textnormal{mol/m}^3)$',
-               r'$c_C \ (\textnormal{mol/m}^3)$',
-               r'$c_{Af} \ (\textnormal{mol/m}^3)$']
+    #ylabels = [r'$c_A \ (\textnormal{mol/m}^3)$',
+    #           r'$c_B \ (\textnormal{mol/m}^3)$',
+    #           r'$c_C \ (\textnormal{mol/m}^3)$',
+    #           r'$c_{Af} \ (\textnormal{mol/m}^3)$']
+
+    ylabels = [r'$c_A$', r'$c_B$',
+               r'$c_C$', r'$c_{Af}$']
 
     # Number of rows.
     nrow = len(ylabels)
@@ -79,10 +82,13 @@ def plot_xsvus(*, us, xs_list, legend_names,
     """ Plot steady state xs and us. """
     
     # Y-axis labels.
-    ylabels = [r'$c_{As} \ (\textnormal{mol/m}^3)$', 
-               r'$c_{Bs} \ (\textnormal{mol/m}^3)$',
-               r'$c_{Cs} \ (\textnormal{mol/m}^3)$']
-    xlabel = r'$c_{Afs} \ (\textnormal{mol/m}^3)$'
+    #ylabels = [r'$c_{As} \ (\textnormal{mol/m}^3)$', 
+    #           r'$c_{Bs} \ (\textnormal{mol/m}^3)$',
+    #           r'$c_{Cs} \ (\textnormal{mol/m}^3)$']
+    #xlabel = r'$c_{Afs} \ (\textnormal{mol/m}^3)$'
+
+    ylabels = [r'$c_{As}$', r'$c_{Bs}$', r'$c_{Cs}$']
+    xlabel = r'$c_{Afs}$'
 
     # Number of rows.
     nrow = len(ylabels)
@@ -215,7 +221,7 @@ def plot_fullGbR2Errors(*, r2XGrid, r2YGrid, r2Errors,
     return [figure]
 
 # def plot_cost_pars(t, cost_pars,
-#                    figure_size=PAPER_FIGSIZE, 
+#                    figure_size=PRESENTATION_FIGSIZE, 
 #                    ylabel_xcoordinate=-0.15):
 #     """ Plot the economic MPC cost parameters. """
 
@@ -287,7 +293,7 @@ def main():
                                 xlist=xlist, ulist=ulist,
                                 legend_names=None,
                                 legend_colors=['b'], 
-                                figure_size=PAPER_FIGSIZE, 
+                                figure_size=PRESENTATION_FIGSIZE, 
                                 ylabel_xcoordinate=-0.1, 
                                 title_loc=None)
 
@@ -319,7 +325,7 @@ def main():
                             xlist=xlist, ulist=ulist,
                             legend_names=legend_names,
                             legend_colors=legend_colors, 
-                            figure_size=PAPER_FIGSIZE, 
+                            figure_size=PRESENTATION_FIGSIZE, 
                             ylabel_xcoordinate=-0.1, 
                             title_loc=(0.25, 0.9))
 
@@ -333,8 +339,8 @@ def main():
     figures += plot_xsvus(us=us, xs_list=xs_list, 
                           legend_colors=legend_colors, 
                           legend_names=legend_names, 
-                          figure_size=PAPER_FIGSIZE, 
-                          ylabel_xcoordinate=-0.12, 
+                          figure_size=PRESENTATION_FIGSIZE, 
+                          ylabel_xcoordinate=-0.1, 
                           title_loc=(0.25, 0.9))
 
     # Steady state cost curves.
@@ -342,7 +348,7 @@ def main():
     figures += plot_sscosts(us=us, sscosts=sscosts, 
                             legend_colors=legend_colors, 
                             legend_names=legend_names, 
-                            figure_size=PAPER_FIGSIZE, 
+                            figure_size=PRESENTATION_FIGSIZE, 
                             ylabel_xcoordinate=-0.12)
 
     # Steady state cost curves. 
@@ -352,38 +358,36 @@ def main():
     figures += plot_sscosts(us=us, sscosts=sscosts, 
                             legend_colors=legend_colors, 
                             legend_names=legend_names, 
-                            figure_size=PAPER_FIGSIZE, 
+                            figure_size=PRESENTATION_FIGSIZE, 
                             ylabel_xcoordinate=-0.12)
 
     # Make error histogram.
     # Reaction - 1
     fGbErrors = reac_rateanalysis[1]['fGbErrors']
     pGbErrors = reac_rateanalysis[1]['pGbErrors']
-    xlabel = r'$\dfrac{|\textnormal{Rate}-\textnormal{Rate}_{\textnormal{NN}}|}'
-    xlabel += r'{\textnormal{Rate}}$, (\textnormal{Reaction-1})'
+    xlabel = r'$\%$ \textnormal{Error}, \textnormal{Reaction-1}'
     ylabel = 'Frequency'
     xlims = [0., 0.05]
-    ylims = [0, 80]
+    ylims = [0, 120]
     legend_names = ['Hybrid - FullGb', 'Hybrid - PartialGb']
     legend_colors = ['b', 'm']
     rErrors = [fGbErrors['r1Errors'], pGbErrors['r1Errors']]
     binRange = 0, 0.05
     figures += plot_histogram(data_list=rErrors, legend_colors=legend_colors, 
                               legend_names=legend_names, 
-                              figure_size=PAPER_FIGSIZE, xlabel=xlabel, 
+                              figure_size=PRESENTATION_FIGSIZE, xlabel=xlabel, 
                               ylabel=ylabel, nBins=1000, xlims=xlims, 
                               ylims=ylims)
 
     # Make error histogram.
     # Reaction - 2
-    xlabel = r'$\dfrac{|\textnormal{Rate}-\textnormal{Rate}_{\textnormal{NN}}|}'
-    xlabel += r'{\textnormal{Rate}}$, (\textnormal{Reaction-2})'
-    xlims = [0., 0.3]
+    xlabel = r'$\%$ \textnormal{Error}, \textnormal{Reaction-2}'
+    xlims = [0., 1.2]
     ylims = [0, 50]
     rErrors = [fGbErrors['r2Errors'], pGbErrors['r2Errors']]
     figures += plot_histogram(data_list=rErrors, legend_colors=legend_colors, 
                               legend_names=legend_names, 
-                              figure_size=PAPER_FIGSIZE, xlabel=xlabel, 
+                              figure_size=PRESENTATION_FIGSIZE, xlabel=xlabel, 
                               ylabel=ylabel, nBins=1000, xlims=xlims, 
                               ylims=ylims)
 
@@ -392,15 +396,14 @@ def main():
     fGbErrorsInStateSpace = reac_rateanalysis[0]
     r1Errors = [fGbErrorsInStateSpace['r1Errors']]
     r1CaRange = fGbErrorsInStateSpace['r1CaRange']
-    xlabel = r'$c_A \ (\textnormal{mol/m}^3)$'
-    ylabel = r'$\dfrac{|\textnormal{Rate}-\textnormal{Rate}_{\textnormal{NN}}|}'
-    ylabel += r'{\textnormal{Rate}}$, (\textnormal{Reaction-1})'
+    xlabel = r'$c_A$'
+    ylabel = r'$\%$ \textnormal{Error}, \textnormal{Reaction-1}'
     legend_colors = ['k']
     figures += plot_r1Errors(r1CaRange=r1CaRange,
                              r1Errors=r1Errors,
                              legend_colors=legend_colors,
                              legend_names=None,
-                             figure_size=PAPER_FIGSIZE,
+                             figure_size=PRESENTATION_FIGSIZE,
                              xlabel=xlabel, ylabel=ylabel,
                              ylabel_xcoordinate=-0.1, 
                              left_frac=0.15)
@@ -411,71 +414,70 @@ def main():
     r2XGrid = fGbErrorsInStateSpace['r2XGrid']
     r2YGrid = fGbErrorsInStateSpace['r2YGrid']
     r2Errors = fGbErrorsInStateSpace['r2Errors']
-    xlabel = r'$c_B \ (\textnormal{mol/m}^3)$'
-    ylabel = r'$c_C \ (\textnormal{mol/m}^3)$'
-    title = r'$\dfrac{|\textnormal{Rate}-\textnormal{Rate}_{\textnormal{NN}}|}'
-    title += r'{\textnormal{Rate}}$, (\textnormal{Reaction-2})'
+    xlabel = r'$c_B$'
+    ylabel = r'$c_C$'
+    title = r'$\%$ \textnormal{Error}, \textnormal{Reaction-2}'
     figures += plot_fullGbR2Errors(r2XGrid=r2XGrid, 
                                    r2YGrid=r2YGrid, r2Errors=r2Errors, 
-                                   figure_size=PAPER_FIGSIZE, 
+                                   figure_size=PRESENTATION_FIGSIZE, 
                                    xlabel=xlabel, ylabel=ylabel, title=title, 
-                                   ylabel_xcoordinate=-0.1, left_frac=0.12, 
-                                   wspace=0.1, right_frac=0.95, title_y=1.02)
+                                   ylabel_xcoordinate=-0.1, left_frac=0.13, 
+                                   wspace=0.1, right_frac=0.98, title_y=1.02)
 
     # Plot the optimization analysis results.
     # Suboptimality in inputs, cost type 1.
     optAnalysis = reac_ssopt_optimizationanalysis[0]
     usGaps = optAnalysis['usGaps'][1:]
-    xlabel = r'$\dfrac{|u_s - u_s^{*}|}{u_s^{*}}$'
+    xlabel = r'$|u_s - u_s^{*}|/u_s^{*}$'
     ylabel = 'Frequency'
     xlims = [0., 0.8]
-    ylims = [0, 100]
+    ylims = [0, 50]
     legend_names = ['Black-Box-NN', 'Hybrid - FullGb', 'Hybrid - PartialGb']
     legend_colors = ['dimgrey', 'm', 'g']
     figures += plot_histogram(data_list=usGaps, legend_colors=legend_colors, 
                               legend_names=legend_names, 
-                              figure_size=PAPER_FIGSIZE, xlabel=xlabel, 
+                              figure_size=PRESENTATION_FIGSIZE, xlabel=xlabel, 
                               ylabel=ylabel, nBins=200, xlims=xlims,     
                               ylims=ylims)
 
     # Plot the optimization analysis results.
     # Suboptimality in cost, cost type 1.
     subGaps = optAnalysis['subGaps'][1:]
-    xlabel = r'$\dfrac{|V_s - V_s^{*}|}{V_s^{*}}$'
-    xlims = [0., 0.2]
-    ylims = [0, 100]
+    xlabel = r'$|V_s - V_s^{*}|/V_s^{*}$'
+    xlims = [0., 0.05]
+    ylims = [0, 50]
     legend_names = ['Black-Box-NN', 'Hybrid - FullGb', 'Hybrid - PartialGb']
     legend_colors = ['dimgrey', 'm', 'g']
     figures += plot_histogram(data_list=subGaps, legend_colors=legend_colors, 
                               legend_names=legend_names, 
-                              figure_size=PAPER_FIGSIZE, xlabel=xlabel, 
+                              figure_size=PRESENTATION_FIGSIZE, xlabel=xlabel, 
                               ylabel=ylabel, nBins=200, xlims=xlims, 
                               ylims=ylims)
 
     # Suboptimality in inputs, cost type 2.
     optAnalysis = reac_ssopt_optimizationanalysis[1]
     usGaps = optAnalysis['usGaps'][1:]
-    xlabel = r'$\dfrac{|u_s - u_s^{*}|}{u_s^{*}}$'
-    xlims = [0., 0.2]
-    ylims = [0, 100]
+    xlabel = r'$|u_s - u_s^{*}|/u_s^{*}$'
+    xlims = [0., 0.15]
+    ylims = [0, 50]
     legend_names = ['Hybrid - FullGb']
     legend_colors = ['m']
     figures += plot_histogram(data_list=usGaps, legend_colors=legend_colors, 
                               legend_names=legend_names, 
-                              figure_size=PAPER_FIGSIZE, xlabel=xlabel, 
+                              figure_size=PRESENTATION_FIGSIZE, xlabel=xlabel, 
                               ylabel=ylabel, nBins=200, xlims=xlims,     
                               ylims=ylims)
 
     # Suboptimality in cost, cost type 2.
     subGaps = optAnalysis['subGaps'][1:]
-    xlabel = r'$\dfrac{|V_s - V_s^{*}|}{V_s^{*}}$'
-    xlims = [0., 0.015]
-    ylims = [0, 100]
+    xlabel = r'$|V_s - V_s^{*}|/V_s^{*}$'
+    xlims = [0., 0.005]
+    ylims = [0, 50]
     legend_names = ['Hybrid - FullGb']
     legend_colors = ['m']
     figures += plot_histogram(data_list=subGaps, legend_colors=legend_colors, 
                               legend_names=legend_names, 
-                              figure_size=PAPER_FIGSIZE, xlabel=xlabel, 
+                              figure_size=PRESENTATION_FIGSIZE, xlabel=xlabel, 
                               ylabel=ylabel, nBins=200, xlims=xlims,
                               ylims=ylims)
 
