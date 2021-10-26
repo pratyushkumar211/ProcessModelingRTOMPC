@@ -328,7 +328,7 @@ def main():
                             legend_colors=legend_colors, 
                             figure_size=PRESENTATION_FIGSIZE, 
                             ylabel_xcoordinate=-0.12, 
-                            title_loc=(0.18, 0.9))
+                            title_loc=(0.17, 0.9))
 
     # Steady state Concentrations.
     us = reac_ssopt[0]['us']
@@ -342,7 +342,7 @@ def main():
                           legend_names=legend_names, 
                           figure_size=PRESENTATION_FIGSIZE, 
                           ylabel_xcoordinate=-0.12, 
-                          title_loc=(0.18, 0.9))
+                          title_loc=(0.17, 0.9))
 
     # Steady state cost curves.
     sscosts = reac_ssopt[0]['sscosts']
@@ -420,7 +420,7 @@ def main():
     r2Errors = fGbErrorsInStateSpace['r2Errors']
     xlabel = r'$c_B$'
     ylabel = r'$c_C$'
-    title = '$\%$ Error, Reaction-2, Hybrid-FullGb'
+    title = 'Modified error, Reaction-2, Hybrid-FullGb'
     figures += plot_fullGbR2Errors(r2XGrid=r2XGrid,
                                    r2YGrid=r2YGrid, r2Errors=r2Errors, 
                                    figure_size=PRESENTATION_FIGSIZE, 
@@ -469,7 +469,7 @@ def main():
     figures += plot_histogram(data_list=usGaps, legend_colors=legend_colors, 
                               legend_names=legend_names, 
                               figure_size=PRESENTATION_FIGSIZE, xlabel=xlabel, 
-                              ylabel=ylabel, nBins=200, xlims=xlims,     
+                              ylabel=ylabel, nBins=200, xlims=xlims,
                               ylims=ylims)
 
     # Suboptimality in cost, cost type 2.
