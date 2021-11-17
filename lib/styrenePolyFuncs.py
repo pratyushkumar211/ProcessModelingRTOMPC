@@ -2,7 +2,7 @@ import numpy as np
 import mpctools as mpc
 
 def plant_ode(x, u, p, parameters):
-    """ Simple ODE describing a 3D system. """
+    """ Simple ODE describing the styrene polymerization plant. """
 
     # Extract the parameters.
     k1 = parameters['k1']
@@ -15,22 +15,36 @@ def plant_ode(x, u, p, parameters):
     Tc, lam0, lam1, lam2 = x[4], x[5], x[6], x[7]
 
     # Extract controls.
-    QfI, QfM, QfS, Qc = u[0], u[1], u[2], u[3]
-
+    QI, QM, QS, Qc = u[0], u[1], u[2], u[3]
+    
     # Extract disturbances.
     cIf, cMf, cSf, Tf = p[0], p[1], p[2], p[3]
     
     # Balances for concentrations.
-    dcIbydt = (QfI*cIf - Qo*cI)/V - rI
-    dcMbydt = (QfM*cMf - Qo*cM)/V - rM
-    dcSbydt = (QfS*cSf - Qo*cS)/V - rS
+    dcIbydt = (QI*cIf - Qo*cI)/V - rI
+    dcMbydt = (QM*cMf - Qo*cM)/V - rM
+    dcSbydt = (QS*cSf - Qo*cS)/V
 
     # Temperature balances.
-    dTbydt = Qo*(Tf - T)/V + delHr*kp*Cm*Cp/(pho*Cp) - UA*(T - Tc)/(pho*Cp*V)
-    dTcbydt = Qo
+    dTbydt = Qo*(Tf - T)/V + delHr*rM/(pho*Cp) - UA*(T - Tc)/(pho*Cp*V)
+    dTcbydt = Qc*(Tcf - T)/Vc + (U*A)*(T - Tc)/(phoc*Cpc*Vc)
+
+    # Moment balances. 
+    # Zeroth moment.
+    dlam0bydt = (kfs*kf*cS*cM + ktd*cP)*alpha*cP + (ktc*(cP**2)/2) - (Qo*lam0/V)
+
+    # First moment.
+    dlam1bydt = (kfs*cS + kf*cM + ktd*cP)*(2*alpha - alpha**2) + ktc*cP
+    dlam1bydt = (cP/(1 - alpha))*dlam1bydt - (Qo*lam1/V)
+
+    # Second moment.
+    dlam2bydt = (kfs*cS + kf*cM + ktd*cP)*(4*alpha - 3*alpha**2 + alpha**3) 
+    dlam2bydt += ktc*cP*(1 + alpha)
+    dlam2bydt = (cP/(1 - alpha)**2)*dlam2bydt - (Qo*lam2/V)
 
     # Return.
-    return mpc.vcat([dCabydt, dCbbydt, dCcbydt])
+    return mpc.vcat([dcIbydt, dcMbydt, dcSbydt, dTbydt, 
+                     dTcbydt, dlam0bydt, dlam1bydt, dlam2bydt])
 
 def get_plant_pars():
     """ Plant model parameters. """
