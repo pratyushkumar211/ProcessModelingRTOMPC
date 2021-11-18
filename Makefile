@@ -41,7 +41,7 @@ TEXSUFFIXES := .pdf .aux .log .bbl .blg .nav .out .snm .toc .synctex.gz \
 # confusing here: in the subfolders, we split paper/presentation/poster, whereas
 # these variables are article/talk/poster, so keep that in mind.
 ARTICLE_SRC := paper.tex
-TALK_SRC := 
+TALK_SRC := groupTalkOct26.tex
 POSTER_SRC := 
 
 PAPER_BIB := 
