@@ -142,7 +142,7 @@ def get_plant_pars():
 
     # Get the steady states.
     parameters['xs'] = np.array([1e-2,3,3,320,305,1e-4,1,1]) # (to rectify)
-    parameters['us'] = np.array([110, 200, 100, 480]) # mol/m^3
+    parameters['us'] = np.array([60, 60, 50, 40]) # mol/m^3
     parameters['ps'] = np.array([330, 295]) # m^3/min
 
     # Input constraints.
