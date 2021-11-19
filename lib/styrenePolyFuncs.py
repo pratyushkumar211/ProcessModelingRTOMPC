@@ -119,7 +119,7 @@ def get_plant_pars():
     # Feed concentrations. 
     parameters['cIf'] = 5.88e+2 # mol/m^3
     parameters['cMf'] = 8.69e+3 # mol/m^3
-    parameters['cSf'] = 4e+3 # mol/m^3
+    parameters['cSf'] = 4e+5 # mol/m^3
 
     # Density, volume, heat capacities, and heat of reaction. 
     parameters['f'] = 0.6
