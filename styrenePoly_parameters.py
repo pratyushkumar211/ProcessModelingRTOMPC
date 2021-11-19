@@ -14,35 +14,35 @@ from reacFuncs import get_plant_pars, plant_ode
 np.random.seed(12)
 
 # Random package (Used to sample distinct mixed-integers) seed.
-random.seed(6)
+# random.seed(6)
 
-def get_known_hyb_pars(*, plant_pars, hybtype=None):
-    """ Grey-Box parameters for the hybrid model. """
+# def get_known_hyb_pars(*, plant_pars, hybtype=None):
+#     """ Grey-Box parameters for the hybrid model. """
     
-    # Parameters.
-    parameters = {}
+#     # Parameters.
+#     parameters = {}
 
-    # Volume, steady-state disturbance, and sample time.
-    parameters['V'] = plant_pars['V']
-    parameters['ps'] = plant_pars['ps']
-    parameters['Delta'] = plant_pars['Delta']
+#     # Volume, steady-state disturbance, and sample time.
+#     parameters['V'] = plant_pars['V']
+#     parameters['ps'] = plant_pars['ps']
+#     parameters['Delta'] = plant_pars['Delta']
 
-    # Number of states based on model type.
-    if hybtype == 'fullgb':
-        Ng = 3
-    elif hybtype == 'partialgb':
-        Ng = 2
-    else:
-        raise ValueError("Model type not present")
+#     # Number of states based on model type.
+#     if hybtype == 'fullgb':
+#         Ng = 3
+#     elif hybtype == 'partialgb':
+#         Ng = 2
+#     else:
+#         raise ValueError("Model type not present")
 
-    # Sizes.
-    parameters['Ng'] = Ng
-    parameters['Nu'] = plant_pars['Nu']
-    parameters['Ny'] = plant_pars['Ny']
-    parameters['Np'] = plant_pars['Np']
+#     # Sizes.
+#     parameters['Ng'] = Ng
+#     parameters['Nu'] = plant_pars['Nu']
+#     parameters['Ny'] = plant_pars['Ny']
+#     parameters['Np'] = plant_pars['Np']
 
-    # Return.
-    return parameters
+#     # Return.
+#     return parameters
 
 def gen_train_val_data(*, parameters, Ntstart, num_traj,
                           Nsim_train, Nsim_trainval, Nsim_val, 
@@ -166,28 +166,26 @@ def main():
     plant_pars = get_plant_pars()
     plant_pars['xs'] = get_rectified_xs(ode=plant_ode,
                                         parameters=plant_pars)
-
-    # Grey-Box model parameters.
-    hyb_fullgb_pars = get_known_hyb_pars(plant_pars=plant_pars,
-                                         hybtype='fullgb')
-    hyb_partialgb_pars = get_known_hyb_pars(plant_pars=plant_pars,
-                                            hybtype='partialgb')
     
-    # Get training data. 
-    Ntstart = 2
+    # # Grey-Box model parameters.
+    # hyb_fullgb_pars = get_known_hyb_pars(plant_pars=plant_pars,
+    #                                      hybtype='fullgb')
+    # hyb_partialgb_pars = get_known_hyb_pars(plant_pars=plant_pars,
+    #                                         hybtype='partialgb')
+    
+    # Get training data.
+    Ntstart = 6
     (training_data_nonoise, 
      training_data_withnoise) = get_training_data(plant_pars=plant_pars, 
                                                   Ntstart=Ntstart)
 
     # Get a dictionary to return.
-    reac_parameters = dict(plant_pars=plant_pars, Ntstart=Ntstart,
-                           training_data_nonoise=training_data_nonoise,
-                           training_data_withnoise=training_data_withnoise,
-                           hyb_fullgb_pars=hyb_fullgb_pars,
-                           hyb_partialgb_pars=hyb_partialgb_pars)
+    styrenePoly_parameters = dict(plant_pars=plant_pars, Ntstart=Ntstart,
+                                training_data_nonoise=training_data_nonoise,
+                                training_data_withnoise=training_data_withnoise)
     
     # Save data.
-    PickleTool.save(data_object=reac_parameters,
-                    filename='reac_parameters.pickle')
+    PickleTool.save(data_object=styrenePoly_parameters,
+                    filename='styrenePoly_parameters.pickle')
 
 main()

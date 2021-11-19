@@ -133,14 +133,14 @@ def get_plant_pars():
     parameters['ps'] = np.array([330, 295]) # m^3/min
 
     # Input constraints.
-    ulb = np.array([1.0])
-    uub = np.array([3.0])
+    ulb = np.array([50, 300, 300, 400])
+    uub = np.array([150, 500, 400, 500])
     parameters['ulb'] = ulb
     parameters['uub'] = uub
 
     # Measurement indices and noise.
-    parameters['yindices'] = [0, 1]
-    parameters['Rv'] = np.diag([1e-3, 1e-4])
+    parameters['yindices'] = [1, 3, 4, 5, 6, 7]
+    parameters['Rv'] = np.diag([1e-2, 4, 4, 1e-2, 1e-2])
 
     # Return the parameters dict.
     return parameters
