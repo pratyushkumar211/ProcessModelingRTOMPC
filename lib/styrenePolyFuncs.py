@@ -127,9 +127,9 @@ def get_plant_pars():
     parameters['UA'] = 293.076
     parameters['delHr'] = 69919.56
     parameters['phoCp'] = 1506
-    parameters['V'] = 3000
+    parameters['V'] = 30
     parameters['phocCpc'] = 4045
-    parameters['Vc'] = 3100
+    parameters['Vc'] = 32
 
     # Store the dimensions.
     parameters['Nx'] = 8
@@ -142,7 +142,7 @@ def get_plant_pars():
 
     # Get the steady states.
     parameters['xs'] = np.array([1e-2,3,3,320,305,1e-4,1,1]) # (to rectify)
-    parameters['us'] = np.array([60, 60, 50, 40]) # mol/m^3
+    parameters['us'] = np.array([120, 60, 50, 10]) # mol/m^3
     parameters['ps'] = np.array([330, 295]) # m^3/min
 
     # Input constraints.

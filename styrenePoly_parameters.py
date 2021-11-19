@@ -165,7 +165,7 @@ def main():
     # Get parameters.
     plant_pars = get_plant_pars()
     plant_pars['xs'] = get_rectified_xs(ode=plant_ode,
-                                        parameters=plant_pars, Nsim=300)
+                                        parameters=plant_pars, Nsim=1200)
     breakpoint()
     # # Grey-Box model parameters.
     # hyb_fullgb_pars = get_known_hyb_pars(plant_pars=plant_pars,
