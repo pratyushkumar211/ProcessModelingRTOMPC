@@ -117,7 +117,7 @@ def get_plant_pars():
     parameters['R'] = 8.314 # J/(K-mol)
 
     # Feed concentrations. 
-    parameters['cIf'] = 5.88e+3 # mol/m^3
+    parameters['cIf'] = 5.88e+2 # mol/m^3
     parameters['cMf'] = 8.69e+3 # mol/m^3
     parameters['cSf'] = 4e+3 # mol/m^3
 
@@ -126,9 +126,9 @@ def get_plant_pars():
     parameters['UA'] = 293.076 # W/K
     parameters['delHr'] = 6.99e+4 # J/mol
     parameters['phoCp'] = 1.50e+6 # J/(m^3-K)
-    parameters['V'] = 2 # m^3
+    parameters['V'] = 25 # m^3
     parameters['phocCpc'] = 4.04e+6 # J/(m^3-K)
-    parameters['Vc'] = 10 # m^3
+    parameters['Vc'] = 30 # m^3
 
     # Store the dimensions.
     parameters['Nx'] = 8
@@ -142,7 +142,7 @@ def get_plant_pars():
     # Get the steady states.
     parameters['xs'] = np.array([1e-2,3,3,320,
                                  305,1e+2,1e+2,1e+2]) # (to rectify)
-    parameters['us'] = np.array([8e-3, 8e-4, 2e-4, 2e-4]) # m^3/sec
+    parameters['us'] = np.array([8e-3, 8e-3, 2e-4, 2e-3]) # m^3/sec
     parameters['ps'] = np.array([330, 295]) # K
 
     # Input constraints.
