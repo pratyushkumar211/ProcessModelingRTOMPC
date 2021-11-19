@@ -5,7 +5,8 @@ import sys
 sys.path.append('lib/')
 import random
 import numpy as np
-from hybridId import PickleTool, sample_prbs_like, SimData
+from trainingFuncs import SimData
+from hybridId import sample_prbs_like
 from hybridId import get_rectified_xs
 from linNonlinMPC import get_plant_model
 from styrenePolyFuncs import plant_ode, get_plant_pars
@@ -165,7 +166,7 @@ def main():
     # Get parameters.
     plant_pars = get_plant_pars()
     plant_pars['xs'] = get_rectified_xs(ode=plant_ode,
-                                        parameters=plant_pars, Nsim=1200)
+                                        parameters=plant_pars, Nsim=6000)
     breakpoint()
     # # Grey-Box model parameters.
     # hyb_fullgb_pars = get_known_hyb_pars(plant_pars=plant_pars,
@@ -185,7 +186,7 @@ def main():
                               training_data_withnoise=training_data_withnoise)
     
     # Save data.
-    PickleTool.save(data_object=styrenePoly_parameters,
-                    filename='styrenePoly_parameters.pickle')
+    with open('styrenePoly_parameters.pickle', "wb") as stream:
+        pickle.dump(styrenePoly_parameters, stream)
 
 main()

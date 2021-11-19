@@ -62,17 +62,15 @@ def plant_ode(x, u, p, parameters):
     # Probability of propagation.
     alpha = kp*cM/(kp*cM + kfs*cS + kf*cM + (ktc + ktd)*cP)
 
-    # Mean polymer length concentration. 
-    cP = np.sqrt(2*f*kd*cI/(ktd + ktc))
-
     # Reaction rates. 
     rI = kd*cI
-    rM = kp*cM*cP
+    rM = 2*f*kd*cI + (kp + kf)*cM*cP
+    rS = kfs*cP*cS
 
     # Balances for concentrations.
     dcIbydt = (QI*cIf - Qo*cI)/V - rI
     dcMbydt = (QM*cMf - Qo*cM)/V - rM
-    dcSbydt = (QS*cSf - Qo*cS)/V
+    dcSbydt = (QS*cSf - Qo*cS)/V - rS
 
     # Temperature balances.
     dTbydt = Qo*(Tf - T)/V + delHr*rM/phoCp - UA*(T - Tc)/(phoCp*V)
@@ -102,34 +100,35 @@ def get_plant_pars():
     parameters = {}
 
     # Rate constant parameters.
-    parameters['kd0'] = 5.95e+13 
-    parameters['kp0'] = 1.06e+7
-    parameters['kfs0'] = 91457.3
-    parameters['kf0'] = 53020.29
-    parameters['ktc0'] = 0.5*1.25e+9
-    parameters['ktd0'] = 0.5*1.25e+9
-    # Activation energies corresponding to the parameters.
-    parameters['Ed'] = 123853.658
-    parameters['Ep'] = 29572.898
-    parameters['Efs'] = 91457.3
-    parameters['Ef'] = 53020.29
-    parameters['Etc'] = 7017.27
-    parameters['Etd'] = 7017.27
-    parameters['R'] = 8.314
+    parameters['kd0'] = 5.95e+13 # 1/sec
+    parameters['kp0'] = 1.06e+4 # m^3/(mol-sec)
+    parameters['kfs0'] = 91.45 # m^3/(mol-sec)
+    parameters['kf0'] = 53.020 # m^3/(mol-sec)
+    parameters['ktc0'] = 6.25e+5 # m^3/(mol-sec)
+    parameters['ktd0'] = 6.25e+5 # m^3/(mol-sec)
+
+    # Activation energies for the rate constants.
+    parameters['Ed'] = 1.23e+5 # J/mol
+    parameters['Ep'] = 2.95e+4 # J/mol
+    parameters['Efs'] = 9.14e+4 # J/mol
+    parameters['Ef'] = 5.30e+4 # J/mol
+    parameters['Etc'] = 7.01e+3 # J/mol
+    parameters['Etd'] = 7.01e+3 # J/mol
+    parameters['R'] = 8.314 # J/(K-mol)
 
     # Feed concentrations. 
-    parameters['cIf'] = 3.5
-    parameters['cMf'] = 8.69
-    parameters['cSf'] = 9
+    parameters['cIf'] = 5.88e+3 # mol/m^3
+    parameters['cMf'] = 8.69e+3 # mol/m^3
+    parameters['cSf'] = 4e+3 # mol/m^3
 
     # Density, volume, heat capacities, and heat of reaction. 
     parameters['f'] = 0.6
-    parameters['UA'] = 293.076
-    parameters['delHr'] = 69919.56
-    parameters['phoCp'] = 1506
-    parameters['V'] = 30
-    parameters['phocCpc'] = 4045
-    parameters['Vc'] = 32
+    parameters['UA'] = 293.076 # W/K
+    parameters['delHr'] = 6.99e+4 # J/mol
+    parameters['phoCp'] = 1.50e+6 # J/(m^3-K)
+    parameters['V'] = 2 # m^3
+    parameters['phocCpc'] = 4.04e+6 # J/(m^3-K)
+    parameters['Vc'] = 10 # m^3
 
     # Store the dimensions.
     parameters['Nx'] = 8
@@ -138,12 +137,13 @@ def get_plant_pars():
     parameters['Np'] = 2
 
     # Sample time.
-    parameters['Delta'] = 1. # min.
+    parameters['Delta'] = 1. # sec
 
     # Get the steady states.
-    parameters['xs'] = np.array([1e-2,3,3,320,305,1e-4,1,1]) # (to rectify)
-    parameters['us'] = np.array([0.12, 0.06, 0.05, 0.1]) # mol/m^3
-    parameters['ps'] = np.array([330, 295]) # m^3/min
+    parameters['xs'] = np.array([1e-2,3,3,320,
+                                 305,1e+2,1e+2,1e+2]) # (to rectify)
+    parameters['us'] = np.array([8e-3, 8e-4, 2e-4, 2e-4]) # m^3/sec
+    parameters['ps'] = np.array([330, 295]) # K
 
     # Input constraints.
     ulb = np.array([50, 300, 300, 400])
