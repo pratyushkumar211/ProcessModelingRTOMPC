@@ -76,7 +76,7 @@ def plant_ode(x, u, p, parameters):
 
     # Temperature balances.
     dTbydt = Qo*(Tf - T)/V + delHr*rM/phoCp - UA*(T - Tc)/(phoCp*V)
-    dTcbydt = Qc*(Tcf - T)/Vc + UA*(T - Tc)/(phocCpc*Vc)
+    dTcbydt = Qc*(Tcf - Tc)/Vc + UA*(T - Tc)/(phocCpc*Vc)
 
     # Moment balances.
     # Zeroth moment.
@@ -118,9 +118,9 @@ def get_plant_pars():
     parameters['R'] = 8.314
 
     # Feed concentrations. 
-    parameters['cIf'] = 0.58
+    parameters['cIf'] = 3.5
     parameters['cMf'] = 8.69
-    parameters['cSf'] = 1.0
+    parameters['cSf'] = 9
 
     # Density, volume, heat capacities, and heat of reaction. 
     parameters['f'] = 0.6
@@ -142,7 +142,7 @@ def get_plant_pars():
 
     # Get the steady states.
     parameters['xs'] = np.array([1e-2,3,3,320,305,1e-4,1,1]) # (to rectify)
-    parameters['us'] = np.array([110, 450, 380, 480]) # mol/m^3
+    parameters['us'] = np.array([110, 200, 100, 480]) # mol/m^3
     parameters['ps'] = np.array([330, 295]) # m^3/min
 
     # Input constraints.
