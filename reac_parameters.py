@@ -5,7 +5,8 @@ import sys
 sys.path.append('lib/')
 import random
 import numpy as np
-from hybridId import PickleTool, sample_prbs_like, SimData
+from trainingFuncs import SimData
+from hybridId import PickleTool, sample_prbs_like
 from hybridId import get_rectified_xs
 from linNonlinMPC import get_plant_model
 from reacFuncs import get_plant_pars, plant_ode
@@ -165,7 +166,7 @@ def main():
     # Get parameters.
     plant_pars = get_plant_pars()
     plant_pars['xs'] = get_rectified_xs(ode=plant_ode,
-                                        parameters=plant_pars)
+                                        parameters=plant_pars, Nsim=480)
 
     # Grey-Box model parameters.
     hyb_fullgb_pars = get_known_hyb_pars(plant_pars=plant_pars,

@@ -5,8 +5,9 @@ import sys
 sys.path.append('lib/')
 import tensorflow as tf
 import time
+import pickle
 import numpy as np
-from hybridId import PickleTool, get_scaling, get_train_val_data
+from trainingFuncs import get_scaling, get_train_val_data
 from BlackBoxFuncs import (create_model, train_model, 
                            get_val_predictions)
 
@@ -17,8 +18,8 @@ def main():
     """ Main function to be executed. """
 
     # Load data.
-    reac_parameters = PickleTool.load(filename='reac_parameters.pickle',
-                                         type='read')
+    with open("reac_parameters.pickle", "rb") as stream:
+        reac_parameters = pickle.load(stream)
 
     # Sizes and sample time.
     plant_pars = reac_parameters['plant_pars']

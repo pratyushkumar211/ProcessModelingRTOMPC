@@ -12,10 +12,6 @@ import plottools
 import time
 from linNonlinMPC import getXsYsSscost, c2dNonlin
 
-# Custom class to store datasets.
-SimData = collections.namedtuple('SimData',
-                                ['t', 'x', 'u', 'y', 'p'])
-
 class PickleTool:
     """ Class which contains a few static methods for saving and
         loading pkl data files conveniently. """

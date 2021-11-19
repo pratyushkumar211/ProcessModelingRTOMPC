@@ -2,7 +2,7 @@
 import sys
 import numpy as np
 import tensorflow as tf
-from hybridId import SimData
+from trainingFuncs import SimData
 
 def tanh(x, tF=True, a=1):
     """ Custom tanh function. The input to tanh 
