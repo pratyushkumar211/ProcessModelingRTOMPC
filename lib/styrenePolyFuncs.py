@@ -19,17 +19,21 @@ def plant_ode(x, u, p, parameters):
     Ef = parameters['Ef']
     Etc = parameters['Etc']
     Etd = parameters['Etd']
+    R = parameters['R']
 
     # Density, volume, heat capacities, and heat of reaction. 
     f = parameters['f']
     UA = parameters['UA']
     delHr = parameters['delHr']
-    pho = parameters['pho']
-    Cp = parameters['Cp']
+    phoCp = parameters['phoCp']
     V = parameters['V']
-    phoc = parameters['phoc']
-    Cpc = parameters['Cpc']
+    phocCpc = parameters['phocCpc']
     Vc = parameters['Vc']
+
+    # Feed concentrations. 
+    cIf = parameters['cIf']
+    cMf = parameters['cMf']
+    cSf = parameters['cSf']
 
     # Extract states.
     cI, cM, cS, T = x[0], x[1], x[2], x[3]
@@ -42,7 +46,7 @@ def plant_ode(x, u, p, parameters):
     Qo = QI + QM + QS
 
     # Extract disturbances.
-    cIf, cMf, cSf, Tf = p[0], p[1], p[2], p[3]
+    Tf, Tcf = p[0], p[1]
 
     # Get the rate constants using Arhenius law.
     kd = kd0*np.exp(-Ed/(R*T))
@@ -52,7 +56,10 @@ def plant_ode(x, u, p, parameters):
     ktc = ktc0*np.exp(-Etc/(R*T))
     ktd = ktd0*np.exp(-Etd/(R*T))
 
-    # Probability of propagation. 
+    # Mean polymer concentration.
+    cP = np.sqrt(2*f*kd*cI/(ktd + ktc))
+
+    # Probability of propagation.
     alpha = kp*cM/(kp*cM + kfs*cS + kf*cM + (ktc + ktd)*cP)
 
     # Mean polymer length concentration. 
@@ -68,8 +75,8 @@ def plant_ode(x, u, p, parameters):
     dcSbydt = (QS*cSf - Qo*cS)/V
 
     # Temperature balances.
-    dTbydt = Qo*(Tf - T)/V + delHr*rM/(pho*Cp) - UA*(T - Tc)/(pho*Cp*V)
-    dTcbydt = Qc*(Tcf - T)/Vc + UA*(T - Tc)/(phoc*Cpc*Vc)
+    dTbydt = Qo*(Tf - T)/V + delHr*rM/phoCp - UA*(T - Tc)/(phoCp*V)
+    dTcbydt = Qc*(Tcf - T)/Vc + UA*(T - Tc)/(phocCpc*Vc)
 
     # Moment balances.
     # Zeroth moment.
@@ -108,6 +115,12 @@ def get_plant_pars():
     parameters['Ef'] = 53020.29
     parameters['Etc'] = 7017.27
     parameters['Etd'] = 7017.27
+    parameters['R'] = 8.314
+
+    # Feed concentrations. 
+    parameters['cIf'] = 0.58
+    parameters['cMf'] = 8.69
+    parameters['cSf'] = 1.0
 
     # Density, volume, heat capacities, and heat of reaction. 
     parameters['f'] = 0.6

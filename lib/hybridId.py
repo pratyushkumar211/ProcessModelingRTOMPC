@@ -277,7 +277,7 @@ def get_train_val_data(*, Ntstart, Np, xuyscales, data_list):
 #     # Return.
 #     return train_data, trainval_data, val_data
 
-def get_rectified_xs(*, ode, parameters):
+def get_rectified_xs(*, ode, parameters, Nsim):
     """ Get a rectified steady state of the plant
         upto numerical precision. """
 
@@ -294,7 +294,7 @@ def get_rectified_xs(*, ode, parameters):
                                   [Nx, Nu, Np], ["x", "u", "p"])
 
     # Steady state of the plant.
-    for _ in range(360):
+    for _ in range(Nsim):
         xs = model.sim(xs, us, ps)
 
     # Return.

@@ -8,7 +8,7 @@ import numpy as np
 from hybridId import PickleTool, sample_prbs_like, SimData
 from hybridId import get_rectified_xs
 from linNonlinMPC import get_plant_model
-from reacFuncs import get_plant_pars, plant_ode
+from styrenePolyFuncs import plant_ode, get_plant_pars
 
 # Numpy seed.
 np.random.seed(12)
@@ -165,8 +165,8 @@ def main():
     # Get parameters.
     plant_pars = get_plant_pars()
     plant_pars['xs'] = get_rectified_xs(ode=plant_ode,
-                                        parameters=plant_pars)
-    
+                                        parameters=plant_pars, Nsim=1200)
+    breakpoint()
     # # Grey-Box model parameters.
     # hyb_fullgb_pars = get_known_hyb_pars(plant_pars=plant_pars,
     #                                      hybtype='fullgb')
@@ -181,8 +181,8 @@ def main():
 
     # Get a dictionary to return.
     styrenePoly_parameters = dict(plant_pars=plant_pars, Ntstart=Ntstart,
-                                training_data_nonoise=training_data_nonoise,
-                                training_data_withnoise=training_data_withnoise)
+                              training_data_nonoise=training_data_nonoise,
+                              training_data_withnoise=training_data_withnoise)
     
     # Save data.
     PickleTool.save(data_object=styrenePoly_parameters,
