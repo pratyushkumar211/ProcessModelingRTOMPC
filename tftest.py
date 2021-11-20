@@ -1,7 +1,8 @@
 import tensorflow as tf
 print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
 
-
+import time 
+tstart = time.time()
 import tensorflow_datasets as tfds
 print("TensorFlow version:", tf.__version__)
 print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
@@ -50,3 +51,6 @@ model.fit(
     epochs=12,
     validation_data=ds_test,
 )
+
+tend = time.time()
+print("Time taken:" + str(tend-tstart))
