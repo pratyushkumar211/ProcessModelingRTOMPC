@@ -30,40 +30,32 @@ def getSSCurveData(*, fxu, hx, model_pars, Nus, usind):
 
     # Fix the steady state values of all the control inputs except 
     # the input index provided.
-    ulb = model_pars['us']
-    uub = model_pars['us']
-    #ulb[usind] = plant_pars['ulb'][usind]
-    #uub[usind] = plant_pars['uub'][usind]
+    ulb = model_pars['us'].copy()
+    uub = model_pars['us'].copy()
+    ulb[usind] = model_pars['ulb'][usind]
+    uub[usind] = model_pars['uub'][usind]
     us_list = list(np.linspace(ulb, uub, Nus))
-    
+
     # Create list to store the steady state xs.
     xs_list = []
 
-    # Number of guesses to solve the ss rootfinding problem. 
-    numGuess = 3
-
     # Compute SS cost.
     for us in us_list:
-        
-        for _ in range(numGuess):
 
-            # Get guess.
-            xguess = model_pars['xs']
-            #xguess[3] = 500
-            xguess = np.array([1e+02, 2.26, 4.93e+1, 4e+02,
-                               3.01e+02, 2.46e+02, 4.04e+03, 1.14e+05])
-            breakpoint()
-            # Get the xs and sscost.
-            xs, _, _ = getXsYsSscost(fxu=fxu, hx=hx, lxu=None, 
-                                     us=us, parameters=model_pars, 
-                                     xguess=xguess)
-            breakpoint()
-            xs_list += [xs]
+        # Get guess.
+        xguess = model_pars['xs']
+
+        # Get the xs and sscost.
+        xs, _, _ = getXsYsSscost(fxu=fxu, hx=hx, lxu=None, 
+                                 us=us, parameters=model_pars, 
+                                 xguess=xguess)
+
+        xs_list += [xs]
 
     # Get steady-states as arrays.
     xs = np.asarray(xs_list)
     us = np.asarray(us_list)
-
+    
     # Create a dictionary and save.
     ssCurveData = dict(us=us, xs=xs)
 
