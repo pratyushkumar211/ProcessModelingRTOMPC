@@ -124,7 +124,7 @@ def get_plant_pars():
     # Density, volume, heat capacities, and heat of reaction. 
     parameters['f'] = 0.6
     parameters['UA'] = 293.076 # W/K
-    parameters['delHr'] = 6.99e+4 # J/mol
+    parameters['delHr'] = 6.99e+3 # J/mol
     parameters['phoCp'] = 1.50e+6 # J/(m^3-K)
     parameters['V'] = 25 # m^3
     parameters['phocCpc'] = 4.04e+6 # J/(m^3-K)

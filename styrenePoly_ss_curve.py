@@ -35,7 +35,7 @@ def getSSCurveData(*, fxu, hx, model_pars, Nus, usind):
     #ulb[usind] = plant_pars['ulb'][usind]
     #uub[usind] = plant_pars['uub'][usind]
     us_list = list(np.linspace(ulb, uub, Nus))
-
+    
     # Create list to store the steady state xs.
     xs_list = []
 
@@ -51,7 +51,7 @@ def getSSCurveData(*, fxu, hx, model_pars, Nus, usind):
             xguess = model_pars['xs']
             #xguess[3] = 500
             xguess = np.array([1e+02, 2.26, 4.93e+1, 4e+02,
-                               3.02e+02, 2.46e+01, 4.04e+02, 1.14e+03])
+                               3.01e+02, 2.46e+02, 4.04e+03, 1.14e+05])
             breakpoint()
             # Get the xs and sscost.
             xs, _, _ = getXsYsSscost(fxu=fxu, hx=hx, lxu=None, 
