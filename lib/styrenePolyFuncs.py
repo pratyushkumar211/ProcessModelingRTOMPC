@@ -140,8 +140,10 @@ def get_plant_pars():
     parameters['Delta'] = 1. # sec
 
     # Get the steady states.
-    parameters['xs'] = np.array([1e-2,3,3,320,
-                                 305,1e+2,1e+2,1e+2]) # (to rectify)
+    parameters['xs'] = np.array([2.82e+02, 4.02e+03, 4.83e+03, 3.37e+02,
+                                 3.02e+02, 3.50e+00, 1.79e+02, 4.04e+04]) 
+    #parameters['xs'] = np.array([1e-2,3,3,320,
+    #                             305,1e+2,1e+2,1e+2]) 
     parameters['us'] = np.array([8e-3, 8e-3, 2e-4, 2e-3]) # m^3/sec
     parameters['ps'] = np.array([330, 295]) # K
 
