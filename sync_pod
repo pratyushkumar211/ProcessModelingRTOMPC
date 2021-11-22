@@ -1,7 +1,10 @@
 #scp tworeac_parameters_nonlin.py tworeac_train_nonlin.py pkumar@pod-login1.cnsi.ucsb.edu:/home/pkumar/data_completion/
-#scp lib/HybridModelLayers.py lib/hybridid.py pkumar@pod-login1.cnsi.ucsb.edu:/home/pkumar/data_completion/lib/
+scp lib/BlackBoxFuncs.py lib/trainingFuncs.py pkumar@pod-login1.cnsi.ucsb.edu:/home/pkumar/data_completion/lib/
+#scp reac_parameters.pickle pkumar@pod-login1.cnsi.ucsb.edu:/home/pkumar/data_completion/
+#scp reac_bbnntrain.py pkumar@pod-login1.cnsi.ucsb.edu:/home/pkumar/data_completion/
+
 
 #scp pkumar@pod-login1.cnsi.ucsb.edu:/home/pkumar/data_completion/tworeac_parameters_nonlin.pickle .
 #scp pkumar@pod-login1.cnsi.ucsb.edu:/home/pkumar/data_completion/tworeac_train_nonlin.pickle .
-scp pkumar@pod-login1.cnsi.ucsb.edu:/home/pkumar/data_completion/tworeac_train_nonlin.job .
+#scp pkumar@pod-login1.cnsi.ucsb.edu:/home/pkumar/data_completion/tworeac_train_nonlin.job .
 

@@ -17,6 +17,9 @@ tf.random.set_seed(123)
 def main():
     """ Main function to be executed. """
 
+    # Do a timing test. 
+    tstart = time.time()
+
     # Load data.
     with open("reac_parameters.pickle", "rb") as stream:
         reac_parameters = pickle.load(stream)
@@ -80,7 +83,11 @@ def main():
         reac_train_list += [reac_train]
 
     # Save data.
-    PickleTool.save(data_object=reac_train_list,
-                    filename='reac_bbnntrain.pickle')
+    with open('reac_bbnntrain.pickle', "wb") as stream:
+        pickle.dump(reac_train_list, stream)
+
+    # End time. 
+    tend = time.time()
+    print("Time taken: " + str(tend - tstart))
 
 main()
