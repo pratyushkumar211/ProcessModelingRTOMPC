@@ -146,14 +146,14 @@ def get_plant_pars():
     parameters['ps'] = np.array([330, 295]) # K
 
     # Input constraints.
-    ulb = np.array([50, 300, 300, 400])
-    uub = np.array([150, 500, 400, 500])
+    ulb = np.array([1e-4, 1e-4, 1e-5, 1e-4])
+    uub = np.array([1e-1, 1e-1, 1e-2, 1e-1])
     parameters['ulb'] = ulb
     parameters['uub'] = uub
 
     # Measurement indices and noise.
     parameters['yindices'] = [1, 3, 4, 5, 6, 7]
-    parameters['Rv'] = np.diag([1e-2, 4, 4, 1e-2, 1e-2])
+    parameters['Rv'] = 0*np.diag([1e-2, 4, 4, 1e-2, 1e-2])
 
     # Return the parameters dict.
     return parameters
