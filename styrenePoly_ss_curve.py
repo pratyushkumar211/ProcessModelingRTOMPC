@@ -10,69 +10,70 @@ from linNonlinMPC import (c2dNonlin, getSSOptimum,
                           getXsYsSscost, getXsUsSSCalcGuess)
 from styrenePolyFuncs import plant_ode
 
-def get_xguess(*, model_type, plant_pars, model_pars):
-    """ Get x guess based on model type. """
-    if model_type == 'Plant':
-        xs = plant_pars['xs']
-    elif model_type == 'Black-Box-NN':
-        None
-    elif model_type == 'Hybrid-FullGb':
-        None
-    elif model_type == 'Hybrid-PartialGb':
-        None
-    else:
-        None
-    # Return.
-    return xs
+# def get_xguess(*, model_type, plant_pars, model_pars):
+#     """ Get x guess based on model type. """
+#     if model_type == 'Plant':
+#         xs = plant_pars['xs']
+#     elif model_type == 'Black-Box-NN':
+#         None
+#     elif model_type == 'Hybrid-FullGb':
+#         None
+#     elif model_type == 'Hybrid-PartialGb':
+#         None
+#     else:
+#         None
+#     # Return.
+#     return xs
 
-def getSSCurveData(*, plant_fxu, plant_hx, plant_pars):
+def getSSCurveData(*, fxu, hx, model_pars, Nus, usind):
     """ Function to get the plant steady-state profile. """
 
-    # Get a linspace of steady-state u values.
-    ulb, uub = plant_pars['ulb'], plant_pars['uub']
+    # Fix the steady state values of all the control inputs except 
+    # the input index provided.
+    ulb = model_pars['us']
+    uub = model_pars['us']
+    #ulb[usind] = plant_pars['ulb'][usind]
+    #uub[usind] = plant_pars['uub'][usind]
     us_list = list(np.linspace(ulb, uub, Nus))
 
-    # Create lists to store xs and sscosts. 
+    # Create list to store the steady state xs.
     xs_list = []
+
+    # Number of guesses to solve the ss rootfinding problem. 
+    numGuess = 3
 
     # Compute SS cost.
     for us in us_list:
-            
-        # Get guess.
-        xguess = get_xguess(model_type=model_type, 
-                                plant_pars=plant_pars, 
-                                model_pars=model_pars)
-            
-        # Get the xs and sscost.
-        xs, _, sscost = getXsYsSscost(fxu=fxu, hx=hx, lxu=cost_lxup, 
-                                          us=us, parameters=model_pars, 
-                                          xguess=xguess)
-        model_xs += [xs]
-        model_sscost += [sscost]
+        
+        for _ in range(numGuess):
 
-        # Model steady states and costs.
-        model_xs = np.asarray(model_xs)
-        model_sscost = np.asarray(model_sscost)
+            # Get guess.
+            xguess = model_pars['xs']
+            #xguess[3] = 500
 
-        # Store steady states and costs in lists.
-        xs_list += [model_xs]
-        sscosts += [model_sscost]
+            # Get the xs and sscost.
+            xs, _, _ = getXsYsSscost(fxu=fxu, hx=hx, lxu=None, 
+                                     us=us, parameters=model_pars, 
+                                     xguess=xguess)
 
-    # Convert to a rank 1 array.
-    us = np.asarray(us_list)[:, 0]
+            xs_list += [xs]
+
+    # Get steady-states as arrays.
+    xs = np.asarray(xs_list)
+    us = np.asarray(us_list)
 
     # Create a dictionary and save.
-    reac_ssopt = dict(us=us, xs=xs_list, sscosts=sscosts)
+    ssCurveData = dict(us=us, xs=xs)
 
     # Return.
-    return reac_ssopt
+    return ssCurveData
 
 def main():
     """ Main function to be executed. """
 
     # Load data.
-    with open('styrenePoly_parameters.pickle', "wb") as stream:
-        styrenePoly_parameters = pickle.load(styrenePoly_parameters, stream)
+    with open("styrenePoly_parameters.pickle", "rb") as stream:
+        styrenePoly_parameters = pickle.load(stream)
 
     # Get plant and hybrid model parameters.
     plant_pars = styrenePoly_parameters['plant_pars']
@@ -84,13 +85,11 @@ def main():
     plant_h = lambda x: x[plant_pars['yindices']]
 
     # Number of ss inputs at which to compute the cost.
-    Nus = 100
-    xs_list = getSSCurveData(plant_fxu=plant_f,
-                                 plant_hx=plant_h,
-                                 plant_pars=plant_pars)
+    ssCurveData = getSSCurveData(fxu=plant_f, hx=plant_h,
+                             model_pars=plant_pars, Nus=100, usind=0)
 
     # Save.
     with open('styrenePoly_ss_curve.pickle', "wb") as stream:
-        pickle.dump(styrenePoly_parameters, stream)
+        pickle.dump(ssCurveData, stream)
 
 main()
