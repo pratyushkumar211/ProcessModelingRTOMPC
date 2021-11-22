@@ -50,12 +50,14 @@ def getSSCurveData(*, fxu, hx, model_pars, Nus, usind):
             # Get guess.
             xguess = model_pars['xs']
             #xguess[3] = 500
-
+            xguess = np.array([1e+02, 2.26, 4.93e+1, 4e+02,
+                               3.02e+02, 2.46e+01, 4.04e+02, 1.14e+03])
+            breakpoint()
             # Get the xs and sscost.
             xs, _, _ = getXsYsSscost(fxu=fxu, hx=hx, lxu=None, 
                                      us=us, parameters=model_pars, 
                                      xguess=xguess)
-
+            breakpoint()
             xs_list += [xs]
 
     # Get steady-states as arrays.
