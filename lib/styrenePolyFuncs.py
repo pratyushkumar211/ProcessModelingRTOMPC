@@ -124,8 +124,8 @@ def get_plant_pars():
     # Density, volume, heat capacities, and heat of reaction. 
     parameters['f'] = 0.6
     parameters['UA'] = 293.076 # W/K
-    parameters['delHr'] = 6.99e+3 # J/mol
-    parameters['phoCp'] = 1.50e+6 # J/(m^3-K)
+    parameters['delHr'] = 9e+2 # J/mol
+    parameters['phoCp'] = 1e+5 # J/(m^3-K)
     parameters['V'] = 25 # m^3
     parameters['phocCpc'] = 4.04e+6 # J/(m^3-K)
     parameters['Vc'] = 30 # m^3
@@ -148,8 +148,8 @@ def get_plant_pars():
     parameters['ps'] = np.array([330, 295]) # K
 
     # Input constraints.
-    ulb = np.array([1e-4, 1e-4, 1e-5, 1e-4])
-    uub = np.array([1e-1, 1e-1, 1e-2, 1e-1])
+    ulb = np.array([1e-4, 1e-4, 1e-5, 5e-4])
+    uub = np.array([1e-1, 1e-1, 1e-2, 1e-2])
     parameters['ulb'] = ulb
     parameters['uub'] = uub
 

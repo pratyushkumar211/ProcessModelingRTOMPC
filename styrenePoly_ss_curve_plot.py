@@ -21,23 +21,32 @@ def plot_xudata(*,  xs, us, figure_size,
     nrow, ncol = 4, 2
     figure, axes = plt.subplots(nrows=nrow, ncols=ncol,
                                 sharex=True, figsize=figure_size, 
-                                gridspec_kw=dict(left=0.15, right=0.95,
-                                                 wspace=0.8))
+                                gridspec_kw=dict(left=0.18, right=0.95,
+                                                 wspace=0.85, hspace=0.6))
+
+    # Which x axis to take the semilogy. 
+    ysemilog_ind = [2]
 
     # Counter to keep track of the state being plotted. 
-    xind_plot = 0
+    yind_plot = 0
 
     # Iterate over the rows and columns.
     for row, col in itertools.product(range(nrow), range(ncol)):
         
         # Plot and increment counter to keep track of which state to plot.
-        axes[row, col].plot(us, xs[:, xind_plot])
-        xind_plot += 1
+        if yind_plot in ysemilog_ind:
+            axes[row, col].semilogy(us, xs[:, yind_plot])
+        else:
+            axes[row, col].plot(us, xs[:, yind_plot])
+        yind_plot += 1
+
+        axes[row, col].set_xscale('log')
 
         # Axes labels.
         axes[row, col].set_ylabel(ylabels[row][col], rotation=False)
         axes[row, col].get_yaxis().set_label_coords(ylabel_xcoordinate, 0.5)
-        axes[row, col].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+        #axes[row, col].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+        #axes[row, col].yaxis.set_locator_params(nbins=2)
 
         # Overall asthetics of the x axis.
         if row == 3:
@@ -65,10 +74,10 @@ def main():
         figures += plot_xudata(xs=ssCurveData['xs'], 
                                us=ssCurveData['us'][:, usi], 
                                figure_size=(5, 5), 
-                               ylabel_xcoordinate=-0.1, xlabel=xlabels[usi])
+                               ylabel_xcoordinate=-0.55, xlabel=xlabels[usi])
 
     # Loop through all the figures to make the plots.
-    with PdfPages('styrenePoly_ss_curve_plots.pdf', 'w') as pdf_file:
+    with PdfPages('styrenePoly_ss_curve_plot.pdf', 'w') as pdf_file:
         for fig in figures:
             pdf_file.savefig(fig)
 
