@@ -5,11 +5,10 @@ import sys
 sys.path.append('lib/')
 import random
 import numpy as np
-from trainingFuncs import SimData
-from hybridId import PickleTool, sample_prbs_like
+from hybridId import PickleTool, SimData, sample_prbs_like
 from hybridId import get_rectified_xs
-from linNonlinMPC import get_plant_model
 from reacFuncs import get_plant_pars, plant_ode
+from linNonlinMPC import get_plant_model
 
 # Numpy seed.
 np.random.seed(12)
@@ -118,7 +117,7 @@ def gen_train_val_data(*, parameters, Ntstart, num_traj,
     # Return.
     return data_list
 
-def get_training_data(*, plant_pars, Ntstart):
+def get_training_data(*, Ntstart, plant_pars):
     """ Generate training data. """
 
     # Sizes.
@@ -177,8 +176,8 @@ def main():
     # Get training data. 
     Ntstart = 2
     (training_data_nonoise, 
-     training_data_withnoise) = get_training_data(plant_pars=plant_pars, 
-                                                  Ntstart=Ntstart)
+     training_data_withnoise) = get_training_data(Ntstart=Ntstart,
+                                                  plant_pars=plant_pars)
 
     # Get a dictionary to return.
     reac_parameters = dict(plant_pars=plant_pars, Ntstart=Ntstart,

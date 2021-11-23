@@ -41,7 +41,7 @@ TEXSUFFIXES := .pdf .aux .log .bbl .blg .nav .out .snm .toc .synctex.gz \
 # confusing here: in the subfolders, we split paper/presentation/poster, whereas
 # these variables are article/talk/poster, so keep that in mind.
 ARTICLE_SRC := paper.tex
-TALK_SRC := groupTalkOct26.tex
+TALK_SRC := 
 POSTER_SRC := 
 
 PAPER_BIB := 
@@ -101,10 +101,7 @@ DIA_SRC :=
 PY_MAT_SRC := 
 OCT_MAT_SRC := 
 MATLAB_MAT_SRC := 
-PY_PICKLE_SRC := reac_parameters.py reac_bbnntrain.py \
-				 reac_hybfullgbtrain.py reac_hybpartialgbtrain.py \
-				 reac_rateanalysis.py reac_ssopt_curve.py \
-				 reac_ssopt_optimizationanalysis.py
+PY_PICKLE_SRC := 
 
 ## JL_MAT_SRC. These are .jl files on which you run Julia to produce a .mat file.
 ## Note that Julia's .mat files are in an HDF5 format, so you will need to use
@@ -119,7 +116,7 @@ OCT_DAT_SRC :=
 
 ## PY_PLOT files are .py files that create .pdf plots.
 
-PY_PLOT := reac_plots.py
+PY_PLOT := 
 
 ## PY_MOVIE files are .py files that create movies as a .pdf document.
 
