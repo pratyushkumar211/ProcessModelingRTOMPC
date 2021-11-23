@@ -12,6 +12,10 @@ import plottools
 import time
 from linNonlinMPC import getXsYsSscost, c2dNonlin
 
+# Custom class to store datasets.
+SimData = collections.namedtuple('SimData',
+                                ['t', 'x', 'u', 'y', 'p'])
+
 class PickleTool:
     """ Class which contains a few static methods for saving and
         loading pkl data files conveniently. """
@@ -41,37 +45,6 @@ def _sample_repeats(num_change, num_simulation_steps,
     repeat = np.where(repeat<=0., 0., repeat)
     repeat = np.append(repeat, num_simulation_steps-np.int(np.sum(repeat)))
     return repeat.astype(int)
-
-# def sample_prbs_like(*, num_change, num_steps,
-#                         lb, ub, mean_change, sigma_change):
-#     """
-#     Sample a PRBS like sequence.
-#     num_change: Number of changes in the signal.
-#     num_simulation_steps: Number of steps in the signal.
-#     mean_change: mean_value after which a 
-#                  change in the signal is desired.
-#     sigma_change: standard deviation of changes in the signal.
-#     """
-
-#     # Signal dimension.
-#     signal_dimension = lb.shape[0]
-
-#     # Squeeze bounds so that the signals are 1D arrays.
-#     lb = lb.squeeze()
-#     ub = ub.squeeze()
-    
-#     # Sample values.
-#     values = (ub-lb)*np.random.rand(num_change, signal_dimension) + lb
-
-#     # Sample how many times each value should be repeated.
-#     repeat = _sample_repeats(num_change, num_steps,
-#                              mean_change, sigma_change)
-
-#     # Get the signal.
-#     signal = np.repeat(values, repeat, axis=0)
-
-#     # Return.
-#     return signal
 
 def sample_prbs_like(*, num_change, num_steps, 
                         lb, ub, mean_change, sigma_change, 
@@ -172,6 +145,26 @@ def quick_sim(fxu, hx, x0, u):
     # Return.
     return x, y
 
+def get_scaling(*, data):
+    """ Scale the input/output. """
+    
+    # Xmean.
+    xmean = np.mean(data.x, axis=0)
+    xstd = np.std(data.x, axis=0)
+    
+    # Umean.
+    umean = np.mean(data.u, axis=0)
+    ustd = np.std(data.u, axis=0)
+    
+    # Ymean.
+    ymean = np.mean(data.y, axis=0)
+    ystd = np.std(data.y, axis=0)
+    
+    # Return.
+    return dict(xscale = (xmean, xstd), 
+                uscale = (umean, ustd), 
+                yscale = (ymean, ystd))
+
 def get_train_val_data(*, Ntstart, Np, xuyscales, data_list):
     """ Get the data for training and validation in 
         appropriate format for training.
@@ -231,48 +224,6 @@ def get_train_val_data(*, Ntstart, Np, xuyscales, data_list):
     # Return.
     return (train_data, trainval_data, val_data)
 
-# def get_ss_train_val_data(*, xuyscales, training_data, 
-#                              datasize_fracs, Nt=2):
-#     """ Get steady state-data for training and validation in 
-#         appropriate format after scaling. """
-
-#     # Get scaling pars.
-#     umean, ustd = xuyscales['uscale']
-#     ymean, ystd = xuyscales['yscale']
-#     Ny, Nu = len(ymean), len(umean)
-
-#     # Lists to store data.
-#     inputs, x0, outputs = [], [], []
-    
-#     # Scale data.
-#     u = (training_data.u - umean)/ustd
-#     y = (training_data.y - ymean)/ystd
-    
-#     # Get the input and output trajectory.
-#     x0 = y
-#     u = np.repeat(u[:, np.newaxis, :], Nt, axis=1)
-#     y = np.repeat(y[:, np.newaxis, :], Nt, axis=1)
-
-#     # Now split the data.
-#     train_frac, trainval_frac, val_frac = datasize_fracs
-#     Ndata = u.shape[0]
-#     Ntrain = int(Ndata*train_frac)
-#     Ntrainval = int(Ndata*trainval_frac)
-#     Nval = int(Ndata*val_frac)
-
-#     # Get the three types of data.
-#     u = np.split(u, [Ntrain, Ntrain + Ntrainval, ], axis=0)
-#     y = np.split(y, [Ntrain, Ntrain + Ntrainval, ], axis=0)
-#     x0 = np.split(x0, [Ntrain, Ntrain + Ntrainval, ], axis=0)
-
-#     # Get dictionaries of data.
-#     train_data = dict(inputs=u[0], x0=x0[0], outputs=y[0])
-#     trainval_data = dict(inputs=u[1], x0=x0[1], outputs=y[1])
-#     val_data = dict(inputs=u[2], x0=x0[2], outputs=y[2])
-    
-#     # Return.
-#     return train_data, trainval_data, val_data
-
 def get_rectified_xs(*, ode, parameters, Nsim):
     """ Get a rectified steady state of the plant
         upto numerical precision. """
@@ -295,50 +246,3 @@ def get_rectified_xs(*, ode, parameters, Nsim):
 
     # Return.
     return xs
-
-# def genPlantSsdata(*, fxu, hx, parameters, Ndata,
-#                       xguess=None, seed=10):
-#     """ Function to generate steady state data for the plant model. 
-#         fxu: plant model in continous time.
-#     """
-
-#     # Set numpy seed.
-#     np.random.seed(seed)
-
-#     # Convert plant model to discrete time. 
-#     Delta = parameters['Delta']
-#     fxu_dt = c2dNonlin(fxu, Delta)
-
-#     # Get a list of random inputs.
-#     Ny, Nu = parameters['Ny'], parameters['Nu']
-#     ulb, uub = parameters['ulb'], parameters['uub']
-#     us_list = list((uub-ulb)*np.random.rand(Ndata, Nu) + ulb)
-
-#     # Get a list to store the steady state costs.
-#     xs_list, ys_list = [], []
-    
-#     # Loop over all the generated us.
-#     for us in us_list:
-
-#         # Solve the steady state equation.
-#         xs, ys, _ = getXsYsSscost(fxu=fxu_dt, hx=hx, lyu=None, 
-#                                   us=us, parameters=parameters, 
-#                                   xguess=xguess)
-#         xs_list += [xs]
-#         ys_list += [ys]
-
-#     # Get arrays to return the generated data.
-#     u = np.array(us_list)
-#     x = np.array(xs_list)
-#     y = np.array(ys_list)
-
-#     # Add measurement noise to y.
-#     Rv = parameters['Rv']
-#     ynoise_std = np.sqrt(np.diag(Rv))
-#     y += ynoise_std*np.random.randn(Ndata, Ny)
-
-#     # Create a dictionary.
-#     ss_data = SimData(t=None, u=u, x=x, y=y)
-
-#     # Return.
-#     return ss_data
