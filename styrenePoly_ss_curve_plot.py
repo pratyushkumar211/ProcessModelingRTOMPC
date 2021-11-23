@@ -22,10 +22,10 @@ def plot_xudata(*,  xs, us, figure_size,
     figure, axes = plt.subplots(nrows=nrow, ncols=ncol,
                                 sharex=True, figsize=figure_size, 
                                 gridspec_kw=dict(left=0.18, right=0.95,
-                                                 wspace=0.85, hspace=0.6))
+                                                 wspace=0.85, hspace=0.5))
 
     # Which x axis to take the semilogy. 
-    ysemilog_ind = [2]
+    ysemilog_ind = []
 
     # Counter to keep track of the state being plotted. 
     yind_plot = 0
@@ -40,7 +40,7 @@ def plot_xudata(*,  xs, us, figure_size,
             axes[row, col].plot(us, xs[:, yind_plot])
         yind_plot += 1
 
-        axes[row, col].set_xscale('log')
+        #axes[row, col].set_xscale('log')
 
         # Axes labels.
         axes[row, col].set_ylabel(ylabels[row][col], rotation=False)
