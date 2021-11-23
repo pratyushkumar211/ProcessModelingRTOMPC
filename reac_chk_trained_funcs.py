@@ -38,13 +38,16 @@ def main():
         # Get plant parameters.
         plant_pars = reac_parameters['plant_pars']
 
+        # Extract out the trained information. 
+        reac_bbnntrain = reac_bbnntrain[0]
+
         # Sizes.
         Ntstart = reac_parameters['Ntstart']
         Np = reac_bbnntrain['Np']
         Ny, Nu = plant_pars['Ny'], plant_pars['Nu']
 
         # Get initial state.
-        training_data = reac_parameters['training_data'][-1]
+        training_data = reac_parameters['training_data_nonoise'][-1]
         uval = training_data.u[Ntstart:, :]
         yp0seq = training_data.y[Ntstart-Np:Ntstart, :].reshape(Np*Ny, )
         up0seq = training_data.u[Ntstart-Np:Ntstart, :].reshape(Np*Nu, )
@@ -70,6 +73,9 @@ def main():
         plant_pars = reac_parameters['plant_pars']
         hyb_fullgb_pars = reac_parameters['hyb_fullgb_pars']
 
+        # Extract out the trained information. 
+        reac_hybtrain = reac_hybtrain[0]
+
         # Sizes.
         Ntstart = reac_parameters['Ntstart']
         Ny, Nu = hyb_fullgb_pars['Ny'], hyb_fullgb_pars['Nu']
@@ -81,7 +87,7 @@ def main():
         ymean, ystd = reac_hybtrain['xuyscales']['yscale']
 
         # Get initial state for forecasting.
-        training_data = reac_parameters['training_data'][-1]
+        training_data = reac_parameters['training_data_nonoise'][-1]
         uval = training_data.u[Ntstart:, :]
         y0 = training_data.y[Ntstart, :]
 
@@ -122,6 +128,9 @@ def main():
         plant_pars = reac_parameters['plant_pars']
         hyb_partialgb_pars = reac_parameters['hyb_partialgb_pars']
 
+        # Extract out the trained information. 
+        reac_hybtrain = reac_hybtrain[0]
+
         # Sizes.
         Ntstart = reac_parameters['Ntstart']
         Ny, Nu = hyb_partialgb_pars['Ny'], hyb_partialgb_pars['Nu']
@@ -136,7 +145,7 @@ def main():
                                 np.tile(ustd, (Np, ))))
 
         # Get initial state.
-        training_data = reac_parameters['training_data'][-1]
+        training_data = reac_parameters['training_data_nonoise'][-1]
         uval = training_data.u[Ntstart:, :]
         y0 = training_data.y[Ntstart, :]
         yp0seq = training_data.y[Ntstart-Np:Ntstart, :].reshape(Np*Ny, )
