@@ -39,7 +39,7 @@ def getSSCurveData(*, fxu, hx, model_pars, Nus, usind):
     # Create list to store the steady state xs.
     xs_list = []
 
-    # Compute SS cost.
+    # Loop over all the steady state inputs.
     for us in us_list:
 
         # Get guess.
@@ -55,7 +55,7 @@ def getSSCurveData(*, fxu, hx, model_pars, Nus, usind):
     # Get steady-states as arrays.
     xs = np.asarray(xs_list)
     us = np.asarray(us_list)
-    
+
     # Create a dictionary and save.
     ssCurveData = dict(us=us, xs=xs)
 
@@ -78,12 +78,16 @@ def main():
     plant_f = c2dNonlin(plant_fxu, Delta)
     plant_h = lambda x: x[plant_pars['yindices']]
 
-    # Number of ss inputs at which to compute the cost.
-    ssCurveData = getSSCurveData(fxu=plant_f, hx=plant_h,
-                             model_pars=plant_pars, Nus=100, usind=0)
+    # Vary each manipulated input to get the corresponding xs.
+    ssCurveData_list = []
+    for usind in range(plant_pars['Nu']):
+
+        ssCurveData = getSSCurveData(fxu=plant_f, hx=plant_h,
+                             model_pars=plant_pars, Nus=100, usind=usind)
+        ssCurveData_list += [ssCurveData]
 
     # Save.
     with open('styrenePoly_ss_curve.pickle', "wb") as stream:
-        pickle.dump(ssCurveData, stream)
+        pickle.dump(ssCurveData_list, stream)
 
 main()
