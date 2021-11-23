@@ -7,7 +7,7 @@ import tensorflow as tf
 import time
 import pickle
 import numpy as np
-from trainingFuncs import get_scaling, get_train_val_data
+from hybridId import PickleTool, get_scaling, get_train_val_data
 from BlackBoxFuncs import (create_model, train_model, 
                            get_val_predictions)
 
@@ -17,12 +17,10 @@ tf.random.set_seed(123)
 def main():
     """ Main function to be executed. """
 
-    # Do a timing test. 
-    tstart = time.time()
-
     # Load data.
-    with open("reac_parameters.pickle", "rb") as stream:
-        reac_parameters = pickle.load(stream)
+    reac_parameters = PickleTool.load(filename=
+                                      'reac_parameters.pickle',
+                                      type='read')
 
     # Sizes and sample time.
     plant_pars = reac_parameters['plant_pars']
@@ -60,7 +58,7 @@ def main():
         model = create_model(Np=Np, Ny=Ny, Nu=Nu, fNDims=fNDims)
         
         # Train.
-        train_model(model=model, epochs=1, batch_size=1,
+        train_model(model=model, epochs=10, batch_size=1,
                     train_data=train_data, trainval_data=trainval_data, 
                     stdout_filename=stdout_filename, ckpt_path=ckpt_path)
 
@@ -83,11 +81,8 @@ def main():
         reac_train_list += [reac_train]
 
     # Save data.
-    with open('reac_bbnntrain.pickle', "wb") as stream:
-        pickle.dump(reac_train_list, stream)
+    PickleTool.save(data_object=reac_train_list,
+                    filename='reac_bbnntrain.pickle')
 
-    # End time. 
-    tend = time.time()
-    print("Time taken: " + str(tend - tstart))
 
 main()
